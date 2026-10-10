@@ -7,13 +7,14 @@ namespace Flare.Maui;
 /// Records exceptions as <c>app.unhandled_exception</c> spans with an exception event, the shape the
 /// Errors page groups. Fatal ones flush synchronously first, since the process is about to die.
 /// </summary>
-internal sealed class UnhandledExceptionReporter(ActivitySource source, Action<int> flush, Action<string, string, bool>? afterReport = null, Func<string, object?, object?>? scrub = null)
+internal sealed class UnhandledExceptionReporter(ActivitySource source, Action<int> flush, Action<string, string, bool>? afterReport = null, Func<string, object?, object?>? scrub = null, Action? onFatal = null)
 {
     internal const string SpanName = "app.unhandled_exception";
     internal const int FlushTimeoutMs = 2000;
 
     public void Report(Exception exception, bool fatal)
     {
+        if (fatal) onFatal?.Invoke();
         string? traceId = null, spanId = null;
         using (var span = source.StartActivity(SpanName))
         {

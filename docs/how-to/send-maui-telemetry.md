@@ -29,7 +29,7 @@ builder.UseMauiApp<App>()
        });
 ```
 
-Add your own `ActivitySource` and `Meter` names to `o.AdditionalSources` and `o.AdditionalMeters`, and call `FlareMaui.RecordException(ex)` for exceptions you handle. Native crash reports and Windows are not covered yet. The rest of this page, from [Use OTLP/HTTP](#use-otlphttp-not-grpc), shows the equivalent hand-wired OpenTelemetry setup, which you need only if you want full control; [Ingest keys](#ingest-keys), local-development and Limits apply to both.
+Add your own `ActivitySource` and `Meter` names to `o.AdditionalSources` and `o.AdditionalMeters`, and call `FlareMaui.RecordException(ex)` for exceptions you handle. Native crashes are reported on the next launch ([details](#report-native-crashes)); Windows is not covered yet. The rest of this page, from [Use OTLP/HTTP](#use-otlphttp-not-grpc), shows the equivalent hand-wired OpenTelemetry setup, which you need only if you want full control; [Ingest keys](#ingest-keys), local-development and Limits apply to both.
 
 ## Use OTLP/HTTP, not gRPC
 
@@ -240,7 +240,27 @@ Install the handlers in `CreateMauiApp`, after the providers are built. Errors
 group by exception type and message. Add the resource filter
 `os.type = android` (or `ios`) to the **Errors** page to see one platform.
 Fatal native crashes (a SIGSEGV, an iOS watchdog kill) never reach a managed
-handler and are not reported.
+handler. The `Flare.Maui` package reports them on the next launch, see
+[Report native crashes](#report-native-crashes); hand-wired setups do not.
+
+## Report native crashes
+
+Some crashes end the process before any managed handler runs: a SIGSEGV, an Android ANR or low-memory kill, an iOS
+watchdog termination. `Flare.Maui` reads what the operating system recorded about the previous launch when the app
+starts again, and sends each one as an `app.unhandled_exception` span with `exception.escaped = true`. The span carries
+the earlier launch's session ID and app version, so release health counts it as a crash for that release, and the
+Errors page groups it under a `Native.*` type.
+
+- **Android 11+** reads `ApplicationExitInfo`: native crashes, ANRs (with the trace text), initialization failures,
+  excessive resource use, and low-memory kills while the app was visible.
+- **iOS 14+ and Mac Catalyst** read MetricKit crash diagnostics. iOS delivers them up to a day late, so the time is
+  estimated from the launch's last foreground or background event, and the stack is MetricKit's raw call-stack JSON,
+  not symbolicated.
+
+A crash whose managed fatal exception was already reported is not counted twice. The package keeps a small journal of
+the last ten launches (session ID, version, whether the app was in the foreground) in `flare/runs.json` in the app
+data directory; no device identifier is stored. Turn the feature off with `o.CaptureNativeCrashes = false`. It has
+not been verified on a device yet.
 
 ## Symbolicate release stack traces
 

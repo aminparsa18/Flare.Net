@@ -26,7 +26,7 @@ builder.UseMauiApp<App>()
        });
 ```
 
-将你自己的 `ActivitySource` 和 `Meter` 名称加入 `o.AdditionalSources` 和 `o.AdditionalMeters`，对于你自行处理的异常，调用 `FlareMaui.RecordException(ex)`。原生崩溃报告和 Windows 尚未支持。本页其余部分展示等价的手动配置 OpenTelemetry 方式，仅在你需要完全控制时才用得到；摄取密钥、本地开发和限制各节对两种方式都适用。
+将你自己的 `ActivitySource` 和 `Meter` 名称加入 `o.AdditionalSources` 和 `o.AdditionalMeters`，对于你自行处理的异常，调用 `FlareMaui.RecordException(ex)`。原生崩溃会在下次启动时上报（[详情](#报告原生崩溃)）；Windows 尚未支持。本页其余部分展示等价的手动配置 OpenTelemetry 方式，仅在你需要完全控制时才用得到；摄取密钥、本地开发和限制各节对两种方式都适用。
 
 ## 使用 OTLP/HTTP，而不是 gRPC
 
@@ -207,7 +207,21 @@ TaskScheduler.UnobservedTaskException += (_, e) => Report(e.Exception, fatal: fa
 在构建完提供程序后，于 `CreateMauiApp` 中安装这些处理程序。错误按异常类型和消息
 分组。在 **Errors** 页面添加资源过滤器 `os.type = android`（或 `ios`），即可只查看
 某个平台。致命的原生崩溃（SIGSEGV、iOS 看门狗终止）不会到达托管处理程序，因此不会
-被报告。
+被报告。`Flare.Maui` 包会在下次启动时上报它们，见[报告原生崩溃](#报告原生崩溃)；手动配置则不会。
+
+## 报告原生崩溃
+
+有些崩溃会在任何托管处理程序运行之前就终止进程：SIGSEGV、Android 的 ANR 或低内存终止、iOS 看门狗终止。应用再次启动时，
+`Flare.Maui` 会读取操作系统记录的上一次启动信息，并把每一条作为 `exception.escaped = true` 的 `app.unhandled_exception`
+span 发送。该 span 带有当时启动的会话 ID 和应用版本，因此发布健康会把它算作该版本的一次崩溃，Errors 页面则将其归入
+`Native.*` 类型。
+
+- **Android 11+** 读取 `ApplicationExitInfo`：原生崩溃、ANR（附带跟踪文本）、初始化失败、资源使用过度，以及应用可见时的低内存终止。
+- **iOS 14+ 和 Mac Catalyst** 读取 MetricKit 崩溃诊断。iOS 最多会延迟一天送达，因此时间按该次启动最后一次进入前台或后台的事件估算，
+  堆栈是 MetricKit 原始的调用栈 JSON，未经还原。
+
+已经上报过致命托管异常的崩溃不会重复计数。该包在应用数据目录的 `flare/runs.json` 中保存最近十次启动的小型日志（会话 ID、版本、
+应用是否在前台）；不会存储设备标识符。可用 `o.CaptureNativeCrashes = false` 关闭。尚未在真机上验证。
 
 ## 还原发布构建的堆栈
 

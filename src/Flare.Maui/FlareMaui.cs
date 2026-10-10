@@ -25,6 +25,8 @@ public static class FlareMaui
     private static volatile bool _breadcrumbs;
     private static AppHangWatchdog? _hangs;
     private static HttpClient? _screenshotHttp;
+    private static RunTracker? _runs;
+    private static NativeCrashEmitter? _crashEmitter;
 
     /// <summary>
     /// Set by the platform glue: captures the current page as JPEG bytes no larger than the limit, or null.
@@ -76,9 +78,9 @@ public static class FlareMaui
     /// <summary>Record an exception the app handled itself, so it shows on the Errors page.</summary>
     public static void RecordException(Exception exception) => _reporter?.Report(exception, fatal: false);
 
-    internal static ResourceBuilder BuildResource(FlareMauiOptions options, FlareDeviceInfo device) =>
+    internal static ResourceBuilder BuildResource(FlareMauiOptions options, FlareDeviceInfo device, string? serviceVersion = null) =>
         ResourceBuilder.CreateEmpty()
-            .AddService(options.ServiceName!, serviceVersion: options.ServiceVersion ?? device.AppVersion)
+            .AddService(options.ServiceName!, serviceVersion: serviceVersion ?? options.ServiceVersion ?? device.AppVersion)
             .AddTelemetrySdk()
             .AddAttributes(device.ToResourceAttributes());
 
@@ -104,7 +106,7 @@ public static class FlareMaui
     internal static string NewSessionId() => Guid.NewGuid().ToString("N");
 
     /// <summary>Build the providers. Called once from <c>UseFlare</c>; a second call is ignored.</summary>
-    internal static void Initialize(FlareMauiOptions options, FlareDeviceInfo device, string queueDirectory)
+    internal static void Initialize(FlareMauiOptions options, FlareDeviceInfo device, string queueDirectory, string? stateDirectory = null)
     {
         options.Validate();
         if (Tracing is not null) return;
@@ -142,9 +144,24 @@ public static class FlareMaui
             Metering = metrics.Build();
         }
 
+        if (options.CaptureNativeCrashes && stateDirectory is not null)
+        {
+            _runs = new RunTracker(Path.Combine(stateDirectory, "runs.json"));
+            _runs.Begin(SessionId, options.ServiceVersion ?? device.AppVersion, device.AppBuild);
+            _crashEmitter = new NativeCrashEmitter(
+                run => BuildResource(options, device with { AppVersion = run.Version, AppBuild = run.Build }, run.Version),
+                b =>
+                {
+                    if (options.ScrubAttribute is not null || options.BeforeSend is not null)
+                        b.AddProcessor(new ScrubProcessor(options.ScrubAttribute, options.BeforeSend));
+                    b.AddOtlpExporter(o => ConfigureExporter(o, options, "traces"));
+                },
+                options.ScrubAttribute);
+        }
+
         if (options.CaptureUnhandledExceptions)
         {
-            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options), options.ScrubAttribute);
+            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options), options.ScrubAttribute, _runs is null ? null : _runs.MarkFatal);
             _reporter.Attach();
         }
     }
@@ -155,6 +172,23 @@ public static class FlareMaui
         if (_options is not { DetectAppHangs: true } o) return;
         _hangs ??= new AppHangWatchdog(Source, postToMainThread, o.AppHangThreshold, Flush);
         _hangs.Resume();
+    }
+
+    /// <summary>The app went to the foreground or background; the run journal needs it to tell a crash from a clean exit.</summary>
+    internal static void NoteLifecycle(bool foreground) => _runs?.Touch(foreground);
+
+    /// <summary>
+    /// Report crashes the operating system recorded about earlier launches (found by the platform glue at startup).
+    /// Safe to call on any thread; never throws.
+    /// </summary>
+    internal static void ReportNativeCrashes(IReadOnlyList<NativeCrash> crashes)
+    {
+        try
+        {
+            if (_runs is null || _crashEmitter is null || crashes.Count == 0) return;
+            _crashEmitter.Emit(_runs.Claim(crashes));
+        }
+        catch { }
     }
 
     /// <summary>Pauses the watchdog while the app is backgrounded.</summary>
@@ -178,6 +212,8 @@ public static class FlareMaui
         _options = null;
         _reporter?.Detach();
         _reporter = null;
+        _runs = null;
+        _crashEmitter = null;
         Tracing?.Dispose();
         Metering?.Dispose();
         Tracing = null;

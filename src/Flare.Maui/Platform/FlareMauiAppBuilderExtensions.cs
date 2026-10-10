@@ -32,7 +32,9 @@ public static class FlareMauiAppBuilderExtensions
             AppInfo.BuildString);
 
         if (options.CaptureScreenshotOnError) FlareMaui.ScreenshotCapture = ScreenshotCapture.CaptureAsync;
-        FlareMaui.Initialize(options, device, Path.Combine(FileSystem.CacheDirectory, "flare-otlp"));
+        FlareMaui.Initialize(options, device, Path.Combine(FileSystem.CacheDirectory, "flare-otlp"),
+            Path.Combine(FileSystem.AppDataDirectory, "flare"));
+        if (options.CaptureNativeCrashes) NativeCrashSource.CollectAndReport();
 
         if (options.ExportLogs)
             builder.Logging.AddOpenTelemetry(o => FlareMaui.ConfigureLogging(o, options, device));
@@ -45,12 +47,14 @@ public static class FlareMauiAppBuilderExtensions
             {
                 if (options.TraceNavigation) NavigationTracing.TryHook();
                 if (options.Breadcrumbs) BreadcrumbTracing.TryHookPages(options);
+                FlareMaui.NoteLifecycle(foreground: true);
                 FlareMaui.AddBreadcrumb("lifecycle", "foreground");
                 FlareMaui.ResumeHangDetection(MainThread.BeginInvokeOnMainThread);
             }
 
             void Backgrounded()
             {
+                FlareMaui.NoteLifecycle(foreground: false);
                 FlareMaui.AddBreadcrumb("lifecycle", "background");
                 FlareMaui.PauseHangDetection();
                 FlareMaui.Flush();
