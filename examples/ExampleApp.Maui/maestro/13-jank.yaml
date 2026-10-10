@@ -1,0 +1,24 @@
+# Slow and frozen frames on the main screen. Leaving the screen reports its screen.frames span.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- scrollUntilVisible:
+    element:
+        id: "JankButton"
+- tapOn:
+    id: "JankButton"
+    waitToSettleTimeoutMs: 0
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element: ".*Jank done"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+        id: "NavigateButton"
+- tapOn:
+    id: "NavigateButton"
+- assertVisible: "A second Shell route.*"
+- back
+- tapOn:
+    id: "FlushButton"

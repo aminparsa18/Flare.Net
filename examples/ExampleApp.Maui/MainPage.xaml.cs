@@ -111,6 +111,26 @@ public partial class MainPage : ContentPage
         Say(e.Value ? "User, tag and cart context set on every span and log." : "User cleared.");
     }
 
+    async void OnSlowScreenClicked(object? sender, EventArgs e) =>
+        await Shell.Current.GoToAsync(nameof(SlowPage));
+
+    // Produces frames that take 40 ms each (slow) by changing the page and blocking the UI thread between yields, then
+    // one 800 ms block (frozen). The frame counts are reported as a screen.frames span when the screen changes or the
+    // app is flushed.
+    async void OnJankClicked(object? sender, EventArgs e)
+    {
+        for (var i = 0; i < 75; i++)
+        {
+            StatusLabel.Text = $"Jank {i}";
+            Thread.Sleep(40);
+            await Task.Delay(1);
+        }
+        StatusLabel.Text = "Jank frozen frame";
+        Thread.Sleep(800);
+        await Task.Delay(1);
+        Say("Jank done");
+    }
+
     // Blocks the main thread. On Android, tapping meanwhile past ~5 s makes the system record an ANR, which is
     // reported on the next launch (kill the app while frozen); the hang watchdog reports app.hang on both platforms.
     void OnFreezeClicked(object? sender, EventArgs e)

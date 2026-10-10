@@ -21,7 +21,7 @@ internal sealed class PerformanceTracker
     private readonly object _gate = new();
 
     private string? _screen;
-    private (string Screen, DateTimeOffset Start)? _loading;
+    private DateTimeOffset? _loading;
     private DateTimeOffset? _foregroundBegan;
     private bool _started;
 
@@ -77,15 +77,17 @@ internal sealed class PerformanceTracker
         span.SetEndTime(now.UtcDateTime);
     }
 
-    /// <summary>A navigation to <paramref name="screen"/> began. A newer one replaces an unfinished one.</summary>
-    public void BeginScreenLoad(string? screen)
+    /// <summary>
+    /// A navigation began. A newer one replaces an unfinished one. The target is not kept: Shell reports it
+    /// relative (<c>SlowPage</c>) before and absolute (<c>//MainPage/SlowPage</c>) after, so it cannot be matched.
+    /// </summary>
+    public void BeginScreenLoad()
     {
-        if (string.IsNullOrEmpty(screen)) return;
-        lock (_gate) _loading = (screen, _time.GetUtcNow());
+        lock (_gate) _loading = _time.GetUtcNow();
     }
 
     /// <summary>
-    /// The navigation finished and <paramref name="screen"/> is showing: reports its load time (when a matching
+    /// The navigation finished and <paramref name="screen"/> is showing: reports its load time (when a
     /// <see cref="BeginScreenLoad"/> came first) and closes the previous screen's frame counts.
     /// </summary>
     public void ScreenShown(string? screen)
@@ -95,7 +97,7 @@ internal sealed class PerformanceTracker
         DateTimeOffset? loadStart = null;
         lock (_gate)
         {
-            if (_loading is { } l && l.Screen == screen) loadStart = l.Start;
+            loadStart = _loading;
             _loading = null;
         }
 

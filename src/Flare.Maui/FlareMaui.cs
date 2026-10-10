@@ -212,7 +212,7 @@ public static class FlareMaui
     internal static void NoteAppResumed(DateTimeOffset? processStart) =>
         _perf?.NoteResumed(processStart ?? SdkStart, processStart is null ? "sdk" : "process");
 
-    internal static void BeginScreenLoad(string? screen) => _perf?.BeginScreenLoad(screen);
+    internal static void BeginScreenLoad() => _perf?.BeginScreenLoad();
 
     internal static void ScreenShown(string? screen) => _perf?.ScreenShown(screen);
 

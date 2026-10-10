@@ -69,19 +69,14 @@ public class PerformanceTrackerTests
     }
 
     [Fact]
-    public void Screen_load_spans_navigation_start_to_shown_and_needs_a_matching_begin()
+    public void Screen_load_spans_navigation_start_to_shown_and_needs_a_begin()
     {
         using var rig = new Rig();
 
         rig.Tracker.ScreenShown("//home");                // no begin: nothing to time
         Assert.Empty(rig.Spans);
 
-        rig.Tracker.BeginScreenLoad("//cart");
-        rig.Time.Now += TimeSpan.FromMilliseconds(250);
-        rig.Tracker.ScreenShown("//other");               // a different screen: not this load
-        Assert.Empty(rig.Spans);
-
-        rig.Tracker.BeginScreenLoad("//cart");
+        rig.Tracker.BeginScreenLoad();
         rig.Time.Now += TimeSpan.FromMilliseconds(250);
         rig.Tracker.ScreenShown("//cart");
 
@@ -89,6 +84,9 @@ public class PerformanceTrackerTests
         Assert.Equal("screen.load", span.OperationName);
         Assert.Equal("//cart", span.GetTagItem("screen.name"));
         Assert.Equal(250, (long)span.Duration.TotalMilliseconds);
+
+        rig.Tracker.ScreenShown("//cart");                // the begin was consumed
+        Assert.Single(rig.Spans);
     }
 
     [Fact]
