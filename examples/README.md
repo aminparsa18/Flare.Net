@@ -15,6 +15,7 @@ Two ways to get data into Flare without wiring up your own app first:
 | [`ExampleApp.AppHost`](ExampleApp.AppHost) | The Aspire AppHost for the live demo: `builder.AddFlare("flare")` plus everything below |
 | [`ExampleApp.Shop`](ExampleApp.Shop) | The shop. One project, started once per service; see [`ShopRole.cs`](ExampleApp.Shop/ShopRole.cs) for the call graph |
 | [`ExampleApp.Seeder`](ExampleApp.Seeder) | The backfill tool |
+| [`ExampleApp.Maui`](ExampleApp.Maui) | A small MAUI app for trying `Flare.Maui` on a device or simulator; see [its README](ExampleApp.Maui/README.md) |
 
 `Flare.Hosting.Aspire`/`Flare.Aspire` are referenced as `ProjectReference`s, not
 `PackageReference`s, so the example always runs against Flare's local source. See

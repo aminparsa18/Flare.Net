@@ -3,4 +3,7 @@
     <Project Path="src/Flare.Maui/Flare.Maui.csproj" />
     <Project Path="src/Flare.Maui.Tests/Flare.Maui.Tests.csproj" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/ExampleApp.Maui/ExampleApp.Maui.csproj" />
+  </Folder>
 </Solution>
