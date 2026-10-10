@@ -149,6 +149,22 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 
 按钮文字和页面标题可能包含个人数据，因此默认不记录，除非设置 `IncludeTextInBreadcrumbs` 或 `IncludeTitleInBreadcrumbs`。提高 `BreadcrumbLogLevel`（或设为 `None`）可减少日志面包屑，设置 `Breadcrumbs = false` 可全部关闭。
 
+## 附加用户、标签并清除数据
+
+```csharp
+FlareMaui.SetUser("account-42");
+FlareMaui.SetTag("plan", "pro");
+FlareMaui.SetContext("cart", new Dictionary<string, string> { ["items"] = "3" });   // cart.items
+```
+
+只会发送用户 ID。传给 `SetUser` 的姓名或邮箱会被丢弃，除非设置 `SendDefaultPii = true`。若要在数据离开设备前遮盖或移除其他内容，请设置 `ScrubAttribute`：它会收到每个链路段标签和日志属性，并返回要发送的值，返回 `null` 则移除：
+
+```csharp
+o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : value;
+```
+
+无论哪种情况都不会发送设备标识符。
+
 ## 查看版本健康度
 
 **Sessions** 页面顶部按应用版本显示窗口内的无崩溃会话和无崩溃用户比例，方便把新版本与上一版本对比。应用上报了致命的未处理异常即视为会话崩溃；低于 99% 时以红色显示。用户数按链路段或资源上的 `user.id` 属性统计。`Flare.Maui` 不会设置该属性，因此在应用自行添加之前，用户列显示为短横线。

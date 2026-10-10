@@ -162,6 +162,24 @@ Button text and page titles can contain personal data, so they are left out unle
 (or its type) and pages their type name. Raise `BreadcrumbLogLevel`, or set it to `None`, to limit log
 breadcrumbs, and set `Breadcrumbs = false` to turn all of them off.
 
+## Attach a user, tags and scrub data
+
+```csharp
+FlareMaui.SetUser("account-42");                       // user.id on every span and log; null on sign-out
+FlareMaui.SetTag("plan", "pro");                       // any global attribute
+FlareMaui.SetContext("cart", new Dictionary<string, string> { ["items"] = "3" });   // cart.items
+```
+
+Only the user id is sent. A name or e-mail passed to `SetUser` is dropped unless you set `SendDefaultPii = true`.
+To redact or remove anything else before it leaves the device, set `ScrubAttribute`; it sees every span tag and log
+attribute and returns the value to send, or `null` to remove it:
+
+```csharp
+o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : value;
+```
+
+No device identifier is sent either way.
+
 ## Check release health
 
 The top of the **Sessions** page shows each app version's crash-free sessions and crash-free users for the window,

@@ -74,6 +74,6 @@ folders are where "what happened and why" actually lives.
   symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
   The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
   Next for `Flare.Maui`, from a gap review against Sentry's MAUI SDK, in priority order:
-  - Enrichment and data controls: `FlareMaui.SetUser`/`SetTag`/context API for global attributes,
-    a `BeforeSend`-style scrubbing hook, and an explicit `SendDefaultPii`-style switch (no device
-    id is sent today). Document and test the disk-retry size and age limits.
+  - Enrichment is done (ADR-0176: `SetUser`/`SetTag`/`SetContext`, `SendDefaultPii`, `ScrubAttribute`). Remaining:
+    scrub span names and exception messages, a span-dropping `BeforeSend`, and document and test the disk-retry size
+    and age limits.

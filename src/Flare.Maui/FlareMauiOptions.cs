@@ -39,6 +39,18 @@ public sealed class FlareMauiOptions
     /// <summary>How long the UI thread must be blocked to count as a hang. At least 500 ms.</summary>
     public TimeSpan AppHangThreshold { get; set; } = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// Allow <see cref="FlareMaui.SetUser"/>'s name and e-mail to be sent. Off by default, so only the user id is
+    /// sent. No device identifier is sent either way.
+    /// </summary>
+    public bool SendDefaultPii { get; set; }
+
+    /// <summary>
+    /// Called for every span tag and log attribute before export with its key and value. Return the value to send,
+    /// a changed one to redact it, or <c>null</c> to remove the attribute. Resource attributes are not passed through.
+    /// </summary>
+    public Func<string, object?, object?>? ScrubAttribute { get; set; }
+
     /// <summary>Trace <c>HttpClient</c> calls and propagate <c>traceparent</c>.</summary>
     public bool InstrumentHttpClient { get; set; } = true;
 

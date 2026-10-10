@@ -164,6 +164,25 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 включите `IncludeTextInBreadcrumbs` или `IncludeTitleInBreadcrumbs`. Поднимите `BreadcrumbLogLevel` (или задайте
 `None`), чтобы ограничить крошки из логов, а `Breadcrumbs = false` отключает все.
 
+## Привязка пользователя, тегов и очистка данных
+
+```csharp
+FlareMaui.SetUser("account-42");
+FlareMaui.SetTag("plan", "pro");
+FlareMaui.SetContext("cart", new Dictionary<string, string> { ["items"] = "3" });   // cart.items
+```
+
+Отправляется только идентификатор пользователя. Имя или e-mail, переданные в `SetUser`, отбрасываются, пока не задано
+`SendDefaultPii = true`. Чтобы замаскировать или удалить что-то ещё до отправки с устройства, задайте
+`ScrubAttribute`: он получает каждый тег спана и атрибут лога и возвращает значение для отправки или `null` для
+удаления:
+
+```csharp
+o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : value;
+```
+
+Идентификатор устройства не отправляется ни в одном из режимов.
+
 ## Проверка здоровья релиза
 
 Вверху страницы **Sessions** для каждой версии приложения показаны доли сессий и пользователей без сбоев за
