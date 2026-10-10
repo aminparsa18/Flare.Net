@@ -143,14 +143,14 @@ public class ProcessorAndReporterTests
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private static (AppHangWatchdog Dog, List<Activity> Spans, List<Action> Posted, ManualTime Time, IDisposable Cleanup) NewDog()
+    private static (AppHangWatchdog Dog, List<Activity> Spans, List<Action> Posted, ManualTime Time, IDisposable Cleanup) NewDog(Func<string?>? captureStack = null)
     {
         var spans = new List<Activity>();
         var source = new ActivitySource("test.hang");
         var provider = Sdk.CreateTracerProviderBuilder().AddSource("test.hang").AddInMemoryExporter(spans).Build();
         var posted = new List<Action>();
         var time = new ManualTime();
-        var dog = new AppHangWatchdog(source, posted.Add, TimeSpan.FromSeconds(2), _ => { }, time);
+        var dog = new AppHangWatchdog(source, posted.Add, TimeSpan.FromSeconds(2), _ => { }, time, captureStack);
         dog.Resume();
         return (dog, spans, posted, time, new Disposables(dog, provider, source));
     }
@@ -177,6 +177,20 @@ public class ProcessorAndReporterTests
         Assert.Equal(ActivityStatusCode.Error, hang.Status);
         Assert.Equal(2500, (long)hang.Duration.TotalMilliseconds);
         Assert.Single(posted);
+    }
+
+    [Fact]
+    public void Hang_watchdog_attaches_the_captured_stack_and_survives_a_failing_capture()
+    {
+        var (dog, spans, _, time, cleanup) = NewDog(() => "   at Foo.Block()");
+        using var _ = cleanup;
+        dog.Tick(); time.Now += TimeSpan.FromSeconds(3); dog.Tick();
+        Assert.Equal("   at Foo.Block()", Assert.Single(spans).GetTagItem("hang.stacktrace"));
+
+        var (dog2, spans2, _, time2, cleanup2) = NewDog(() => throw new InvalidOperationException());
+        using var _2 = cleanup2;
+        dog2.Tick(); time2.Now += TimeSpan.FromSeconds(3); dog2.Tick();
+        Assert.Null(Assert.Single(spans2).GetTagItem("hang.stacktrace"));
     }
 
     [Fact]

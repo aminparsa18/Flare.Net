@@ -175,7 +175,7 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 ## 检测应用卡死
 
-看门狗会向 UI 线程发送 ping，若在 `AppHangThreshold`（默认 2 秒，至少 500 毫秒）内没有响应，就报告一个带错误状态的 `app.hang` 链路段。它与 `hang` 面包屑一起显示在会话页面上，因此即使系统随后终止了应用，也能看到界面卡死。应用在后台时会暂停检测。它不会记录被阻塞线程的堆栈，而调试器暂停看起来也像卡死，调试时如有干扰可设置 `DetectAppHangs = false`。
+看门狗会向 UI 线程发送 ping，若在 `AppHangThreshold`（默认 2 秒，至少 500 毫秒）内没有响应，就报告一个带错误状态的 `app.hang` 链路段。它与 `hang` 面包屑一起显示在会话页面上，因此即使系统随后终止了应用，也能看到界面卡死。应用在后台时会暂停检测。在 Android 上，该链路段还带有 `hang.stacktrace`，即被阻塞线程的 Java 堆栈（托管帧显示为运行时的原生帧）；iOS 无法读取其他线程的堆栈。调试器暂停看起来也像卡死，调试时如有干扰可设置 `DetectAppHangs = false`。
 
 ## 为错误附加截图
 

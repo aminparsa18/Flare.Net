@@ -8,17 +8,20 @@ namespace Flare.Maui;
 /// within the threshold, one <c>app.hang</c> span is reported, backdated to when the ping was posted. Reporting
 /// at the threshold, not on recovery, means a hang that ends in the OS killing the app (an Android ANR) is
 /// still seen. Paused while the app is backgrounded, when the OS may legitimately suspend the main thread.
+/// When the platform can read another thread's stack, it is attached as <c>hang.stacktrace</c>.
 /// </summary>
 internal sealed class AppHangWatchdog : IDisposable
 {
     internal const string SpanName = "app.hang";
     private const int FlushTimeoutMs = 2000;
+    private const int StackLimit = 8192;
 
     private readonly ActivitySource _source;
     private readonly Action<Action> _postToMainThread;
     private readonly TimeSpan _threshold;
     private readonly TimeProvider _time;
     private readonly Action<int> _flush;
+    private readonly Func<string?>? _captureStack;
     private readonly object _gate = new();
     private ITimer? _timer;
     private bool _paused = true;
@@ -26,13 +29,14 @@ internal sealed class AppHangWatchdog : IDisposable
     private bool _reported;
     private DateTimeOffset _pingedAt;
 
-    public AppHangWatchdog(ActivitySource source, Action<Action> postToMainThread, TimeSpan threshold, Action<int> flush, TimeProvider? time = null)
+    public AppHangWatchdog(ActivitySource source, Action<Action> postToMainThread, TimeSpan threshold, Action<int> flush, TimeProvider? time = null, Func<string?>? captureStack = null)
     {
         _source = source;
         _postToMainThread = postToMainThread;
         _threshold = threshold;
         _flush = flush;
         _time = time ?? TimeProvider.System;
+        _captureStack = captureStack;
     }
 
     /// <summary>Starts ticking (idempotent) and unpauses. Checks run at a quarter of the threshold.</summary>
@@ -94,17 +98,32 @@ internal sealed class AppHangWatchdog : IDisposable
 
     private void Report(DateTimeOffset start, DateTimeOffset end)
     {
+        var stack = CaptureStack();
         using (var span = _source.StartActivity(SpanName, ActivityKind.Internal, default(ActivityContext), null, null, start))
         {
             if (span is not null)
             {
                 span.SetTag("hang.threshold_ms", (long)_threshold.TotalMilliseconds);
+                if (stack is not null) span.SetTag("hang.stacktrace", stack);
                 span.SetStatus(ActivityStatusCode.Error, $"UI thread blocked for more than {(long)_threshold.TotalMilliseconds} ms");
                 span.SetEndTime(end.UtcDateTime);
             }
         }
         FlareMaui.AddBreadcrumb("hang", $"UI thread blocked > {(long)_threshold.TotalMilliseconds} ms");
         _flush(FlushTimeoutMs);
+    }
+
+    /// <summary>Runs while the main thread is still blocked; a failing or empty capture just means no stack.</summary>
+    private string? CaptureStack()
+    {
+        if (_captureStack is null) return null;
+        try
+        {
+            var stack = _captureStack();
+            if (string.IsNullOrWhiteSpace(stack)) return null;
+            return stack.Length > StackLimit ? stack[..StackLimit] : stack;
+        }
+        catch { return null; }
     }
 
     public void Dispose()

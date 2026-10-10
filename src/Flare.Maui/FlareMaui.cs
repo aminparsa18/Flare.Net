@@ -167,10 +167,10 @@ public static class FlareMaui
     }
 
     /// <summary>Starts (first call) or unpauses the UI-thread watchdog. A no-op when hang detection is off.</summary>
-    internal static void ResumeHangDetection(Action<Action> postToMainThread)
+    internal static void ResumeHangDetection(Action<Action> postToMainThread, Func<string?>? captureMainThreadStack = null)
     {
         if (_options is not { DetectAppHangs: true } o) return;
-        _hangs ??= new AppHangWatchdog(Source, postToMainThread, o.AppHangThreshold, Flush);
+        _hangs ??= new AppHangWatchdog(Source, postToMainThread, o.AppHangThreshold, Flush, captureStack: captureMainThreadStack);
         _hangs.Resume();
     }
 
