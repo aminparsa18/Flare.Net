@@ -26,8 +26,9 @@ session timeline; `o.IncludeTextInBreadcrumbs` / `o.IncludeTitleInBreadcrumbs` a
 
 Hangs: a watchdog posts a ping to the UI thread and reports an `app.hang` span (error status, backdated to when
 the thread stopped answering) if it is blocked for `AppHangThreshold` (default 2 s, minimum 500 ms). It is paused in
-the background; `DetectAppHangs = false` turns it off. It does not capture the blocked thread's stack
-([ADR-0173](../../docs-internal/adr/0173-maui-app-hang-detection.md)).
+the background; `DetectAppHangs = false` turns it off. On Android the span carries `hang.stacktrace` (the blocked thread's Java stack); iOS cannot read another
+thread's stack ([ADR-0173](../../docs-internal/adr/0173-maui-app-hang-detection.md),
+[ADR-0179](../../docs-internal/adr/0179-maui-hang-stacks.md)).
 
 Error screenshots are opt-in (`o.CaptureScreenshotOnError = true`): the current page is captured when an exception is
 reported, uploaded to `/v1/screenshots` and shown on the session timeline. A screenshot can contain anything on screen

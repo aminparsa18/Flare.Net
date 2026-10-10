@@ -201,7 +201,8 @@ resource. `Flare.Maui` does not set one, so the user columns show a dash until y
 A watchdog pings the UI thread and, when it does not answer for `AppHangThreshold` (2 seconds by default,
 at least 500 ms), reports an `app.hang` span with an error status. It shows on the session page with a
 `hang` breadcrumb, so a frozen screen is visible even when the OS then kills the app. It is paused while
-the app is in the background. It does not record the blocked thread's stack, and a paused debugger looks
+the app is in the background. On Android the span also carries `hang.stacktrace`, the blocked thread's Java stack (managed
+frames show as the runtime's native ones); iOS has no way to read another thread's stack. A paused debugger looks
 like a hang, so set `DetectAppHangs = false` while debugging if it is noisy.
 
 ## Attach screenshots to errors

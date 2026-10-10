@@ -205,7 +205,8 @@ pas : les colonnes d'utilisateurs affichent un tiret tant que votre application 
 Un chien de garde envoie un ping au thread d'interface et, s'il ne répond pas pendant `AppHangThreshold` (2 secondes
 par défaut, 500 ms minimum), signale un span `app.hang` avec un statut d'erreur. Il apparaît sur la page de session
 avec un breadcrumb `hang`, donc un écran figé reste visible même si l'OS tue ensuite l'application. Il est en pause
-quand l'application est en arrière-plan. La pile du thread bloqué n'est pas enregistrée, et un débogueur en pause
+quand l'application est en arrière-plan. Sur Android, le span porte aussi `hang.stacktrace`, la pile Java du thread bloqué (les frames gérées apparaissent
+comme celles natives du runtime) ; iOS ne permet pas de lire la pile d'un autre thread. Un débogueur en pause
 ressemble à un blocage : mettez `DetectAppHangs = false` pendant le débogage si cela gêne.
 
 ## Joindre des captures d'écran aux erreurs

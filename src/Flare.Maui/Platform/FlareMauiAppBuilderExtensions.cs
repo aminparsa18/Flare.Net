@@ -49,7 +49,7 @@ public static class FlareMauiAppBuilderExtensions
                 if (options.Breadcrumbs) BreadcrumbTracing.TryHookPages(options);
                 FlareMaui.NoteLifecycle(foreground: true);
                 FlareMaui.AddBreadcrumb("lifecycle", "foreground");
-                FlareMaui.ResumeHangDetection(MainThread.BeginInvokeOnMainThread);
+                FlareMaui.ResumeHangDetection(MainThread.BeginInvokeOnMainThread, MainThreadStack.Capture);
             }
 
             void Backgrounded()

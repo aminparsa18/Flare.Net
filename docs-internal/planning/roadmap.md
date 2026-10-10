@@ -81,7 +81,6 @@ folders are where "what happened and why" actually lives.
   - Native crash follow-ups (ADR-0178): symbolicate Android NDK tombstones (protobuf on Android 12+, not read today)
     and MetricKit's call-stack JSON; Android before 11 and iOS jetsam out-of-memory kills, which have no report to read;
     an exact iOS crash time (it is estimated from the last lifecycle event); verify both on a device.
-  - Hang stacks: capture the blocked UI thread's stack when `app.hang` fires.
   - Release tracking: mark a release (version, commit, deploy time) and show new errors introduced per version, plus a
     "regressed" state when an issue returns in a later version.
   - Release-health trends: crash-free rate over time per version, and an alert rule on a crash-free threshold
