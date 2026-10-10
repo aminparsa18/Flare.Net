@@ -8,6 +8,7 @@
             <Label Text="Flare endpoint (OTLP/HTTP). Saved; takes effect on the next launch." FontSize="13" />
             <Entry x:Name="EndpointEntry" Keyboard="Url" Placeholder="http://192.168.1.10:4318" />
             <Entry x:Name="KeyEntry" Placeholder="Ingest key (optional)" IsPassword="True" />
+            <Entry x:Name="VersionEntry" Placeholder="service.version override, e.g. 2.0.0 (optional)" />
             <Button Text="Save endpoint" Clicked="OnSaveClicked" />
             <Label x:Name="SessionLabel" FontSize="12" />
 
@@ -19,6 +20,7 @@
             <Button Text="RecordException (handled)" Clicked="OnRecordClicked" />
             <Button Text="Unhandled exception on a task" Clicked="OnUnhandledTaskClicked" />
             <Button Text="Flush now" Clicked="OnFlushClicked" />
+            <Button Text="Scrubbing: email tag redacted, noisy span dropped" Clicked="OnScrubClicked" />
             <HorizontalStackLayout Spacing="10">
                 <Switch x:Name="UserSwitch" Toggled="OnUserToggled" />
                 <Label Text="Signed in as demo-user-1 (SetUser, SetTag, SetContext)" VerticalOptions="Center" FontSize="13" />

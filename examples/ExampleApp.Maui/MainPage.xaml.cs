@@ -24,6 +24,7 @@ public partial class MainPage : ContentPage
         _logger = logger;
         EndpointEntry.Text = Preferences.Default.Get(MauiProgram.EndpointKey, MauiProgram.DefaultEndpoint);
         KeyEntry.Text = Preferences.Default.Get(MauiProgram.IngestKeyKey, "");
+        VersionEntry.Text = Preferences.Default.Get(MauiProgram.VersionKey, "");
         SessionLabel.Text = $"session.id: {FlareMaui.SessionId}";
     }
 
@@ -33,6 +34,7 @@ public partial class MainPage : ContentPage
     {
         Preferences.Default.Set(MauiProgram.EndpointKey, EndpointEntry.Text?.Trim() ?? "");
         Preferences.Default.Set(MauiProgram.IngestKeyKey, KeyEntry.Text?.Trim() ?? "");
+        Preferences.Default.Set(MauiProgram.VersionKey, VersionEntry.Text?.Trim() ?? "");
         Say("Saved. Force-quit and relaunch to apply.");
     }
 
@@ -81,6 +83,14 @@ public partial class MainPage : ContentPage
             GC.WaitForPendingFinalizers();
         });
         Say("Faulted a task; look for app.unhandled_exception.");
+    }
+
+    void OnScrubClicked(object? sender, EventArgs e)
+    {
+        // ScrubAttribute (MauiProgram) redacts example.email; BeforeSend drops the span named example.noisy.
+        using (var kept = Source.StartActivity("example.scrubbed")) kept?.SetTag("example.email", "jane@example.com");
+        using (var dropped = Source.StartActivity("example.noisy")) dropped?.SetTag("example.note", "should never be exported");
+        Say("Emitted example.scrubbed (email shows [redacted]); example.noisy is dropped.");
     }
 
     void OnFlushClicked(object? sender, EventArgs e)
