@@ -49,6 +49,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Explorer les profils continus](how-to/profile-with-continuous-profiling.fr.md)
 - [Trouver les problèmes de santé du runtime .NET](how-to/find-runtime-health-problems.fr.md)
 - [Comparer deux déploiements d'un service](how-to/compare-deploys.fr.md)
+- [Suivre les versions et les erreurs qu'elles introduisent](how-to/track-releases.fr.md)
 - [Définir des SLO et être alerté quand le budget d'erreurs se consomme](how-to/define-slos.fr.md)
 - [Publier une page de statut](how-to/publish-a-status-page.fr.md)
 - [Organiser les équipes avec des projets](how-to/organize-teams-with-projects.fr.md)

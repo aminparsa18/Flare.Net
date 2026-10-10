@@ -71,7 +71,20 @@ check_14() {
   expect "that screen.load carries sampled UI-thread stacks" "Name='screen.load' AND SpanAttributes['screen.name'] LIKE '%SlowPage' AND toUInt32OrZero(SpanAttributes['profile.samples']) >= 3 AND SpanAttributes['profile.stacks'] LIKE '%;%'"
 }
 
-for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen; do
+# Releases demo: mark both versions through the API (Member/Admin token in FLARE_TOKEN when auth is on), then ask which
+# errors 2.0.0 introduced. The shared handled error was already seen under 1.0.0 (or earlier), so it must not be listed.
+API=${FLARE_API:-http://localhost:8080}
+mark() { curl -s -o /dev/null -XPUT "$API/api/releases" -H 'Content-Type: application/json' ${FLARE_TOKEN:+-H "Authorization: Bearer $FLARE_TOKEN"} -d "{\"service\":\"$SERVICE\",\"version\":\"$1\"}"; }
+check_15() {
+  expect "2.0.0 release error recorded" "ResourceAttributes['service.version']='2.0.0' AND arrayExists(m -> m['exception.message'] = 'Release demo error 2.0.0', \`Events.Attributes\`)" || return 1
+  mark 1.0.0; mark 2.0.0
+  local out; out=$(curl -s ${FLARE_TOKEN:+-H "Authorization: Bearer $FLARE_TOKEN"} "$API/api/releases/errors?service=$SERVICE&version=2.0.0")
+  case "$out" in *"Release demo error 2.0.0"*) ;; *) echo "    FAIL 2.0.0 should introduce its own error: $out"; return 1 ;; esac
+  case "$out" in *"Handled example exception"*) echo "    FAIL the shared error was seen before 2.0.0: $out"; return 1 ;; esac
+  echo "    ok   Releases lists only the 2.0.0 error as new in 2.0.0"
+}
+
+for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen 15-releases; do
   p=${f%%-*}
   if [ $# -gt 0 ]; then case " $* " in *" $p "*) ;; *) continue ;; esac; fi
   echo "== $f"

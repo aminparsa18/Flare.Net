@@ -50,6 +50,7 @@ the full rule set on what goes where.
 - [Explore continuous profiles](how-to/profile-with-continuous-profiling.md)
 - [Find .NET runtime health problems](how-to/find-runtime-health-problems.md)
 - [Compare two deploys of a service](how-to/compare-deploys.md)
+- [Track releases and the errors they introduce](how-to/track-releases.md)
 - [Define SLOs and get alerted when the error budget burns](how-to/define-slos.md)
 - [Organize teams with projects](how-to/organize-teams-with-projects.md)
 - [Find traces by how their spans relate](how-to/find-traces-by-structure.md)

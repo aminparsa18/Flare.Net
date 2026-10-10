@@ -84,8 +84,8 @@ folders are where "what happened and why" actually lives.
     MetricKit renderer on an iOS device (the tombstone one is verified on Android); Android before 11
     and iOS jetsam out-of-memory kills, which have no report to read; an exact iOS crash time (it is estimated from
     the last lifecycle event).
-  - Release tracking: mark a release (version, commit, deploy time) and show new errors introduced per version, plus a
-    "regressed" state when an issue returns in a later version.
+  - Release tracking follow-ups (ADR-0182): draw deploy markers on charts, alert on a release that introduces errors,
+    and show a release's regressions.
   - Release-health trends: crash-free rate over time per version, and an alert rule on a crash-free threshold
     (release health today is a window total).
   - Session replay-lite: tie screenshots and breadcrumbs to a per-session view on a schedule, not only on errors, with

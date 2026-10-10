@@ -452,6 +452,7 @@ builder.Services.AddSingleton<IStatusSubscriberMailer, StatusSubscriberMailer>()
 builder.Services.AddSingleton<IStatusSubscriptionLinkSigner, StatusSubscriptionLinkSigner>();
 builder.Services.AddSingleton<IPublicStatusService, PublicStatusService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
+builder.Services.AddSingleton<IReleaseQueryService, ReleaseQueryService>();
 
 builder.Services.AddOpenApi();
 
@@ -565,6 +566,7 @@ authenticatedRoutes.MapPodMetricsEndpoints();
 authenticatedRoutes.MapKubernetesInventoryEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
 authenticatedRoutes.MapErrorIssueReadEndpoints();
+authenticatedRoutes.MapReleaseReadEndpoints();
 authenticatedRoutes.MapMessagingEndpoints();
 authenticatedRoutes.MapExternalApiEndpoints();
 authenticatedRoutes.MapAppSessionEndpoints();
@@ -619,6 +621,8 @@ memberRoutes.MapSyntheticMonitorEndpoints();
 memberRoutes.MapSloWriteEndpoints();
 // Same Member/Admin-only rationale - ignoring an error group silences exception-count alert rules.
 memberRoutes.MapErrorIssueWriteEndpoints();
+// Same Member/Admin-only rationale - a release marker is written by a deploy pipeline, not read-only.
+memberRoutes.MapReleaseWriteEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a pipeline rule mutates
 // every future log's Body/attributes at ingest, not just something read-only.
 memberRoutes.MapPipelineRuleEndpoints();
