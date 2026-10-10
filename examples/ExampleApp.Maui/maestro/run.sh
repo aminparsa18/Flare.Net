@@ -66,7 +66,10 @@ check_12() {
 }
 check_13() {
   expect "screen.frames with slow and frozen frames on MainPage" "Name='screen.frames' AND SpanAttributes['screen.name'] LIKE '%MainPage' AND toUInt64OrZero(SpanAttributes['frames.slow']) >= 50 AND toUInt64OrZero(SpanAttributes['frames.frozen']) >= 1"; }
-check_14() { expect "screen.load for SlowPage of at least 500 ms" "Name='screen.load' AND SpanAttributes['screen.name'] LIKE '%SlowPage' AND DurationNano >= 500000000"; }
+check_14() {
+  expect "screen.load for SlowPage of at least 500 ms" "Name='screen.load' AND SpanAttributes['screen.name'] LIKE '%SlowPage' AND DurationNano >= 500000000" &&
+  expect "that screen.load carries sampled UI-thread stacks" "Name='screen.load' AND SpanAttributes['screen.name'] LIKE '%SlowPage' AND toUInt32OrZero(SpanAttributes['profile.samples']) >= 3 AND SpanAttributes['profile.stacks'] LIKE '%;%'"
+}
 
 for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen; do
   p=${f%%-*}

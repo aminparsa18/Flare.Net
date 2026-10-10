@@ -221,6 +221,14 @@ Three spans feed the **Performance** section of the Sessions page, next to relea
 `TracePerformance = false` turns all three off. On a 90 or 120 Hz device the default slow threshold lets frames
 between the display's budget and 20 ms through; lower it if that matters for your app.
 
+### Find out why a screen loads slowly
+
+On Android, a `screen.load` that takes at least `ProfileSlowLoadThreshold` (500 ms by default) carries a sampled profile
+of the UI thread: `profile.samples` and `profile.stacks`. The stack is read every `ProfileSampleInterval` (50 ms)
+during the load only, then folded into one line per distinct stack, `count root;...;leaf`, most frequent first. The
+frames are Android's Java frames, so they show which platform call was busy, not the C# method. iOS records no profile.
+`ProfileSlowLoads = false` turns it off.
+
 ## Attach screenshots to errors
 
 Set `CaptureScreenshotOnError = true` to upload a screenshot of the current page whenever an exception is

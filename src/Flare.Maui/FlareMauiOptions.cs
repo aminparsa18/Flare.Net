@@ -93,6 +93,18 @@ public sealed class FlareMauiOptions
     /// <summary>A frame at least this long counts as frozen (and as slow).</summary>
     public TimeSpan FrozenFrameThreshold { get; set; } = TimeSpan.FromMilliseconds(700);
 
+    /// <summary>
+    /// Sample the UI thread's stack while a screen loads and attach it (<c>profile.stacks</c>) to a <c>screen.load</c>
+    /// span that takes at least <see cref="ProfileSlowLoadThreshold"/>. Android only; needs <see cref="TracePerformance"/>.
+    /// </summary>
+    public bool ProfileSlowLoads { get; set; } = true;
+
+    /// <summary>A screen load at least this long keeps its stack samples.</summary>
+    public TimeSpan ProfileSlowLoadThreshold { get; set; } = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>How often the UI thread's stack is sampled during a screen load. Each sample is one JNI call.</summary>
+    public TimeSpan ProfileSampleInterval { get; set; } = TimeSpan.FromMilliseconds(50);
+
     /// <summary>Record lifecycle, tap, page and log breadcrumbs, shown on the session timeline.</summary>
     public bool Breadcrumbs { get; set; } = true;
 
@@ -125,6 +137,8 @@ public sealed class FlareMauiOptions
             throw new InvalidOperationException("UseFlare: AppHangThreshold must be at least 500 ms.");
         if (TracePerformance && (SlowFrameThreshold <= TimeSpan.Zero || FrozenFrameThreshold <= SlowFrameThreshold))
             throw new InvalidOperationException("UseFlare: SlowFrameThreshold must be positive and less than FrozenFrameThreshold.");
+        if (TracePerformance && ProfileSlowLoads && (ProfileSlowLoadThreshold <= TimeSpan.Zero || ProfileSampleInterval < TimeSpan.FromMilliseconds(10)))
+            throw new InvalidOperationException("UseFlare: ProfileSlowLoadThreshold must be positive and ProfileSampleInterval at least 10 ms.");
         if (CaptureScreenshotOnError && ScreenshotMaxBytes is < 10_000 or > 512 * 1024)
             throw new InvalidOperationException("UseFlare: ScreenshotMaxBytes must be between 10 KB and 512 KB.");
         if (EnableOfflineQueue && (OfflineQueueMaxAge <= TimeSpan.Zero || OfflineQueueMaxBytes < 0))

@@ -5,7 +5,8 @@ namespace Flare.Maui;
 /// <summary>
 /// Turns app-start, screen-load and frame timings into spans: <c>app.start</c> (<c>app.start.type</c> cold or warm),
 /// <c>screen.load</c> (a navigation until the screen is shown) and <c>screen.frames</c> (one per screen visit, with
-/// <c>frames.total</c>, <c>frames.slow</c> and <c>frames.frozen</c>). A frozen frame also counts as slow. The platform
+/// <c>frames.total</c>, <c>frames.slow</c> and <c>frames.frozen</c>). A <c>screen.load</c> at least the slow-load
+/// threshold carries <c>profile.samples</c>/<c>profile.stacks</c> from the optional <see cref="StackSampler"/>. A frozen frame also counts as slow. The platform
 /// glue measures; this class only decides and reports, so it is unit-tested without a device.
 /// </summary>
 internal sealed class PerformanceTracker
@@ -18,6 +19,8 @@ internal sealed class PerformanceTracker
     private readonly TimeSpan _slow;
     private readonly TimeSpan _frozen;
     private readonly TimeProvider _time;
+    private readonly StackSampler? _sampler;
+    private readonly TimeSpan _slowLoad;
     private readonly object _gate = new();
 
     private string? _screen;
@@ -28,8 +31,11 @@ internal sealed class PerformanceTracker
     private DateTimeOffset? _windowStart;
     private long _total, _slowCount, _frozenCount;
 
-    public PerformanceTracker(ActivitySource source, TimeSpan slowFrame, TimeSpan frozenFrame, TimeProvider? time = null)
+    public PerformanceTracker(ActivitySource source, TimeSpan slowFrame, TimeSpan frozenFrame, TimeProvider? time = null,
+        StackSampler? sampler = null, TimeSpan slowLoad = default)
     {
+        _sampler = sampler;
+        _slowLoad = slowLoad;
         _source = source;
         _slow = slowFrame;
         _frozen = frozenFrame;
@@ -84,6 +90,7 @@ internal sealed class PerformanceTracker
     public void BeginScreenLoad()
     {
         lock (_gate) _loading = _time.GetUtcNow();
+        _sampler?.Start();
     }
 
     /// <summary>
@@ -104,10 +111,16 @@ internal sealed class PerformanceTracker
         FlushFrames();
         lock (_gate) _screen = screen;
 
+        var profile = _sampler?.Stop(loadStart is { } ls && now - ls >= _slowLoad);
         if (loadStart is not { } start) return;
         using var span = _source.StartActivity(ScreenLoadSpan, ActivityKind.Internal, default(ActivityContext), null, null, start);
         if (span is null) return;
         span.SetTag("screen.name", screen);
+        if (profile is { } p)
+        {
+            span.SetTag("profile.samples", p.Samples);
+            span.SetTag("profile.stacks", p.Stacks);
+        }
         span.SetEndTime(now.UtcDateTime);
     }
 

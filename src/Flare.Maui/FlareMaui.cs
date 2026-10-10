@@ -28,6 +28,9 @@ public static class FlareMaui
     private static RunTracker? _runs;
     private static NativeCrashEmitter? _crashEmitter;
     private static PerformanceTracker? _perf;
+
+    /// <summary>Reads the UI thread's stack, or null where the platform cannot. Set by the platform glue before init.</summary>
+    internal static Func<string?>? MainThreadStackCapture { get; set; }
     private static readonly DateTimeOffset SdkStart = DateTimeOffset.UtcNow;
 
     /// <summary>
@@ -148,7 +151,14 @@ public static class FlareMaui
         }
 
         if (options.TracePerformance)
-            _perf = new PerformanceTracker(Source, options.SlowFrameThreshold, options.FrozenFrameThreshold);
+        {
+            // The platform glue sets MainThreadStackCapture; only Android can read the UI thread's stack.
+            var sampler = options.ProfileSlowLoads && MainThreadStackCapture is { } capture
+                ? new StackSampler(capture, options.ProfileSampleInterval)
+                : null;
+            _perf = new PerformanceTracker(Source, options.SlowFrameThreshold, options.FrozenFrameThreshold,
+                sampler: sampler, slowLoad: options.ProfileSlowLoadThreshold);
+        }
 
         if (options.CaptureNativeCrashes && stateDirectory is not null)
         {
