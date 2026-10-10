@@ -121,4 +121,9 @@ public sealed class FlareMauiOptions
 
     internal Uri SignalUri(string signal) =>
         new(Endpoint!.AbsoluteUri.TrimEnd('/') + "/v1/" + signal);
+
+    /// <summary>True for a request to Flare's own OTLP endpoint, which HttpClient tracing must not record or every export would produce a span about itself.</summary>
+    internal bool IsExporterRequest(Uri? requestUri) =>
+        requestUri is not null && Endpoint is not null
+        && requestUri.AbsoluteUri.StartsWith(Endpoint.AbsoluteUri.TrimEnd('/') + "/v1/", StringComparison.OrdinalIgnoreCase);
 }

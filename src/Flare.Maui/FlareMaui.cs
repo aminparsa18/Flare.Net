@@ -129,7 +129,7 @@ public static class FlareMaui
             .AddProcessor(new SessionProcessor(SessionId))
             .AddProcessor(new EnrichmentProcessor(_enrichment));
         foreach (var s in options.AdditionalSources) tracing.AddSource(s);
-        if (options.InstrumentHttpClient) tracing.AddHttpClientInstrumentation();
+        if (options.InstrumentHttpClient) tracing.AddHttpClientInstrumentation(h => h.FilterHttpRequestMessage = r => !options.IsExporterRequest(r.RequestUri));
         if (options.ScrubAttribute is not null || options.BeforeSend is not null)
             tracing.AddProcessor(new ScrubProcessor(options.ScrubAttribute, options.BeforeSend));
         tracing.AddOtlpExporter(o => ConfigureExporter(o, options, "traces"));
