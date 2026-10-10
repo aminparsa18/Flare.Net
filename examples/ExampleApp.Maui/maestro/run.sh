@@ -50,7 +50,11 @@ check_07() {
 }
 check_08() {
   expect "app.hang with a Java stack" "Name='app.hang' AND (SpanAttributes['hang.stacktrace'] LIKE '%java.%' OR SpanAttributes['hang.stacktrace'] LIKE '%android.%')"; }
-check_09() { expect "managed crash: app.unhandled_exception escaped=true" "Name='app.unhandled_exception' AND SpanAttributes['exception.escaped']='true' AND SpanAttributes['crash.native']!='true' AND arrayExists(m -> m['exception.message']='Deliberate crash from ExampleApp.Maui', \`Events.Attributes\`)"; }
+check_09() {
+  # The crash flush blocks the UI thread; the watchdog must not report that as a hang.
+  expect "managed crash: app.unhandled_exception escaped=true" "Name='app.unhandled_exception' AND SpanAttributes['exception.escaped']='true' AND SpanAttributes['crash.native']!='true' AND arrayExists(m -> m['exception.message']='Deliberate crash from ExampleApp.Maui', \`Events.Attributes\`)" &&
+  expect_none "no app.hang after the crash" "Name='app.hang'"
+}
 check_10() { expect "native crash reported on relaunch" "Name='app.unhandled_exception' AND SpanAttributes['crash.kind']='NativeCrash'"; }
 check_11() { expect "service.version = 2.0.0" "ResourceAttributes['service.version']='2.0.0' AND Name='example.custom_work'"; }
 
