@@ -16,7 +16,7 @@
 
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:latest
+    image: clickhouse/clickhouse-server:26.8
     # flare.resource/flare.role are this stack's own identity/relationship labels for the
     # opt-in Resources page (see the `api` service's DockerResources__ProxyUrl comment
     # below and docs/standalone.md) - NOT read by Docker Compose itself. Compose's

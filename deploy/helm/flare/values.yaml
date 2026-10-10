@@ -82,7 +82,7 @@ clickhouse:
   # false = use an existing server (single node, or a cluster behind a load balancer/Service).
   # Use this for cluster mode, e.g. one managed by the Altinity ClickHouse operator.
   enabled: true
-  image: clickhouse/clickhouse-server:latest
+  image: clickhouse/clickhouse-server:26.8
   resources: {}
   persistence:
     size: 50Gi

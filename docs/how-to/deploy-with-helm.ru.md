@@ -125,6 +125,12 @@ helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 нужно. Чтобы сменить версию, измените `image.tag`; по умолчанию используется
 `appVersion` чарта.
 
+Чарт закрепляет ClickHouse на LTS-линейке `26.8` (`clickhouse.image`) вместо
+`:latest`, поэтому обновление само не меняет версию ClickHouse. Переходите на более
+новую линейку осознанно, задав `clickhouse.image` самостоятельно. Откатить ClickHouse
+назад нельзя. Если до этого закрепления вы запускали `:latest` на более новой линейке,
+задайте `clickhouse.image` равным используемой линейке, а не откатывайтесь на 26.8.
+
 ## Связь с чартами, генерируемыми Aspire
 
 `aspire publish` с `AddKubernetesEnvironment()` (см.

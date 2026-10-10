@@ -128,6 +128,13 @@ Les migrations de schéma s'exécutent dans ingest et api au démarrage : aucun 
 de migration à lancer. Modifiez `image.tag` pour changer de version ; par défaut
 c'est l'`appVersion` du chart.
 
+Le chart épingle ClickHouse sur la ligne LTS `26.8` (`clickhouse.image`) au lieu de
+`:latest` : une mise à jour ne change donc jamais la version de ClickHouse d'elle-même.
+Passez à une ligne plus récente en définissant `clickhouse.image` vous-même. Un retour
+en arrière de ClickHouse est impossible. Si vous utilisiez `:latest` sur une ligne plus
+récente avant cet épinglage, définissez `clickhouse.image` sur la ligne en cours
+d'exécution plutôt que de retomber sur 26.8.
+
 ## Lien avec les charts générés par Aspire
 
 `aspire publish` avec `AddKubernetesEnvironment()` (voir

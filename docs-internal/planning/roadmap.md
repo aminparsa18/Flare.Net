@@ -56,9 +56,11 @@ folders are where "what happened and why" actually lives.
   `flare_service_account`, `flare_dashboard` (layout JSON passed through as-is,
   ADR-0147 makes names unique per project), `flare_metric_attribute_rule`,
   `flare_forwarding_target` and `flare_archive_settings` (ADR-0157), verified
-  with OpenTofu acceptance tests against a live stack. `minServerVersion` is set to 0.6.0
-  (assumed next release; fix it if the release is numbered differently). Remaining:
-  registry publishing. In progress.
+  with OpenTofu acceptance tests against a live stack. `minServerVersion` is 0.6.0, the
+  first Flare release with the server-side prerequisites. Provider v0.1.0 is published on
+  the Terraform Registry as `aminparsa18/flare` (GPG-signed releases via GoReleaser).
+  Remaining: list it on the OpenTofu Registry (a PR to `opentofu/registry` with the same
+  public key).
 - **.NET MAUI / mobile SDK (later).** `Flare.Maui` (ADR-0166, `src/Flare.Maui`) ships the
   `UseFlare()` core: OTLP/HTTP export, disk retry, device/session attributes, `HttpClient`
   and Shell navigation spans, unhandled-exception capture. Remaining for it: Windows,
@@ -108,3 +110,25 @@ folders are where "what happened and why" actually lives.
     first occurrence.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping, audit export, data-residency docs, and
     an upgrade guide with tested rollback.
+- **Map-aware text index for attribute filters.** `LogAttributes` /
+  `ResourceAttributes` filters are served by `mapKeys`/`mapValues` bloom filters
+  (migration 0001), which cannot tie a value to its key, so `attr['k'] = 'v'`
+  prunes poorly. ClickHouse 26.9 adds a `keyValuePairs` text-index tokenizer that
+  answers `map['key'] = 'value'` from the index without reading the map column
+  (plus faster text-index merges). Benchmark against the current bloom filters on
+  a realistic corpus **on 26.9 as the baseline** (its `Map` subcolumn pruning for
+  `mapKeys`/`mapValues`/`has` already improves the bloom-filter path), confirm the feature is out of experimental status, then
+  decide via an ADR (new migration, single + cluster). Body search could be
+  evaluated on the same index type (ADR-0073 uses `ngrambf_v1`; 26.9 lets `LIKE`/`ILIKE`, including `ESCAPE`, use
+  text indexes). Prior art:
+  [ClickHouse 26.9
+  changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).
+- **Force-merge closed partitions.** Logs and spans are partitioned monthly, so a
+  closed month keeps whatever part fragmentation it had when it closed.
+  ClickHouse 26.9 adds the `min_partition_age_to_force_merge_seconds` MergeTree
+  setting, which compacts a partition once every part is older than the
+  threshold. Benchmark on a month of data (parts per query, compression, merge
+  I/O, TTL rewrite cost), then set it per table in an additive migration
+  (single + cluster) alongside the retention TTL work. Flare sets no
+  force-merge or `ttl_only_drop_parts` settings today. Prior art: [ClickHouse
+  26.9 changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).
