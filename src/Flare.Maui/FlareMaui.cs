@@ -32,6 +32,7 @@ public static class FlareMaui
     /// </summary>
     internal static Func<int, CancellationToken, Task<byte[]?>>? ScreenshotCapture { get; set; }
     private static FlareMauiOptions? _options;
+    private static FlareEnrichment _enrichment = new(sendDefaultPii: false);
 
     /// <summary>The tracer provider, or null before <c>UseFlare</c>.</summary>
     public static TracerProvider? Tracing { get; private set; }
@@ -55,6 +56,22 @@ public static class FlareMaui
     {
         if (_breadcrumbs) Breadcrumbs.Add(Source, category, message);
     }
+
+    /// <summary>
+    /// Attach a user to every span and log record from now on, as <c>user.id</c>. <paramref name="name"/> and
+    /// <paramref name="email"/> are sent only when <see cref="FlareMauiOptions.SendDefaultPii"/> is on. Pass a null
+    /// id (on sign-out) to clear the user. Release health counts users from <c>user.id</c>.
+    /// </summary>
+    public static void SetUser(string? id, string? name = null, string? email = null) => _enrichment.SetUser(id, name, email);
+
+    /// <summary>Stamp <paramref name="key"/> = <paramref name="value"/> on every span and log record. A null or empty value removes it.</summary>
+    public static void SetTag(string key, string? value) => _enrichment.SetTag(key, value);
+
+    /// <summary>
+    /// Stamp a group of related values as <c>name.key</c> attributes, e.g. <c>SetContext("cart", ...)</c> gives
+    /// <c>cart.items</c>. Replaces the previous values of the same name; null clears them.
+    /// </summary>
+    public static void SetContext(string name, IReadOnlyDictionary<string, string>? values) => _enrichment.SetContext(name, values);
 
     /// <summary>Record an exception the app handled itself, so it shows on the Errors page.</summary>
     public static void RecordException(Exception exception) => _reporter?.Report(exception, fatal: false);
@@ -92,19 +109,27 @@ public static class FlareMaui
         options.Validate();
         if (Tracing is not null) return;
 
-        if (options.EnableOfflineQueue) EnableDiskRetry(queueDirectory);
+        if (options.EnableOfflineQueue)
+        {
+            OfflineQueue.Prune(queueDirectory, options.OfflineQueueMaxBytes, options.OfflineQueueMaxAge, DateTime.UtcNow);
+            EnableDiskRetry(queueDirectory);
+        }
 
         var resource = BuildResource(options, device);
         SessionId = NewSessionId();
         _breadcrumbs = options.Breadcrumbs;
         _options = options;
+        _enrichment = new FlareEnrichment(options.SendDefaultPii);
 
         var tracing = Sdk.CreateTracerProviderBuilder()
             .SetResourceBuilder(resource)
             .AddSource(SourceName)
-            .AddProcessor(new SessionProcessor(SessionId));
+            .AddProcessor(new SessionProcessor(SessionId))
+            .AddProcessor(new EnrichmentProcessor(_enrichment));
         foreach (var s in options.AdditionalSources) tracing.AddSource(s);
         if (options.InstrumentHttpClient) tracing.AddHttpClientInstrumentation();
+        if (options.ScrubAttribute is not null || options.BeforeSend is not null)
+            tracing.AddProcessor(new ScrubProcessor(options.ScrubAttribute, options.BeforeSend));
         tracing.AddOtlpExporter(o => ConfigureExporter(o, options, "traces"));
         Tracing = tracing.Build();
 
@@ -119,7 +144,7 @@ public static class FlareMaui
 
         if (options.CaptureUnhandledExceptions)
         {
-            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options));
+            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options), options.ScrubAttribute);
             _reporter.Attach();
         }
     }
@@ -158,6 +183,7 @@ public static class FlareMaui
         Tracing = null;
         Metering = null;
         SessionId = null;
+        _enrichment = new FlareEnrichment(sendDefaultPii: false);
         _logProcessor = null;
         _breadcrumbs = false;
     }
@@ -167,6 +193,9 @@ public static class FlareMaui
         o.SetResourceBuilder(BuildResource(options, device));
         o.IncludeFormattedMessage = true;
         if (SessionId is not null) o.AddProcessor(new SessionLogProcessor(SessionId));
+
+        o.AddProcessor(new EnrichmentLogProcessor(_enrichment));
+        if (options.ScrubAttribute is { } scrub) o.AddProcessor(new ScrubLogProcessor(scrub));
 
         if (options.Breadcrumbs && options.BreadcrumbLogLevel != LogLevel.None)
             o.AddProcessor(new BreadcrumbLogProcessor(Source, options.BreadcrumbLogLevel));

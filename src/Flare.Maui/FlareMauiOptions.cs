@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace Flare.Maui;
@@ -39,6 +40,33 @@ public sealed class FlareMauiOptions
     /// <summary>How long the UI thread must be blocked to count as a hang. At least 500 ms.</summary>
     public TimeSpan AppHangThreshold { get; set; } = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// Allow <see cref="FlareMaui.SetUser"/>'s name and e-mail to be sent. Off by default, so only the user id is
+    /// sent. No device identifier is sent either way.
+    /// </summary>
+    public bool SendDefaultPii { get; set; }
+
+    /// <summary>
+    /// Called for every span tag and log attribute before export with its key and value. Return the value to send,
+    /// a changed one to redact it, or <c>null</c> to remove the attribute. Resource attributes are not passed through.
+    /// Span names (key <c>span.name</c>), span status messages (<c>status.message</c>) and, for exceptions Flare
+    /// reports itself, <c>exception.type</c>/<c>exception.message</c>/<c>exception.stacktrace</c> go through it too.
+    /// Exceptions recorded by other instrumentation are not scrubbed.
+    /// </summary>
+    public Func<string, object?, object?>? ScrubAttribute { get; set; }
+
+    /// <summary>
+    /// Called with each finished span before export; return <c>false</c> to drop it. It runs after the enrichment
+    /// processors, so it sees <c>user.id</c> and tags. Does not apply to logs.
+    /// </summary>
+    public Func<Activity, bool>? BeforeSend { get; set; }
+
+    /// <summary>Delete queued export files older than this at startup. The exporter's own retention is not configurable.</summary>
+    public TimeSpan OfflineQueueMaxAge { get; set; } = TimeSpan.FromDays(2);
+
+    /// <summary>Delete the oldest queued export files at startup until the queue is under this size, in bytes.</summary>
+    public long OfflineQueueMaxBytes { get; set; } = 25L * 1024 * 1024;
+
     /// <summary>Trace <c>HttpClient</c> calls and propagate <c>traceparent</c>.</summary>
     public bool InstrumentHttpClient { get; set; } = true;
 
@@ -77,6 +105,8 @@ public sealed class FlareMauiOptions
             throw new InvalidOperationException("UseFlare: AppHangThreshold must be at least 500 ms.");
         if (CaptureScreenshotOnError && ScreenshotMaxBytes is < 10_000 or > 512 * 1024)
             throw new InvalidOperationException("UseFlare: ScreenshotMaxBytes must be between 10 KB and 512 KB.");
+        if (EnableOfflineQueue && (OfflineQueueMaxAge <= TimeSpan.Zero || OfflineQueueMaxBytes < 0))
+            throw new InvalidOperationException("UseFlare: OfflineQueueMaxAge must be positive and OfflineQueueMaxBytes not negative.");
         if (string.IsNullOrWhiteSpace(ServiceName))
             throw new InvalidOperationException("UseFlare: ServiceName is required.");
     }

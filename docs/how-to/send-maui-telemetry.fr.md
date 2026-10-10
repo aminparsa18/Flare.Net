@@ -164,6 +164,34 @@ Le texte des boutons et les titres de page peuvent contenir des données personn
 activez `IncludeTextInBreadcrumbs` ou `IncludeTitleInBreadcrumbs`. Relevez `BreadcrumbLogLevel` (ou `None`) pour
 limiter les breadcrumbs de logs, et `Breadcrumbs = false` pour tout désactiver.
 
+## Attacher un utilisateur, des tags et masquer des données
+
+```csharp
+FlareMaui.SetUser("account-42");
+FlareMaui.SetTag("plan", "pro");
+FlareMaui.SetContext("cart", new Dictionary<string, string> { ["items"] = "3" });   // cart.items
+```
+
+Seul l'identifiant utilisateur est envoyé. Un nom ou un e-mail passé à `SetUser` est ignoré sauf si vous définissez
+`SendDefaultPii = true`. Pour masquer ou supprimer autre chose avant que cela quitte l'appareil, définissez
+`ScrubAttribute` : il reçoit chaque tag de span et chaque attribut de log et renvoie la valeur à envoyer, ou `null`
+pour la supprimer :
+
+```csharp
+o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : value;
+```
+
+Aucun identifiant d'appareil n'est envoyé dans les deux cas.
+
+Pour supprimer entièrement un span, définissez `BeforeSend`, qui renvoie `false` pour les spans à ne pas envoyer
+(sans effet sur les logs). `ScrubAttribute` reçoit aussi les noms de span (clé `span.name`), les messages de statut
+(`status.message`) et, pour les exceptions signalées par Flare lui-même, `exception.type`, `exception.message` et
+`exception.stacktrace`. Les exceptions enregistrées par d'autres instrumentations ne sont pas nettoyées.
+
+Les exports échoués sont rejoués depuis le disque. Au démarrage, Flare supprime les fichiers en attente plus
+vieux que `OfflineQueueMaxAge` (2 jours), puis les plus anciens jusqu'à passer sous `OfflineQueueMaxBytes` (25 Mo).
+C'est un nettoyage au démarrage : la file peut dépasser cette taille pendant l'exécution.
+
 ## Vérifier la santé d'une version
 
 Le haut de la page **Sessions** affiche, pour chaque version de l'application, les sessions sans plantage et les

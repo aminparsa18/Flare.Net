@@ -66,14 +66,11 @@ folders are where "what happened and why" actually lives.
   and verifying on a device or emulator. The macOS CI job (`maui-ci.yml`) and the NuGet
   publish path (`flare-maui-v*` tag in `nuget-publish.yml`) exist but have not run yet: the
   first release also needs a nuget.org trusted-publishing policy for `Flare.Maui`. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
-  Sessions page, and app-version facets on `/errors`. Release health (crash-free sessions and users per version, ADR-0175) is done too, with users blank until the SDK
-  sets `user.id`. Remaining there: a rollup table if long
+  Sessions page, and app-version facets on `/errors`. Release health (crash-free sessions and users per version, ADR-0175) is done too, with users counted from `user.id`
+  (`SetUser`, ADR-0176; scrubbing, `BeforeSend` and queue limits, ADR-0177). Remaining there: a rollup table if long
   windows prove slow. The per-session timeline is done (ADR-0170). Trimmed/Mono
   stack traces are symbolicated from uploaded dll+PDB symbols (ADR-0168); Native AOT frames on
   iOS/macOS are covered from the `.dSYM`; remaining there: ELF/PDB
   symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
   The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
-  Next for `Flare.Maui`, from a gap review against Sentry's MAUI SDK, in priority order:
-  - Enrichment and data controls: `FlareMaui.SetUser`/`SetTag`/context API for global attributes,
-    a `BeforeSend`-style scrubbing hook, and an explicit `SendDefaultPii`-style switch (no device
-    id is sent today). Document and test the disk-retry size and age limits.
+  
