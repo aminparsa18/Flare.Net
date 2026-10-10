@@ -34,5 +34,18 @@ dotnet build examples/ExampleApp.Maui -f net10.0-ios -c Release -p:RuntimeIdenti
 dotnet build examples/ExampleApp.Maui -f net10.0-android -t:Run
 ```
 
+## Automated flows (Maestro)
+
+`maestro/` has one [Maestro](https://maestro.mobile.dev) flow per scenario (each button, the freeze, the managed and
+native crash with relaunch, the `service.version` override) and `maestro/run.sh`, which runs them on a connected Android
+device and then asserts on the telemetry in ClickHouse (`ServiceName='example-maui-app'`, rows ingested after the flow
+started). It also checks that no `POST /v1/*` spans exist. Buttons are selected by their `AutomationId`. Needs the Maestro
+CLI, `adb reverse tcp:4318 tcp:4318` (the script re-adds it) and `docker compose up`:
+
+```bash
+examples/ExampleApp.Maui/maestro/run.sh          # every flow
+examples/ExampleApp.Maui/maestro/run.sh 03 09    # selected flows, by number
+```
+
 `xcrun xctrace list devices` and `adb devices` list the identifiers. The app allows cleartext HTTP to a LAN address
 (iOS ATS exception, Android `usesCleartextTraffic`) because it is a test tool; a real app should use HTTPS.
