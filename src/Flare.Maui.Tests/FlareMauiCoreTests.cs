@@ -20,6 +20,14 @@ public class OptionsTests
     }
 
     [Theory]
+    [InlineData("http://h:4318", "http://h:4318/v1/traces", true)]
+    [InlineData("http://h:4318/otlp/", "http://h:4318/otlp/v1/logs", true)]
+    [InlineData("http://h:4318", "http://h:4318/health", false)]
+    [InlineData("http://h:4318", "http://other:4318/v1/traces", false)]
+    public void IsExporterRequest_matches_only_flare_signal_urls(string endpoint, string request, bool expected) =>
+        Assert.Equal(expected, new FlareMauiOptions { Endpoint = new Uri(endpoint) }.IsExporterRequest(new Uri(request)));
+
+    [Theory]
     [InlineData("https://flare.example.com:4318", "https://flare.example.com:4318/v1/traces")]
     [InlineData("https://flare.example.com:4318/", "https://flare.example.com:4318/v1/traces")]
     [InlineData("http://10.0.2.2:4318/otlp/", "http://10.0.2.2:4318/otlp/v1/traces")]
