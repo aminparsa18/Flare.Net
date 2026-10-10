@@ -162,6 +162,13 @@ Button text and page titles can contain personal data, so they are left out unle
 (or its type) and pages their type name. Raise `BreadcrumbLogLevel`, or set it to `None`, to limit log
 breadcrumbs, and set `Breadcrumbs = false` to turn all of them off.
 
+## Check release health
+
+The top of the **Sessions** page shows each app version's crash-free sessions and crash-free users for the window,
+so you can compare a new release with the last one. A session counts as crashed when the app reported a fatal
+unhandled exception; the rate is red below 99%. Users are counted from a `user.id` attribute on spans or the
+resource. `Flare.Maui` does not set one, so the user columns show a dash until your app adds it.
+
 ## Detect app hangs
 
 A watchdog pings the UI thread and, when it does not answer for `AppHangThreshold` (2 seconds by default,

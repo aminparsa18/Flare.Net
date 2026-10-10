@@ -164,6 +164,14 @@ Le texte des boutons et les titres de page peuvent contenir des données personn
 activez `IncludeTextInBreadcrumbs` ou `IncludeTitleInBreadcrumbs`. Relevez `BreadcrumbLogLevel` (ou `None`) pour
 limiter les breadcrumbs de logs, et `Breadcrumbs = false` pour tout désactiver.
 
+## Vérifier la santé d'une version
+
+Le haut de la page **Sessions** affiche, pour chaque version de l'application, les sessions sans plantage et les
+utilisateurs sans plantage sur la fenêtre, afin de comparer une nouvelle version à la précédente. Une session compte
+comme plantée quand l'application a signalé une exception fatale non gérée ; le taux est en rouge sous 99 %. Les
+utilisateurs sont comptés à partir d'un attribut `user.id` sur les spans ou la ressource. `Flare.Maui` n'en définit
+pas : les colonnes d'utilisateurs affichent un tiret tant que votre application n'en ajoute pas.
+
 ## Détecter les blocages de l'application
 
 Un chien de garde envoie un ping au thread d'interface et, s'il ne répond pas pendant `AppHangThreshold` (2 secondes

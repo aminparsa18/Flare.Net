@@ -8,6 +8,8 @@ public interface IAppSessionQueryService
 {
     Task<AppSessionsResponse> GetSessionsAsync(AppSessionsRequest request, CancellationToken cancellationToken);
 
+    Task<ReleaseHealthResponse> GetReleaseHealthAsync(ReleaseHealthRequest request, CancellationToken cancellationToken);
+
     Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken);
 
     Task<AppSessionScreenshotResponse?> GetScreenshotAsync(string sessionId, string spanId, AppSessionTimelineRequest window, CancellationToken cancellationToken);
@@ -71,6 +73,30 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
             Services = services,
             Versions = versions,
         };
+    }
+
+    public async Task<ReleaseHealthResponse> GetReleaseHealthAsync(ReleaseHealthRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = AppSessionQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var end = AppSessionQueryBuilder.ResolveWindowEnd(request.EndUnixMs, timeProvider.GetUtcNow());
+        var built = AppSessionQueryBuilder.BuildReleaseHealth(request, windowMinutes, end);
+
+        var versions = new List<ReleaseHealthVersion>();
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken);
+        while (reader.Read())
+        {
+            versions.Add(new ReleaseHealthVersion
+            {
+                Version = reader.GetString(0),
+                Sessions = reader.GetFieldValue<ulong>(1),
+                CrashedSessions = reader.GetFieldValue<ulong>(2),
+                ErroredSessions = reader.GetFieldValue<ulong>(3),
+                Users = reader.GetFieldValue<ulong>(4),
+                CrashedUsers = reader.GetFieldValue<ulong>(5),
+            });
+        }
+
+        return new ReleaseHealthResponse { WindowMinutes = windowMinutes, Versions = versions };
     }
 
     public async Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken)

@@ -163,3 +163,46 @@ public sealed record AppSessionTimelineResponse
     /// <summary>True when the session has more spans than <see cref="Query.AppSessionQueryBuilder.MaxTimelineRows"/>.</summary>
     public required bool Truncated { get; init; }
 }
+
+/// <summary>
+/// Request body for <c>POST /api/app-sessions/release-health</c>: crash-free sessions and users per app
+/// version over the window. See docs-internal/adr/0175-release-health.md.
+/// </summary>
+public sealed record ReleaseHealthRequest
+{
+    /// <summary>Lookback window; null/non-positive = <see cref="Query.AppSessionQueryBuilder.DefaultWindowMinutes"/>, clamped server-side.</summary>
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>Where the window ends, as Unix epoch milliseconds; null = now.</summary>
+    public long? EndUnixMs { get; init; }
+
+    /// <summary>Exact <c>ServiceName</c>. Null/empty = all services.</summary>
+    public string? Service { get; init; }
+}
+
+/// <summary>One app version's health. Rates are derived by the caller: <c>1 - crashed / total</c>.</summary>
+public sealed record ReleaseHealthVersion
+{
+    /// <summary><c>service.version</c>, or empty when the app reports none.</summary>
+    public required string Version { get; init; }
+
+    public required ulong Sessions { get; init; }
+
+    /// <summary>Sessions with a fatal unhandled exception.</summary>
+    public required ulong CrashedSessions { get; init; }
+
+    /// <summary>Sessions with at least one error span (a superset of the crashed ones).</summary>
+    public required ulong ErroredSessions { get; init; }
+
+    /// <summary>Distinct <c>user.id</c> values; 0 when the app sets none.</summary>
+    public required ulong Users { get; init; }
+
+    public required ulong CrashedUsers { get; init; }
+}
+
+public sealed record ReleaseHealthResponse
+{
+    public required int WindowMinutes { get; init; }
+
+    public required IReadOnlyList<ReleaseHealthVersion> Versions { get; init; }
+}

@@ -2,7 +2,7 @@
 // docs-internal/adr/0167-app-sessions-view.md. No polling: each load aggregates the window's
 // spans live, so it is an on-demand view with a manual refresh, like /external-apis.
 
-import { getAppSessions, type AppSession } from '$lib/app-sessions-api';
+import { getAppSessions, getReleaseHealth, type AppSession, type ReleaseHealthVersion } from '$lib/app-sessions-api';
 import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
 
 export type AppSessionsWindowPreset = ServicesWindowPreset;
@@ -20,6 +20,8 @@ export class AppSessionsState {
 	/** The pickers' options, returned unfiltered so choosing one doesn't hide the rest. */
 	services = $state.raw<string[]>([]);
 	versions = $state.raw<string[]>([]);
+	/** Per-version crash-free rates; null until loaded, stays empty if that request fails (the table still shows). */
+	releaseHealth = $state.raw<ReleaseHealthVersion[] | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
 
@@ -37,8 +39,15 @@ export class AppSessionsState {
 		this.error = null;
 		try {
 			const minutes = APP_SESSIONS_WINDOW_PRESETS.find((p) => p.value === this.windowPreset)?.minutes ?? 60;
-			const response = await getAppSessions({ windowMinutes: minutes, service: this.service, version: this.version, errorsOnly: this.errorsOnly }, abort.signal);
+			const [response, health] = await Promise.all([
+				getAppSessions({ windowMinutes: minutes, service: this.service, version: this.version, errorsOnly: this.errorsOnly }, abort.signal),
+				getReleaseHealth({ windowMinutes: minutes, service: this.service }, abort.signal).catch((err) => {
+					if (abort.signal.aborted) throw err;
+					return null;
+				})
+			]);
 			if (abort.signal.aborted) return;
+			this.releaseHealth = health?.versions ?? [];
 			this.sessions = response.sessions;
 			this.truncated = response.truncated;
 			this.services = response.services;

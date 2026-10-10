@@ -149,6 +149,10 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 
 按钮文字和页面标题可能包含个人数据，因此默认不记录，除非设置 `IncludeTextInBreadcrumbs` 或 `IncludeTitleInBreadcrumbs`。提高 `BreadcrumbLogLevel`（或设为 `None`）可减少日志面包屑，设置 `Breadcrumbs = false` 可全部关闭。
 
+## 查看版本健康度
+
+**Sessions** 页面顶部按应用版本显示窗口内的无崩溃会话和无崩溃用户比例，方便把新版本与上一版本对比。应用上报了致命的未处理异常即视为会话崩溃；低于 99% 时以红色显示。用户数按链路段或资源上的 `user.id` 属性统计。`Flare.Maui` 不会设置该属性，因此在应用自行添加之前，用户列显示为短横线。
+
 ## 检测应用卡死
 
 看门狗会向 UI 线程发送 ping，若在 `AppHangThreshold`（默认 2 秒，至少 500 毫秒）内没有响应，就报告一个带错误状态的 `app.hang` 链路段。它与 `hang` 面包屑一起显示在会话页面上，因此即使系统随后终止了应用，也能看到界面卡死。应用在后台时会暂停检测。它不会记录被阻塞线程的堆栈，而调试器暂停看起来也像卡死，调试时如有干扰可设置 `DetectAppHangs = false`。

@@ -3581,5 +3581,12 @@
 	"sessionsPage_detail_screen": "Экран",
 	"sessionsPage_detail_screenshot": "Скриншот",
 	"sessionsPage_detail_screenshotHide": "Скрыть скриншот",
-	"sessionsPage_detail_screenshotMissing": "Скриншот недоступен"
+	"sessionsPage_detail_screenshotMissing": "Скриншот недоступен",
+	"sessionsPage_health_heading": "Здоровье релиза",
+	"sessionsPage_health_sessions": "Сессии",
+	"sessionsPage_health_crashFreeSessions": "Сессии без сбоев",
+	"sessionsPage_health_users": "Пользователи",
+	"sessionsPage_health_crashFreeUsers": "Пользователи без сбоев",
+	"sessionsPage_health_crashedOf": "Сбоев: {crashed} из {total} сессий",
+	"sessionsPage_health_hint": "Сессия считается завершившейся сбоем, если приложение сообщило о фатальном необработанном исключении. Пользователи считаются по атрибуту user.id; без него показывается прочерк."
 }

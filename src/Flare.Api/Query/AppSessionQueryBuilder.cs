@@ -95,6 +95,40 @@ public static class AppSessionQueryBuilder
     }
 
     /// <summary>
+    /// Release health: one row per <c>service.version</c> with its session and user counts, crashed and errored
+    /// ones included (ADR-0175). A session is crashed when it has an <c>app.unhandled_exception</c> span with
+    /// <c>exception.escaped = true</c> (what <c>Flare.Maui</c> reports for a fatal exception) and errored when any
+    /// span has an error status. A user is <c>user.id</c> on a span or resource, empty when the app sets none.
+    /// Columns: Version, Sessions, CrashedSessions, ErroredSessions, Users, CrashedUsers; most sessions first.
+    /// </summary>
+    public static AppSessionSql BuildReleaseHealth(ReleaseHealthRequest request, int windowMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = Where(parameters, windowMinutes, end, request.Service, version: null);
+        var sql = "SELECT\n" +
+            "    Version,\n" +
+            "    count() AS Sessions,\n" +
+            "    countIf(Crashed) AS CrashedSessions,\n" +
+            "    countIf(Errored) AS ErroredSessions,\n" +
+            "    uniqExactIf(UserId, UserId != '') AS Users,\n" +
+            "    uniqExactIf(UserId, UserId != '' AND Crashed) AS CrashedUsers\n" +
+            "FROM (\n" +
+            "    SELECT\n" +
+            "        any(ResourceAttributes['service.version']) AS Version,\n" +
+            "        anyIf(if(SpanAttributes['user.id'] != '', SpanAttributes['user.id'], ResourceAttributes['user.id']), " +
+            "SpanAttributes['user.id'] != '' OR ResourceAttributes['user.id'] != '') AS UserId,\n" +
+            "        countIf(Name = 'app.unhandled_exception' AND lower(SpanAttributes['exception.escaped']) = 'true') > 0 AS Crashed,\n" +
+            "        countIf(StatusCode = 'STATUS_CODE_ERROR') > 0 AS Errored\n" +
+            "    FROM spans\n" +
+            $"    WHERE {where}\n" +
+            $"    GROUP BY {SessionId}\n" +
+            ")\n" +
+            "GROUP BY Version\n" +
+            "ORDER BY Sessions DESC, Version";
+        return new AppSessionSql(sql, parameters);
+    }
+
+    /// <summary>
     /// Resolves a timeline request's bounds: <c>to</c> defaults to now, <c>from</c> to a day before it,
     /// and the span is capped at <see cref="MaxTimelineWindowMinutes"/> (the end wins, so an over-wide
     /// request keeps its most recent part). Never inverted.
