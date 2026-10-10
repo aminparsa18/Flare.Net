@@ -51,6 +51,21 @@ public class AppSessionQueryBuilderTests
     }
 
     [Fact]
+    public void BuildReleaseHealth_GroupsSessionsThenVersions_AndIgnoresVersionFilter()
+    {
+        var built = AppSessionQueryBuilder.BuildReleaseHealth(new ReleaseHealthRequest { Service = "shop-app" }, 60, End);
+
+        Assert.Contains("GROUP BY SpanAttributes['session.id']", built.Sql);
+        Assert.Contains("GROUP BY Version", built.Sql);
+        Assert.Contains("Name = 'app.unhandled_exception'", built.Sql);
+        Assert.Contains("exception.escaped", built.Sql);
+        Assert.Contains("mapContains(SpanAttributes, 'session.id')", built.Sql);
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.DoesNotContain("{version:String}", built.Sql);
+        Assert.DoesNotContain("LIMIT", built.Sql);
+    }
+
+    [Fact]
     public void BuildFacets_IgnoresServiceAndVersionFilters()
     {
         var built = AppSessionQueryBuilder.BuildFacets(60, End);

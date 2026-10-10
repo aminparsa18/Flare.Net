@@ -3581,5 +3581,12 @@
 	"sessionsPage_detail_screen": "屏幕",
 	"sessionsPage_detail_screenshot": "截图",
 	"sessionsPage_detail_screenshotHide": "隐藏截图",
-	"sessionsPage_detail_screenshotMissing": "截图不可用"
+	"sessionsPage_detail_screenshotMissing": "截图不可用",
+	"sessionsPage_health_heading": "版本健康度",
+	"sessionsPage_health_sessions": "会话",
+	"sessionsPage_health_crashFreeSessions": "无崩溃会话",
+	"sessionsPage_health_users": "用户",
+	"sessionsPage_health_crashFreeUsers": "无崩溃用户",
+	"sessionsPage_health_crashedOf": "{total} 个会话中有 {crashed} 个崩溃",
+	"sessionsPage_health_hint": "应用上报了致命的未处理异常即视为会话崩溃。用户数按 user.id 属性统计，应用未设置时显示为短横线。"
 }

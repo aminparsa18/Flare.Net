@@ -16,9 +16,29 @@ public static class AppSessionEndpoints
     public static IEndpointRouteBuilder MapAppSessionEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/app-sessions/list", HandleListAsync);
+        endpoints.MapPost("/api/app-sessions/release-health", HandleReleaseHealthAsync);
         endpoints.MapPost("/api/app-sessions/timeline", HandleTimelineAsync);
         endpoints.MapPost("/api/app-sessions/screenshot", HandleScreenshotAsync);
         return endpoints;
+    }
+
+    private static async Task<IResult> HandleReleaseHealthAsync(
+        HttpContext http,
+        IAppSessionQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        ReleaseHealthRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AppSessionJsonContext.Default.ReleaseHealthRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await queryService.GetReleaseHealthAsync(request ?? new ReleaseHealthRequest(), cancellationToken);
+        return ApiSerialization.Write(http, response, AppSessionJsonContext.Default.ReleaseHealthResponse);
     }
 
     private static async Task<IResult> HandleTimelineAsync(

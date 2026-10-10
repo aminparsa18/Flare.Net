@@ -13,6 +13,7 @@
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import { AppSessionsState, APP_SESSIONS_WINDOW_PRESETS, type AppSessionsWindowPreset } from '$lib/app-sessions/state.svelte';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
+	import { crashFreePercent } from '$lib/app-sessions-api';
 	import { buildSessionTimelineHref } from '$lib/deep-links';
 	import { formatCount } from '$lib/ingestion/format';
 	import { formatDateTime } from '$lib/time/format';
@@ -29,6 +30,17 @@
 
 	// A session's last span can be seconds old; the timeline link spans first-to-last with a minute either side.
 	const PAD_MS = 60_000;
+
+	function formatRate(crashed: number, total: number): string {
+		const pct = crashFreePercent(crashed, total);
+		return pct === null ? '—' : `${pct.toFixed(pct >= 99.995 || pct === 0 ? 0 : 2)}%`;
+	}
+
+	// Red below 99%, the usual release-health bar for a mobile app.
+	function rateClass(crashed: number, total: number): string {
+		const pct = crashFreePercent(crashed, total);
+		return pct !== null && pct < 99 ? 'text-destructive font-medium' : '';
+	}
 </script>
 
 <svelte:head>
@@ -102,6 +114,39 @@
 				</Empty.Header>
 			</Empty.Root>
 		{:else}
+			{#if sessions.releaseHealth && sessions.releaseHealth.length > 0}
+				<h2 class="pt-4 pb-1 text-xs font-medium">{m.sessionsPage_health_heading()}</h2>
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head>{m.sessionsPage_versionColumn()}</Table.Head>
+							<Table.Head class="text-right">{m.sessionsPage_health_sessions()}</Table.Head>
+							<Table.Head class="text-right">{m.sessionsPage_health_crashFreeSessions()}</Table.Head>
+							<Table.Head class="text-right">{m.sessionsPage_health_users()}</Table.Head>
+							<Table.Head class="text-right">{m.sessionsPage_health_crashFreeUsers()}</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each sessions.releaseHealth as row (row.version)}
+							<Table.Row>
+								<Table.Cell class="font-medium">{row.version || '—'}</Table.Cell>
+								<Table.Cell class="text-right tabular-nums">{formatCount(row.sessions)}</Table.Cell>
+								<Table.Cell
+									class="text-right tabular-nums {rateClass(row.crashedSessions, row.sessions)}"
+									title={m.sessionsPage_health_crashedOf({ crashed: row.crashedSessions, total: row.sessions })}
+								>
+									{formatRate(row.crashedSessions, row.sessions)}
+								</Table.Cell>
+								<Table.Cell class="text-muted-foreground text-right tabular-nums">{row.users > 0 ? formatCount(row.users) : '—'}</Table.Cell>
+								<Table.Cell class="text-right tabular-nums {rateClass(row.crashedUsers, row.users)}">
+									{formatRate(row.crashedUsers, row.users)}
+								</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+				<p class="text-muted-foreground pt-1 pb-4 text-xs">{m.sessionsPage_health_hint()}</p>
+			{/if}
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>

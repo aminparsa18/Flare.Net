@@ -55,6 +55,41 @@ export async function getAppSessions(query: AppSessionsQuery, signal?: AbortSign
 	return (await res.json()) as AppSessionsResponse;
 }
 
+export interface ReleaseHealthVersion {
+	/** `service.version`, '' when the app reports none. */
+	version: string;
+	sessions: number;
+	crashedSessions: number;
+	erroredSessions: number;
+	/** Distinct `user.id`; 0 when the app sets none. */
+	users: number;
+	crashedUsers: number;
+}
+
+export interface ReleaseHealth {
+	windowMinutes: number;
+	versions: ReleaseHealthVersion[];
+}
+
+/** Crash-free sessions and users per app version (ADR-0175). */
+export async function getReleaseHealth(query: { windowMinutes: number; service?: string }, signal?: AbortSignal): Promise<ReleaseHealth> {
+	const res = await apiFetch(`${API_BASE_URL}/api/app-sessions/release-health`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ windowMinutes: query.windowMinutes, service: query.service || null }),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/app-sessions/release-health failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as ReleaseHealth;
+}
+
+/** Share of `total` that did not crash, 0-100, or null when there is nothing to divide. */
+export function crashFreePercent(crashed: number, total: number): number | null {
+	return total > 0 ? ((total - crashed) / total) * 100 : null;
+}
+
 export interface AppSessionTimelineEvent {
 	traceId: string;
 	spanId: string;

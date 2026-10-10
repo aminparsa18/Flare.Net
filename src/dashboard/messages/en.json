@@ -3581,5 +3581,12 @@
 	"sessionsPage_detail_screen": "Screen",
 	"sessionsPage_detail_screenshot": "Screenshot",
 	"sessionsPage_detail_screenshotHide": "Hide screenshot",
-	"sessionsPage_detail_screenshotMissing": "Screenshot not available"
+	"sessionsPage_detail_screenshotMissing": "Screenshot not available",
+	"sessionsPage_health_heading": "Release health",
+	"sessionsPage_health_sessions": "Sessions",
+	"sessionsPage_health_crashFreeSessions": "Crash-free sessions",
+	"sessionsPage_health_users": "Users",
+	"sessionsPage_health_crashFreeUsers": "Crash-free users",
+	"sessionsPage_health_crashedOf": "{crashed} of {total} sessions crashed",
+	"sessionsPage_health_hint": "A session crashed when the app reported a fatal unhandled exception. Users are counted from the user.id attribute and show a dash when the app sets none."
 }
