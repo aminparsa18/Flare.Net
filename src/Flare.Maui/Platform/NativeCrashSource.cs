@@ -28,6 +28,7 @@ internal static class NativeCrashSource
 internal static class AndroidExitInfo
 {
     private const int TraceLimit = 16 * 1024;
+    private const int TombstoneReadLimit = 1024 * 1024;
 
     public static IReadOnlyList<NativeCrash> Collect()
     {
@@ -44,7 +45,8 @@ internal static class AndroidExitInfo
                 if (exit.ProcessName != context.PackageName) continue;
                 var kind = KindOf((ApplicationExitInfoReason)exit.Reason, (Importance)exit.Importance);
                 if (kind is null) continue;
-                var stack = (ApplicationExitInfoReason)exit.Reason == ApplicationExitInfoReason.Anr ? ReadTrace(exit) : null;
+                var reason = (ApplicationExitInfoReason)exit.Reason;
+                var stack = reason is ApplicationExitInfoReason.Anr or ApplicationExitInfoReason.CrashNative ? ReadTrace(exit, reason) : null;
                 result.Add(new NativeCrash(
                     kind,
                     exit.Description is { Length: > 0 } d ? d : kind,
@@ -70,19 +72,23 @@ internal static class AndroidExitInfo
         return null;
     }
 
-    /// <summary>ANR traces are text. Native crash traces are protobuf on Android 12+, so they are not read.</summary>
+    /// <summary>ANR traces are text. Native crash traces are protobuf on Android 12+ (text before), rendered by <see cref="NativeStackRenderer"/>.</summary>
     [System.Runtime.Versioning.SupportedOSPlatform("android30.0")]
-    private static string? ReadTrace(ApplicationExitInfo exit)
+    private static string? ReadTrace(ApplicationExitInfo exit, ApplicationExitInfoReason reason)
     {
         try
         {
             using var stream = exit.TraceInputStream;
             if (stream is null) return null;
-            var buffer = new byte[TraceLimit];
+            // A protobuf tombstone cannot be cut at the display cap and still parse, so read it whole (bounded) and render.
+            var limit = reason == ApplicationExitInfoReason.Anr ? TraceLimit : TombstoneReadLimit;
+            var buffer = new byte[limit];
             var read = 0;
             int n;
             while (read < buffer.Length && (n = stream.Read(buffer, read, buffer.Length - read)) > 0) read += n;
-            return System.Text.Encoding.UTF8.GetString(buffer, 0, read);
+            return reason == ApplicationExitInfoReason.Anr
+                ? System.Text.Encoding.UTF8.GetString(buffer, 0, read)
+                : NativeStackRenderer.Tombstone(buffer.AsSpan(0, read));
         }
         catch { return null; }
     }
@@ -136,7 +142,8 @@ internal sealed class MetricKitCrashes : NSObject, IMXMetricManagerSubscriber
     private static string? StackOf(MXCrashDiagnostic crash)
     {
         var json = crash.CallStackTree?.JsonRepresentation?.ToString(NSStringEncoding.UTF8)?.ToString();
-        return json is { Length: > StackLimit } ? json[..StackLimit] : json;
+        var text = NativeStackRenderer.MetricKitCallStack(json) ?? json;
+        return text is { Length: > StackLimit } ? text[..StackLimit] : text;
     }
 
     private static DateTimeOffset ToOffset(NSDate date) => new((DateTime)date, TimeSpan.Zero);

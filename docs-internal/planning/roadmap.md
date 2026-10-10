@@ -75,12 +75,15 @@ folders are where "what happened and why" actually lives.
   The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
     Next for `Flare.Maui`, from the gap against Sentry's MAUI SDK (what a team would miss moving over), roughly in
   priority order:
-  - Device verification: run `ExampleApp.Maui` on an Android emulator and an iOS simulator and a real device each, and
-    confirm export, the disk queue, breadcrumbs, hang detection, screenshots and the `Platform/` glue's trimming. Until
-    this is done nothing above the plain `net10.0` core is proven.
-  - Native crash follow-ups (ADR-0178): symbolicate Android NDK tombstones (protobuf on Android 12+, not read today)
-    and MetricKit's call-stack JSON; Android before 11 and iOS jetsam out-of-memory kills, which have no report to read;
-    an exact iOS crash time (it is estimated from the last lifecycle event); verify both on a device.
+  - Device verification: `ExampleApp.Maui` is verified on a real Android device (arm64, Debug build): export, the disk
+    queue and its replay, breadcrumbs, `app.hang` with a stack, ANR and native-crash reporting on relaunch, a managed
+    crash, scrubbing and a screenshot row. Remaining: an Android emulator, an iOS simulator and an iOS device; a Release
+    build to prove the `Platform/` glue's trimming; and the Sessions page's release comparison. Known gap: a managed
+    crash also emits a spurious `app.hang`, because the crash handler's flush blocks the UI thread for over 2 s.
+  - Native crash follow-ups (ADR-0178): server-side symbolication of the raw iOS offsets against a dSYM; verify the
+    MetricKit renderer on an iOS device (the tombstone one is verified on Android); Android before 11
+    and iOS jetsam out-of-memory kills, which have no report to read; an exact iOS crash time (it is estimated from
+    the last lifecycle event).
   - Release tracking: mark a release (version, commit, deploy time) and show new errors introduced per version, plus a
     "regressed" state when an issue returns in a later version.
   - Release-health trends: crash-free rate over time per version, and an alert rule on a crash-free threshold

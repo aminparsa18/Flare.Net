@@ -55,7 +55,10 @@ check_09() {
   expect "managed crash: app.unhandled_exception escaped=true" "Name='app.unhandled_exception' AND SpanAttributes['exception.escaped']='true' AND SpanAttributes['crash.native']!='true' AND arrayExists(m -> m['exception.message']='Deliberate crash from ExampleApp.Maui', \`Events.Attributes\`)" &&
   expect_none "no app.hang after the crash" "Name='app.hang'"
 }
-check_10() { expect "native crash reported on relaunch" "Name='app.unhandled_exception' AND SpanAttributes['crash.kind']='NativeCrash'"; }
+check_10() {
+  expect "native crash reported on relaunch" "Name='app.unhandled_exception' AND SpanAttributes['crash.kind']='NativeCrash'" &&
+  # Android 12+ tombstones are protobuf: this proves NativeStackRenderer decoded a real one (signal + backtrace frames).
+  expect "native crash stack is a decoded tombstone" "Name='app.unhandled_exception' AND SpanAttributes['crash.kind']='NativeCrash' AND arrayExists(m -> m['exception.stacktrace'] LIKE '%Signal: SIGABRT%' AND m['exception.stacktrace'] LIKE '%backtrace (tid%' AND m['exception.stacktrace'] LIKE '%#00 pc %', \`Events.Attributes\`)"; }
 check_11() { expect "service.version = 2.0.0" "ResourceAttributes['service.version']='2.0.0' AND Name='example.custom_work'"; }
 
 for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version; do

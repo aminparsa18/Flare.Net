@@ -42,6 +42,8 @@ Native crashes (a SIGSEGV, an Android ANR or low-memory kill, an iOS watchdog te
 launch from Android `ApplicationExitInfo` (Android 11+) and iOS MetricKit (iOS 14+), as `app.unhandled_exception`
 spans in the earlier session so release health counts them. `o.CaptureNativeCrashes = false` turns it off. It keeps a
 small journal of the last ten launches in `flare/runs.json` under the app data directory.
+Android native-crash tombstones (protobuf on Android 12+) and MetricKit call stacks are rendered to readable frames;
+iOS frames carry binary offsets for server-side dSYM symbolication.
 
 Not yet: Windows.
 
