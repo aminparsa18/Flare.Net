@@ -30,6 +30,7 @@ public static class MauiProgram
                    var key = Preferences.Default.Get(IngestKeyKey, "");
                    if (key.Length > 0) o.IngestKey = key;
                    o.AdditionalSources.Add(MainPage.SourceName);
+                   o.SendDefaultPii = true;
                });
 
         Routing.RegisterRoute(nameof(DetailPage), typeof(DetailPage));

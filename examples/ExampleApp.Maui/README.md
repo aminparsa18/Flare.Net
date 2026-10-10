@@ -15,6 +15,10 @@ It needs the MAUI workloads, so it lives in `Flare.Maui.slnx`, not `Flare.slnx`.
    ingest key if your instance requires one, tap **Save endpoint**, then force-quit and relaunch. The endpoint is
    read once at launch.
 3. Tap the buttons, then open the Flare dashboard and look for the `example-maui-app` service.
+4. Native crashes: tap **Native crash (abort)**, relaunch, and the crash shows up as a `Native.NativeCrash` error and a
+   crashed session on the Sessions page (Android right away from `ApplicationExitInfo`; iOS when MetricKit delivers
+   its report, up to a day later). On Android, **Freeze the UI thread** then tapping the screen for over 5 s produces an
+   ANR the same way. Turn on the user switch first and the crash-free *users* columns fill in as well.
 
 ```bash
 # iOS simulator

@@ -19,7 +19,13 @@
             <Button Text="RecordException (handled)" Clicked="OnRecordClicked" />
             <Button Text="Unhandled exception on a task" Clicked="OnUnhandledTaskClicked" />
             <Button Text="Flush now" Clicked="OnFlushClicked" />
+            <HorizontalStackLayout Spacing="10">
+                <Switch x:Name="UserSwitch" Toggled="OnUserToggled" />
+                <Label Text="Signed in as demo-user-1 (SetUser, SetTag, SetContext)" VerticalOptions="Center" FontSize="13" />
+            </HorizontalStackLayout>
+            <Button Text="Freeze the UI thread 15 s (tap meanwhile: ANR / app.hang)" Clicked="OnFreezeClicked" />
             <Button Text="Crash the app" Clicked="OnCrashClicked" BackgroundColor="DarkRed" />
+            <Button Text="Native crash (abort), reported on next launch" Clicked="OnNativeCrashClicked" BackgroundColor="DarkRed" />
 
             <Label x:Name="StatusLabel" FontSize="12" />
         </VerticalStackLayout>
