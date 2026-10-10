@@ -6,30 +6,30 @@
     <ScrollView>
         <VerticalStackLayout Padding="20" Spacing="10">
             <Label Text="Flare endpoint (OTLP/HTTP). Saved; takes effect on the next launch." FontSize="13" />
-            <Entry x:Name="EndpointEntry" Keyboard="Url" Placeholder="http://192.168.1.10:4318" />
+            <Entry x:Name="EndpointEntry" AutomationId="EndpointEntry" Keyboard="Url" Placeholder="http://192.168.1.10:4318" />
             <Entry x:Name="KeyEntry" Placeholder="Ingest key (optional)" IsPassword="True" />
-            <Entry x:Name="VersionEntry" Placeholder="service.version override, e.g. 2.0.0 (optional)" />
-            <Button Text="Save endpoint" Clicked="OnSaveClicked" />
+            <Entry x:Name="VersionEntry" AutomationId="VersionEntry" Placeholder="service.version override, e.g. 2.0.0 (optional)" />
+            <Button Text="Save endpoint" AutomationId="SaveButton" Clicked="OnSaveClicked" />
             <Label x:Name="SessionLabel" FontSize="12" />
 
             <BoxView HeightRequest="1" Color="Gray" />
 
-            <Button Text="HttpClient call (traceparent + span)" Clicked="OnHttpClicked" />
-            <Button Text="Navigate (Shell navigation span)" Clicked="OnNavigateClicked" />
-            <Button Text="Custom span + log + metric" Clicked="OnCustomClicked" />
-            <Button Text="RecordException (handled)" Clicked="OnRecordClicked" />
-            <Button Text="Unhandled exception on a task" Clicked="OnUnhandledTaskClicked" />
-            <Button Text="Flush now" Clicked="OnFlushClicked" />
-            <Button Text="Scrubbing: email tag redacted, noisy span dropped" Clicked="OnScrubClicked" />
+            <Button Text="HttpClient call (traceparent + span)" AutomationId="HttpButton" Clicked="OnHttpClicked" />
+            <Button Text="Navigate (Shell navigation span)" AutomationId="NavigateButton" Clicked="OnNavigateClicked" />
+            <Button Text="Custom span + log + metric" AutomationId="CustomButton" Clicked="OnCustomClicked" />
+            <Button Text="RecordException (handled)" AutomationId="RecordButton" Clicked="OnRecordClicked" />
+            <Button Text="Unhandled exception on a task" AutomationId="UnhandledTaskButton" Clicked="OnUnhandledTaskClicked" />
+            <Button Text="Flush now" AutomationId="FlushButton" Clicked="OnFlushClicked" />
+            <Button Text="Scrubbing: email tag redacted, noisy span dropped" AutomationId="ScrubButton" Clicked="OnScrubClicked" />
             <HorizontalStackLayout Spacing="10">
-                <Switch x:Name="UserSwitch" Toggled="OnUserToggled" />
+                <Switch x:Name="UserSwitch" AutomationId="UserSwitch" Toggled="OnUserToggled" />
                 <Label Text="Signed in as demo-user-1 (SetUser, SetTag, SetContext)" VerticalOptions="Center" FontSize="13" />
             </HorizontalStackLayout>
-            <Button Text="Freeze the UI thread 15 s (tap meanwhile: ANR / app.hang)" Clicked="OnFreezeClicked" />
-            <Button Text="Crash the app" Clicked="OnCrashClicked" BackgroundColor="DarkRed" />
-            <Button Text="Native crash (abort), reported on next launch" Clicked="OnNativeCrashClicked" BackgroundColor="DarkRed" />
+            <Button Text="Freeze the UI thread 15 s (tap meanwhile: ANR / app.hang)" AutomationId="FreezeButton" Clicked="OnFreezeClicked" />
+            <Button Text="Crash the app" AutomationId="CrashButton" Clicked="OnCrashClicked" BackgroundColor="DarkRed" />
+            <Button Text="Native crash (abort), reported on next launch" AutomationId="NativeCrashButton" Clicked="OnNativeCrashClicked" BackgroundColor="DarkRed" />
 
-            <Label x:Name="StatusLabel" FontSize="12" />
+            <Label x:Name="StatusLabel" AutomationId="StatusLabel" FontSize="12" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

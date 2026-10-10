@@ -1,0 +1,13 @@
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- scrollUntilVisible:
+    element:
+        id: "ScrubButton"
+- tapOn:
+    id: "ScrubButton"
+- tapOn:
+    id: "FlushButton"
+- waitForAnimationToEnd:
+    timeout: 2000
