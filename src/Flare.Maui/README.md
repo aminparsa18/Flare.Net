@@ -37,7 +37,12 @@ Your own spans and metrics: add the source/meter name to `o.AdditionalSources` /
 `FlareMaui.RecordException(ex)` reports an exception you handled. `FlareMaui.Tracing` and `.Metering` expose the
 providers.
 
-Not yet: native crash reports on next launch, Windows.
+Native crashes (a SIGSEGV, an Android ANR or low-memory kill, an iOS watchdog termination) are reported on the next
+launch from Android `ApplicationExitInfo` (Android 11+) and iOS MetricKit (iOS 14+), as `app.unhandled_exception`
+spans in the earlier session so release health counts them. `o.CaptureNativeCrashes = false` turns it off. It keeps a
+small journal of the last ten launches in `flare/runs.json` under the app data directory.
+
+Not yet: Windows.
 
 ## Build
 

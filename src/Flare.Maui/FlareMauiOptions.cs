@@ -25,6 +25,14 @@ public sealed class FlareMauiOptions
     public bool CaptureUnhandledExceptions { get; set; } = true;
 
     /// <summary>
+    /// Report crashes the operating system recorded about the previous launch, once the app starts again: Android
+    /// <c>ApplicationExitInfo</c> (native crashes, ANRs, out-of-memory and initialization failures) and iOS MetricKit
+    /// crash diagnostics. Each becomes an <c>app.unhandled_exception</c> span in the earlier session, so release health
+    /// counts it. Needs Android 11+ or iOS 14+; keeps a small journal of recent launches in the app's data directory.
+    /// </summary>
+    public bool CaptureNativeCrashes { get; set; } = true;
+
+    /// <summary>
     /// Attach a screenshot of the current page to exceptions (unhandled and <see cref="FlareMaui.RecordException"/>).
     /// Off by default: a screenshot can show anything the user typed or saw, so enable it only if that is acceptable.
     /// Uploaded to <c>/v1/screenshots</c>; at most 5 per launch, one per 10 seconds.

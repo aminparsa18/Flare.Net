@@ -30,7 +30,7 @@ builder.UseMauiApp<App>()
        });
 ```
 
-Ajoutez vos propres noms d'`ActivitySource` et de `Meter` à `o.AdditionalSources` et `o.AdditionalMeters`, et appelez `FlareMaui.RecordException(ex)` pour les exceptions que vous gérez. Les rapports de plantage natifs et Windows ne sont pas encore couverts. Le reste de cette page montre la configuration OpenTelemetry équivalente, câblée à la main, utile seulement si vous voulez un contrôle total ; les sections sur les clés d'ingestion, le développement local et les limites s'appliquent aux deux.
+Ajoutez vos propres noms d'`ActivitySource` et de `Meter` à `o.AdditionalSources` et `o.AdditionalMeters`, et appelez `FlareMaui.RecordException(ex)` pour les exceptions que vous gérez. Les plantages natifs sont signalés au lancement suivant ([détails](#signaler-les-plantages-natifs)) ; Windows n'est pas encore couvert. Le reste de cette page montre la configuration OpenTelemetry équivalente, câblée à la main, utile seulement si vous voulez un contrôle total ; les sections sur les clés d'ingestion, le développement local et les limites s'appliquent aux deux.
 
 ## Utiliser OTLP/HTTP, pas gRPC
 
@@ -245,8 +245,27 @@ Installez les gestionnaires dans `CreateMauiApp`, une fois les fournisseurs
 construits. Les erreurs sont regroupées par type et message d'exception. Ajoutez
 le filtre de ressource `os.type = android` (ou `ios`) sur la page **Errors**
 pour voir une seule plateforme. Les plantages natifs fatals (un SIGSEGV, un kill
-par le watchdog iOS) n'atteignent aucun gestionnaire managé et ne sont pas
-signalés.
+par le watchdog iOS) n'atteignent aucun gestionnaire managé. Le paquet `Flare.Maui` les signale
+au lancement suivant, voir [Signaler les plantages natifs](#signaler-les-plantages-natifs) ; une configuration manuelle ne le fait pas.
+
+## Signaler les plantages natifs
+
+Certains plantages terminent le processus avant qu'un gestionnaire managé ne s'exécute : un SIGSEGV, un ANR ou un kill pour
+manque de mémoire sous Android, une terminaison par le watchdog iOS. Au lancement suivant, `Flare.Maui` lit ce que le système
+a enregistré sur le lancement précédent et envoie chaque cas comme un span `app.unhandled_exception` avec
+`exception.escaped = true`. Le span porte l'ID de session et la version de l'application de ce lancement : la santé des
+versions le compte donc comme un plantage de cette version, et la page Errors le regroupe sous un type `Native.*`.
+
+- **Android 11+** lit `ApplicationExitInfo` : plantages natifs, ANR (avec le texte de la trace), échecs d'initialisation,
+  usage excessif de ressources et kills pour manque de mémoire pendant que l'application était visible.
+- **iOS 14+ et Mac Catalyst** lisent les diagnostics de plantage MetricKit. iOS les livre jusqu'à un jour plus tard : l'heure
+  est donc estimée d'après le dernier passage au premier plan ou en arrière-plan, et la pile est le JSON brut de
+  MetricKit, non symbolisé.
+
+Un plantage dont l'exception managée fatale a déjà été signalée n'est pas compté deux fois. Le paquet garde un petit
+journal des dix derniers lancements (ID de session, version, application au premier plan ou non) dans `flare/runs.json`
+du dossier de données de l'application ; aucun identifiant d'appareil n'est stocké. Désactivez avec
+`o.CaptureNativeCrashes = false`. Pas encore vérifié sur un appareil.
 
 ## Symboliser les stack traces des builds release
 

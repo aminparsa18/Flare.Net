@@ -61,9 +61,9 @@ folders are where "what happened and why" actually lives.
   registry publishing. In progress.
 - **.NET MAUI / mobile SDK (later).** `Flare.Maui` (ADR-0166, `src/Flare.Maui`) ships the
   `UseFlare()` core: OTLP/HTTP export, disk retry, device/session attributes, `HttpClient`
-  and Shell navigation spans, unhandled-exception capture. Remaining for it: native crash
-  reports delivered on next launch (Android `ApplicationExitInfo`, iOS MetricKit), Windows,
-  and verifying on a device or emulator. The macOS CI job (`maui-ci.yml`) and the NuGet
+  and Shell navigation spans, unhandled-exception capture. Remaining for it: Windows,
+  and verifying on a device or emulator. Native crashes found on the next launch (Android `ApplicationExitInfo`, iOS MetricKit,
+  ADR-0178) are done apart from the follow-ups below. The macOS CI job (`maui-ci.yml`) and the NuGet
   publish path (`flare-maui-v*` tag in `nuget-publish.yml`) exist but have not run yet: the
   first release also needs a nuget.org trusted-publishing policy for `Flare.Maui`. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
   Sessions page, and app-version facets on `/errors`. Release health (crash-free sessions and users per version, ADR-0175) is done too, with users counted from `user.id`
@@ -73,4 +73,34 @@ folders are where "what happened and why" actually lives.
   iOS/macOS are covered from the `.dSYM`; remaining there: ELF/PDB
   symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
   The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
-  
+    Next for `Flare.Maui`, from the gap against Sentry's MAUI SDK (what a team would miss moving over), roughly in
+  priority order:
+  - Device verification: run `ExampleApp.Maui` on an Android emulator and an iOS simulator and a real device each, and
+    confirm export, the disk queue, breadcrumbs, hang detection, screenshots and the `Platform/` glue's trimming. Until
+    this is done nothing above the plain `net10.0` core is proven.
+  - Native crash follow-ups (ADR-0178): symbolicate Android NDK tombstones (protobuf on Android 12+, not read today)
+    and MetricKit's call-stack JSON; Android before 11 and iOS jetsam out-of-memory kills, which have no report to read;
+    an exact iOS crash time (it is estimated from the last lifecycle event); verify both on a device.
+  - Hang stacks: capture the blocked UI thread's stack when `app.hang` fires.
+  - Release tracking: mark a release (version, commit, deploy time) and show new errors introduced per version, plus a
+    "regressed" state when an issue returns in a later version.
+  - Release-health trends: crash-free rate over time per version, and an alert rule on a crash-free threshold
+    (release health today is a window total).
+  - Session replay-lite: tie screenshots and breadcrumbs to a per-session view on a schedule, not only on errors, with
+    masking of sensitive views before capture.
+  - Network breadcrumbs and request/response sizes, and offline-aware failures (distinguish no connectivity from a
+    server error).
+  - Mobile performance: app start time (cold/warm), slow and frozen frames, and screen-load spans, with a Performance
+    view per screen.
+  - Profiling: sampled UI-thread profiles attached to slow transactions.
+  - User feedback: an in-app "report a problem" prompt that attaches the session, with a dashboard inbox.
+  - Windows support, and a live (not startup-only) offline queue cap.
+  - Log-record `BeforeSend` and resource-attribute scrubbing; extend `ScrubAttribute` to exceptions recorded by other
+    instrumentation.
+  - Other client SDKs on the same server pieces (sessions, release health, scoped keys): Android native, iOS native,
+    React Native and Flutter, each thin over OTLP.
+  - Issue workflow: assignment, ownership rules from code owners, and links to Jira/GitHub issues from an error group.
+  - Alert integrations beyond webhook/Slack/Telegram/email/PagerDuty: Teams, Opsgenie, Discord, and a Jira ticket on
+    first occurrence.
+  - Hosted-service parity items a self-hoster still expects: SSO group mapping, audit export, data-residency docs, and
+    an upgrade guide with tested rollback.
