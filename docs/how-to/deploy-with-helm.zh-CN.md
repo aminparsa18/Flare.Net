@@ -113,6 +113,11 @@ helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 架构迁移会在 ingest 和 api 启动时执行，无需运行迁移任务。修改 `image.tag` 即可切换版本；
 默认为 chart 的 `appVersion`。
 
+chart 将 ClickHouse 固定在 `26.8` LTS 线（`clickhouse.image`），而不是 `:latest`，
+因此升级不会自行改变 ClickHouse 版本。需要更新的版本线时，请自行设置
+`clickhouse.image`。ClickHouse 之后无法降级。如果在此固定之前你在更新的版本线上运行
+`:latest`，请把 `clickhouse.image` 设为当前运行的版本线，而不要回落到 26.8。
+
 ## 与 Aspire 生成的 chart 的关系
 
 带有 `AddKubernetesEnvironment()` 的 `aspire publish`（参见

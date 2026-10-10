@@ -122,6 +122,13 @@ Schema migrations run in ingest and api on startup, so there is no migration
 job to run. Bump `image.tag` to move versions; it defaults to the chart's
 `appVersion`.
 
+The chart pins ClickHouse to the `26.8` LTS line (`clickhouse.image`) instead of
+`:latest`, so an upgrade never changes the ClickHouse version on its own. Move to a
+newer line deliberately by setting `clickhouse.image` yourself. ClickHouse cannot
+be downgraded afterwards. If you ran `:latest` on a newer line before this pin,
+set `clickhouse.image` to the line you are running rather than letting it fall back
+to 26.8.
+
 ## Relationship to Aspire's generated charts
 
 `aspire publish` with `AddKubernetesEnvironment()` (see
