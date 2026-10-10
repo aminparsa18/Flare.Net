@@ -66,6 +66,33 @@ public class AppSessionQueryBuilderTests
     }
 
     [Fact]
+    public void BuildAppStarts_GroupsByVersionAndType_WithScopeFilters()
+    {
+        var built = AppSessionQueryBuilder.BuildAppStarts(new AppPerformanceRequest { Service = "shop-app", Version = "2.0" }, 60, End);
+
+        Assert.Contains("Name = 'app.start'", built.Sql);
+        Assert.Contains("SpanAttributes['app.start.type']", built.Sql);
+        Assert.Contains("GROUP BY Version, Type", built.Sql);
+        Assert.Contains("quantile(0.95)", built.Sql);
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.Contains("ResourceAttributes['service.version'] = {version:String}", built.Sql);
+        Assert.Contains("LIMIT 200", built.Sql);
+    }
+
+    [Fact]
+    public void BuildScreenPerformance_CombinesLoadsAndFrames_AndGuardsEmptyPercentiles()
+    {
+        var built = AppSessionQueryBuilder.BuildScreenPerformance(new AppPerformanceRequest(), 60, End);
+
+        Assert.Contains("Name IN ('screen.load', 'screen.frames')", built.Sql);
+        Assert.Contains("SpanAttributes['screen.name'] != ''", built.Sql);
+        Assert.Contains("if(Loads = 0, 0, quantileIf(0.95)", built.Sql);
+        Assert.Contains("sumIf(toUInt64OrZero(SpanAttributes['frames.frozen'])", built.Sql);
+        Assert.Contains("GROUP BY Screen", built.Sql);
+        Assert.DoesNotContain("{service:String}", built.Sql);
+    }
+
+    [Fact]
     public void BuildFacets_IgnoresServiceAndVersionFilters()
     {
         var built = AppSessionQueryBuilder.BuildFacets(60, End);

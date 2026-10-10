@@ -209,6 +209,23 @@ quand l'application est en arrière-plan. Sur Android, le span porte aussi `hang
 comme celles natives du runtime) ; iOS ne permet pas de lire la pile d'un autre thread. Un débogueur en pause
 ressemble à un blocage : mettez `DetectAppHangs = false` pendant le débogage si cela gêne.
 
+## Mesurer les performances de l'application
+
+Trois spans alimentent la section **Performance** de la page Sessions, à côté de la santé des versions :
+
+- `app.start`, avec `app.start.type` valant `cold` ou `warm`. Un démarrage à froid court du lancement du processus
+  (Android) ou de l'appel à `UseFlare` (iOS ; `app.start.origin` indique lequel) jusqu'au passage de l'application
+  au premier plan. Un démarrage à chaud court du retour au premier plan. La fermeture d'une boîte de dialogue ou du
+  volet de notifications n'est pas un démarrage.
+- `screen.load` : une navigation Shell, de `Navigating` jusqu'à l'affichage de l'écran, avec `screen.name`.
+- `screen.frames` : un par visite d'écran (et au passage en arrière-plan), avec `frames.total`, `frames.slow` et
+  `frames.frozen`. Une image est lente à partir de `SlowFrameThreshold` (20 ms par défaut) et gelée à partir de
+  `FrozenFrameThreshold` (700 ms) ; une image gelée compte aussi comme lente. Android lit `FrameMetrics` (API 26+),
+  iOS chronomètre un `CADisplayLink`.
+
+`TracePerformance = false` désactive les trois. Sur un appareil 90 ou 120 Hz, le seuil de lenteur par défaut laisse
+passer les images comprises entre le budget de l'écran et 20 ms ; abaissez-le si cela compte pour votre application.
+
 ## Joindre des captures d'écran aux erreurs
 
 Activez `CaptureScreenshotOnError = true` pour envoyer une capture de la page courante à chaque exception signalée.

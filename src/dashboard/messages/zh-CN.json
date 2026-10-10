@@ -3588,5 +3588,21 @@
 	"sessionsPage_health_users": "用户",
 	"sessionsPage_health_crashFreeUsers": "无崩溃用户",
 	"sessionsPage_health_crashedOf": "{total} 个会话中有 {crashed} 个崩溃",
-	"sessionsPage_health_hint": "应用上报了致命的未处理异常即视为会话崩溃。用户数按 user.id 属性统计，应用未设置时显示为短横线。"
+	"sessionsPage_health_hint": "应用上报了致命的未处理异常即视为会话崩溃。用户数按 user.id 属性统计，应用未设置时显示为短横线。",
+	"sessionsPage_perf_heading": "性能",
+	"sessionsPage_perf_startType": "启动",
+	"sessionsPage_perf_starts": "启动次数",
+	"sessionsPage_perf_p50": "中位数",
+	"sessionsPage_perf_p95": "p95",
+	"sessionsPage_perf_cold": "冷启动",
+	"sessionsPage_perf_warm": "热启动",
+	"sessionsPage_perf_screen": "页面",
+	"sessionsPage_perf_loads": "加载次数",
+	"sessionsPage_perf_loadP50": "加载中位数",
+	"sessionsPage_perf_loadP95": "加载 p95",
+	"sessionsPage_perf_frames": "帧数",
+	"sessionsPage_perf_slowFrames": "慢帧",
+	"sessionsPage_perf_frozenFrames": "冻结帧",
+	"sessionsPage_perf_framesOf": "{count} / {total} 帧",
+	"sessionsPage_perf_hint": "冷启动从进程启动（Android）或 UseFlare 调用（iOS）算起，直到应用进入前台；热启动从回到前台算起。加载指一次 Shell 导航直到页面显示。慢帧默认耗时 20 毫秒及以上，冻结帧为 700 毫秒及以上；冻结帧同时计入慢帧。"
 }

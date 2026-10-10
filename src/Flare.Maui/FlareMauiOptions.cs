@@ -81,6 +81,18 @@ public sealed class FlareMauiOptions
     /// <summary>Record a <c>navigation</c> span for each Shell navigation.</summary>
     public bool TraceNavigation { get; set; } = true;
 
+    /// <summary>
+    /// Record <c>app.start</c> (cold and warm), <c>screen.load</c> and per-screen <c>screen.frames</c> spans for the
+    /// Performance view. Frame timing is a few counter increments per frame, with one span per screen visit.
+    /// </summary>
+    public bool TracePerformance { get; set; } = true;
+
+    /// <summary>A frame at least this long counts as slow. 20 ms is about 50 fps; lower it on 90/120 Hz-only apps.</summary>
+    public TimeSpan SlowFrameThreshold { get; set; } = TimeSpan.FromMilliseconds(20);
+
+    /// <summary>A frame at least this long counts as frozen (and as slow).</summary>
+    public TimeSpan FrozenFrameThreshold { get; set; } = TimeSpan.FromMilliseconds(700);
+
     /// <summary>Record lifecycle, tap, page and log breadcrumbs, shown on the session timeline.</summary>
     public bool Breadcrumbs { get; set; } = true;
 
@@ -111,6 +123,8 @@ public sealed class FlareMauiOptions
             throw new InvalidOperationException("UseFlare: Endpoint must be an absolute http(s) URL of the OTLP/HTTP receiver.");
         if (DetectAppHangs && AppHangThreshold < TimeSpan.FromMilliseconds(500))
             throw new InvalidOperationException("UseFlare: AppHangThreshold must be at least 500 ms.");
+        if (TracePerformance && (SlowFrameThreshold <= TimeSpan.Zero || FrozenFrameThreshold <= SlowFrameThreshold))
+            throw new InvalidOperationException("UseFlare: SlowFrameThreshold must be positive and less than FrozenFrameThreshold.");
         if (CaptureScreenshotOnError && ScreenshotMaxBytes is < 10_000 or > 512 * 1024)
             throw new InvalidOperationException("UseFlare: ScreenshotMaxBytes must be between 10 KB and 512 KB.");
         if (EnableOfflineQueue && (OfflineQueueMaxAge <= TimeSpan.Zero || OfflineQueueMaxBytes < 0))

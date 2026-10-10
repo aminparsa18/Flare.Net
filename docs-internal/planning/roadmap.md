@@ -92,8 +92,8 @@ folders are where "what happened and why" actually lives.
     masking of sensitive views before capture.
   - Network breadcrumbs and request/response sizes, and offline-aware failures (distinguish no connectivity from a
     server error).
-  - Mobile performance: app start time (cold/warm), slow and frozen frames, and screen-load spans, with a Performance
-    view per screen.
+  - Mobile performance follow-ups (ADR-0180): verify on an Android device and an iOS device; a trend over time and an
+    alert rule on a start/load regression; iOS process start time; time-to-first-frame rather than first resume.
   - Profiling: sampled UI-thread profiles attached to slow transactions.
   - User feedback: an in-app "report a problem" prompt that attaches the session, with a dashboard inbox.
   - Windows support, and a live (not startup-only) offline queue cap.

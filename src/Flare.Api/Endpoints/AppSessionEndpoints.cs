@@ -17,6 +17,7 @@ public static class AppSessionEndpoints
     {
         endpoints.MapPost("/api/app-sessions/list", HandleListAsync);
         endpoints.MapPost("/api/app-sessions/release-health", HandleReleaseHealthAsync);
+        endpoints.MapPost("/api/app-sessions/performance", HandlePerformanceAsync);
         endpoints.MapPost("/api/app-sessions/timeline", HandleTimelineAsync);
         endpoints.MapPost("/api/app-sessions/screenshot", HandleScreenshotAsync);
         return endpoints;
@@ -39,6 +40,25 @@ public static class AppSessionEndpoints
 
         var response = await queryService.GetReleaseHealthAsync(request ?? new ReleaseHealthRequest(), cancellationToken);
         return ApiSerialization.Write(http, response, AppSessionJsonContext.Default.ReleaseHealthResponse);
+    }
+
+    private static async Task<IResult> HandlePerformanceAsync(
+        HttpContext http,
+        IAppSessionQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        AppPerformanceRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AppSessionJsonContext.Default.AppPerformanceRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await queryService.GetPerformanceAsync(request ?? new AppPerformanceRequest(), cancellationToken);
+        return ApiSerialization.Write(http, response, AppSessionJsonContext.Default.AppPerformanceResponse);
     }
 
     private static async Task<IResult> HandleTimelineAsync(

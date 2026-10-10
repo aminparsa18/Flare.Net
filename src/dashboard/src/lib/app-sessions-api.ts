@@ -85,6 +85,56 @@ export async function getReleaseHealth(query: { windowMinutes: number; service?:
 	return (await res.json()) as ReleaseHealth;
 }
 
+export interface AppStartStat {
+	/** `service.version`, '' when the app reports none. */
+	version: string;
+	type: 'cold' | 'warm' | string;
+	count: number;
+	p50Ms: number;
+	p95Ms: number;
+}
+
+export interface ScreenPerformance {
+	screen: string;
+	loads: number;
+	loadP50Ms: number;
+	loadP95Ms: number;
+	/** Screen visits that reported frames. */
+	visits: number;
+	frames: number;
+	/** Includes the frozen ones. */
+	slowFrames: number;
+	frozenFrames: number;
+}
+
+export interface AppPerformance {
+	windowMinutes: number;
+	starts: AppStartStat[];
+	screens: ScreenPerformance[];
+}
+
+/** App start times and per-screen load and frame health (ADR-0180). */
+export async function getAppPerformance(
+	query: { windowMinutes: number; service?: string; version?: string },
+	signal?: AbortSignal
+): Promise<AppPerformance> {
+	const res = await apiFetch(`${API_BASE_URL}/api/app-sessions/performance`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ windowMinutes: query.windowMinutes, service: query.service || null, version: query.version || null }),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/app-sessions/performance failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as AppPerformance;
+}
+
+/** Share of frames that were slow (or frozen), 0-100, or null when no frames were reported. */
+export function framePercent(count: number, frames: number): number | null {
+	return frames > 0 ? (count / frames) * 100 : null;
+}
+
 /** Share of `total` that did not crash, 0-100, or null when there is nothing to divide. */
 export function crashFreePercent(crashed: number, total: number): number | null {
 	return total > 0 ? ((total - crashed) / total) * 100 : null;

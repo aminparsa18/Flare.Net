@@ -45,11 +45,12 @@ public static class FlareMauiAppBuilderExtensions
         {
             void Resumed()
             {
-                if (options.TraceNavigation) NavigationTracing.TryHook();
+                if (options.TraceNavigation || options.TracePerformance) NavigationTracing.TryHook(options);
                 if (options.Breadcrumbs) BreadcrumbTracing.TryHookPages(options);
                 FlareMaui.NoteLifecycle(foreground: true);
                 FlareMaui.AddBreadcrumb("lifecycle", "foreground");
                 FlareMaui.ResumeHangDetection(MainThread.BeginInvokeOnMainThread, MainThreadStack.Capture);
+                if (options.TracePerformance) FlareMaui.NoteAppResumed(ProcessStart.Get());
             }
 
             void Backgrounded()
@@ -62,11 +63,23 @@ public static class FlareMauiAppBuilderExtensions
 
 #if ANDROID
             events.AddAndroid(a => a
-                .OnResume(_ => Resumed())
+                .OnRestart(_ => { if (options.TracePerformance) FlareMaui.NoteForegroundBegin(); })
+                .OnResume(activity =>
+                {
+                    Resumed();
+                    if (options.TracePerformance) FrameMonitor.Start(activity);
+                })
+                .OnPause(_ => FrameMonitor.Stop())
                 .OnStop(_ => Backgrounded()));
 #elif IOS || MACCATALYST
             events.AddiOS(i => i
-                .OnActivated(_ => Resumed())
+                .WillEnterForeground(_ => { if (options.TracePerformance) FlareMaui.NoteForegroundBegin(); })
+                .OnActivated(_ =>
+                {
+                    Resumed();
+                    if (options.TracePerformance) FrameMonitor.Start();
+                })
+                .OnResignActivation(_ => FrameMonitor.Stop())
                 .DidEnterBackground(_ => Backgrounded()));
 #endif
         });

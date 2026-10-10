@@ -177,6 +177,16 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 看门狗会向 UI 线程发送 ping，若在 `AppHangThreshold`（默认 2 秒，至少 500 毫秒）内没有响应，就报告一个带错误状态的 `app.hang` 链路段。它与 `hang` 面包屑一起显示在会话页面上，因此即使系统随后终止了应用，也能看到界面卡死。应用在后台时会暂停检测。在 Android 上，该链路段还带有 `hang.stacktrace`，即被阻塞线程的 Java 堆栈（托管帧显示为运行时的原生帧）；iOS 无法读取其他线程的堆栈。调试器暂停看起来也像卡死，调试时如有干扰可设置 `DetectAppHangs = false`。
 
+## 衡量应用性能
+
+三种 span 为会话页面中、发布健康度旁边的**性能**部分提供数据：
+
+- `app.start`，`app.start.type` 为 `cold` 或 `warm`。冷启动从进程启动（Android）或 `UseFlare` 调用（iOS，`app.start.origin` 会标明是哪种）算起，直到应用进入前台。热启动从回到前台算起。对话框或通知栏关闭不算启动。
+- `screen.load`：一次 Shell 导航，从 `Navigating` 到页面显示，带 `screen.name`。
+- `screen.frames`：每次访问页面一个（应用进入后台时也会上报），带 `frames.total`、`frames.slow` 和 `frames.frozen`。帧耗时达到 `SlowFrameThreshold`（默认 20 毫秒）为慢帧，达到 `FrozenFrameThreshold`（700 毫秒）为冻结帧；冻结帧同时计入慢帧。Android 读取 `FrameMetrics`（API 26+），iOS 对 `CADisplayLink` 计时。
+
+`TracePerformance = false` 会关闭这三种 span。在 90 或 120 Hz 设备上，默认的慢帧阈值会放过耗时介于显示预算与 20 毫秒之间的帧；如果这对你的应用很重要，请调低它。
+
 ## 为错误附加截图
 
 设置 `CaptureScreenshotOnError = true` 后，每次上报异常时都会上传当前页面的截图，并在会话页面对应行显示 **Screenshot** 按钮。该功能默认关闭，因为截图会包含屏幕上的一切内容，包括用户输入的文字。图片为 JPEG，通过降低质量保持在 `ScreenshotMaxBytes` 以内（默认 300 KB，最大 512 KB），每次启动最多 5 张、每 10 秒最多 1 张。上传发往同一端点的 `POST /v1/screenshots`，使用相同的摄取密钥，并遵循链路的保留设置。请在应用中隐藏敏感视图，避免被截取。

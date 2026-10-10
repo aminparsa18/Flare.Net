@@ -128,6 +128,58 @@ public static class AppSessionQueryBuilder
         return new AppSessionSql(sql, parameters);
     }
 
+    /// <summary>Row cap for each performance table. Neither is expected to reach it: one row per screen, or per version and start type.</summary>
+    public const int MaxPerformanceRows = 200;
+
+    /// <summary>
+    /// App start durations per version and start type (<c>app.start</c> spans, ADR-0180). Columns: Version, Type,
+    /// Count, P50Ms, P95Ms; newest-looking version (descending) first, cold before warm.
+    /// </summary>
+    public static AppSessionSql BuildAppStarts(AppPerformanceRequest request, int windowMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = Where(parameters, windowMinutes, end, request.Service, request.Version);
+        var sql = "SELECT\n" +
+            "    ResourceAttributes['service.version'] AS Version,\n" +
+            "    SpanAttributes['app.start.type'] AS Type,\n" +
+            "    count() AS Count,\n" +
+            "    quantile(0.5)(DurationNano / 1000000.) AS P50Ms,\n" +
+            "    quantile(0.95)(DurationNano / 1000000.) AS P95Ms\n" +
+            "FROM spans\n" +
+            $"WHERE {where} AND Name = 'app.start'\n" +
+            "GROUP BY Version, Type\n" +
+            "ORDER BY Version DESC, Type\n" +
+            $"LIMIT {MaxPerformanceRows}";
+        return new AppSessionSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// Load time and frame health per screen (<c>screen.load</c> and <c>screen.frames</c> spans, ADR-0180). Columns:
+    /// Screen, Loads, LoadP50Ms, LoadP95Ms, Visits, Frames, SlowFrames, FrozenFrames; slowest loads first.
+    /// A load percentile with no loads is 0, not NaN, so the response stays valid JSON.
+    /// </summary>
+    public static AppSessionSql BuildScreenPerformance(AppPerformanceRequest request, int windowMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = Where(parameters, windowMinutes, end, request.Service, request.Version);
+        const string screen = "SpanAttributes['screen.name']";
+        var sql = "SELECT\n" +
+            $"    {screen} AS Screen,\n" +
+            "    countIf(Name = 'screen.load') AS Loads,\n" +
+            "    if(Loads = 0, 0, quantileIf(0.5)(DurationNano / 1000000., Name = 'screen.load')) AS LoadP50Ms,\n" +
+            "    if(Loads = 0, 0, quantileIf(0.95)(DurationNano / 1000000., Name = 'screen.load')) AS LoadP95Ms,\n" +
+            "    countIf(Name = 'screen.frames') AS Visits,\n" +
+            "    sumIf(toUInt64OrZero(SpanAttributes['frames.total']), Name = 'screen.frames') AS Frames,\n" +
+            "    sumIf(toUInt64OrZero(SpanAttributes['frames.slow']), Name = 'screen.frames') AS SlowFrames,\n" +
+            "    sumIf(toUInt64OrZero(SpanAttributes['frames.frozen']), Name = 'screen.frames') AS FrozenFrames\n" +
+            "FROM spans\n" +
+            $"WHERE {where} AND Name IN ('screen.load', 'screen.frames') AND {screen} != ''\n" +
+            "GROUP BY Screen\n" +
+            "ORDER BY LoadP95Ms DESC, Screen\n" +
+            $"LIMIT {MaxPerformanceRows}";
+        return new AppSessionSql(sql, parameters);
+    }
+
     /// <summary>
     /// Resolves a timeline request's bounds: <c>to</c> defaults to now, <c>from</c> to a day before it,
     /// and the span is capped at <see cref="MaxTimelineWindowMinutes"/> (the end wins, so an over-wide

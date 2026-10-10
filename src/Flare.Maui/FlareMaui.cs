@@ -27,6 +27,8 @@ public static class FlareMaui
     private static HttpClient? _screenshotHttp;
     private static RunTracker? _runs;
     private static NativeCrashEmitter? _crashEmitter;
+    private static PerformanceTracker? _perf;
+    private static readonly DateTimeOffset SdkStart = DateTimeOffset.UtcNow;
 
     /// <summary>
     /// Set by the platform glue: captures the current page as JPEG bytes no larger than the limit, or null.
@@ -48,6 +50,7 @@ public static class FlareMaui
     /// <summary>Flush buffered spans and metrics, e.g. before the app is suspended.</summary>
     public static void Flush(int timeoutMilliseconds = 2000)
     {
+        _perf?.FlushFrames();
         Tracing?.ForceFlush(timeoutMilliseconds);
         Metering?.ForceFlush(timeoutMilliseconds);
         _logProcessor?.ForceFlush(timeoutMilliseconds);
@@ -144,6 +147,9 @@ public static class FlareMaui
             Metering = metrics.Build();
         }
 
+        if (options.TracePerformance)
+            _perf = new PerformanceTracker(Source, options.SlowFrameThreshold, options.FrozenFrameThreshold);
+
         if (options.CaptureNativeCrashes && stateDirectory is not null)
         {
             _runs = new RunTracker(Path.Combine(stateDirectory, "runs.json"));
@@ -196,6 +202,23 @@ public static class FlareMaui
         catch { }
     }
 
+    /// <summary>The app is returning from the background; the next <see cref="NoteAppResumed"/> is a warm start.</summary>
+    internal static void NoteForegroundBegin() => _perf?.NoteForegroundBegin();
+
+    /// <summary>
+    /// The app is interactive in the foreground. <paramref name="processStart"/> is the OS process start when the
+    /// platform can tell (otherwise null, and the cold start is measured from <c>UseFlare</c>).
+    /// </summary>
+    internal static void NoteAppResumed(DateTimeOffset? processStart) =>
+        _perf?.NoteResumed(processStart ?? SdkStart, processStart is null ? "sdk" : "process");
+
+    internal static void BeginScreenLoad(string? screen) => _perf?.BeginScreenLoad(screen);
+
+    internal static void ScreenShown(string? screen) => _perf?.ScreenShown(screen);
+
+    /// <summary>One frame took <paramref name="duration"/> to render. Any thread.</summary>
+    internal static void RecordFrame(TimeSpan duration) => _perf?.RecordFrame(duration);
+
     /// <summary>Pauses the watchdog while the app is backgrounded.</summary>
     internal static void PauseHangDetection() => _hangs?.Pause();
 
@@ -219,6 +242,7 @@ public static class FlareMaui
         _reporter = null;
         _runs = null;
         _crashEmitter = null;
+        _perf = null;
         Tracing?.Dispose();
         Metering?.Dispose();
         Tracing = null;

@@ -10,6 +10,8 @@ public interface IAppSessionQueryService
 
     Task<ReleaseHealthResponse> GetReleaseHealthAsync(ReleaseHealthRequest request, CancellationToken cancellationToken);
 
+    Task<AppPerformanceResponse> GetPerformanceAsync(AppPerformanceRequest request, CancellationToken cancellationToken);
+
     Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken);
 
     Task<AppSessionScreenshotResponse?> GetScreenshotAsync(string sessionId, string spanId, AppSessionTimelineRequest window, CancellationToken cancellationToken);
@@ -97,6 +99,51 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
         }
 
         return new ReleaseHealthResponse { WindowMinutes = windowMinutes, Versions = versions };
+    }
+
+    public async Task<AppPerformanceResponse> GetPerformanceAsync(AppPerformanceRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = AppSessionQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var end = AppSessionQueryBuilder.ResolveWindowEnd(request.EndUnixMs, timeProvider.GetUtcNow());
+
+        var starts = new List<AppStartStat>();
+        var startsSql = AppSessionQueryBuilder.BuildAppStarts(request, windowMinutes, end);
+        await using (var reader = await client.ExecuteReaderAsync(startsSql.Sql, startsSql.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                starts.Add(new AppStartStat
+                {
+                    Version = reader.GetString(0),
+                    Type = reader.GetString(1),
+                    Count = reader.GetFieldValue<ulong>(2),
+                    P50Ms = reader.GetFieldValue<double>(3),
+                    P95Ms = reader.GetFieldValue<double>(4),
+                });
+            }
+        }
+
+        var screens = new List<ScreenPerformance>();
+        var screensSql = AppSessionQueryBuilder.BuildScreenPerformance(request, windowMinutes, end);
+        await using (var reader = await client.ExecuteReaderAsync(screensSql.Sql, screensSql.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                screens.Add(new ScreenPerformance
+                {
+                    Screen = reader.GetString(0),
+                    Loads = reader.GetFieldValue<ulong>(1),
+                    LoadP50Ms = reader.GetFieldValue<double>(2),
+                    LoadP95Ms = reader.GetFieldValue<double>(3),
+                    Visits = reader.GetFieldValue<ulong>(4),
+                    Frames = reader.GetFieldValue<ulong>(5),
+                    SlowFrames = reader.GetFieldValue<ulong>(6),
+                    FrozenFrames = reader.GetFieldValue<ulong>(7),
+                });
+            }
+        }
+
+        return new AppPerformanceResponse { WindowMinutes = windowMinutes, Starts = starts, Screens = screens };
     }
 
     public async Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken)
