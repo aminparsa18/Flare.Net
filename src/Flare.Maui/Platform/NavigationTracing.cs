@@ -18,8 +18,10 @@ internal static class NavigationTracing
     public static void TryHook(FlareMauiOptions options)
     {
         if (Shell.Current is not { } shell || !Hooked.TryAdd(shell, new object())) return;
-        if (options.TracePerformance) shell.Navigating += (_, e) => FlareMaui.BeginScreenLoad(e.Target?.Location?.OriginalString);
+        if (options.TracePerformance) shell.Navigating += (_, _) => FlareMaui.BeginScreenLoad();
         shell.Navigated += (_, e) => OnNavigated(options, e);
+        // The first page navigated before this hook existed; without it its frames would carry no screen name.
+        if (options.TracePerformance) FlareMaui.ScreenShown(shell.CurrentState?.Location?.OriginalString);
     }
 
     private static void OnNavigated(FlareMauiOptions options, ShellNavigatedEventArgs e)

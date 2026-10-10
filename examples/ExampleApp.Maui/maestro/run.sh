@@ -60,8 +60,15 @@ check_10() {
   # Android 12+ tombstones are protobuf: this proves NativeStackRenderer decoded a real one (signal + backtrace frames).
   expect "native crash stack is a decoded tombstone" "Name='app.unhandled_exception' AND SpanAttributes['crash.kind']='NativeCrash' AND arrayExists(m -> m['exception.stacktrace'] LIKE '%Signal: SIGABRT%' AND m['exception.stacktrace'] LIKE '%backtrace (tid%' AND m['exception.stacktrace'] LIKE '%#00 pc %', \`Events.Attributes\`)"; }
 check_11() { expect "service.version = 2.0.0" "ResourceAttributes['service.version']='2.0.0' AND Name='example.custom_work'"; }
+check_12() {
+  expect "cold app.start" "Name='app.start' AND SpanAttributes['app.start.type']='cold'" &&
+  expect "warm app.start" "Name='app.start' AND SpanAttributes['app.start.type']='warm'"
+}
+check_13() {
+  expect "screen.frames with slow and frozen frames on MainPage" "Name='screen.frames' AND SpanAttributes['screen.name'] LIKE '%MainPage' AND toUInt64OrZero(SpanAttributes['frames.slow']) >= 50 AND toUInt64OrZero(SpanAttributes['frames.frozen']) >= 1"; }
+check_14() { expect "screen.load for SlowPage of at least 500 ms" "Name='screen.load' AND SpanAttributes['screen.name'] LIKE '%SlowPage' AND DurationNano >= 500000000"; }
 
-for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version; do
+for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen; do
   p=${f%%-*}
   if [ $# -gt 0 ]; then case " $* " in *" $p "*) ;; *) continue ;; esac; fi
   echo "== $f"

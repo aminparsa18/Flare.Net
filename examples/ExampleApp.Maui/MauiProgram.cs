@@ -42,6 +42,7 @@ public static class MauiProgram
                });
 
         Routing.RegisterRoute(nameof(DetailPage), typeof(DetailPage));
+        Routing.RegisterRoute(nameof(SlowPage), typeof(SlowPage));
         return builder.Build();
     }
 }

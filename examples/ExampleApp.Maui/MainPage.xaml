@@ -25,6 +25,8 @@
                 <Switch x:Name="UserSwitch" AutomationId="UserSwitch" Toggled="OnUserToggled" />
                 <Label Text="Signed in as demo-user-1 (SetUser, SetTag, SetContext)" VerticalOptions="Center" FontSize="13" />
             </HorizontalStackLayout>
+            <Button Text="Jank: ~3 s of slow frames, then one frozen frame" AutomationId="JankButton" Clicked="OnJankClicked" />
+            <Button Text="Open a slow screen (screen.load ~700 ms)" AutomationId="SlowScreenButton" Clicked="OnSlowScreenClicked" />
             <Button Text="Freeze the UI thread 15 s (tap meanwhile: ANR / app.hang)" AutomationId="FreezeButton" Clicked="OnFreezeClicked" />
             <Button Text="Crash the app" AutomationId="CrashButton" Clicked="OnCrashClicked" BackgroundColor="DarkRed" />
             <Button Text="Native crash (abort), reported on next launch" AutomationId="NativeCrashButton" Clicked="OnNativeCrashClicked" BackgroundColor="DarkRed" />
