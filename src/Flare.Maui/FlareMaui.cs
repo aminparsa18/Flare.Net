@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
@@ -20,6 +21,17 @@ public static class FlareMaui
     internal static readonly ActivitySource Source = new(SourceName);
 
     private static UnhandledExceptionReporter? _reporter;
+    private static BaseProcessor<LogRecord>? _logProcessor;
+    private static volatile bool _breadcrumbs;
+    private static AppHangWatchdog? _hangs;
+    private static HttpClient? _screenshotHttp;
+
+    /// <summary>
+    /// Set by the platform glue: captures the current page as JPEG bytes no larger than the limit, or null.
+    /// Unset on the plain net10.0 core, where there is nothing to capture.
+    /// </summary>
+    internal static Func<int, CancellationToken, Task<byte[]?>>? ScreenshotCapture { get; set; }
+    private static FlareMauiOptions? _options;
 
     /// <summary>The tracer provider, or null before <c>UseFlare</c>.</summary>
     public static TracerProvider? Tracing { get; private set; }
@@ -35,6 +47,13 @@ public static class FlareMaui
     {
         Tracing?.ForceFlush(timeoutMilliseconds);
         Metering?.ForceFlush(timeoutMilliseconds);
+        _logProcessor?.ForceFlush(timeoutMilliseconds);
+    }
+
+    /// <summary>Record a breadcrumb for the session timeline. No-op when breadcrumbs are off or before <c>UseFlare</c>.</summary>
+    public static void AddBreadcrumb(string category, string message)
+    {
+        if (_breadcrumbs) Breadcrumbs.Add(Source, category, message);
     }
 
     /// <summary>Record an exception the app handled itself, so it shows on the Errors page.</summary>
@@ -77,6 +96,8 @@ public static class FlareMaui
 
         var resource = BuildResource(options, device);
         SessionId = NewSessionId();
+        _breadcrumbs = options.Breadcrumbs;
+        _options = options;
 
         var tracing = Sdk.CreateTracerProviderBuilder()
             .SetResourceBuilder(resource)
@@ -98,14 +119,38 @@ public static class FlareMaui
 
         if (options.CaptureUnhandledExceptions)
         {
-            _reporter = new UnhandledExceptionReporter(Source, Flush);
+            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options));
             _reporter.Attach();
         }
+    }
+
+    /// <summary>Starts (first call) or unpauses the UI-thread watchdog. A no-op when hang detection is off.</summary>
+    internal static void ResumeHangDetection(Action<Action> postToMainThread)
+    {
+        if (_options is not { DetectAppHangs: true } o) return;
+        _hangs ??= new AppHangWatchdog(Source, postToMainThread, o.AppHangThreshold, Flush);
+        _hangs.Resume();
+    }
+
+    /// <summary>Pauses the watchdog while the app is backgrounded.</summary>
+    internal static void PauseHangDetection() => _hangs?.Pause();
+
+    private static Action<string, string, bool>? ScreenshotAfterReport(FlareMauiOptions options)
+    {
+        if (!options.CaptureScreenshotOnError || ScreenshotCapture is not { } capture) return null;
+        _screenshotHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        var reporter = new ScreenshotReporter(options, SessionId!, ct => capture(options.ScreenshotMaxBytes, ct), _screenshotHttp);
+        return (traceId, spanId, fatal) => reporter.Report(traceId, spanId, fatal ? TimeSpan.FromSeconds(3) : null);
     }
 
     /// <summary>Stops exporting and releases the providers. For tests; apps leave telemetry on until exit.</summary>
     internal static void Shutdown()
     {
+        _screenshotHttp?.Dispose();
+        _screenshotHttp = null;
+        _hangs?.Dispose();
+        _hangs = null;
+        _options = null;
         _reporter?.Detach();
         _reporter = null;
         Tracing?.Dispose();
@@ -113,12 +158,23 @@ public static class FlareMaui
         Tracing = null;
         Metering = null;
         SessionId = null;
+        _logProcessor = null;
+        _breadcrumbs = false;
     }
 
     internal static void ConfigureLogging(OpenTelemetryLoggerOptions o, FlareMauiOptions options, FlareDeviceInfo device)
     {
         o.SetResourceBuilder(BuildResource(options, device));
         o.IncludeFormattedMessage = true;
-        o.AddOtlpExporter(e => ConfigureExporter(e, options, "logs"));
+        if (SessionId is not null) o.AddProcessor(new SessionLogProcessor(SessionId));
+
+        if (options.Breadcrumbs && options.BreadcrumbLogLevel != LogLevel.None)
+            o.AddProcessor(new BreadcrumbLogProcessor(Source, options.BreadcrumbLogLevel));
+
+        var exporterOptions = new OtlpExporterOptions();
+        ConfigureExporter(exporterOptions, options, "logs");
+        // Built here rather than through AddOtlpExporter so Flush can reach it when the app is backgrounded.
+        _logProcessor = new BatchLogRecordExportProcessor(new OtlpLogExporter(exporterOptions));
+        o.AddProcessor(_logProcessor);
     }
 }

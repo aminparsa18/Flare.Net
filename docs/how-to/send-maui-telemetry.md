@@ -148,7 +148,36 @@ Filter on `session.id` in **Traces** to see one launch end to end.
 The **Sessions** page (in the `⋯` menu) lists every launch in the window with its
 app version, device, screens, trace count and error count. Filter by app version or
 errors only, and click a session to open its traces. The package sets `session.id`
-for you; a hand-rolled setup needs the processor above.
+for you, on spans and on `ILogger` log records (filter **Logs** on `session.id`); a hand-rolled setup needs the processor above.
+
+## Leave breadcrumbs
+
+The package records a `breadcrumb` span for each foreground and background change, button tap, page
+appearing and `ILogger` record at Information or above. They show on the session page next to the spans,
+so a crash comes with what the user did just before it. Add your own with
+`FlareMaui.AddBreadcrumb("checkout", "payment sheet opened")`.
+
+Button text and page titles can contain personal data, so they are left out unless you set
+`IncludeTextInBreadcrumbs` or `IncludeTitleInBreadcrumbs`. Taps then record the button's `AutomationId`
+(or its type) and pages their type name. Raise `BreadcrumbLogLevel`, or set it to `None`, to limit log
+breadcrumbs, and set `Breadcrumbs = false` to turn all of them off.
+
+## Detect app hangs
+
+A watchdog pings the UI thread and, when it does not answer for `AppHangThreshold` (2 seconds by default,
+at least 500 ms), reports an `app.hang` span with an error status. It shows on the session page with a
+`hang` breadcrumb, so a frozen screen is visible even when the OS then kills the app. It is paused while
+the app is in the background. It does not record the blocked thread's stack, and a paused debugger looks
+like a hang, so set `DetectAppHangs = false` while debugging if it is noisy.
+
+## Attach screenshots to errors
+
+Set `CaptureScreenshotOnError = true` to upload a screenshot of the current page whenever an exception is
+reported. It appears as a **Screenshot** button on that row of the session page. It is off by default because a
+screenshot shows whatever was on screen, including text the user typed. Images are JPEG, kept under
+`ScreenshotMaxBytes` (300 KB by default, at most 512 KB) by lowering the quality, and limited to 5 per launch and
+one per 10 seconds. The upload goes to `POST /v1/screenshots` on the same endpoint and ingest key as the rest, and
+follows the Traces retention setting. Hide sensitive views in your app before they can be captured.
 
 ## Report unhandled exceptions
 

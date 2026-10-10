@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Net;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Trace;
 using Xunit;
 
@@ -80,6 +82,203 @@ public class ProcessorAndReporterTests
         Assert.Equal(2, exported.Count);
         Assert.All(exported, a => Assert.Equal("abc123", a.GetTagItem("session.id")));
     }
+
+    [Fact]
+    public void SessionLogProcessor_stamps_session_id_on_log_records()
+    {
+        var exported = new List<LogRecord>();
+        using var factory = LoggerFactory.Create(b => b.AddOpenTelemetry(o =>
+        {
+            o.AddProcessor(new SessionLogProcessor("abc123"));
+            o.AddInMemoryExporter(exported);
+        }));
+
+        factory.CreateLogger("t").LogInformation("hello {Name}", "x");
+
+        var record = Assert.Single(exported);
+        Assert.Contains(record.Attributes!, kv => kv.Key == "session.id" && (string?)kv.Value == "abc123");
+        Assert.Contains(record.Attributes!, kv => kv.Key == "Name");
+    }
+
+    [Fact]
+    public void Breadcrumbs_are_zero_duration_spans_with_category_and_truncated_message()
+    {
+        var exported = new List<Activity>();
+        using var source = new ActivitySource("test.crumbs");
+        using var provider = Sdk.CreateTracerProviderBuilder()
+            .AddSource("test.crumbs")
+            .AddProcessor(new SessionProcessor("s1"))
+            .AddInMemoryExporter(exported)
+            .Build();
+
+        Breadcrumbs.Add(source, "ui.tap", new string('x', 1000));
+
+        var crumb = Assert.Single(exported);
+        Assert.Equal("breadcrumb", crumb.OperationName);
+        Assert.Equal("ui.tap", crumb.GetTagItem("breadcrumb.category"));
+        Assert.Equal(Breadcrumbs.MaxMessageLength + 1, ((string)crumb.GetTagItem("breadcrumb.message")!).Length);
+        Assert.Equal("s1", crumb.GetTagItem("session.id"));
+    }
+
+    [Theory]
+    [InlineData(LogLevel.Information, 1)]
+    [InlineData(LogLevel.Error, 0)]
+    public void BreadcrumbLogProcessor_honours_minimum_level(LogLevel minimum, int expected)
+    {
+        var exported = new List<Activity>();
+        using var source = new ActivitySource("test.logcrumbs");
+        using var tracer = Sdk.CreateTracerProviderBuilder().AddSource("test.logcrumbs").AddInMemoryExporter(exported).Build();
+        using var factory = LoggerFactory.Create(b => b.AddOpenTelemetry(o =>
+            o.AddProcessor(new BreadcrumbLogProcessor(source, minimum))));
+
+        factory.CreateLogger("t").LogWarning("disk {Pct}% full", 91);
+
+        Assert.Equal(expected, exported.Count);
+        if (expected == 1) Assert.Equal("log", exported[0].GetTagItem("breadcrumb.category"));
+    }
+
+    private sealed class ManualTime : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = new(2026, 10, 10, 12, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private static (AppHangWatchdog Dog, List<Activity> Spans, List<Action> Posted, ManualTime Time, IDisposable Cleanup) NewDog()
+    {
+        var spans = new List<Activity>();
+        var source = new ActivitySource("test.hang");
+        var provider = Sdk.CreateTracerProviderBuilder().AddSource("test.hang").AddInMemoryExporter(spans).Build();
+        var posted = new List<Action>();
+        var time = new ManualTime();
+        var dog = new AppHangWatchdog(source, posted.Add, TimeSpan.FromSeconds(2), _ => { }, time);
+        dog.Resume();
+        return (dog, spans, posted, time, new Disposables(dog, provider, source));
+    }
+
+    private sealed class Disposables(params IDisposable[] items) : IDisposable
+    {
+        public void Dispose() { foreach (var i in items) i.Dispose(); }
+    }
+
+    [Fact]
+    public void Hang_watchdog_reports_once_backdated_when_main_thread_never_answers()
+    {
+        var (dog, spans, posted, time, cleanup) = NewDog();
+        using var _ = cleanup;
+
+        dog.Tick();                                  // ping posted at t0, never run
+        time.Now += TimeSpan.FromSeconds(1); dog.Tick();
+        Assert.Empty(spans);
+        time.Now += TimeSpan.FromSeconds(1.5); dog.Tick();
+        time.Now += TimeSpan.FromSeconds(1); dog.Tick();
+
+        var hang = Assert.Single(spans);
+        Assert.Equal("app.hang", hang.OperationName);
+        Assert.Equal(ActivityStatusCode.Error, hang.Status);
+        Assert.Equal(2500, (long)hang.Duration.TotalMilliseconds);
+        Assert.Single(posted);
+    }
+
+    [Fact]
+    public void Hang_watchdog_stays_quiet_when_the_main_thread_answers_and_when_paused()
+    {
+        var (dog, spans, posted, time, cleanup) = NewDog();
+        using var _ = cleanup;
+
+        dog.Tick(); posted[0]();                     // answered
+        time.Now += TimeSpan.FromSeconds(5); dog.Tick();
+        Assert.Equal(2, posted.Count);               // a fresh ping, nothing reported
+        dog.Pause();
+        time.Now += TimeSpan.FromSeconds(10); dog.Tick();
+
+        Assert.Empty(spans);
+        Assert.Equal(2, posted.Count);
+    }
+
+    [Fact]
+    public void Options_reject_too_small_hang_threshold() =>
+        Assert.Throws<InvalidOperationException>(() => new FlareMauiOptions
+        {
+            Endpoint = new Uri("http://h:4318"), ServiceName = "a", AppHangThreshold = TimeSpan.FromMilliseconds(100),
+        }.Validate());
+
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        public List<(Uri Uri, string? Auth, string? Type, int Length)> Requests { get; } = [];
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Requests.Add((request.RequestUri!, request.Headers.Authorization?.ToString(),
+                request.Content!.Headers.ContentType?.MediaType, (await request.Content.ReadAsByteArrayAsync(ct)).Length));
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+    }
+
+    private static FlareMauiOptions ShotOptions(int max = 300 * 1024) => new()
+    {
+        Endpoint = new Uri("http://h:4318/"), ServiceName = "shop app", IngestKey = "k1",
+        CaptureScreenshotOnError = true, ScreenshotMaxBytes = max,
+    };
+
+    [Fact]
+    public async Task ScreenshotReporter_posts_the_image_with_ids_and_key()
+    {
+        var handler = new RecordingHandler();
+        var reporter = new ScreenshotReporter(ShotOptions(), "sess1234", _ => Task.FromResult<byte[]?>(new byte[100]), new HttpClient(handler));
+
+        await reporter.CaptureAndUploadAsync("t".PadRight(32, '1'), "s".PadRight(16, '2'));
+
+        var r = Assert.Single(handler.Requests);
+        Assert.StartsWith("http://h:4318/v1/screenshots?service=shop%20app&session_id=sess1234&trace_id=", r.Uri.AbsoluteUri);
+        Assert.Equal(("Bearer k1", "image/jpeg", 100), (r.Auth, r.Type, r.Length));
+    }
+
+    [Fact]
+    public async Task ScreenshotReporter_skips_oversized_images_and_swallows_failures()
+    {
+        var handler = new RecordingHandler();
+        var big = new ScreenshotReporter(ShotOptions(50_000), "sess1234", _ => Task.FromResult<byte[]?>(new byte[60_000]), new HttpClient(handler));
+        await big.CaptureAndUploadAsync("a", "b");
+        var failing = new ScreenshotReporter(ShotOptions(), "sess1234", _ => throw new InvalidOperationException("no window"), new HttpClient(handler));
+        await failing.CaptureAndUploadAsync("a", "b");
+
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public void ScreenshotReporter_rate_limits_per_interval_and_per_session()
+    {
+        var time = new ManualTime();
+        var uploads = 0;
+        var reporter = new ScreenshotReporter(ShotOptions(), "sess1234", _ => { uploads++; return Task.FromResult<byte[]?>(null); }, new HttpClient(new RecordingHandler()), time);
+
+        reporter.Report("a", "b", TimeSpan.FromSeconds(2));
+        reporter.Report("a", "b", TimeSpan.FromSeconds(2));       // within 10 s: dropped
+        for (var i = 0; i < 10; i++)
+        {
+            time.Now += ScreenshotReporter.MinInterval + TimeSpan.FromSeconds(1);
+            reporter.Report("a", "b", TimeSpan.FromSeconds(2));
+        }
+
+        Assert.Equal(ScreenshotReporter.MaxPerSession, uploads);
+    }
+
+    [Fact]
+    public void Reporter_hands_ids_of_the_exception_span_to_the_screenshot_callback()
+    {
+        var exported = new List<Activity>();
+        using var source = new ActivitySource("test.shotcb");
+        using var provider = Sdk.CreateTracerProviderBuilder().AddSource("test.shotcb").AddInMemoryExporter(exported).Build();
+        (string Trace, string Span, bool Fatal)? seen = null;
+
+        new UnhandledExceptionReporter(source, _ => { }, (t, s, f) => seen = (t, s, f)).Report(new Exception("x"), fatal: true);
+
+        var span = Assert.Single(exported);
+        Assert.Equal((span.TraceId.ToHexString(), span.SpanId.ToHexString(), true), seen);
+    }
+
+    [Fact]
+    public void Options_reject_screenshot_limit_outside_server_cap() =>
+        Assert.Throws<InvalidOperationException>(() => ShotOptions(600 * 1024).Validate());
 
     [Theory]
     [InlineData(true, 1)]

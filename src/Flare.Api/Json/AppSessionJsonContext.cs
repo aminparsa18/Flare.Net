@@ -11,4 +11,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(AppSessionsResponse))]
 [JsonSerializable(typeof(AppSessionTimelineRequest))]
 [JsonSerializable(typeof(AppSessionTimelineResponse))]
+[JsonSerializable(typeof(AppSessionScreenshotRequest))]
+[JsonSerializable(typeof(AppSessionScreenshotResponse))]
 public sealed partial class AppSessionJsonContext : JsonSerializerContext;

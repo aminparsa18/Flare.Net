@@ -26,6 +26,15 @@ public class IngestKeyScopeTests
     }
 
     [Fact]
+    public void RejectsService_ChecksASingleNameAgainstTheAllowlist()
+    {
+        Assert.False(IngestKeyScope.RejectsService(null, "x"));
+        Assert.False(IngestKeyScope.RejectsService(new DefaultHttpContext(), "x"));
+        Assert.False(IngestKeyScope.RejectsService(ContextWith("web"), "web"));
+        Assert.True(IngestKeyScope.RejectsService(ContextWith("web"), "other"));
+    }
+
+    [Fact]
     public void RejectsServices_IsFalse_WithoutAKeyOrAllowlist()
     {
         Assert.False(IngestKeyScope.RejectsServices(null, [ServiceResource("anything")]));

@@ -1,14 +1,37 @@
 // Reactive state for the /sessions/[sessionId] timeline - one session's spans in start order, see
 // docs-internal/adr/0170-app-session-timeline.md. Loaded once per visit; no polling.
 
-import { getAppSessionTimeline, type AppSessionTimeline } from '$lib/app-sessions-api';
+import { getAppSessionScreenshot, getAppSessionTimeline, type AppSessionTimeline } from '$lib/app-sessions-api';
 
 export class AppSessionTimelineState {
 	timeline = $state.raw<AppSessionTimeline | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
 
+	/** Data URLs of opened screenshots by span id; null = looked up, none found. */
+	screenshots = $state.raw<Record<string, string | null>>({});
+	/** Span ids whose screenshot is currently shown. */
+	openShots = $state.raw<Set<string>>(new Set());
+
 	#abort: AbortController | null = null;
+
+	/** Show or hide a span's screenshot, fetching it the first time. */
+	async toggleScreenshot(sessionId: string, spanId: string, fromUnixMs?: number, toUnixMs?: number): Promise<void> {
+		const open = new Set(this.openShots);
+		if (open.delete(spanId)) {
+			this.openShots = open;
+			return;
+		}
+		open.add(spanId);
+		this.openShots = open;
+		if (spanId in this.screenshots) return;
+		try {
+			const shot = await getAppSessionScreenshot(sessionId, spanId, { fromUnixMs, toUnixMs });
+			this.screenshots = { ...this.screenshots, [spanId]: shot ? `data:${shot.contentType};base64,${shot.imageBase64}` : null };
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
 
 	async load(sessionId: string, fromUnixMs?: number, toUnixMs?: number): Promise<void> {
 		this.#abort?.abort();
