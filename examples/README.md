@@ -224,6 +224,7 @@ dotnet run --project examples/ExampleApp.Seeder -- all --dry-run    # generate a
 | `messaging` | Message queues | Kafka publish/process spans across four topics, and consumer lag with one group falling behind |
 | `hosts` | Hosts | Seven hosts: one saturated, one stale, one macOS |
 | `kubernetes` | Kubernetes | A three-node cluster with a crash-looping pod, a Pending pod, a 2/3 Deployment and a failed Job |
+| `mobile` | Sessions, release health | About 150 MAUI app sessions an hour on releases 2.1.0 and 2.2.0 with navigation, HttpClient and breadcrumb spans, users, and crashes: the newer release crashes ~4x as often, a third of those native (ANR, SIGABRT, watchdog) |
 | `pipeline` | Pipeline rules | Four rules (one paused), then the card-number, `user_id=` and JSON-body logs they act on |
 
 How it behaves:
