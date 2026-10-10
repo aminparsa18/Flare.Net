@@ -49,6 +49,7 @@
 - [Как изучать непрерывные профили](how-to/profile-with-continuous-profiling.ru.md)
 - [Как найти проблемы со средой выполнения .NET](how-to/find-runtime-health-problems.ru.md)
 - [Как сравнить два деплоя сервиса](how-to/compare-deploys.ru.md)
+- [Отслеживать релизы и внесённые ими ошибки](how-to/track-releases.ru.md)
 - [Как задать SLO и получать оповещения о расходе бюджета ошибок](how-to/define-slos.ru.md)
 - [Как опубликовать страницу статуса](how-to/publish-a-status-page.ru.md)
 - [Как организовать команды с помощью проектов](how-to/organize-teams-with-projects.ru.md)

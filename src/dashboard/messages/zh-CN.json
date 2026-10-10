@@ -3604,5 +3604,22 @@
 	"sessionsPage_perf_slowFrames": "慢帧",
 	"sessionsPage_perf_frozenFrames": "冻结帧",
 	"sessionsPage_perf_framesOf": "{count} / {total} 帧",
-	"sessionsPage_perf_hint": "冷启动从进程启动（Android）或 UseFlare 调用（iOS）算起，直到应用进入前台；热启动从回到前台算起。加载指一次 Shell 导航直到页面显示。慢帧默认耗时 20 毫秒及以上，冻结帧为 700 毫秒及以上；冻结帧同时计入慢帧。"
+	"sessionsPage_perf_hint": "冷启动从进程启动（Android）或 UseFlare 调用（iOS）算起，直到应用进入前台；热启动从回到前台算起。加载指一次 Shell 导航直到页面显示。慢帧默认耗时 20 毫秒及以上，冻结帧为 700 毫秒及以上；冻结帧同时计入慢帧。",
+	"nav_releases": "发布",
+	"releasesPage_title": "发布 · Flare",
+	"releasesPage_heading": "发布",
+	"releases_description": "由你的流水线标记为已部署的版本（PUT /api/releases 或 flare releases mark），以及每个版本引入的异常分组。",
+	"releases_emptyTitle": "尚未标记任何发布",
+	"releases_emptyDescription": "在部署步骤中标记：flare releases mark web 1.4.2 --commit $SHA，或使用个人访问令牌调用 PUT /api/releases。",
+	"releases_versionColumn": "版本",
+	"releases_deployedColumn": "部署时间",
+	"releases_commitColumn": "提交",
+	"releases_newErrorsColumn": "新增错误",
+	"releases_actionsColumn": "操作",
+	"releases_toggle": "显示此发布引入的错误",
+	"releases_delete": "移除发布标记",
+	"releases_confirmDelete": "移除 {service} {version} 的发布标记？遥测数据不受影响。",
+	"releases_noNewErrors": "没有异常分组首次出现在此版本中（已回溯部署前 {days} 天）。",
+	"releases_occurrences": "{count} 次出现",
+	"releases_historyNote": "若某分组在部署前 {days} 天内没有出现过，则视为新增。"
 }

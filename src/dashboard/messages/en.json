@@ -3604,5 +3604,22 @@
 	"sessionsPage_perf_slowFrames": "Slow frames",
 	"sessionsPage_perf_frozenFrames": "Frozen frames",
 	"sessionsPage_perf_framesOf": "{count} of {total} frames",
-	"sessionsPage_perf_hint": "A cold start runs from process start (Android) or from UseFlare (iOS) until the app is in the foreground; a warm start from returning to the foreground. Load is a Shell navigation until the screen is shown. A slow frame took 20 ms or more by default, a frozen one 700 ms or more; frozen frames count as slow too."
+	"sessionsPage_perf_hint": "A cold start runs from process start (Android) or from UseFlare (iOS) until the app is in the foreground; a warm start from returning to the foreground. Load is a Shell navigation until the screen is shown. A slow frame took 20 ms or more by default, a frozen one 700 ms or more; frozen frames count as slow too.",
+	"nav_releases": "Releases",
+	"releasesPage_title": "Releases · Flare",
+	"releasesPage_heading": "Releases",
+	"releases_description": "Versions marked as deployed by your pipeline (PUT /api/releases or flare releases mark), with the exception groups each one introduced.",
+	"releases_emptyTitle": "No releases marked",
+	"releases_emptyDescription": "Mark one from your deploy step: flare releases mark web 1.4.2 --commit $SHA, or PUT /api/releases with a personal access token.",
+	"releases_versionColumn": "Version",
+	"releases_deployedColumn": "Deployed",
+	"releases_commitColumn": "Commit",
+	"releases_newErrorsColumn": "New errors",
+	"releases_actionsColumn": "Actions",
+	"releases_toggle": "Show the errors this release introduced",
+	"releases_delete": "Remove release marker",
+	"releases_confirmDelete": "Remove the release marker for {service} {version}? Telemetry is not affected.",
+	"releases_noNewErrors": "No exception group first appeared in this version (looked back {days} days before the deploy).",
+	"releases_occurrences": "{count} occurrences",
+	"releases_historyNote": "A group counts as new when it had no occurrence in the {days} days before the deploy."
 }

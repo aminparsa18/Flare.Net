@@ -90,6 +90,15 @@ app.Configure(config =>
         sourcemaps.AddCommand<SourceMapsDeleteCommand>("delete")
             .WithDescription("Delete a release's source maps (or one bundle's).");
     });
+    config.AddBranch("releases", releases =>
+    {
+        releases.AddCommand<ReleasesListCommand>("list")
+            .WithDescription("List marked releases (with --service: new error groups each version introduced).");
+        releases.AddCommand<ReleasesMarkCommand>("mark")
+            .WithDescription("Mark a service version as deployed (version, commit, link, deploy time).");
+        releases.AddCommand<ReleasesDeleteCommand>("delete")
+            .WithDescription("Remove a release marker.");
+    });
     config.AddBranch("notification-channels", notificationChannels =>
     {
         notificationChannels.AddCommand<NotificationChannelsListCommand>("list")

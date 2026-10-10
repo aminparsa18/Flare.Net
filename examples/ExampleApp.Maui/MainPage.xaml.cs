@@ -73,6 +73,17 @@ public partial class MainPage : ContentPage
         Say("RecordException called.");
     }
 
+    // The message carries the version, so each version introduces its own exception group: mark the versions as
+    // releases (flare releases mark) and the Releases page lists this one as new under the version that threw it.
+    void OnReleaseErrorClicked(object? sender, EventArgs e)
+    {
+        var version = Preferences.Default.Get(MauiProgram.VersionKey, "");
+        if (version.Length == 0) version = AppInfo.Current.VersionString;
+        try { throw new InvalidOperationException($"Release demo error {version}"); }
+        catch (Exception ex) { FlareMaui.RecordException(ex); }
+        Say($"Recorded a version-specific exception for {version}.");
+    }
+
     void OnUnhandledTaskClicked(object? sender, EventArgs e)
     {
         // Faults an unobserved task; it is reported when the finalizer observes it, so force a collection.

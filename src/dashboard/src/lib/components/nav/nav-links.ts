@@ -26,6 +26,7 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/', label: m.nav_logs() },
 		{ href: '/traces', label: m.nav_traces() },
 		{ href: '/errors', label: m.nav_errors() },
+		{ href: '/releases', label: m.nav_releases(), inMenu: true },
 		{ href: '/frontend', label: m.nav_frontend(), inMenu: true },
 		{ href: '/messaging', label: m.nav_messaging() },
 		{ href: '/external-apis', label: m.nav_externalApis(), inMenu: true },
