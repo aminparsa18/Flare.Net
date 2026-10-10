@@ -40,3 +40,14 @@ could not see.
 Symbolicating NDK tombstones (protobuf on Android 12+) and MetricKit's call-stack JSON, Android before 11, iOS jetsam
 out-of-memory kills (not in MetricKit crash diagnostics), an exact iOS crash time, and verification on a device: the
 platform reads compile for all mobile targets but have not run on one.
+
+## Amendment: readable native stacks
+
+Native-crash traces are now rendered to text by `NativeStackRenderer` (pure, unit-tested) before they become
+`exception.stacktrace`: an Android 12+ protobuf tombstone becomes the signal, fault address, causes and the crashing
+thread's frames (`pc`, library, function when the tombstone carries one); an Android 11 text tombstone passes through;
+MetricKit's `MXCallStackTree` JSON becomes `#n binary+offset (address)` for the attributed thread. The tombstone is read
+whole (up to 1 MB) because protobuf cannot be cut at the 16 KB display cap and still parse; the cap applies to the
+rendered text. A payload that does not parse yields no stack rather than an error. The decoder follows
+`tombstone.proto` from the AOSP sources; it is verified on a real Android 12+ device (Maestro flow 10 asserts the
+signal and backtrace frames). The MetricKit renderer has only been tested against hand-built JSON.
