@@ -35,5 +35,6 @@ screen takes to appear, how smooth scrolling is.
 
 ## Consequences
 
-Unverified on a device until `ExampleApp.Maui` is run on one; the iOS process-start gap makes iOS cold starts
-slightly optimistic. No per-screen trend over time and no alert on a regression yet.
+Verified on an Android device (arm64, Debug) with Maestro flows 12-14 against `ExampleApp.Maui`; iOS, an emulator and a
+Release build are not. A warm start is only the `OnRestart` to `OnResume` gap (about 12 ms). The iOS process-start gap
+makes iOS cold starts slightly optimistic. No per-screen trend over time and no alert on a regression yet.
