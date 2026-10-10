@@ -3578,5 +3578,8 @@
 	"sessionsPage_detail_noErrors": "No errors",
 	"sessionsPage_detail_openTrace": "Open trace",
 	"sessionsPage_detail_errorBadge": "Error",
-	"sessionsPage_detail_screen": "Screen"
+	"sessionsPage_detail_screen": "Screen",
+	"sessionsPage_detail_screenshot": "Screenshot",
+	"sessionsPage_detail_screenshotHide": "Hide screenshot",
+	"sessionsPage_detail_screenshotMissing": "Screenshot not available"
 }

@@ -73,6 +73,27 @@ public class AppSessionQueryBuilderTests
     }
 
     [Fact]
+    public void BuildScreenshot_ParametrisesSessionAndSpan_NewestFirst()
+    {
+        var built = AppSessionQueryBuilder.BuildScreenshot("abc", "0123456789abcdef", End.AddHours(-1), End);
+
+        Assert.Contains("FROM app_screenshots", built.Sql);
+        Assert.Contains("SessionId = {sessionId:String}", built.Sql);
+        Assert.Contains("SpanId = {spanId:String}", built.Sql);
+        Assert.Contains("ORDER BY StartTime DESC", built.Sql);
+        Assert.DoesNotContain("abc", built.Sql);
+    }
+
+    [Fact]
+    public void BuildScreenshotSpans_ListsDistinctSpanIdsForTheSession()
+    {
+        var built = AppSessionQueryBuilder.BuildScreenshotSpans("abc", End.AddHours(-1), End);
+
+        Assert.StartsWith("SELECT DISTINCT SpanId", built.Sql);
+        Assert.DoesNotContain("spanId", built.Sql);
+    }
+
+    [Fact]
     public void ResolveTimelineWindow_DefaultsToADayBeforeNow()
     {
         var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(new AppSessionTimelineRequest(), End);

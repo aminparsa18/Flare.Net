@@ -68,6 +68,10 @@ export interface AppSessionTimelineEvent {
 	statusMessage: string;
 	exceptionType: string;
 	exceptionMessage: string;
+	breadcrumbCategory: string;
+	breadcrumbMessage: string;
+	/** An error screenshot was stored for this span (ADR-0174). */
+	hasScreenshot: boolean;
 }
 
 export interface AppSessionTimeline {
@@ -97,4 +101,29 @@ export async function getAppSessionTimeline(
 		throw new Error(`POST /api/app-sessions/timeline failed: ${res.status} ${res.statusText}`);
 	}
 	return (await res.json()) as AppSessionTimeline;
+}
+
+export interface AppSessionScreenshot {
+	contentType: string;
+	imageBase64: string;
+}
+
+/** The screenshot stored for one span, or null when there is none (404). */
+export async function getAppSessionScreenshot(
+	sessionId: string,
+	spanId: string,
+	range: { fromUnixMs?: number; toUnixMs?: number },
+	signal?: AbortSignal
+): Promise<AppSessionScreenshot | null> {
+	const res = await apiFetch(`${API_BASE_URL}/api/app-sessions/screenshot`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ sessionId, spanId, fromUnixMs: range.fromUnixMs ?? null, toUnixMs: range.toUnixMs ?? null }),
+		signal
+	});
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`POST /api/app-sessions/screenshot failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as AppSessionScreenshot;
 }

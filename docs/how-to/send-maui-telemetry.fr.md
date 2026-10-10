@@ -151,7 +151,35 @@ Filtrez sur `session.id` dans **Traces** pour voir un lancement de bout en bout.
 La page **Sessions** (menu `⋯`) liste chaque lancement de la fenêtre avec la version de
 l'application, l'appareil, les écrans, le nombre de traces et d'erreurs. Filtrez par version
 ou ne gardez que les sessions en erreur, puis cliquez sur une session pour ouvrir ses traces.
-Le paquet définit `session.id` pour vous ; une configuration manuelle a besoin du processeur ci-dessus.
+Le paquet définit `session.id` pour vous, sur les spans et sur les enregistrements `ILogger` (filtrez **Logs** sur `session.id`) ; une configuration manuelle a besoin du processeur ci-dessus.
+
+## Laisser des fils d'Ariane (breadcrumbs)
+
+Le paquet enregistre un span `breadcrumb` pour chaque passage au premier plan ou en arrière-plan, appui sur un
+bouton, affichage de page et enregistrement `ILogger` de niveau Information ou plus. Ils apparaissent sur la page
+de session à côté des spans : un plantage arrive avec ce que l'utilisateur faisait juste avant. Ajoutez les vôtres
+avec `FlareMaui.AddBreadcrumb("checkout", "payment sheet opened")`.
+
+Le texte des boutons et les titres de page peuvent contenir des données personnelles ; ils sont omis sauf si vous
+activez `IncludeTextInBreadcrumbs` ou `IncludeTitleInBreadcrumbs`. Relevez `BreadcrumbLogLevel` (ou `None`) pour
+limiter les breadcrumbs de logs, et `Breadcrumbs = false` pour tout désactiver.
+
+## Détecter les blocages de l'application
+
+Un chien de garde envoie un ping au thread d'interface et, s'il ne répond pas pendant `AppHangThreshold` (2 secondes
+par défaut, 500 ms minimum), signale un span `app.hang` avec un statut d'erreur. Il apparaît sur la page de session
+avec un breadcrumb `hang`, donc un écran figé reste visible même si l'OS tue ensuite l'application. Il est en pause
+quand l'application est en arrière-plan. La pile du thread bloqué n'est pas enregistrée, et un débogueur en pause
+ressemble à un blocage : mettez `DetectAppHangs = false` pendant le débogage si cela gêne.
+
+## Joindre des captures d'écran aux erreurs
+
+Activez `CaptureScreenshotOnError = true` pour envoyer une capture de la page courante à chaque exception signalée.
+Elle apparaît sous la forme d'un bouton **Screenshot** sur la ligne de la page de session. C'est désactivé par défaut,
+car une capture montre tout ce qui est à l'écran, y compris le texte saisi. Les images sont des JPEG, maintenues sous
+`ScreenshotMaxBytes` (300 Ko par défaut, 512 Ko au plus) en baissant la qualité, et limitées à 5 par lancement et une
+par 10 secondes. L'envoi va vers `POST /v1/screenshots`, sur le même point d'accès et avec la même clé d'ingestion, et
+suit le réglage de rétention des traces. Masquez les vues sensibles dans votre application avant qu'elles puissent être capturées.
 
 ## Signaler les exceptions non gérées
 

@@ -141,7 +141,21 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 在导出器之前通过 `.AddProcessor(new SessionProcessor())` 注册它。在 **Traces** 中按
 `session.id` 过滤，即可看到一次启动的完整过程。
 
-**Sessions** 页面（`⋯` 菜单中）列出时间窗口内的每次启动，包括应用版本、设备、页面、链路数和错误数。可以按应用版本或仅含错误的会话筛选，点击会话即可打开其链路。该包会自动设置 `session.id`；手动配置时需要上面的处理器。
+**Sessions** 页面（`⋯` 菜单中）列出时间窗口内的每次启动，包括应用版本、设备、页面、链路数和错误数。可以按应用版本或仅含错误的会话筛选，点击会话即可打开其链路。该包会自动设置 `session.id`；它同时写入链路和 `ILogger` 日志记录（可在 **Logs** 中按 `session.id` 过滤）；手动配置时需要上面的处理器。
+
+## 记录面包屑（breadcrumbs）
+
+该包会为每次进入前台/后台、按钮点击、页面出现以及 Information 及以上级别的 `ILogger` 记录生成一个 `breadcrumb` 链路段，显示在会话页面的链路段旁边，这样崩溃时能看到用户之前的操作。也可以用 `FlareMaui.AddBreadcrumb("checkout", "payment sheet opened")` 添加自己的面包屑。
+
+按钮文字和页面标题可能包含个人数据，因此默认不记录，除非设置 `IncludeTextInBreadcrumbs` 或 `IncludeTitleInBreadcrumbs`。提高 `BreadcrumbLogLevel`（或设为 `None`）可减少日志面包屑，设置 `Breadcrumbs = false` 可全部关闭。
+
+## 检测应用卡死
+
+看门狗会向 UI 线程发送 ping，若在 `AppHangThreshold`（默认 2 秒，至少 500 毫秒）内没有响应，就报告一个带错误状态的 `app.hang` 链路段。它与 `hang` 面包屑一起显示在会话页面上，因此即使系统随后终止了应用，也能看到界面卡死。应用在后台时会暂停检测。它不会记录被阻塞线程的堆栈，而调试器暂停看起来也像卡死，调试时如有干扰可设置 `DetectAppHangs = false`。
+
+## 为错误附加截图
+
+设置 `CaptureScreenshotOnError = true` 后，每次上报异常时都会上传当前页面的截图，并在会话页面对应行显示 **Screenshot** 按钮。该功能默认关闭，因为截图会包含屏幕上的一切内容，包括用户输入的文字。图片为 JPEG，通过降低质量保持在 `ScreenshotMaxBytes` 以内（默认 300 KB，最大 512 KB），每次启动最多 5 张、每 10 秒最多 1 张。上传发往同一端点的 `POST /v1/screenshots`，使用相同的摄取密钥，并遵循链路的保留设置。请在应用中隐藏敏感视图，避免被截取。
 
 ## 报告未处理的异常
 

@@ -72,3 +72,9 @@ folders are where "what happened and why" actually lives.
   iOS/macOS are covered from the `.dSYM`; remaining there: ELF/PDB
   symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
   The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
+  Next for `Flare.Maui`, from a gap review against Sentry's MAUI SDK, in priority order:
+  - Release health: crash-free sessions and users per app version (dashboard + API; shares the
+    sessions rollup-table item above).
+  - Enrichment and data controls: `FlareMaui.SetUser`/`SetTag`/context API for global attributes,
+    a `BeforeSend`-style scrubbing hook, and an explicit `SendDefaultPii`-style switch (no device
+    id is sent today). Document and test the disk-retry size and age limits.

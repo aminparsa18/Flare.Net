@@ -152,6 +152,9 @@ builder.Services.AddSingleton<IProfileSampleSink, RedisStreamProfileSampleSink>(
 builder.Services.AddSingleton<IClickHouseProfileWriter, ClickHouseProfileWriter>();
 builder.Services.AddHostedService<ProfileFlushWorker>();
 
+// Error screenshots (ADR-0174): a direct best-effort insert, no stream.
+builder.Services.AddSingleton<IClickHouseScreenshotWriter, ClickHouseScreenshotWriter>();
+
 // Metrics - unlike spans, one shared Redis stream/flush worker for all three point
 // types (Gauge/Sum/Histogram); see MetricFlushWorker's remarks for why.
 builder.Services.AddSingleton<IMetricEventSink, RedisStreamMetricEventSink>();
@@ -275,5 +278,6 @@ app.MapOtlpHttpMetricsEndpoint();
 
 app.MapGrpcService<OtlpGrpcProfilesService>();
 app.MapOtlpHttpProfilesEndpoint();
+app.MapScreenshotEndpoint();
 
 app.Run();

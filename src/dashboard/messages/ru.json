@@ -3578,5 +3578,8 @@
 	"sessionsPage_detail_noErrors": "Нет ошибок",
 	"sessionsPage_detail_openTrace": "Открыть трассировку",
 	"sessionsPage_detail_errorBadge": "Ошибка",
-	"sessionsPage_detail_screen": "Экран"
+	"sessionsPage_detail_screen": "Экран",
+	"sessionsPage_detail_screenshot": "Скриншот",
+	"sessionsPage_detail_screenshotHide": "Скрыть скриншот",
+	"sessionsPage_detail_screenshotMissing": "Скриншот недоступен"
 }

@@ -8,6 +8,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
+	import ImageIcon from '@lucide/svelte/icons/image';
 	import { AppSessionTimelineState, formatOffset, barGeometry } from '$lib/app-sessions/timeline.svelte';
 	import { buildSessionTracesHref } from '$lib/deep-links';
 	import { withBase } from '$lib/paths';
@@ -98,11 +99,22 @@
 								title={m.sessionsPage_detail_openTrace()}>
 								{e.name}
 							</a>
+							{#if e.breadcrumbMessage}
+								<span class="text-muted-foreground min-w-0 max-w-[50%] truncate font-mono text-xs" title={e.breadcrumbMessage}>
+									{e.breadcrumbCategory}: {e.breadcrumbMessage}
+								</span>
+							{/if}
 							{#if e.screen}
 								<Badge variant="outline" title={m.sessionsPage_detail_screen()}>{e.screen}</Badge>
 							{/if}
 							{#if e.isError}
 								<Badge variant="destructive">{m.sessionsPage_detail_errorBadge()}</Badge>
+							{/if}
+							{#if e.hasScreenshot}
+								<Button variant="outline" size="xs" onclick={() => state.toggleScreenshot(sessionId, e.spanId, from, to)}>
+									<ImageIcon data-icon="inline-start" />
+									{state.openShots.has(e.spanId) ? m.sessionsPage_detail_screenshotHide() : m.sessionsPage_detail_screenshot()}
+								</Button>
 							{/if}
 							<span class="text-muted-foreground w-16 shrink-0 text-right font-mono text-xs tabular-nums">
 								{formatDurationNano(e.durationMs * 1_000_000)}
@@ -111,6 +123,17 @@
 						<div class="bg-muted ml-23 mt-1 h-1 rounded-full">
 							<div class="h-1 rounded-full {e.isError ? 'bg-destructive' : 'bg-primary'}" style="margin-left: {geo.left}%; width: {geo.width}%"></div>
 						</div>
+						{#if state.openShots.has(e.spanId)}
+							<div class="ml-23 mt-2">
+								{#if state.screenshots[e.spanId]}
+									<img class="max-h-96 rounded-md border" src={state.screenshots[e.spanId]} alt={m.sessionsPage_detail_screenshot()} />
+								{:else if e.spanId in state.screenshots}
+									<p class="text-muted-foreground text-xs">{m.sessionsPage_detail_screenshotMissing()}</p>
+								{:else}
+									<Spinner />
+								{/if}
+							</div>
+						{/if}
 						{#if e.isError && (e.exceptionMessage || e.statusMessage)}
 							<p class="text-destructive ml-23 mt-1 break-words text-xs">
 								{#if e.exceptionType}<span class="font-mono">{e.exceptionType}: </span>{/if}{e.exceptionMessage || e.statusMessage}

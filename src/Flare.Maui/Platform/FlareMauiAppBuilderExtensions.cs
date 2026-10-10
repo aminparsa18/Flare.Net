@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Hosting;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Devices;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.LifecycleEvents;
@@ -30,26 +31,39 @@ public static class FlareMauiAppBuilderExtensions
             AppInfo.VersionString,
             AppInfo.BuildString);
 
+        if (options.CaptureScreenshotOnError) FlareMaui.ScreenshotCapture = ScreenshotCapture.CaptureAsync;
         FlareMaui.Initialize(options, device, Path.Combine(FileSystem.CacheDirectory, "flare-otlp"));
 
         if (options.ExportLogs)
             builder.Logging.AddOpenTelemetry(o => FlareMaui.ConfigureLogging(o, options, device));
+
+        if (options.Breadcrumbs) BreadcrumbTracing.HookTaps(options);
 
         builder.ConfigureLifecycleEvents(events =>
         {
             void Resumed()
             {
                 if (options.TraceNavigation) NavigationTracing.TryHook();
+                if (options.Breadcrumbs) BreadcrumbTracing.TryHookPages(options);
+                FlareMaui.AddBreadcrumb("lifecycle", "foreground");
+                FlareMaui.ResumeHangDetection(MainThread.BeginInvokeOnMainThread);
+            }
+
+            void Backgrounded()
+            {
+                FlareMaui.AddBreadcrumb("lifecycle", "background");
+                FlareMaui.PauseHangDetection();
+                FlareMaui.Flush();
             }
 
 #if ANDROID
             events.AddAndroid(a => a
                 .OnResume(_ => Resumed())
-                .OnStop(_ => FlareMaui.Flush()));
+                .OnStop(_ => Backgrounded()));
 #elif IOS || MACCATALYST
             events.AddiOS(i => i
                 .OnActivated(_ => Resumed())
-                .DidEnterBackground(_ => FlareMaui.Flush()));
+                .DidEnterBackground(_ => Backgrounded()));
 #endif
         });
 

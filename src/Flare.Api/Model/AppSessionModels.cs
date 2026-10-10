@@ -113,6 +113,36 @@ public sealed record AppSessionTimelineEvent
 
     /// <summary>First <c>exception.message</c> on the span's events, or empty.</summary>
     public required string ExceptionMessage { get; init; }
+
+    /// <summary><c>breadcrumb.category</c> of a <c>Flare.Maui</c> breadcrumb span (ADR-0172), or empty.</summary>
+    public required string BreadcrumbCategory { get; init; }
+
+    /// <summary><c>breadcrumb.message</c>, or empty.</summary>
+    public required string BreadcrumbMessage { get; init; }
+
+    /// <summary>True when an error screenshot was stored for this span (ADR-0174).</summary>
+    public bool HasScreenshot { get; init; }
+}
+
+/// <summary>Request body for <c>POST /api/app-sessions/screenshot</c>: one span's screenshot.</summary>
+public sealed record AppSessionScreenshotRequest
+{
+    public string? SessionId { get; init; }
+
+    public string? SpanId { get; init; }
+
+    /// <summary>Window start, Unix epoch ms; same defaulting as the timeline's window.</summary>
+    public long? FromUnixMs { get; init; }
+
+    public long? ToUnixMs { get; init; }
+}
+
+/// <summary>A stored screenshot, base64-encoded so the dashboard can show it as a data URL.</summary>
+public sealed record AppSessionScreenshotResponse
+{
+    public required string ContentType { get; init; }
+
+    public required string ImageBase64 { get; init; }
 }
 
 public sealed record AppSessionTimelineResponse

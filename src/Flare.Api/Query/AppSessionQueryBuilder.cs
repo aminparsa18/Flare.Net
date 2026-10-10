@@ -112,7 +112,8 @@ public static class AppSessionQueryBuilder
 
     /// <summary>
     /// One session's spans, oldest first. Columns: TraceId, SpanId, Name, ServiceName, StartUnixMs,
-    /// DurationMs, Screen, IsError, StatusMessage, ExceptionType, ExceptionMessage, Version, Os, Device.
+    /// DurationMs, Screen, IsError, StatusMessage, ExceptionType, ExceptionMessage, Version, Os, Device,
+    /// BreadcrumbCategory, BreadcrumbMessage.
     /// </summary>
     public static AppSessionSql BuildTimeline(string sessionId, DateTimeOffset from, DateTimeOffset to)
     {
@@ -142,12 +143,43 @@ public static class AppSessionQueryBuilder
             "    arrayFirst(x -> x != '', arrayMap(a -> a['exception.message'], Events.Attributes)) AS ExceptionMessage,\n" +
             "    ResourceAttributes['service.version'] AS Version,\n" +
             "    trim(concat(ResourceAttributes['os.type'], ' ', ResourceAttributes['os.version'])) AS Os,\n" +
-            "    ResourceAttributes['device.model.identifier'] AS Device\n" +
+            "    ResourceAttributes['device.model.identifier'] AS Device,\n" +
+            "    SpanAttributes['breadcrumb.category'] AS BreadcrumbCategory,\n" +
+            "    SpanAttributes['breadcrumb.message'] AS BreadcrumbMessage\n" +
             "FROM spans\n" +
             $"WHERE {string.Join(" AND ", clauses)}\n" +
             "ORDER BY StartTime, SpanId\n" +
             "LIMIT {limit:UInt32}";
         return new AppSessionSql(sql, parameters);
+    }
+
+    /// <summary>Span ids in the window that have a screenshot for the session (for the timeline's flag). One column: SpanId.</summary>
+    public static AppSessionSql BuildScreenshotSpans(string sessionId, DateTimeOffset from, DateTimeOffset to) =>
+        BuildScreenshotQuery("SELECT DISTINCT SpanId", sessionId, null, from, to, "");
+
+    /// <summary>The newest screenshot of one span. Columns: ContentType, ImageBase64.</summary>
+    public static AppSessionSql BuildScreenshot(string sessionId, string spanId, DateTimeOffset from, DateTimeOffset to) =>
+        BuildScreenshotQuery("SELECT ContentType, ImageBase64", sessionId, spanId, from, to, "ORDER BY StartTime DESC\nLIMIT 1");
+
+    private static AppSessionSql BuildScreenshotQuery(string select, string sessionId, string? spanId, DateTimeOffset from, DateTimeOffset to, string tail)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("from", from.UtcDateTime);
+        parameters.AddParameter("to", to.UtcDateTime);
+        parameters.AddParameter("sessionId", sessionId);
+        var clauses = new List<string>
+        {
+            "StartTime >= {from:DateTime64(3)}",
+            "StartTime < {to:DateTime64(3)}",
+            "SessionId = {sessionId:String}",
+        };
+        if (spanId is not null)
+        {
+            parameters.AddParameter("spanId", spanId);
+            clauses.Add("SpanId = {spanId:String}");
+        }
+        ServiceScope.Append(clauses, parameters);
+        return new AppSessionSql($"{select}\nFROM app_screenshots\nWHERE {string.Join(" AND ", clauses)}\n{tail}".TrimEnd(), parameters);
     }
 
     private static string Where(ClickHouseParameterCollection parameters, int windowMinutes, DateTimeOffset end, string? service, string? version)

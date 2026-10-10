@@ -9,6 +9,8 @@ public interface IAppSessionQueryService
     Task<AppSessionsResponse> GetSessionsAsync(AppSessionsRequest request, CancellationToken cancellationToken);
 
     Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken);
+
+    Task<AppSessionScreenshotResponse?> GetScreenshotAsync(string sessionId, string spanId, AppSessionTimelineRequest window, CancellationToken cancellationToken);
 }
 
 /// <summary>The one component holding an <see cref="IClickHouseClient"/> for the <c>/sessions</c> page - see <see cref="AppSessionQueryBuilder"/> for the SQL.</summary>
@@ -109,7 +111,22 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
                 StatusMessage = reader.GetString(8),
                 ExceptionType = reader.GetString(9),
                 ExceptionMessage = reader.GetString(10),
+                BreadcrumbCategory = reader.GetString(14),
+                BreadcrumbMessage = reader.GetString(15),
             });
+        }
+
+        // Screenshots are keyed by span id; a failure here must not hide the timeline itself.
+        var withScreenshot = new HashSet<string>(StringComparer.Ordinal);
+        try
+        {
+            var shots = AppSessionQueryBuilder.BuildScreenshotSpans(sessionId, from, to);
+            await using var shotReader = await client.ExecuteReaderAsync(shots.Sql, shots.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken);
+            while (shotReader.Read()) withScreenshot.Add(shotReader.GetString(0));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Table missing (migration 0079 not applied yet) or a transient error: no thumbnails, same timeline.
         }
 
         return new AppSessionTimelineResponse
@@ -119,8 +136,18 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
             Version = version,
             Os = os,
             Device = device,
-            Events = events,
+            Events = withScreenshot.Count == 0 ? events : events.Select(e => withScreenshot.Contains(e.SpanId) ? e with { HasScreenshot = true } : e).ToList(),
             Truncated = truncated,
         };
+    }
+
+    public async Task<AppSessionScreenshotResponse?> GetScreenshotAsync(string sessionId, string spanId, AppSessionTimelineRequest window, CancellationToken cancellationToken)
+    {
+        var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(window, timeProvider.GetUtcNow());
+        var built = AppSessionQueryBuilder.BuildScreenshot(sessionId, spanId, from, to);
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.ExecutionTimeOnly(queryLimits.Value), cancellationToken);
+        return reader.Read()
+            ? new AppSessionScreenshotResponse { ContentType = reader.GetString(0), ImageBase64 = reader.GetString(1) }
+            : null;
     }
 }

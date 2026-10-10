@@ -20,6 +20,13 @@ public static class IngestKeyScope
         return resources.Any(r => !(OtlpServiceName(r) is { } name && allowed.Contains(name)));
     }
 
+    /// <summary>The single-service form of <see cref="RejectsServices"/>, for non-OTLP endpoints that carry a service name directly.</summary>
+    public static bool RejectsService(HttpContext? context, string service)
+    {
+        var allowed = context?.Features.Get<IngestKeyUsageFeature>()?.AllowedServices;
+        return allowed is { Count: > 0 } && !allowed.Contains(service);
+    }
+
     private static string? OtlpServiceName(Resource? resource) =>
         Otlp.OtlpAnyValue.Flatten(resource?.Attributes).GetValueOrDefault("service.name");
 }
