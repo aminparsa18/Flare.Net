@@ -115,6 +115,12 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Architecture](explanation/architecture.fr.md)
 - [Clustering](explanation/clustering.fr.md)
 - [Modèle d'authentification](explanation/authentication-model.fr.md)
+- [Fonctionnement des alertes](explanation/how-alerting-works.fr.md)
+- [Comment Flare stocke et interroge la télémétrie](explanation/how-flare-stores-and-queries-telemetry.fr.md)
+- [Fiabilité de l'ingestion et garanties de livraison](explanation/ingest-reliability-and-delivery-guarantees.fr.md)
+- [Échantillonnage, clustering et coût](explanation/sampling-clustering-and-cost.fr.md)
+- [Projets et cloisonnement des accès](explanation/projects-and-access-scoping.fr.md)
+- [Rétention et stockage à froid](explanation/retention-and-tiering.fr.md)
 
 ## Contribuer à la documentation
 
