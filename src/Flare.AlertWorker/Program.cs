@@ -35,6 +35,7 @@ builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQ
 builder.Services.AddSingleton<IAlertTemplateQueryService, AlertTemplateQueryService>();
 builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
+builder.Services.AddSingleton<IReleaseQueryService, ReleaseQueryService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));

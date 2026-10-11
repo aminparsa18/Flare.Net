@@ -15,6 +15,8 @@ export interface Release {
 	createdBy: string;
 	/** Exception groups first seen under this version; null unless the list was scoped to one service. */
 	newErrorCount: number | null;
+	/** Resolved exception groups that recurred in this version; null like `newErrorCount`. */
+	regressionCount: number | null;
 }
 
 export interface ReleaseNewError {
@@ -25,8 +27,17 @@ export interface ReleaseNewError {
 	lastSeenUnixMs: number;
 }
 
+export interface ReleaseRegression {
+	exceptionType: string;
+	exceptionMessage: string;
+	resolvedAtUnixMs: number;
+	assignee: string;
+}
+
 export interface ReleaseErrors {
 	errors: ReleaseNewError[];
+	/** Resolved groups that recurred in this version. */
+	regressions: ReleaseRegression[];
 	/** How far before the deploy earlier occurrences were looked for. */
 	historyDays: number;
 }

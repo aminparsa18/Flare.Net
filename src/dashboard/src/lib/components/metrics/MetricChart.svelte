@@ -32,6 +32,9 @@
 	import { seriesLabel as seriesColorKey } from '$lib/dashboards/visualization';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
+	import { fractionInBuckets, loadReleases, placeMarkers } from '$lib/releases/markers';
+	import type { Release } from '$lib/releases-api';
+	import ReleaseMarkers from '$lib/components/releases/ReleaseMarkers.svelte';
 
 	const explorer = metricsExplorerContext.get();
 
@@ -79,6 +82,7 @@
 		legendFormat,
 		stacking = 'none',
 		title = '',
+		releaseMarkers = false,
 		onPointClick
 	}: {
 		allowZoom?: boolean;
@@ -95,6 +99,8 @@
 		stacking?: PanelStacking;
 		/** The panel's title - names the downloaded CSV; the metric name on the Explorer page. */
 		title?: string;
+		/** Draw deploy markers (ADR-0182) for the filtered services; off for dashboard panels, which would each fetch them. */
+		releaseMarkers?: boolean;
 		onPointClick?: (time: number) => void;
 	} = $props();
 
@@ -787,6 +793,17 @@
 	const minValue = $derived(ticks.min);
 	const maxValue = $derived(Math.max(minValue + 1e-9, ticks.max));
 
+	let releases = $state<Release[]>([]);
+	$effect(() => {
+		if (!releaseMarkers) return;
+		const controller = new AbortController();
+		void loadReleases(explorer.filter.services, controller.signal).then((list) => {
+			if (!controller.signal.aborted) releases = list;
+		});
+		return () => controller.abort();
+	});
+	const markers = $derived(releaseMarkers ? placeMarkers(releases, (t) => fractionInBuckets(t, bucketTimes)) : []);
+
 	function xFor(time: number): number {
 		const count = bucketTimes.length;
 		if (count <= 1) return CHART_WIDTH / 2;
@@ -1209,6 +1226,8 @@
 												vector-effect="non-scaling-stroke"
 											/>
 										{/each}
+
+										<ReleaseMarkers {markers} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
 
 										<ThresholdOverlay
 											thresholds={percent ? [] : thresholds}

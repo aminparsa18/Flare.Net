@@ -14,7 +14,7 @@ namespace Flare.Cli.Commands;
 /// A deploy pipeline against a remote Flare calls the same endpoint with a personal access token
 /// (docs/how-to/track-releases.md); this is the surface for the standing local stack.
 /// </summary>
-internal sealed record ReleaseWire(string Id, string Service, string Version, string Commit, string Url, string Notes, DateTimeOffset DeployedAt, string CreatedBy, long? NewErrorCount);
+internal sealed record ReleaseWire(string Id, string Service, string Version, string Commit, string Url, string Notes, DateTimeOffset DeployedAt, string CreatedBy, long? NewErrorCount, long? RegressionCount = null);
 
 internal sealed record ReleaseListWire(List<ReleaseWire> Releases);
 
@@ -102,6 +102,7 @@ internal sealed class ReleasesListCommand : AsyncCommand<ReleasesListCommand.Set
         table.AddColumn("Deployed");
         table.AddColumn("Commit");
         table.AddColumn("New errors");
+        table.AddColumn("Regressions");
         foreach (var release in releases)
         {
             table.AddRow(
@@ -109,7 +110,8 @@ internal sealed class ReleasesListCommand : AsyncCommand<ReleasesListCommand.Set
                 Markup.Escape(release.Version),
                 release.DeployedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
                 Markup.Escape(release.Commit.Length > 8 ? release.Commit[..8] : release.Commit),
-                release.NewErrorCount?.ToString() ?? "[grey]-[/]");
+                release.NewErrorCount?.ToString() ?? "[grey]-[/]",
+                release.RegressionCount?.ToString() ?? "[grey]-[/]");
         }
 
         AnsiConsole.Write(table);

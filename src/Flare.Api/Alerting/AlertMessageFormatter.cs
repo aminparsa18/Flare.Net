@@ -288,7 +288,7 @@ public static class AlertMessageFormatter
                 }
 
                 break;
-            case AlertConditionKind.ExceptionCount when rule.ExceptionCondition is { } exception:
+            case AlertConditionKind.ExceptionCount or AlertConditionKind.ReleaseErrors when rule.ExceptionCondition is { } exception:
                 foreach (var service in exception.Filter.Services ?? [])
                 {
                     Add("service.name", service);
@@ -392,9 +392,12 @@ public static class AlertMessageFormatter
                    $"(threshold {comparatorSymbol} {thresholdText}) over the last {rule.WindowSeconds}s";
         }
 
-        var what = rule.ConditionKind == AlertConditionKind.ExceptionCount
-            ? $"{rule.ExceptionCondition?.ExceptionType ?? "?"} occurred {(ulong)observedValue} times"
-            : $"{(ulong)observedValue} events";
+        var what = rule.ConditionKind switch
+        {
+            AlertConditionKind.ExceptionCount => $"{rule.ExceptionCondition?.ExceptionType ?? "?"} occurred {(ulong)observedValue} times",
+            AlertConditionKind.ReleaseErrors => $"{(ulong)observedValue} new error groups from a release",
+            _ => $"{(ulong)observedValue} events",
+        };
         return $"{head}: {what} (threshold {comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";
     }
 
@@ -418,6 +421,9 @@ public static class AlertMessageFormatter
         _ => rule.MetricThresholdValue,
     };
 
+    private static string ReleaseServiceSuffix(AlertRule rule) =>
+        rule.ExceptionCondition?.Filter.Services is { Count: > 0 } services ? $" in {string.Join(", ", services)}" : "";
+
     private static string BuildFiredText(AlertRule rule, double observedValue, string? metricUnit)
     {
         if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
@@ -436,6 +442,12 @@ public static class AlertMessageFormatter
             var thresholdText = thresholdValue is { } tv ? MetricUnitFormatter.Format(tv, scale) : "";
             return $":rotating_light: Alert \"{rule.Name}\" fired: {metricName} = {MetricUnitFormatter.Format(observedValue, scale)} " +
                    $"({comparatorSymbol} {thresholdText}) over the last {rule.WindowSeconds}s";
+        }
+
+        if (rule.ConditionKind == AlertConditionKind.ReleaseErrors)
+        {
+            return $":rotating_light: Alert \"{rule.Name}\" fired: a release deployed in the last {rule.WindowSeconds}s introduced {(ulong)observedValue} new error groups " +
+                   $"({comparatorSymbol} {rule.Threshold.Count}){ReleaseServiceSuffix(rule)}";
         }
 
         if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
@@ -530,6 +542,7 @@ public static class AlertMessageFormatter
             AlertConditionKind.MetricThreshold => BuildMetricChartUrl(rule, publicUrl, firedAt),
             AlertConditionKind.ExceptionCount => BuildMatchingExceptionsUrl(rule, publicUrl, firedAt),
             AlertConditionKind.SloBurnRate => BuildSloUrl(rule, publicUrl),
+            AlertConditionKind.ReleaseErrors => string.IsNullOrWhiteSpace(publicUrl) ? null : $"{publicUrl.TrimEnd('/')}/releases",
             _ => BuildMatchingLogsUrl(rule, publicUrl, firedAt),
         };
 
@@ -546,6 +559,7 @@ public static class AlertMessageFormatter
             AlertConditionKind.MetricThreshold => "Metric chart",
             AlertConditionKind.ExceptionCount => "Matching exceptions",
             AlertConditionKind.SloBurnRate => "SLO",
+            AlertConditionKind.ReleaseErrors => "Releases",
             _ => "Matching logs",
         };
 

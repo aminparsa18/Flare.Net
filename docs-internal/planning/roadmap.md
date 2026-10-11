@@ -86,8 +86,8 @@ folders are where "what happened and why" actually lives.
     MetricKit renderer on an iOS device (the tombstone one is verified on Android); Android before 11
     and iOS jetsam out-of-memory kills, which have no report to read; an exact iOS crash time (it is estimated from
     the last lifecycle event).
-  - Release tracking follow-ups (ADR-0182): draw deploy markers on charts, alert on a release that introduces errors,
-    and show a release's regressions.
+  - Release tracking follow-ups (ADR-0182, ADR-0185, ADR-0186, ADR-0187): draw deploy markers on dashboard panels, name
+    the release in the release-errors alert text, and match regressions to a release by service as well as version.
   - Release-health trends: crash-free rate over time per version, and an alert rule on a crash-free threshold
     (release health today is a window total).
   - Session replay-lite: tie screenshots and breadcrumbs to a per-session view on a schedule, not only on errors, with
@@ -110,19 +110,12 @@ folders are where "what happened and why" actually lives.
     first occurrence.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping, audit export, data-residency docs, and
     an upgrade guide with tested rollback.
-- **Map-aware text index for attribute filters.** `LogAttributes` /
-  `ResourceAttributes` filters are served by `mapKeys`/`mapValues` bloom filters
-  (migration 0001), which cannot tie a value to its key, so `attr['k'] = 'v'`
-  prunes poorly. ClickHouse 26.9 adds a `keyValuePairs` text-index tokenizer that
-  answers `map['key'] = 'value'` from the index without reading the map column
-  (plus faster text-index merges). Benchmark against the current bloom filters on
-  a realistic corpus **on 26.9 as the baseline** (its `Map` subcolumn pruning for
-  `mapKeys`/`mapValues`/`has` already improves the bloom-filter path), confirm the feature is out of experimental status, then
-  decide via an ADR (new migration, single + cluster). Body search could be
-  evaluated on the same index type (ADR-0073 uses `ngrambf_v1`; 26.9 lets `LIKE`/`ILIKE`, including `ESCAPE`, use
-  text indexes). Prior art:
-  [ClickHouse 26.9
-  changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).
+- **Map-aware text index for attribute filters, once ClickHouse 26.9+ is pinned.** The `keyValuePairs` text index serves
+  `attr['k'] = 'v'` only and 4 to 7x speeds up broad equality filters, at about 15x the bloom filters' size and with the
+  bloom filters still needed for `mapContains`/`IN`/regex; it does not exist on the pinned 26.8 LTS. Re-benchmark on a real
+  corpus after the bump (see [ADR-0184](../adr/0184-defer-keyvaluepairs-attribute-index.md) and
+  [the investigation](../investigations/map-attribute-text-index.md)). Body search on a `text` index (26.9 `LIKE`/`ILIKE`,
+  vs ADR-0073's `ngrambf_v1`) is a separate benchmark.
 - **Force-merge closed partitions.** Logs and spans are partitioned monthly, so a
   closed month keeps whatever part fragmentation it had when it closed.
   ClickHouse 26.9 adds the `min_partition_age_to_force_merge_seconds` MergeTree

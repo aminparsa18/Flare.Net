@@ -134,7 +134,7 @@
 	<div class="flex min-h-0 flex-1">
 		<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
 		<div class="flex min-w-0 flex-1 flex-col">
-			<VolumeChart />
+			<VolumeChart releaseMarkers />
 			<ValueDistributionChart />
 			<AttributeFiltersRow />
 			<BodyJsonFiltersRow />

@@ -54,6 +54,10 @@ public enum AlertSeverity
 /// <see cref="SloBurnRate"/> evaluates <see cref="AlertRule.SloCondition"/>: the multi-window
 /// error-budget burn rate of an <see cref="Slo"/> - see
 /// <c>docs-internal/adr/0108-slo-error-budgets.md</c>.
+/// <see cref="ReleaseErrors"/> counts the exception groups a release introduced
+/// (see <c>ReleaseQueryService</c>) over <see cref="AlertRule.Threshold"/>'s <see cref="AlertThreshold.Count"/>;
+/// it reads <see cref="AlertRule.ExceptionCondition"/> for its service scope only (its exception
+/// type and message are ignored) - see <c>docs-internal/adr/0186-release-error-alerting.md</c>.
 /// </remarks>
 public enum AlertConditionKind
 {
@@ -62,6 +66,7 @@ public enum AlertConditionKind
     ExceptionCount,
     Anomaly,
     SloBurnRate,
+    ReleaseErrors,
 }
 
 /// <summary>The seasonal period an <see cref="AnomalyCondition"/>'s baseline windows are shifted back by.</summary>
@@ -774,6 +779,8 @@ public sealed partial record AlertRuleRequest
                 "metricCondition and metricThresholdValue are required when conditionKind is MetricThreshold.",
             AlertConditionKind.ExceptionCount when ExceptionCondition is null =>
                 "exceptionCondition is required when conditionKind is ExceptionCount.",
+            AlertConditionKind.ReleaseErrors when ExceptionCondition is null =>
+                "exceptionCondition is required when conditionKind is ReleaseErrors (its filter.services scopes the releases watched; empty watches every service).",
             AlertConditionKind.Anomaly => ValidateAnomaly(),
             AlertConditionKind.SloBurnRate => ValidateSloBurnRate(),
             _ => null,
@@ -785,6 +792,8 @@ public sealed partial record AlertRuleRequest
             0 => null,
             _ when seriesKind == AlertConditionKind.ExceptionCount =>
                 "noDataWindowSeconds is not supported when conditionKind is ExceptionCount - zero exceptions is the healthy state, not missing data.",
+            _ when seriesKind == AlertConditionKind.ReleaseErrors =>
+                "noDataWindowSeconds is not supported when conditionKind is ReleaseErrors - no new errors is the healthy state, not missing data.",
             _ when seriesKind == AlertConditionKind.SloBurnRate =>
                 "noDataWindowSeconds is not supported when conditionKind is SloBurnRate - a window with no requests has no burn rate, not a missing exporter.",
             < MinNoDataWindowSeconds =>
@@ -832,7 +841,7 @@ public sealed partial record AlertRuleRequest
 
         return anomaly.Source switch
         {
-            AlertConditionKind.Anomaly =>
+            AlertConditionKind.Anomaly or AlertConditionKind.ReleaseErrors or AlertConditionKind.SloBurnRate =>
                 "anomalyCondition.source must be LogCount, MetricThreshold or ExceptionCount.",
             AlertConditionKind.MetricThreshold when MetricCondition is null =>
                 "metricCondition is required when anomalyCondition.source is MetricThreshold.",

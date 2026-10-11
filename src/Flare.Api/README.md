@@ -407,6 +407,7 @@ which dispatches on the rule's series kind (an `Anomaly` rule follows its source
   so the page selects the first matching pair and pre-fills the picker search with the metric
   name, leaving the other services one click away. No link when the condition has attribute
   filters, since the explorer has nowhere to restore them.
+- `ReleaseErrors` → `{PublicUrl}/releases`.
 - `ExceptionCount` → `{PublicUrl}/errors?state=` with the window, services, exception type
   and message. The Exceptions page narrows its groups table to that type client-side
   (removable chip) and opens the occurrences when exactly one group matches.

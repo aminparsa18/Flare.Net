@@ -109,6 +109,18 @@ public class AlertConditionValidationTests
         Assert.NotNull((request with { MinDataPoints = 5 }).ValidateCondition());
     }
 
+    [Fact]
+    public void ReleaseErrors_WithServiceScope_IsValid() =>
+        Assert.Null((Build(AlertConditionKind.ReleaseErrors, windowSeconds: 3600) with { ExceptionCondition = new ExceptionCountCondition { ExceptionType = "", Filter = new ExceptionFilter { Services = ["web"] } } }).ValidateCondition());
+
+    [Fact]
+    public void ReleaseErrors_MissingCondition_IsInvalid() =>
+        Assert.NotNull(Build(AlertConditionKind.ReleaseErrors, windowSeconds: 3600).ValidateCondition());
+
+    [Fact]
+    public void ReleaseErrors_RejectsNoData() =>
+        Assert.NotNull((Build(AlertConditionKind.ReleaseErrors, windowSeconds: 3600) with { ExceptionCondition = MakeExceptionCondition(), NoDataWindowSeconds = 600 }).ValidateCondition());
+
     private static MetricAlertCondition MakeCondition() => new() { MetricName = "process.threads", Type = MetricPointType.Gauge };
 
     private static ExceptionCountCondition MakeExceptionCondition() => new() { ExceptionType = "System.NullReferenceException" };

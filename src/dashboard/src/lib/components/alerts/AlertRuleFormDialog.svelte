@@ -316,7 +316,7 @@
 			// declaration's comment - so it's populated from whichever filter this rule's
 			// conditionKind actually uses.
 			const targetSeriesKind = target.conditionKind === 'Anomaly' ? (target.anomalyCondition?.source ?? 'LogCount') : target.conditionKind;
-			services = targetSeriesKind === 'ExceptionCount' ? (target.exceptionCondition?.filter?.services ?? []) : (target.condition.services ?? []);
+			services = targetSeriesKind === 'ExceptionCount' || targetSeriesKind === 'ReleaseErrors' ? (target.exceptionCondition?.filter?.services ?? []) : (target.condition.services ?? []);
 			severityNumbers = target.condition.severityNumbers ?? [];
 			search = target.condition.search ?? '';
 			thresholdCountText = String(target.threshold.count);
@@ -385,7 +385,7 @@
 	const cooldownSeconds = $derived(Number(cooldownSecondsText));
 	const metricThresholdValue = $derived(Number(metricThresholdValueText));
 	const noDataWindowSeconds = $derived(Number(noDataWindowSecondsText));
-	const supportsNoData = $derived(seriesKind !== 'ExceptionCount');
+	const supportsNoData = $derived(seriesKind !== 'ExceptionCount' && seriesKind !== 'ReleaseErrors');
 	const noDataActive = $derived(supportsNoData && noDataEnabled);
 	const minDataPoints = $derived(Number(minDataPointsText));
 	const minDataPointsActive = $derived(conditionKind === 'MetricThreshold' && minDataPointsEnabled);
@@ -604,10 +604,11 @@
 					: undefined,
 			metricThresholdValue: conditionKind === 'MetricThreshold' ? metricThresholdValue : undefined,
 			exceptionCondition:
-				seriesKind === 'ExceptionCount'
+				seriesKind === 'ExceptionCount' || seriesKind === 'ReleaseErrors'
 					? {
-							exceptionType: exceptionType.trim(),
-							exceptionMessage: exceptionMessage.trim() || undefined,
+							// ReleaseErrors reads only the service scope (ADR-0186); its type/message stay empty.
+							exceptionType: seriesKind === 'ExceptionCount' ? exceptionType.trim() : '',
+							exceptionMessage: seriesKind === 'ExceptionCount' ? exceptionMessage.trim() || undefined : undefined,
 							filter:
 								services.length || exceptionResourceAttributes.length
 									? {
@@ -755,13 +756,16 @@
 								? m.alertRuleForm_conditionKindExceptionCount()
 								: conditionKind === 'Anomaly'
 									? m.alertRuleForm_conditionKindAnomaly()
-									: m.alertRuleForm_conditionKindLogCount()}
+									: conditionKind === 'ReleaseErrors'
+										? m.alertRuleForm_conditionKindReleaseErrors()
+										: m.alertRuleForm_conditionKindLogCount()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="LogCount" label={m.alertRuleForm_conditionKindLogCount()} />
 						<Select.Item value="MetricThreshold" label={m.alertRuleForm_conditionKindMetricThreshold()} />
 						<Select.Item value="ExceptionCount" label={m.alertRuleForm_conditionKindExceptionCount()} />
 						<Select.Item value="Anomaly" label={m.alertRuleForm_conditionKindAnomaly()} />
+						<Select.Item value="ReleaseErrors" label={m.alertRuleForm_conditionKindReleaseErrors()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
@@ -833,6 +837,16 @@
 					<span class="text-xs font-medium">{m.alertRuleForm_searchLabel()}</span>
 					<Input bind:value={search} placeholder={m.alertRuleForm_optionalPlaceholder()} />
 				</div>
+			{:else if seriesKind === 'ReleaseErrors'}
+				<div class="flex flex-wrap items-center gap-2">
+					<PopoverMultiSelect
+						label={m.alertRuleForm_serviceLabel()}
+						options={serviceOptions}
+						selected={services}
+						onChange={(next) => (services = next)}
+					/>
+				</div>
+				<span class="text-muted-foreground text-xs">{m.alertRuleForm_releaseErrorsHint()}</span>
 			{:else if seriesKind === 'ExceptionCount'}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_exceptionTypeLabel()}</span>
@@ -953,7 +967,7 @@
 				</div>
 			{:else}
 				<div class="flex items-end gap-2">
-					{#if conditionKind === 'LogCount' || conditionKind === 'ExceptionCount'}
+					{#if conditionKind === 'LogCount' || conditionKind === 'ExceptionCount' || conditionKind === 'ReleaseErrors'}
 						<div class="flex flex-col gap-1">
 							<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
 							<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
@@ -967,7 +981,7 @@
 							</Select.Root>
 						</div>
 						<Input type="number" min="1" bind:value={thresholdCountText} class="w-24" />
-						<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_eventsIn()}</span>
+						<span class="text-muted-foreground pb-1.5 text-xs">{conditionKind === 'ReleaseErrors' ? m.alertRuleForm_releaseErrorsIn() : m.alertRuleForm_eventsIn()}</span>
 					{:else}
 						<div class="flex flex-col gap-1">
 							<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>

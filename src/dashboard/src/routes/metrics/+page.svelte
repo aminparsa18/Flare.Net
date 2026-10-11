@@ -162,7 +162,7 @@
 						: ''}"
 				></div>
 			</div>
-			<MetricChart />
+			<MetricChart releaseMarkers />
 		{/if}
 	</div>
 </div>

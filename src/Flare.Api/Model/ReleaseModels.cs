@@ -33,7 +33,16 @@ public sealed partial record Release
     /// service (counting scans <c>spans</c>, so it is not done across every service).
     /// </summary>
     public long? NewErrorCount { get; init; }
+
+    /// <summary>
+    /// Resolved exception groups that recurred in this version (ADR-0121's Regressed state, matched on
+    /// <c>service.version</c>). Null under the same condition as <see cref="NewErrorCount"/>. Appended last.
+    /// </summary>
+    public long? RegressionCount { get; init; }
 }
+
+/// <summary>The marked release that introduced the most exception groups, for a <see cref="AlertConditionKind.ReleaseErrors"/> rule.</summary>
+public sealed record ReleaseErrorTally(Release Release, long NewErrorCount);
 
 [MemoryPackable]
 public sealed partial record ReleaseListResponse
@@ -114,6 +123,20 @@ public sealed partial record ReleaseNewError
     public required long LastSeenUnixMs { get; init; }
 }
 
+/// <summary>A group someone had resolved that has since recurred in the release's version.</summary>
+[MemoryPackable]
+public sealed partial record ReleaseRegression
+{
+    public required string ExceptionType { get; init; }
+
+    public required string ExceptionMessage { get; init; }
+
+    /// <summary>When the group was marked resolved.</summary>
+    public required long ResolvedAtUnixMs { get; init; }
+
+    public string Assignee { get; init; } = "";
+}
+
 [MemoryPackable]
 public sealed partial record ReleaseErrorsResponse
 {
@@ -121,4 +144,7 @@ public sealed partial record ReleaseErrorsResponse
 
     /// <summary>How far before the deploy time earlier occurrences were looked for.</summary>
     public required int HistoryDays { get; init; }
+
+    /// <summary>Resolved groups that recurred in this version. Appended last.</summary>
+    public IReadOnlyList<ReleaseRegression> Regressions { get; init; } = [];
 }

@@ -27,13 +27,24 @@ public static class ReleaseEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> HandleListAsync(HttpContext http, IReleaseQueryService releases, string? service, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleListAsync(HttpContext http, IReleaseQueryService releases, IErrorIssueQueryService issues, string? service, CancellationToken cancellationToken)
     {
-        var response = new ReleaseListResponse { Releases = await releases.ListAsync(service, cancellationToken) };
+        var list = await releases.ListAsync(service, cancellationToken);
+        if (!string.IsNullOrEmpty(service) && list.Count > 0)
+        {
+            var byVersion = (await RegressedAsync(issues, cancellationToken)).ToLookup(i => i.RegressedVersion);
+            list = list.Select(r => r with { RegressionCount = byVersion[r.Version].LongCount() }).ToList();
+        }
+
+        var response = new ReleaseListResponse { Releases = list };
         return ApiSerialization.Write(http, response, ReleasesJsonContext.Default.ReleaseListResponse);
     }
 
-    private static async Task<IResult> HandleErrorsAsync(HttpContext http, IReleaseQueryService releases, string? service, string? version, CancellationToken cancellationToken)
+    /// <summary>Issues whose effective status is Regressed (recurrence in a version they weren't known in, ADR-0121).</summary>
+    private static async Task<IReadOnlyList<ErrorIssue>> RegressedAsync(IErrorIssueQueryService issues, CancellationToken cancellationToken) =>
+        (await issues.ListAsync(cancellationToken)).Where(i => i.Status == ErrorIssueStatus.Regressed).ToList();
+
+    private static async Task<IResult> HandleErrorsAsync(HttpContext http, IReleaseQueryService releases, IErrorIssueQueryService issues, string? service, string? version, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(service) || string.IsNullOrWhiteSpace(version))
         {
@@ -46,7 +57,17 @@ public static class ReleaseEndpoints
             return Results.Problem("No such release.", statusCode: StatusCodes.Status404NotFound);
         }
 
-        var response = new ReleaseErrorsResponse { Errors = errors, HistoryDays = ReleaseQueryBuilder.HistoryDays };
+        var regressions = (await RegressedAsync(issues, cancellationToken))
+            .Where(i => i.RegressedVersion == version)
+            .Select(i => new ReleaseRegression
+            {
+                ExceptionType = i.ExceptionType,
+                ExceptionMessage = i.ExceptionMessage,
+                ResolvedAtUnixMs = i.StatusChangedAt.ToUnixTimeMilliseconds(),
+                Assignee = i.Assignee,
+            })
+            .ToList();
+        var response = new ReleaseErrorsResponse { Errors = errors, HistoryDays = ReleaseQueryBuilder.HistoryDays, Regressions = regressions };
         return ApiSerialization.Write(http, response, ReleasesJsonContext.Default.ReleaseErrorsResponse);
     }
 
