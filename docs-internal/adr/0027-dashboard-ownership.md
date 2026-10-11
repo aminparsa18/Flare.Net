@@ -119,7 +119,7 @@ legitimately should be able to for one nobody's claimed).
   that its own pin-as-update would then 403 against.
 - No new UI copy/i18n: this narrows *which* controls a given user sees,
   it doesn't add any new text to translate. The one user-facing doc
-  change is a short note in `docs/how-to/build-custom-dashboards.md` (and
+  change is a short note in `docs/how-to/dashboards/build-custom-dashboards.md` (and
   its fr/ru/zh-CN translations) explaining the owner-or-Admin rule.
 - Deliberately no "created by" display anywhere yet (table column, viewer
   header, etc.) - Flare has no existing "resolve a `User.Id` to a
@@ -131,5 +131,5 @@ legitimately should be able to for one nobody's claimed).
 
 - `docs-internal/adr/0023-custom-dashboards.md` - the dashboard CRUD/
   visibility baseline this ADR narrows.
-- `docs/how-to/build-custom-dashboards.md` - user-facing walkthrough,
+- `docs/how-to/dashboards/build-custom-dashboards.md` - user-facing walkthrough,
   updated alongside this ADR.

@@ -7,7 +7,7 @@ Date: 2026-10-09
 ## Context
 
 A .NET MAUI app can already send OTLP with stock OpenTelemetry packages (the
-[MAUI how-to](../../docs/how-to/send-maui-telemetry.md)), but each team has to rediscover the same
+[MAUI how-to](../../docs/how-to/instrument/send-maui-telemetry.md)), but each team has to rediscover the same
 workarounds: no generic host, so `AddOpenTelemetry()` never starts; gRPC is unreliable on iOS and Android;
 exports are lost offline; crashes and backgrounding need explicit flushes. Phase 2 packages those
 workarounds.

@@ -6,7 +6,7 @@ Flare 的确切角色、身份解析事实和配置密钥
 认证系统。有关每个方法实际执行的操作，请参阅
 [`../explanation/authentication-model.md`](../explanation/authentication-model.zh-CN.md)。
 有关设置步骤，请参阅
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.zh-CN.md)。
+[`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.zh-CN.md)。
 
 ## 角色
 
@@ -52,9 +52,9 @@ Flare 的确切角色、身份解析事实和配置密钥
 | `Auth:LoginFailureWindow` | `00:15:00`（15 分钟） | 早于此时长的失败不计入 `MaxFailedLoginAttempts` - 重置计数，而不是让偶尔的密码打错随时间累积。 |
 | `Auth:PatRateLimitPermitLimit` | `120` | 单个[个人访问令牌](../explanation/authentication-model.zh-CN.md#个人访问令牌)在每个 `PatRateLimitWindow` 内允许发起的请求数，超出后 `Flare.Api` 会对该令牌返回 `429`。仪表板的会话（Cookie）流量永远不受此限制。 |
 | `Auth:PatRateLimitWindow` | `00:01:00`（1 分钟） | 计算 `PatRateLimitPermitLimit` 的固定时间窗口。 |
-| `Audit:RetentionDays` | `365` | [审计日志](../how-to/configure-authentication.zh-CN.md#审计日志)事件的保留天数，超期后由每小时运行的任务删除。`0` 表示永久保留。 |
+| `Audit:RetentionDays` | `365` | [审计日志](../how-to/admin/configure-authentication.zh-CN.md#审计日志)事件的保留天数，超期后由每小时运行的任务删除。`0` 表示永久保留。 |
 | `Auth:IngestKeyRequired` | `false` | `Flare.Ingest` 是否拒绝没有有效 API 密钥的 OTLP 请求。 |
-| `Auth:StaticIngestApiKey` | 未设置 | 通过配置而不是仪表板设置的固定摄取密钥 - 请参阅 [ingest API keys](../how-to/configure-authentication.zh-CN.md#摄取-api-密钥)。 |
+| `Auth:StaticIngestApiKey` | 未设置 | 通过配置而不是仪表板设置的固定摄取密钥 - 请参阅 [ingest API keys](../how-to/admin/configure-authentication.zh-CN.md#摄取-api-密钥)。 |
 | `Cors:AllowedOrigins:0`、`:1`、…… | 没有任何 | 允许使用凭据调用 `Flare.Api` 的来源（即仪表板自己的来源）。必需 — `Flare.Api` 不再默认为 `AllowAnyOrigin()`。还兼作 Entra 登录 `returnUrl` 允许列表。 |
 | `Auth:Entra:DefaultRole` | `Viewer` | 当令牌未携带可识别的 `roles` 声明条目时，首次登录时分配的角色。一项与 Entra 相关的设置仍然是配置绑定的 — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` 位于数据库中，而是通过 `/auth` 页面（仅限管理员、`GET`/`PUT /api/settings/entra`）进行设置。 |
 

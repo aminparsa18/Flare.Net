@@ -98,7 +98,7 @@ OTel, а не заточенные под опыт разработчика на
 | `Flare.AppHost` | .NET Aspire | Локальная оркестрация всего вышеперечисленного |
 
 Каждый OTLP-совместимый логгер .NET достигает приёмника Flare одинаковым
-способом — см. [`../how-to/run-standalone.md`](../how-to/run-standalone.ru.md)
+способом — см. [`../how-to/deploy/run-standalone.md`](../how-to/deploy/run-standalone.ru.md)
 для готового фрагмента кода по каждому логгеру
 (`Microsoft.Extensions.Logging`/ZLogger через `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
 Serilog через `Serilog.Sinks.OpenTelemetry`, NLog через
@@ -128,14 +128,14 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 У Flare есть три законных пути установки, каждый решает свою задачу, а не
 дублирует остальные:
 
-- **[.NET Aspire](../how-to/run-with-aspire.ru.md)** (`Flare.Hosting.Aspire`) —
+- **[.NET Aspire](../how-to/deploy/run-with-aspire.ru.md)** (`Flare.Hosting.Aspire`) —
   для приложения, у которого уже есть AppHost. Flare присоединяется к
   графу ресурсов; `aspire start` уже оркестрирует его жизненный цикл
   наряду со всем остальным.
-- **[Автономный Docker Compose](../how-to/run-standalone.ru.md)** — для
+- **[Автономный Docker Compose](../how-to/deploy/run-standalone.ru.md)** — для
   разовой, локальной для репозитория оценки. `docker compose up` в корне
   репозитория — самый быстрый способ просто взглянуть на Flare один раз.
-- **[CLI `flare`](../how-to/run-with-cli.ru.md)** (`Flare.Cli`) — для
+- **[CLI `flare`](../how-to/deploy/run-with-cli.ru.md)** (`Flare.Cli`) — для
   постоянно работающего экземпляра, который вы запускаете один раз и
   забываете о нём, из любого каталога, общего для нескольких независимых
   локальных проектов, независимо от жизненного цикла какого-либо
@@ -152,7 +152,7 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 одной панелью навигации, все они общаются с `Flare.Api` по HTTP/WebSocket,
 без отдельных инструментов для логов, трассировок, метрик или
 оповещений. При первом визите создаётся учётная запись администратора
-(см. [`../how-to/configure-authentication.md`](../how-to/configure-authentication.ru.md));
+(см. [`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.ru.md));
 после этого — обычный вход.
 
 ### Логи
@@ -203,7 +203,7 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 между шагами. Каждое число открывает соответствующие трассировки. Всё
 вычисляется при запросе по сохранённым span, а воронки сохраняются как
 обычные сохранённые представления. См.
-[`../how-to/analyze-trace-funnels.ru.md`](../how-to/analyze-trace-funnels.ru.md)
+[`../how-to/investigate/analyze-trace-funnels.ru.md`](../how-to/investigate/analyze-trace-funnels.ru.md)
 и [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
 
 Кнопка «Структура» на панели инструментов списка трассировок фильтрует по
@@ -213,7 +213,7 @@ NOT — например, «спан `checkout` с потомком `payment`, �
 ошибкой». Это поле `SpanFilter`, которое вычисляется во время запроса как
 подзапрос по `TraceId`, поэтому его учитывают список, фасеты, сохранённые
 представления и панели дашбордов. См.
-[`../how-to/find-traces-by-structure.ru.md`](../how-to/find-traces-by-structure.ru.md)
+[`../how-to/investigate/find-traces-by-structure.ru.md`](../how-to/investigate/find-traces-by-structure.ru.md)
 и [ADR-0069](../../docs-internal/adr/0069-structural-trace-queries.md).
 
 ### Очереди сообщений
@@ -226,7 +226,7 @@ NOT — например, «спан `checkout` с потомком `payment`, �
 поэтому отдельный агент или таблица не нужны; объём ожидающих сообщений
 берётся из ресивера `kafkametrics` или `rabbitmq` коллектора, если он
 настроен. Нажмите на строку, чтобы увидеть производителей, потребителей,
-партиции, отставание по группам или глубину по очередям. См. [`../how-to/monitor-message-queues.ru.md`](../how-to/monitor-message-queues.ru.md),
+партиции, отставание по группам или глубину по очередям. См. [`../how-to/monitor/monitor-message-queues.ru.md`](../how-to/monitor/monitor-message-queues.ru.md),
 [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) и
 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md).
 
@@ -241,7 +241,7 @@ URL), без вызовов баз данных и брокеров сообще
 сегменты-идентификаторы заменены на `{id}`), коды ответа, частые ошибки и
 вызывающие сервисы - со ссылками на соответствующие трейсы. Вкладка
 External calls в разбивке сервиса использует тот же домен, если у span
-нет `peer.service`. См. [`../how-to/monitor-external-apis.ru.md`](../how-to/monitor-external-apis.ru.md)
+нет `peer.service`. См. [`../how-to/monitor/monitor-external-apis.ru.md`](../how-to/monitor/monitor-external-apis.ru.md)
 и [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md).
 
 ### Метрики

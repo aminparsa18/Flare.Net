@@ -12,7 +12,7 @@ namespace Flare.Cli.Commands;
 /// <c>flare releases list/mark/delete</c> - release markers via Flare.Api's <c>/api/releases</c>
 /// (<c>src/Flare.Api/Endpoints/ReleaseEndpoints.cs</c>, docs-internal/adr/0182-release-tracking.md).
 /// A deploy pipeline against a remote Flare calls the same endpoint with a personal access token
-/// (docs/how-to/track-releases.md); this is the surface for the standing local stack.
+/// (docs/how-to/investigate/track-releases.md); this is the surface for the standing local stack.
 /// </summary>
 internal sealed record ReleaseWire(string Id, string Service, string Version, string Commit, string Url, string Notes, DateTimeOffset DeployedAt, string CreatedBy, long? NewErrorCount, long? RegressionCount = null);
 

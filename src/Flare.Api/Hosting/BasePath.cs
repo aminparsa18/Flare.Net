@@ -1,7 +1,7 @@
 namespace Flare.Api.Hosting;
 
 /// <summary>
-/// Sub-path hosting (<c>docs/how-to/serve-under-a-sub-path.md</c>): when Flare is served at
+/// Sub-path hosting (<c>docs/how-to/deploy/serve-under-a-sub-path.md</c>): when Flare is served at
 /// <c>https://example.com/flare/</c>, <c>Flare:BasePath</c> (env <c>Flare__BasePath</c>) is
 /// <c>/flare</c>. The API's own routes stay <c>/api/...</c>; the base path only matters
 /// wherever the app emits a URL (OIDC/Entra redirects and displayed redirect URIs, cookie

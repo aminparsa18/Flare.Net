@@ -1,7 +1,7 @@
 # Investigation: bugs found verifying `flare tail` and `flare export`
 
 Dates: 2026-08-16 (`flare tail`) and 2026-08-22 (`flare export`)
-Related: `docs/reference/cli-commands.md`, `docs/how-to/run-with-cli.md`
+Related: `docs/reference/cli-commands.md`, `docs/how-to/deploy/run-with-cli.md`
 
 ## Problem statement
 

@@ -1,4 +1,4 @@
-// Runtime half of sub-path hosting (docs/how-to/serve-under-a-sub-path.md).
+// Runtime half of sub-path hosting (docs/how-to/deploy/serve-under-a-sub-path.md).
 //
 // SvelteKit's `paths.base` is a build-time constant - it's inlined into the server bundle,
 // the client bundle and adapter-node's own static-file directory (build/client<base>/) - so

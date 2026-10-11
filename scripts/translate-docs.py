@@ -43,7 +43,7 @@ What gets translated vs. left alone, within a source file:
     check_orphans() there also has a matching exclusion for `*.<langcode>.md` files
     (they mirror an already-indexed source page, not a new one needing its own entry).
   - A relative link to ANOTHER in-scope doc (e.g. a Chinese README linking to
-    `docs/how-to/run-with-aspire.md`) gets repointed at that doc's own
+    `docs/how-to/deploy/run-with-aspire.md`) gets repointed at that doc's own
     `<name>.<langcode>.md` translation instead of silently staying on the English
     original - otherwise every cross-doc link in every translated file would drop the
     reader back into English. This (and the matching cross-file anchor fix-up) is a

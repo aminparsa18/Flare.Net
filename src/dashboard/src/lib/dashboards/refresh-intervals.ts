@@ -1,6 +1,6 @@
 // Auto-refresh interval options for a dashboard viewer (Phase 3, see
 // docs-internal/planning/roadmap.md's "Custom, user-built dashboards" item and
-// ../../../docs/how-to/build-custom-dashboards.md). Unlike Metrics'/Traces' own
+// ../../../docs/how-to/dashboards/build-custom-dashboards.md). Unlike Metrics'/Traces' own
 // autoRefreshEnabled (a fixed-30s on/off checkbox - see MetricsExplorerState/
 // TracesExplorerState), a dashboard offers a few different intervals since it's
 // usually left open on a screen rather than actively worked in.

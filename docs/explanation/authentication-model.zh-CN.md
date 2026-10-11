@@ -13,7 +13,7 @@ Flare 附带本地用户名/密码帐户、Microsoft Entra ID
 是。
 
 要进行其中任何设置，请参阅
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.zh-CN.md)。
+[`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.zh-CN.md)。
 有关确切的配置键和角色表，请参阅
 [`../reference/authentication-config.md`](../reference/authentication-config.zh-CN.md)。
 
@@ -114,7 +114,7 @@ SQLite 无法跨主机共享，因此需要从多台机器访问身份存储的�
 row 将强制每个遥测发射应用程序链接到某人的
 登录，与收集器/导出器的实际操作方式不符
 （每个环境一个或几个共享密钥）。看
-[the how-to guide](../how-to/configure-authentication.zh-CN.md#摄取-api-密钥)
+[the how-to guide](../how-to/admin/configure-authentication.zh-CN.md#摄取-api-密钥)
 用于创建/使用/撤销一个。
 
 ## 个人访问令牌
@@ -128,7 +128,7 @@ row 将强制每个遥测发射应用程序链接到某人的
 角色、相同权限），而不是一个独立的机器身份。参见
 [ADR-0019](../../docs-internal/adr/0019-personal-access-tokens.md)
 了解为何复用现有的会话认证方案而非另外注册一个，以及
-[操作指南](../how-to/configure-authentication.zh-CN.md#个人访问令牌)
+[操作指南](../how-to/admin/configure-authentication.zh-CN.md#个人访问令牌)
 了解如何创建、使用和撤销令牌。
 
 每个令牌还会单独进行请求频率限制——每 `Auth:PatRateLimitWindow`

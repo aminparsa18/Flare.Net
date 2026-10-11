@@ -19,7 +19,7 @@ Two ways to get data into Flare without wiring up your own app first:
 
 `Flare.Hosting.Aspire`/`Flare.Aspire` are referenced as `ProjectReference`s, not
 `PackageReference`s, so the example always runs against Flare's local source. See
-[`docs/how-to/run-with-aspire.md`](../docs/how-to/run-with-aspire.md) and
+[`docs/how-to/deploy/run-with-aspire.md`](../docs/how-to/deploy/run-with-aspire.md) and
 [`src/Aspire.Flare/README.md`](../src/Aspire.Flare/README.md) for what a published-package
 consumer looks like.
 
@@ -41,7 +41,7 @@ aspire start --apphost examples/ExampleApp.AppHost/ExampleApp.AppHost.csproj
 Once `aspire describe` shows the resources `Healthy`, open the **`flare-dashboard` row's URL**
 (Flare's own dashboard, not the Aspire dashboard at the top of `aspire describe`'s output). If
 the Aspire dashboard itself shows a certificate error, see
-[`docs/how-to/run-with-aspire.md`](../docs/how-to/run-with-aspire.md#aspires-own-dashboard-shows-an-sslcertificate-error).
+[`docs/how-to/deploy/run-with-aspire.md`](../docs/how-to/deploy/run-with-aspire.md#aspires-own-dashboard-shows-an-sslcertificate-error).
 It's an unrelated upstream Aspire issue.
 
 ### What the shop does

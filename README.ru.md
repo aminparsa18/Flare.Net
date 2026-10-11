@@ -64,36 +64,36 @@
   var flare = builder.AddFlare("flare");
   builder.AddProject<Projects.MyApi>("myapi").WithReference(flare).WaitForFlare(flare);
   ```
-  `dotnet add package Flare.Hosting.Aspire` — Flare присоединяется к вашему AppHost как ресурс, поэтому он запускается, останавливается и обнаруживается другими вашими ресурсами точно так же, как и всё остальное в вашем графе. Подробности: [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.ru.md).
+  `dotnet add package Flare.Hosting.Aspire` — Flare присоединяется к вашему AppHost как ресурс, поэтому он запускается, останавливается и обнаруживается другими вашими ресурсами точно так же, как и всё остальное в вашем графе. Подробности: [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.ru.md).
 
 - **Не используете Aspire и хотите запустить его отдельно?**
   ```sh
   docker compose up
   ```
-  в корне репозитория, с рабочими значениями по умолчанию для каждого порта и учётных данных (скопируйте [.env.example](.env.example) в `.env`, чтобы что-то изменить). Подробности: [docs/how-to/run-standalone.md](docs/how-to/run-standalone.ru.md).
+  в корне репозитория, с рабочими значениями по умолчанию для каждого порта и учётных данных (скопируйте [.env.example](.env.example) в `.env`, чтобы что-то изменить). Подробности: [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.ru.md).
 
 - **Просто оцениваете — репозиторий не клонирован, .NET SDK не установлен?**
   ```sh
   curl -fsSL https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh | bash
   ```
-  Устанавливает Docker, если его нет, затем скачивает и запускает тот же автономный стек из опубликованных образов. Подробности: [docs/how-to/run-standalone.md](docs/how-to/run-standalone.ru.md#быстрая-установка-без-предварительных-условий).
+  Устанавливает Docker, если его нет, затем скачивает и запускает тот же автономный стек из опубликованных образов. Подробности: [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.ru.md#быстрая-установка-без-предварительных-условий).
 
 - **Хотите один постоянно работающий экземпляр, общий для нескольких независимых локальных проектов?**
   ```sh
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  Глобальный CLI, который управляет тем же стеком Docker откуда угодно, без необходимости клонировать репозиторий. Подробности: [docs/how-to/run-with-cli.md](docs/how-to/run-with-cli.ru.md).
+  Глобальный CLI, который управляет тем же стеком Docker откуда угодно, без необходимости клонировать репозиторий. Подробности: [docs/how-to/deploy/run-with-cli.md](docs/how-to/deploy/run-with-cli.ru.md).
 
-Какой бы путь вы ни выбрали, панель управления запустится по адресу [http://localhost:7777](http://localhost:7777). Аутентификация **по умолчанию отключена** — страница логов открыта сразу после запуска. Включите вход (локальные учётные записи, Microsoft Entra ID, Active Directory, OpenID Connect или доверенные заголовки обратного прокси) на странице `/auth`, когда будете готовы; см. [docs/how-to/configure-authentication.md](docs/how-to/configure-authentication.ru.md).
+Какой бы путь вы ни выбрали, панель управления запустится по адресу [http://localhost:7777](http://localhost:7777). Аутентификация **по умолчанию отключена** — страница логов открыта сразу после запуска. Включите вход (локальные учётные записи, Microsoft Entra ID, Active Directory, OpenID Connect или доверенные заголовки обратного прокси) на странице `/auth`, когда будете готовы; см. [docs/how-to/admin/configure-authentication.md](docs/how-to/admin/configure-authentication.ru.md).
 
-Затем направьте логгер на Flare — готовые фрагменты кода OTLP для Serilog, NLog, ZLogger и `Microsoft.Extensions.Logging` находятся в [docs/how-to/run-standalone.md](docs/how-to/run-standalone.ru.md#направьте-на-него-ваш-логгер) (или [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.ru.md#2-направьте-на-него-ваш-логгер) для Aspire). Для всего остального — Python, Node.js, Java, Go, Kubernetes, DevOps-конвейеров, инструментов пересылки логов или опроса Prometheus — на странице **Источники данных** самого дашборда (выпадающее меню навигации или пустой экран страницы Logs) есть такие же готовые фрагменты; см. [обзор архитектуры](docs/explanation/architecture.ru.md#источники-данных).
+Затем направьте логгер на Flare — готовые фрагменты кода OTLP для Serilog, NLog, ZLogger и `Microsoft.Extensions.Logging` находятся в [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.ru.md#направьте-на-него-ваш-логгер) (или [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.ru.md#2-направьте-на-него-ваш-логгер) для Aspire). Для всего остального — Python, Node.js, Java, Go, Kubernetes, DevOps-конвейеров, инструментов пересылки логов или опроса Prometheus — на странице **Источники данных** самого дашборда (выпадающее меню навигации или пустой экран страницы Logs) есть такие же готовые фрагменты; см. [обзор архитектуры](docs/explanation/architecture.ru.md#источники-данных).
 
-Переросли один узел ClickHouse? Есть опциональная настройка многоузлового кластера — см. [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.ru.md).
+Переросли один узел ClickHouse? Есть опциональная настройка многоузлового кластера — см. [docs/how-to/deploy/run-cluster-mode.md](docs/how-to/deploy/run-cluster-mode.ru.md).
 
-Хотите, чтобы ИИ-ассистент читал вашу телеметрию? `flare mcp` — это [MCP](https://modelcontextprotocol.io)-сервер только для чтения; см. [docs/how-to/connect-ai-assistants.ru.md](docs/how-to/connect-ai-assistants.ru.md).
+Хотите, чтобы ИИ-ассистент читал вашу телеметрию? `flare mcp` — это [MCP](https://modelcontextprotocol.io)-сервер только для чтения; см. [docs/how-to/integrations/connect-ai-assistants.ru.md](docs/how-to/integrations/connect-ai-assistants.ru.md).
 
-Разрабатываете мобильное приложение? [`Flare.Maui`](src/Flare.Maui) (предварительная версия, в NuGet пока нет) добавляет `builder.UseFlare(...)` в приложение .NET MAUI: экспорт OTLP/HTTP с очередью без сети, атрибуты устройства и сессии, спаны `HttpClient` и навигации Shell, перехват необработанных исключений — см. [docs/how-to/send-maui-telemetry.md](docs/how-to/send-maui-telemetry.ru.md).
+Разрабатываете мобильное приложение? [`Flare.Maui`](src/Flare.Maui) (предварительная версия, в NuGet пока нет) добавляет `builder.UseFlare(...)` в приложение .NET MAUI: экспорт OTLP/HTTP с очередью без сети, атрибуты устройства и сессии, спаны `HttpClient` и навигации Shell, перехват необработанных исключений — см. [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.ru.md).
 
 ## Локальная разработка
 

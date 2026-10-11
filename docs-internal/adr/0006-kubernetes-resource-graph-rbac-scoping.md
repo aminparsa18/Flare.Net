@@ -64,7 +64,7 @@ API.
 
 ## Related documentation
 
-- `docs/how-to/run-with-aspire.md` — enabling `enableResourceGraph` on a
+- `docs/how-to/deploy/run-with-aspire.md` — enabling `enableResourceGraph` on a
   Kubernetes target
 - ADR-0005 — the Docker-side equivalent decision (different mechanism,
   same "scope access as tightly as practical" posture)

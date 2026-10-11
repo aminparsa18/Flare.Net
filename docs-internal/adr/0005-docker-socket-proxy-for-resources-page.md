@@ -68,6 +68,6 @@ a plain "not enabled" state rather than an error.
 
 ## Related documentation
 
-- `docs/how-to/run-standalone.md` — enabling it via Docker Compose
-- `docs/how-to/run-with-aspire.md` — enabling it via `enableResourceGraph`
+- `docs/how-to/deploy/run-standalone.md` — enabling it via Docker Compose
+- `docs/how-to/deploy/run-with-aspire.md` — enabling it via `enableResourceGraph`
 - ADR-0006 — the Kubernetes-side equivalent decision

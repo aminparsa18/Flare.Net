@@ -23,5 +23,5 @@ flare stop    # pauses the stack - data volumes are kept
 
 See [docs/reference/cli-commands.md](https://github.com/aminparsa18/Flare.Net/blob/main/docs/reference/cli-commands.md)
 for the full command reference and `~/.flare/` state directory layout, and
-[docs/how-to/run-with-cli.md](https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/run-with-cli.md)
+[docs/how-to/deploy/run-with-cli.md](https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/deploy/run-with-cli.md)
 for known limitations.

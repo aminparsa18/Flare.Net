@@ -72,7 +72,7 @@ single-entity locality concern (a trace's spans do; log lines don't).
 - **Known limitation**: there is no schema/version marker that makes an
   incompatible cluster refuse to start under the new pruning behavior — this
   currently relies on an operator having read this ADR (or
-  `docs/how-to/run-cluster-mode.md`) rather than the system enforcing it.
+  `docs/how-to/deploy/run-cluster-mode.md`) rather than the system enforcing it.
 - A shard-connectivity blip during a synchronous `Distributed` insert can
   duplicate rows (`Distributed`'s own documented at-least-once retry
   behavior under connectivity failure) — the same at-least-once posture the
@@ -87,7 +87,7 @@ single-entity locality concern (a trace's spans do; log lines don't).
 ## Related documentation
 
 - `docs/explanation/clustering.md` — topology and mechanism overview
-- `docs/how-to/run-cluster-mode.md` — activating cluster mode
+- `docs/how-to/deploy/run-cluster-mode.md` — activating cluster mode
 - `docs-internal/investigations/clickhouse-cluster-operational-notes.md` —
   the broader set of issues found standing this cluster up for real
 - ADR-0002 — Redis Streams buffering (same at-least-once delivery posture)

@@ -7,7 +7,7 @@ pour le système d'authentification de Flare. Pour ce que fait réellement
 chaque méthode, voir
 [`../explanation/authentication-model.md`](../explanation/authentication-model.fr.md).
 Pour les étapes de configuration, voir
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.fr.md).
+[`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.fr.md).
 
 ## Rôles
 
@@ -55,9 +55,9 @@ erroné.
 | `Auth:LoginFailureWindow` | `00:15:00` (15 minutes) | Un échec plus ancien que cela ne compte plus dans `MaxFailedLoginAttempts` - remet la série à zéro plutôt que de laisser des mots de passe occasionnellement mal tapés s'accumuler dans le temps. |
 | `Auth:PatRateLimitPermitLimit` | `120` | Requêtes qu'un même [jeton d'accès personnel](../explanation/authentication-model.fr.md#jetons-daccès-personnels) peut effectuer par `PatRateLimitWindow` avant que `Flare.Api` ne réponde `429` pour ce jeton. Le trafic de session (cookie) du tableau de bord n'y est jamais soumis. |
 | `Auth:PatRateLimitWindow` | `00:01:00` (1 minute) | Fenêtre fixe sur laquelle `PatRateLimitPermitLimit` est mesuré. |
-| `Audit:RetentionDays` | `365` | Nombre de jours de conservation des événements du [journal d'audit](../how-to/configure-authentication.fr.md#journal-daudit) avant leur suppression par une tâche horaire. `0` les conserve indéfiniment. |
+| `Audit:RetentionDays` | `365` | Nombre de jours de conservation des événements du [journal d'audit](../how-to/admin/configure-authentication.fr.md#journal-daudit) avant leur suppression par une tâche horaire. `0` les conserve indéfiniment. |
 | `Auth:IngestKeyRequired` | `false` | Si `Flare.Ingest` rejette les requêtes OTLP sans clé API valide. |
-| `Auth:StaticIngestApiKey` | non défini | Une clé d'ingestion fixe définie via la configuration au lieu du tableau de bord — voir [les clés API d'ingestion](../how-to/configure-authentication.fr.md#clés-api-dingestion). |
+| `Auth:StaticIngestApiKey` | non défini | Une clé d'ingestion fixe définie via la configuration au lieu du tableau de bord — voir [les clés API d'ingestion](../how-to/admin/configure-authentication.fr.md#clés-api-dingestion). |
 | `Cors:AllowedOrigins:0`, `:1`, … | aucune | Origine(s) autorisée(s) à appeler `Flare.Api` avec des identifiants (c'est-à-dire la propre origine du tableau de bord). Requis — `Flare.Api` n'utilise plus `AllowAnyOrigin()` par défaut. Sert aussi de liste blanche pour le `returnUrl` de connexion Entra. |
 | `Auth:Entra:DefaultRole` | `Viewer` | Rôle attribué à la première connexion quand le jeton ne porte aucune entrée de claim `roles` reconnue. Le seul paramètre lié à Entra qui reste piloté par la configuration — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` vivent plutôt dans la base de données, réglés via la page `/auth` (réservé à Admin, `GET`/`PUT /api/settings/entra`). |
 

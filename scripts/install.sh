@@ -207,5 +207,5 @@ Stack files: $FLARE_INSTALL_DIR
   Uninstall: cd $FLARE_INSTALL_DIR && docker compose down -v && cd .. && rm -rf $FLARE_INSTALL_DIR
 
 Point an OTLP logger at it - gRPC :4317, HTTP :4318. See:
-  https://github.com/$REPO/blob/main/docs/how-to/run-standalone.md
+  https://github.com/$REPO/blob/main/docs/how-to/deploy/run-standalone.md
 EOF
