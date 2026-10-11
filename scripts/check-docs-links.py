@@ -125,7 +125,7 @@ def check_orphans() -> list[str]:
         d = REPO_ROOT / "docs" / sub
         if not d.is_dir():
             continue
-        for page in sorted(d.glob("*.md")):
+        for page in sorted(d.rglob("*.md")):
             if page.name == "README.md":
                 continue
             if Path(page.stem).suffix:
@@ -134,7 +134,7 @@ def check_orphans() -> list[str]:
                 # already-indexed source page rather than being a new one that needs
                 # its own docs/README.md entry - see scripts/translate-docs.py.
                 continue
-            rel = f"{sub}/{page.name}"
+            rel = page.relative_to(REPO_ROOT / "docs").as_posix()
             # A page is "linked" if its relative path (or bare filename,
             # for links written without the subfolder prefix) appears
             # anywhere in the index.

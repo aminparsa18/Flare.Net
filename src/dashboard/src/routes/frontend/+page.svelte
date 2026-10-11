@@ -102,7 +102,7 @@
 				<Empty.Description>{m.frontendPage_emptyDescription()}</Empty.Description>
 			</Empty.Header>
 			<Empty.Content>
-				<a class="text-sm underline" href="https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/send-browser-telemetry.md">
+				<a class="text-sm underline" href="https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/instrument/send-browser-telemetry.md">
 					{m.frontendPage_emptyLink()}
 				</a>
 			</Empty.Content>

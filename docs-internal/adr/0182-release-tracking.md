@@ -30,7 +30,7 @@ commit and time, or answer "which errors did this release introduce?" without pi
 - **Regressed is not rebuilt.** ADR-0121 already derives it from `service.version` and works without markers; the
   Releases page links to the Errors page rather than duplicating the state.
 - **Surfaces:** a Releases page (`/releases`, in the menu), `flare releases list/mark/delete`, and
-  `docs/how-to/track-releases.md`.
+  `docs/how-to/investigate/track-releases.md`.
 
 ## Consequences
 

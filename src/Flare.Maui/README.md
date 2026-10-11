@@ -18,7 +18,7 @@ What it does: `service.*`, `os.*`, `device.*` and `app.build` resource attribute
 `session.id` on every span and `ILogger` log record (logs also flush when the app goes to the background), `HttpClient` spans with `traceparent` propagation, a `navigation` span per Shell
 navigation, `app.unhandled_exception` spans for `AppDomain` and unobserved-task exceptions, and a flush when the
 app goes to the background. Design: [ADR-0166](../../docs-internal/adr/0166-maui-sdk.md). Setup, ingest-key
-advice and limits: [Send telemetry from a MAUI app](../../docs/how-to/send-maui-telemetry.md).
+advice and limits: [Send telemetry from a MAUI app](../../docs/how-to/instrument/send-maui-telemetry.md).
 
 Breadcrumbs (lifecycle, taps, pages, log lines; [ADR-0172](../../docs-internal/adr/0172-maui-breadcrumbs.md)) appear on the
 session timeline; `o.IncludeTextInBreadcrumbs` / `o.IncludeTitleInBreadcrumbs` are off by default (PII), and

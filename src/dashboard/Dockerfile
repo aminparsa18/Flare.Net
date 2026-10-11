@@ -52,7 +52,7 @@ COPY --from=codegen /source/src/dashboard/src/lib/generated ./src/lib/generated
 # FLARE_BASE_PATH is a build-time constant in SvelteKit (paths.base), so the image is
 # built with a placeholder that apply-base-path.mjs - called from server.js at every
 # container start - rewrites to the operator's real FLARE_BASE_PATH ("" = served at the
-# root, the default). See docs/how-to/serve-under-a-sub-path.md.
+# root, the default). See docs/how-to/deploy/serve-under-a-sub-path.md.
 RUN FLARE_BASE_PATH=/__FLARE_BASE_PATH__ npx vite build
 
 # `npm ci --omit=dev` after the build (not before): svelte-kit sync / vite build need

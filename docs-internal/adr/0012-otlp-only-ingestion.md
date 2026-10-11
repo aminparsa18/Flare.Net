@@ -43,7 +43,7 @@ writes zero ingestion adapters of its own.
   a .NET service does, with zero Flare-specific code on either side.
 - Flare's getting-started experience is tailored to .NET loggers (the
   primary audience), but polyglot teams are never locked out — see
-  `docs/how-to/run-standalone.md`'s logger snippets and
+  `docs/how-to/deploy/run-standalone.md`'s logger snippets and
   `docs/tutorials/getting-started.md`.
 - Flare's own ingestion side depends only on the OTLP wire format, not on
   any individual client package's version — client-side churn in the
@@ -59,7 +59,7 @@ writes zero ingestion adapters of its own.
 ## Related documentation
 
 - `docs/explanation/architecture.md` — the ingestion pipeline this feeds
-- `docs/how-to/run-standalone.md`, `docs/how-to/run-with-aspire.md` — the
+- `docs/how-to/deploy/run-standalone.md`, `docs/how-to/deploy/run-with-aspire.md` — the
   per-logger integration guides
 - ADR-0013 — the storage-side counterpart to this decision (don't
   reinvent what's already solved)

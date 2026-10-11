@@ -3,7 +3,7 @@
 # Ключи конфигурации кластерного режима
 
 Точные ключи конфигурации для запуска Flare против многоузлового
-кластера ClickHouse. См. [`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.ru.md)
+кластера ClickHouse. См. [`../how-to/deploy/run-cluster-mode.md`](../how-to/deploy/run-cluster-mode.ru.md)
 о том, как это включить, и [`../explanation/clustering.md`](../explanation/clustering.ru.md)
 о том, что именно каждый из них делает.
 

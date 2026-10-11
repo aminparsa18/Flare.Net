@@ -156,7 +156,7 @@ services:
       # service's comment) keeps both in sync automatically. AllowCredentials() means
       # this can't be a wildcard - the session cookie won't cross origins otherwise.
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
-      # Sub-path hosting behind a reverse proxy (docs/how-to/serve-under-a-sub-path.md) -
+      # Sub-path hosting behind a reverse proxy (docs/how-to/deploy/serve-under-a-sub-path.md) -
       # e.g. FLARE_BASE_PATH=/flare for https://example.com/flare/. Blank (the default) =
       # served at the root. Same value as the dashboard service's own FLARE_BASE_PATH below.
       Flare__BasePath: "${FLARE_BASE_PATH:-}"

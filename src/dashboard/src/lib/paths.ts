@@ -1,4 +1,4 @@
-// Sub-path support (docs/how-to/serve-under-a-sub-path.md): when Flare is served at
+// Sub-path support (docs/how-to/deploy/serve-under-a-sub-path.md): when Flare is served at
 // https://example.com/flare/, SvelteKit's `paths.base` is "/flare" and every root-relative
 // URL the app builds by hand (href="/traces", goto('/login'), deep-link builders) has to
 // carry it - SvelteKit only prefixes its own generated asset URLs, never a literal "/x".

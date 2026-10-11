@@ -301,7 +301,7 @@ Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory i
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
 **"Multi-node scaling"** roadmap item - see
 [`docs/explanation/clustering.md`](../../docs/explanation/clustering.md) for the full
-design and [`docs/how-to/run-cluster-mode.md`](../../docs/how-to/run-cluster-mode.md)
+design and [`docs/how-to/deploy/run-cluster-mode.md`](../../docs/how-to/deploy/run-cluster-mode.md)
 for how to run it. The single-node schema here stays the default;
 nothing about it changes to support that.
 

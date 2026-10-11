@@ -41,7 +41,7 @@ export default defineConfig({
 			// set at build time instead of at `docker compose up` time.
 			adapter: adapter(),
 
-			// Sub-path hosting (docs/how-to/serve-under-a-sub-path.md). `paths.base` is a
+			// Sub-path hosting (docs/how-to/deploy/serve-under-a-sub-path.md). `paths.base` is a
 			// build-time constant in SvelteKit - it's baked into the server bundle, the client
 			// bundle and adapter-node's static-file directory name - so the published image is
 			// built with a placeholder (FLARE_BASE_PATH=/__FLARE_BASE_PATH__, see the

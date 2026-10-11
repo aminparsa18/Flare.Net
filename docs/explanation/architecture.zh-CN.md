@@ -65,7 +65,7 @@ Flare 的赌注：**存储/查询问题已经被 ClickHouse 解决了（参见 [
 | `Flare.Dashboard` | SvelteKit（Svelte 5，符文）+ Tailwind + shadcn-svelte | 用户界面——人们来这里的目的。参见 [ADR-0001](../../docs-internal/adr/0001-sveltekit-dashboard.md)。 |
 | `Flare.AppHost` | .NET Aspire | 上述所有内容的本地编排 |
 
-每个支持 OTLP 的 .NET 记录器都以相同的方式到达 Flare 的摄取接收器 - 请参阅 [`../how-to/run-standalone.md`](../how-to/run-standalone.zh-CN.md) 了解每个记录器的复制粘贴片段（`Microsoft.Extensions.Logging`/ZLogger 通过 `OpenTelemetry.Exporter.OpenTelemetryProtocol`、Serilog 通过 `Serilog.Sinks.OpenTelemetry`、NLog 通过 `NLog.Targets.OpenTelemetryProtocol`）和 [`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.zh-CN.md) 了解已知良好的软件包版本。
+每个支持 OTLP 的 .NET 记录器都以相同的方式到达 Flare 的摄取接收器 - 请参阅 [`../how-to/deploy/run-standalone.md`](../how-to/deploy/run-standalone.zh-CN.md) 了解每个记录器的复制粘贴片段（`Microsoft.Extensions.Logging`/ZLogger 通过 `OpenTelemetry.Exporter.OpenTelemetryProtocol`、Serilog 通过 `Serilog.Sinks.OpenTelemetry`、NLog 通过 `NLog.Targets.OpenTelemetryProtocol`）和 [`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.zh-CN.md) 了解已知良好的软件包版本。
 
 ## 非目标
 
@@ -82,13 +82,13 @@ Flare 的赌注：**存储/查询问题已经被 ClickHouse 解决了（参见 [
 
 Flare 具有三个合法的安装路径，每个路径解决不同的问题，而不是与其他路径冗余：
 
-- **[.NET Aspire](../how-to/run-with-aspire.zh-CN.md)** (`Flare.Hosting.Aspire`) — 对于已经有 AppHost 的应用程序。 Flare 加入资源图； `aspire start` 已经与其他一切一起协调了它的生命周期。
-- **[Standalone Docker Compose](../how-to/run-standalone.zh-CN.md)** — 用于一次性、回购本地评估。存储库根目录中的 `docker compose up` 是查看一次 Flare 的最快方法。
-- **[The `flare` CLI](../how-to/run-with-cli.zh-CN.md)** (`Flare.Cli`) — 对于一个常设实例，您从任何目录启动一次，然后就忘记了，在许多不相关的本地项目之间共享，独立于任何单个 AppHost 的生命周期。这是其他两条路径在结构上无法涵盖的情况：Aspire 模式将 Flare 的生命周期与一个 AppHost 联系起来，并且存储库本地 Compose 堆栈并不意味着在后台运行数周来为不相关的项目提供服务。
+- **[.NET Aspire](../how-to/deploy/run-with-aspire.zh-CN.md)** (`Flare.Hosting.Aspire`) — 对于已经有 AppHost 的应用程序。 Flare 加入资源图； `aspire start` 已经与其他一切一起协调了它的生命周期。
+- **[Standalone Docker Compose](../how-to/deploy/run-standalone.zh-CN.md)** — 用于一次性、回购本地评估。存储库根目录中的 `docker compose up` 是查看一次 Flare 的最快方法。
+- **[The `flare` CLI](../how-to/deploy/run-with-cli.zh-CN.md)** (`Flare.Cli`) — 对于一个常设实例，您从任何目录启动一次，然后就忘记了，在许多不相关的本地项目之间共享，独立于任何单个 AppHost 的生命周期。这是其他两条路径在结构上无法涵盖的情况：Aspire 模式将 Flare 的生命周期与一个 AppHost 联系起来，并且存储库本地 Compose 堆栈并不意味着在后台运行数周来为不相关的项目提供服务。
 
 ## 仪表板之旅
 
-无论您选择哪个安装路径，您都会到达同一个地方：`Flare.Dashboard` — 一个 SvelteKit SPA，在一个导航栏后面有七个页面，所有页面都通过 HTTP/WebSocket 与 `Flare.Api` 通信，没有单独的日志、跟踪、指标或警报工具。第一次访问创建管理员帐户（参见[`../how-to/configure-authentication.md`](../how-to/configure-authentication.zh-CN.md)）；之后就可以正常登录了。
+无论您选择哪个安装路径，您都会到达同一个地方：`Flare.Dashboard` — 一个 SvelteKit SPA，在一个导航栏后面有七个页面，所有页面都通过 HTTP/WebSocket 与 `Flare.Api` 通信，没有单独的日志、跟踪、指标或警报工具。第一次访问创建管理员帐户（参见[`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.zh-CN.md)）；之后就可以正常登录了。
 
 ### 日志
 
@@ -106,17 +106,17 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ![Trace detail waterfall](../screenshots/traces-ch.webp)
 
-“漏斗”标签页（`/traces/funnels`）让追踪依次经过一组有序步骤（每个步骤按服务、span 名称和属性过滤条件匹配 span），显示到达每个步骤的追踪数、在哪一步流失、每个步骤的错误数以及步骤之间的延迟。点击任一数字即可查看对应的追踪。结果在查询时根据已存储的 span 计算，漏斗以普通的已保存视图形式保存。参见 [`../how-to/analyze-trace-funnels.zh-CN.md`](../how-to/analyze-trace-funnels.zh-CN.md) 和 [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md)。
+“漏斗”标签页（`/traces/funnels`）让追踪依次经过一组有序步骤（每个步骤按服务、span 名称和属性过滤条件匹配 span），显示到达每个步骤的追踪数、在哪一步流失、每个步骤的错误数以及步骤之间的延迟。点击任一数字即可查看对应的追踪。结果在查询时根据已存储的 span 计算，漏斗以普通的已保存视图形式保存。参见 [`../how-to/investigate/analyze-trace-funnels.zh-CN.md`](../how-to/investigate/analyze-trace-funnels.zh-CN.md) 和 [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md)。
 
-追踪列表工具栏中的“结构”按钮按追踪内 span 之间的关系进行筛选：带字母的 span 条件通过 `A -> B`（直接子 span）、`A => B`（任意层级的后代）、AND、OR 和 NOT 组合，例如“一个 `checkout` span，其后代中有出错的 `payment` span”。它是 `SpanFilter` 的一个字段，在查询时作为按 `TraceId` 的子查询计算，因此列表、分面、已保存视图和仪表板面板都会遵循它。参见 [`../how-to/find-traces-by-structure.zh-CN.md`](../how-to/find-traces-by-structure.zh-CN.md) 和 [ADR-0069](../../docs-internal/adr/0069-structural-trace-queries.md)。
+追踪列表工具栏中的“结构”按钮按追踪内 span 之间的关系进行筛选：带字母的 span 条件通过 `A -> B`（直接子 span）、`A => B`（任意层级的后代）、AND、OR 和 NOT 组合，例如“一个 `checkout` span，其后代中有出错的 `payment` span”。它是 `SpanFilter` 的一个字段，在查询时作为按 `TraceId` 的子查询计算，因此列表、分面、已保存视图和仪表板面板都会遵循它。参见 [`../how-to/investigate/find-traces-by-structure.zh-CN.md`](../how-to/investigate/find-traces-by-structure.zh-CN.md) 和 [ADR-0069](../../docs-internal/adr/0069-structural-trace-queries.md)。
 
 ### 消息队列
 
-`/messaging` — 每个 Kafka 主题、RabbitMQ 队列或 Service Bus 实体一行，显示发布和消费速率、错误率、p99 延迟，以及积压（Kafka 消费者延迟或 RabbitMQ 队列深度）。速率和延迟在查询时根据生产者和消费者 span 的 OTel `messaging.*` 属性计算，无需额外的代理或数据表；积压在配置了 Collector 的 `kafkametrics` 或 `rabbitmq` 接收器时从中读取。点击一行可查看其生产者、消费者、分区、按消费者组的延迟或按队列的深度。参见 [`../how-to/monitor-message-queues.zh-CN.md`](../how-to/monitor-message-queues.zh-CN.md)、[ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) 和 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md)。
+`/messaging` — 每个 Kafka 主题、RabbitMQ 队列或 Service Bus 实体一行，显示发布和消费速率、错误率、p99 延迟，以及积压（Kafka 消费者延迟或 RabbitMQ 队列深度）。速率和延迟在查询时根据生产者和消费者 span 的 OTel `messaging.*` 属性计算，无需额外的代理或数据表；积压在配置了 Collector 的 `kafkametrics` 或 `rabbitmq` 接收器时从中读取。点击一行可查看其生产者、消费者、分区、按消费者组的延迟或按队列的深度。参见 [`../how-to/monitor/monitor-message-queues.zh-CN.md`](../how-to/monitor/monitor-message-queues.zh-CN.md)、[ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) 和 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md)。
 
 ### 外部 API
 
-`/external-apis` — 你的服务调用的每个外部域名一行，显示速率、错误率、p95/p99 延迟、端点数和最近出现时间。数据在查询时根据 `CLIENT` span 的 `server.address`（否则取 `net.peer.name`，再否则取 URL 的主机名）计算，不含数据库和消息调用。点击域名可查看其端点（方法加 `url.template`，或将类似 ID 的路径段合并为 `{id}` 的 URL 路径）、状态码、主要错误和调用方服务，每项都链接到匹配的链路。当 span 没有 `peer.service` 时，服务分解的 External calls 标签页也回退到同一域名。参见 [`../how-to/monitor-external-apis.zh-CN.md`](../how-to/monitor-external-apis.zh-CN.md) 和 [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md)。
+`/external-apis` — 你的服务调用的每个外部域名一行，显示速率、错误率、p95/p99 延迟、端点数和最近出现时间。数据在查询时根据 `CLIENT` span 的 `server.address`（否则取 `net.peer.name`，再否则取 URL 的主机名）计算，不含数据库和消息调用。点击域名可查看其端点（方法加 `url.template`，或将类似 ID 的路径段合并为 `{id}` 的 URL 路径）、状态码、主要错误和调用方服务，每项都链接到匹配的链路。当 span 没有 `peer.service` 时，服务分解的 External calls 标签页也回退到同一域名。参见 [`../how-to/monitor/monitor-external-apis.zh-CN.md`](../how-to/monitor/monitor-external-apis.zh-CN.md) 和 [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md)。
 
 ### 指标
 

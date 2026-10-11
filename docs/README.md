@@ -26,52 +26,81 @@ the full rule set on what goes where.
 
 **Tutorials**
 - [Getting started](tutorials/getting-started.md)
+- [Tutorial: your first trace](tutorials/first-trace.md)
+- [Tutorial: your first alert](tutorials/first-alert.md)
 
 **How-to guides**
-- [Run standalone](how-to/run-standalone.md)
-- [Run with .NET Aspire](how-to/run-with-aspire.md)
-- [Run with the CLI](how-to/run-with-cli.md)
-- [Configure authentication](how-to/configure-authentication.md)
-- [Run in cluster mode](how-to/run-cluster-mode.md)
-- [Let an AI assistant query Flare](how-to/connect-ai-assistants.md)
-- [Query Flare with Grafana or the Prometheus API](how-to/query-with-prometheus-api.md)
-- [Serve under a sub-path](how-to/serve-under-a-sub-path.md)
-- [Deploy with Helm](how-to/deploy-with-helm.md)
-- [Build a custom dashboard](how-to/build-custom-dashboards.md)
-- [Email a dashboard on a schedule](how-to/schedule-dashboard-reports.md)
-- [Extract or redact fields at ingest](how-to/manage-pipeline-rules.md)
-- [Monitor hosts with the OpenTelemetry Collector](how-to/monitor-hosts.md)
-- [Monitor Kubernetes clusters (nodes, workloads, pods, volumes) with the OpenTelemetry Collector](how-to/monitor-kubernetes.md)
-- [Monitor message queues](how-to/monitor-message-queues.md)
-- [Monitor external APIs](how-to/monitor-external-apis.md)
-- [Monitor LLM calls](how-to/monitor-llm-calls.md)
-- [Find where requests drop off with trace funnels](how-to/analyze-trace-funnels.md)
-- [Find N+1 queries](how-to/find-n-plus-one-queries.md)
-- [Explore continuous profiles](how-to/profile-with-continuous-profiling.md)
-- [Find .NET runtime health problems](how-to/find-runtime-health-problems.md)
-- [Compare two deploys of a service](how-to/compare-deploys.md)
-- [Track releases and the errors they introduce](how-to/track-releases.md)
-- [Define SLOs and get alerted when the error budget burns](how-to/define-slos.md)
-- [Organize teams with projects](how-to/organize-teams-with-projects.md)
-- [Find traces by how their spans relate](how-to/find-traces-by-structure.md)
-- [Link exception stack traces to your source code](how-to/link-exceptions-to-source-code.md)
-- [Triage errors and catch regressions](how-to/triage-errors.md)
-- [Get an AI summary of a fired alert](how-to/summarize-alerts-with-ai.md)
-- [Acknowledge or snooze a firing alert](how-to/acknowledge-and-snooze-alerts.md)
-- [Share notification wording across alert rules](how-to/share-alert-notification-templates.md)
-- [Send browser telemetry to Flare](how-to/send-browser-telemetry.md)
-- [Send telemetry from a .NET MAUI app to Flare](how-to/send-maui-telemetry.md)
-- [Monitor endpoints, ports and certificates with synthetic probes](how-to/synthetic-monitoring.md)
-- [Publish a status page](how-to/publish-a-status-page.md)
-- [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)
-- [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)
-- [Reduce a metric's attributes at ingest](how-to/reduce-metric-attributes.md)
-- [Turn a log search into a metric](how-to/log-based-metrics.md)
-- [Set data retention and move old data to cold storage](how-to/set-data-retention.md)
-- [See what is driving storage](how-to/see-what-drives-storage.md)
-- [Forward telemetry to another OTLP endpoint](how-to/forward-telemetry-to-another-otlp-endpoint.md)
-- [Archive telemetry to S3-compatible storage](how-to/archive-telemetry-to-s3.md)
-- [Speed up filters on a frequently used log or span attribute](how-to/promote-attribute-columns.md)
+
+*Deploy and operate*
+
+- [Run standalone](how-to/deploy/run-standalone.md)
+- [Run with .NET Aspire](how-to/deploy/run-with-aspire.md)
+- [Run with the CLI](how-to/deploy/run-with-cli.md)
+- [Run in cluster mode](how-to/deploy/run-cluster-mode.md)
+- [Serve under a sub-path](how-to/deploy/serve-under-a-sub-path.md)
+- [Deploy with Helm](how-to/deploy/deploy-with-helm.md)
+
+*Administration*
+
+- [Configure authentication](how-to/admin/configure-authentication.md)
+- [Organize teams with projects](how-to/admin/organize-teams-with-projects.md)
+
+*Instrument your apps (browser, .NET MAUI)*
+
+- [Send browser telemetry to Flare](how-to/instrument/send-browser-telemetry.md)
+- [Send telemetry from a .NET MAUI app to Flare](how-to/instrument/send-maui-telemetry.md)
+
+*Monitor infrastructure and services*
+
+- [Monitor hosts with the OpenTelemetry Collector](how-to/monitor/monitor-hosts.md)
+- [Monitor Kubernetes clusters (nodes, workloads, pods, volumes) with the OpenTelemetry Collector](how-to/monitor/monitor-kubernetes.md)
+- [Monitor message queues](how-to/monitor/monitor-message-queues.md)
+- [Monitor external APIs](how-to/monitor/monitor-external-apis.md)
+- [Monitor LLM calls](how-to/monitor/monitor-llm-calls.md)
+- [Monitor endpoints, ports and certificates with synthetic probes](how-to/monitor/synthetic-monitoring.md)
+- [Publish a status page](how-to/monitor/publish-a-status-page.md)
+
+*Investigate traces, errors and releases*
+
+- [Find where requests drop off with trace funnels](how-to/investigate/analyze-trace-funnels.md)
+- [Find N+1 queries](how-to/investigate/find-n-plus-one-queries.md)
+- [Explore continuous profiles](how-to/investigate/profile-with-continuous-profiling.md)
+- [Find .NET runtime health problems](how-to/investigate/find-runtime-health-problems.md)
+- [Compare two deploys of a service](how-to/investigate/compare-deploys.md)
+- [Track releases and the errors they introduce](how-to/investigate/track-releases.md)
+- [Find traces by how their spans relate](how-to/investigate/find-traces-by-structure.md)
+- [Link exception stack traces to your source code](how-to/investigate/link-exceptions-to-source-code.md)
+- [Triage errors and catch regressions](how-to/investigate/triage-errors.md)
+- [Tell whether a span was slow for what it is](how-to/investigate/compare-span-duration.md)
+
+*Alerting and SLOs*
+
+- [Define SLOs and get alerted when the error budget burns](how-to/alerting/define-slos.md)
+- [Get an AI summary of a fired alert](how-to/alerting/summarize-alerts-with-ai.md)
+- [Acknowledge or snooze a firing alert](how-to/alerting/acknowledge-and-snooze-alerts.md)
+- [Share notification wording across alert rules](how-to/alerting/share-alert-notification-templates.md)
+
+*Dashboards*
+
+- [Build a custom dashboard](how-to/dashboards/build-custom-dashboards.md)
+- [Email a dashboard on a schedule](how-to/dashboards/schedule-dashboard-reports.md)
+
+*Manage data, retention and cost*
+
+- [Extract or redact fields at ingest](how-to/data/manage-pipeline-rules.md)
+- [Find high-cardinality metrics](how-to/data/find-high-cardinality-metrics.md)
+- [Reduce a metric's attributes at ingest](how-to/data/reduce-metric-attributes.md)
+- [Turn a log search into a metric](how-to/data/log-based-metrics.md)
+- [Set data retention and move old data to cold storage](how-to/data/set-data-retention.md)
+- [See what is driving storage](how-to/data/see-what-drives-storage.md)
+- [Forward telemetry to another OTLP endpoint](how-to/data/forward-telemetry-to-another-otlp-endpoint.md)
+- [Archive telemetry to S3-compatible storage](how-to/data/archive-telemetry-to-s3.md)
+- [Speed up filters on a frequently used log or span attribute](how-to/data/promote-attribute-columns.md)
+
+*Integrations*
+
+- [Let an AI assistant query Flare](how-to/integrations/connect-ai-assistants.md)
+- [Query Flare with Grafana or the Prometheus API](how-to/integrations/query-with-prometheus-api.md)
 
 **Reference**
 - [CLI commands](reference/cli-commands.md)

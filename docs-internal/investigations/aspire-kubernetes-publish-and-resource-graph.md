@@ -4,7 +4,7 @@ Dates: 2026-08-29 (publish verification, `0.2.3`), 2026-08-30 (resource-graph
 verification, `0.3.1`), and 2026-09-06 (persistent-storage API, post-Aspire-13.5.3
 bump)
 Related: ADR-0006 (Kubernetes resource-graph RBAC scoping),
-`docs/how-to/run-with-aspire.md`, `docs/reference/aspire-hosting.md`,
+`docs/how-to/deploy/run-with-aspire.md`, `docs/reference/aspire-hosting.md`,
 `docs-internal/planning/roadmap.md`
 
 ## Problem statement

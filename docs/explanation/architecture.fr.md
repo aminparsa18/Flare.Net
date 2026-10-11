@@ -103,7 +103,7 @@ voir [Non-objectifs](#non-objectifs) ci-dessous.
 
 Chaque logger .NET compatible OTLP atteint le récepteur d'ingestion de
 Flare de la même façon — voir
-[`../how-to/run-standalone.md`](../how-to/run-standalone.fr.md) pour un
+[`../how-to/deploy/run-standalone.md`](../how-to/deploy/run-standalone.fr.md) pour un
 extrait prêt à copier-coller par logger
 (`Microsoft.Extensions.Logging`/ZLogger via `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
 Serilog via `Serilog.Sinks.OpenTelemetry`, NLog via
@@ -134,15 +134,15 @@ un backend de stockage froid prévu (pas encore construit) — voir
 Flare a trois chemins d'installation légitimes, chacun résolvant un
 problème différent plutôt que d'être redondant avec les autres :
 
-- **[.NET Aspire](../how-to/run-with-aspire.fr.md)** (`Flare.Hosting.Aspire`) —
+- **[.NET Aspire](../how-to/deploy/run-with-aspire.fr.md)** (`Flare.Hosting.Aspire`) —
   pour une application qui a déjà un AppHost. Flare rejoint le graphe de
   ressources ; `aspire start` orchestre déjà son cycle de vie aux côtés de
   tout le reste.
-- **[Docker Compose autonome](../how-to/run-standalone.fr.md)** — pour une
+- **[Docker Compose autonome](../how-to/deploy/run-standalone.fr.md)** — pour une
   évaluation ponctuelle, locale au dépôt. `docker compose up` à la racine
   du dépôt est le moyen le plus rapide de simplement jeter un œil à Flare
   une fois.
-- **[Le CLI `flare`](../how-to/run-with-cli.fr.md)** (`Flare.Cli`) — pour une
+- **[Le CLI `flare`](../how-to/deploy/run-with-cli.fr.md)** (`Flare.Cli`) — pour une
   instance persistante que vous démarrez une fois et oubliez, depuis
   n'importe quel répertoire, partagée entre plusieurs projets locaux
   indépendants, indépendante du cycle de vie d'un AppHost donné. C'est le
@@ -158,7 +158,7 @@ endroit : `Flare.Dashboard` — une seule SPA SvelteKit avec sept pages
 derrière une barre de navigation, communiquant toutes avec `Flare.Api` via
 HTTP/WebSocket, sans outils séparés pour les logs, les traces, les
 métriques ou les alertes. La première visite crée le compte administrateur
-(voir [`../how-to/configure-authentication.md`](../how-to/configure-authentication.fr.md)) ;
+(voir [`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.fr.md)) ;
 ensuite, c'est une connexion normale.
 
 ### Logs
@@ -209,7 +209,7 @@ span, filtres d'attributs). Il indique combien de traces atteignent chaque
 l'autre. Chaque chiffre ouvre les traces correspondantes. Le calcul se fait à
 la requête sur les spans stockés, et les entonnoirs s'enregistrent comme des
 vues enregistrées ordinaires. Voir
-[`../how-to/analyze-trace-funnels.fr.md`](../how-to/analyze-trace-funnels.fr.md)
+[`../how-to/investigate/analyze-trace-funnels.fr.md`](../how-to/investigate/analyze-trace-funnels.fr.md)
 et [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
 
 Un bouton « Structure » dans la barre d'outils de la liste de traces filtre
@@ -220,7 +220,7 @@ descendant `payment` en erreur ». C'est un champ de `SpanFilter`, évalué au
 moment de la requête comme une sous-requête sur `TraceId` : la liste, les
 facettes, les vues enregistrées et les panneaux de tableaux de bord le
 respectent tous. Voir
-[`../how-to/find-traces-by-structure.fr.md`](../how-to/find-traces-by-structure.fr.md)
+[`../how-to/investigate/find-traces-by-structure.fr.md`](../how-to/investigate/find-traces-by-structure.fr.md)
 et [ADR-0069](../../docs-internal/adr/0069-structural-trace-queries.md).
 
 ### Messagerie
@@ -234,7 +234,7 @@ producteurs et consommateurs : ni agent ni table supplémentaires. Le
 backlog provient du récepteur `kafkametrics` ou `rabbitmq` du collecteur
 lorsqu'il est présent. Cliquez sur une ligne pour voir ses producteurs, ses
 consommateurs, ses partitions, le retard par groupe ou la profondeur par
-file. Voir [`../how-to/monitor-message-queues.fr.md`](../how-to/monitor-message-queues.fr.md),
+file. Voir [`../how-to/monitor/monitor-message-queues.fr.md`](../how-to/monitor/monitor-message-queues.fr.md),
 [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) et
 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md).
 
@@ -250,7 +250,7 @@ de l'URL où les segments ressemblant à des identifiants deviennent `{id}`),
 ses codes de statut, ses erreurs principales et les services appelants,
 chacun renvoyant vers les traces correspondantes. L'onglet External calls
 de la ventilation des services se rabat sur le même domaine quand un span
-n'a pas de `peer.service`. Voir [`../how-to/monitor-external-apis.fr.md`](../how-to/monitor-external-apis.fr.md)
+n'a pas de `peer.service`. Voir [`../how-to/monitor/monitor-external-apis.fr.md`](../how-to/monitor/monitor-external-apis.fr.md)
 et [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md).
 
 ### Métriques

@@ -3,7 +3,7 @@
 # 集群模式配置键
 
 针对多节点 ClickHouse 运行 Flare 的精确配置密钥
-簇。见[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.zh-CN.md)
+簇。见[`../how-to/deploy/run-cluster-mode.md`](../how-to/deploy/run-cluster-mode.zh-CN.md)
 了解如何打开此功能以及 [`../explanation/clustering.md`](../explanation/clustering.zh-CN.md)
 了解其中每一个的实际作用。
 

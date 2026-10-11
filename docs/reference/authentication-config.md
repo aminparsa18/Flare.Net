@@ -4,7 +4,7 @@ Exact roles, identity-resolution facts, and config keys for Flare's
 authentication system. For what each method actually does, see
 [`../explanation/authentication-model.md`](../explanation/authentication-model.md).
 For setup steps, see
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+[`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.md).
 
 ## Roles
 
@@ -50,9 +50,9 @@ generic `401` a wrong password gets.
 | `Auth:LoginFailureWindow` | `00:15:00` (15 minutes) | A failed attempt older than this doesn't count toward `MaxFailedLoginAttempts` - resets the streak instead of letting occasional mistyped passwords accumulate over time. |
 | `Auth:PatRateLimitPermitLimit` | `120` | Requests a single [personal access token](../explanation/authentication-model.md#personal-access-tokens) may make per `PatRateLimitWindow` before `Flare.Api` starts returning `429`s for it. Cookie/session (dashboard) traffic is never subject to this. |
 | `Auth:PatRateLimitWindow` | `00:01:00` (1 minute) | Fixed window `PatRateLimitPermitLimit` is measured over. |
-| `Audit:RetentionDays` | `365` | Days to keep [audit log](../how-to/configure-authentication.md#audit-log) events before an hourly job deletes them. `0` keeps them forever. |
+| `Audit:RetentionDays` | `365` | Days to keep [audit log](../how-to/admin/configure-authentication.md#audit-log) events before an hourly job deletes them. `0` keeps them forever. |
 | `Auth:IngestKeyRequired` | `false` | Whether `Flare.Ingest` rejects OTLP requests with no valid API key. |
-| `Auth:StaticIngestApiKey` | unset | A fixed ingest key set via config instead of the dashboard — see [ingest API keys](../how-to/configure-authentication.md#ingest-api-keys). |
+| `Auth:StaticIngestApiKey` | unset | A fixed ingest key set via config instead of the dashboard — see [ingest API keys](../how-to/admin/configure-authentication.md#ingest-api-keys). |
 | `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra login `returnUrl` allow-list. |
 | `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. The one Entra-related setting that's still config-bound — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` live in the database instead, set via the `/auth` page (Admin-only, `GET`/`PUT /api/settings/entra`). |
 

@@ -9,7 +9,7 @@ ClickHouse. **Кластерный режим** — опциональная а�
 4-узловой кластер ClickHouse с таблицами `ReplicatedMergeTree`/
 `Distributed`, координируемый кворумом ClickHouse Keeper из 3 узлов вместо
 ZooKeeper. Эта страница объясняет модель; см.
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.ru.md), чтобы
+[`../how-to/deploy/run-cluster-mode.md`](../how-to/deploy/run-cluster-mode.ru.md), чтобы
 включить его, и [`../reference/clustering-config.md`](../reference/clustering-config.ru.md)
 для точных задействованных ключей конфигурации.
 

@@ -129,7 +129,7 @@ pairwise.**
   **Variables** and adds a `Service`-target one - a few seconds of setup,
   in exchange for it now being named, optional, one-of-any-number, and
   actually saved. This is a deliberate, visible behavior change, called out
-  here and in `docs/how-to/build-custom-dashboards.md` rather than
+  here and in `docs/how-to/dashboards/build-custom-dashboards.md` rather than
   auto-migrated, since a Service variable's *name* and *default value* are
   choices this ADR has no principled way to make on an author's behalf.
 - Every `Dashboard*PanelBody.svelte` was rewritten around the "recompute
@@ -159,6 +159,6 @@ pairwise.**
 - `docs-internal/adr/0024-custom-dashboards-phase2-editor.md` - established
   the "session-only override, never written to `LayoutJson`" precedent this
   ADR extends from one fixed override to any number of named variables.
-- `docs/how-to/build-custom-dashboards.md` - the user-facing how-to,
+- `docs/how-to/dashboards/build-custom-dashboards.md` - the user-facing how-to,
   updated in the same PR as this ADR per this repo's documentation
   convention.

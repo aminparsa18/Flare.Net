@@ -2,7 +2,7 @@
 
 Dates: 2026-08-22 through 2026-08-30, multiple passes
 Related: ADR-0003 (Distributed tables + sharding), `docs/explanation/clustering.md`,
-`docs/how-to/run-cluster-mode.md`
+`docs/how-to/deploy/run-cluster-mode.md`
 
 ## Problem statement
 

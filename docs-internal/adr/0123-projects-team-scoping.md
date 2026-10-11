@@ -133,4 +133,4 @@ without re-plumbing the telemetry tables.
   keeps the current one. An ingest key can be moved afterwards from its row on the Ingest keys
   page. "Share view" links default to the active project like any other new object, so a
   recipient outside that project gets a 404; switch to "All projects" first to share widely.
-- User docs: `docs/how-to/organize-teams-with-projects.md`.
+- User docs: `docs/how-to/admin/organize-teams-with-projects.md`.

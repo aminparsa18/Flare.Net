@@ -27,7 +27,8 @@ db/clickhouse             Numbered .sql migrations, mounted at container init (d
 db/clickhouse-cluster     Same migrations, cluster-mode variant
 examples/                 ExampleApp.AppHost (live demo: Flare + multi-role ExampleApp.Shop + Kafka/Postgres/otelcol),
                           ExampleApp.Seeder (backdated per-docs-page OTLP/JSON backfill)
-docs/                     User-facing docs (Diátaxis: tutorials/how-to/reference/explanation)
+docs/                     User-facing docs (Diátaxis: tutorials/how-to/reference/explanation); how-to/ is split into topic subfolders
+                          (deploy, admin, instrument, monitor, investigate, alerting, dashboards, data, integrations)
 docs-internal/            Maintainer docs: adr/, investigations/, planning/roadmap.md
 ```
 

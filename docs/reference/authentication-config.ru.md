@@ -7,7 +7,7 @@
 метод, см. в
 [`../explanation/authentication-model.md`](../explanation/authentication-model.ru.md).
 О шагах настройки см. в
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.ru.md).
+[`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.ru.md).
 
 ## Роли
 
@@ -54,9 +54,9 @@ Entra/OIDC перенаправляют на `/login?error=account-disabled`; LD
 | `Auth:LoginFailureWindow` | `00:15:00` (15 минут) | Неудачная попытка старше этого значения не учитывается в `MaxFailedLoginAttempts` - сбрасывает серию вместо накопления случайных опечаток в пароле со временем. |
 | `Auth:PatRateLimitPermitLimit` | `120` | Сколько запросов один [персональный токен доступа](../explanation/authentication-model.ru.md#персональные-токены-доступа) может сделать за `PatRateLimitWindow`, прежде чем `Flare.Api` начнёт отвечать ему `429`. Сеансовый (cookie) трафик панели управления этому никогда не подвергается. |
 | `Auth:PatRateLimitWindow` | `00:01:00` (1 минута) | Фиксированное окно, за которое измеряется `PatRateLimitPermitLimit`. |
-| `Audit:RetentionDays` | `365` | Сколько дней хранить события [журнала аудита](../how-to/configure-authentication.ru.md#журнал-аудита), прежде чем ежечасное задание их удалит. `0` — хранить бессрочно. |
+| `Audit:RetentionDays` | `365` | Сколько дней хранить события [журнала аудита](../how-to/admin/configure-authentication.ru.md#журнал-аудита), прежде чем ежечасное задание их удалит. `0` — хранить бессрочно. |
 | `Auth:IngestKeyRequired` | `false` | Отклоняет ли `Flare.Ingest` запросы OTLP без действительного ключа API. |
-| `Auth:StaticIngestApiKey` | не установлено | Фиксированный ключ приёма данных, устанавливаемый через конфигурацию вместо панели управления — см. [ключи API приёма данных](../how-to/configure-authentication.ru.md#ключи-api-приёма-данных). |
+| `Auth:StaticIngestApiKey` | не установлено | Фиксированный ключ приёма данных, устанавливаемый через конфигурацию вместо панели управления — см. [ключи API приёма данных](../how-to/admin/configure-authentication.ru.md#ключи-api-приёма-данных). |
 | `Cors:AllowedOrigins:0`, `:1`, … | нет | Источник(и), которым разрешено вызывать `Flare.Api` с учётными данными (то есть собственный источник панели управления). Обязательно — `Flare.Api` больше не использует `AllowAnyOrigin()` по умолчанию. Также служит списком разрешённых `returnUrl` для входа через Entra. |
 | `Auth:Entra:DefaultRole` | `Viewer` | Роль, назначаемая при первом входе, когда токен не несёт распознанной записи claim `roles`. Единственная связанная с Entra настройка, которая всё ещё привязана к конфигурации — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` вместо этого живут в базе данных, устанавливаются через страницу `/auth` (только для Admin, `GET`/`PUT /api/settings/entra`). |
 

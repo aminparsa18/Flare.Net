@@ -90,7 +90,7 @@ observability suite; see [Non-goals](#non-goals) below.
 | `Flare.AppHost` | .NET Aspire | Local orchestration of all of the above |
 
 Every OTLP-capable .NET logger reaches Flare's ingest receiver the same
-way — see [`../how-to/run-standalone.md`](../how-to/run-standalone.md)
+way — see [`../how-to/deploy/run-standalone.md`](../how-to/deploy/run-standalone.md)
 for a copy-paste snippet per logger
 (`Microsoft.Extensions.Logging`/ZLogger via `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
 Serilog via `Serilog.Sinks.OpenTelemetry`, NLog via
@@ -120,14 +120,14 @@ a planned (not yet built) cold-storage backend — see
 Flare has three legitimate install paths, each solving a different problem
 rather than being redundant with the others:
 
-- **[.NET Aspire](../how-to/run-with-aspire.md)** (`Flare.Hosting.Aspire`) —
+- **[.NET Aspire](../how-to/deploy/run-with-aspire.md)** (`Flare.Hosting.Aspire`) —
   for an app that already has an AppHost. Flare joins the resource graph;
   `aspire start` already orchestrates its lifecycle alongside everything
   else.
-- **[Standalone Docker Compose](../how-to/run-standalone.md)** — for a
+- **[Standalone Docker Compose](../how-to/deploy/run-standalone.md)** — for a
   one-off, repo-local evaluation. `docker compose up` at the repo root is
   the fastest way to just look at Flare once.
-- **[The `flare` CLI](../how-to/run-with-cli.md)** (`Flare.Cli`) — for a
+- **[The `flare` CLI](../how-to/deploy/run-with-cli.md)** (`Flare.Cli`) — for a
   standing instance you start once and forget about, from any directory,
   shared across many unrelated local projects, independent of any single
   AppHost's lifecycle. This is the case the other two paths structurally
@@ -141,7 +141,7 @@ Whichever install path you pick, you land in the same place:
 `Flare.Dashboard` — a single SvelteKit SPA with seven pages behind one nav
 bar, all talking to `Flare.Api` over HTTP/WebSocket, no separate tools for
 logs, traces, metrics, or alerting. First visit creates the admin account
-(see [`../how-to/configure-authentication.md`](../how-to/configure-authentication.md));
+(see [`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.md));
 after that it's a normal login.
 
 ### Logs
@@ -194,7 +194,7 @@ of span-match steps (service, span name, attribute filters) and shows how
 many reach each step, where they drop off, errors per step and step-to-step
 latency. Each figure opens the traces behind it. Computed at query time from
 the stored spans, and saved as ordinary saved views. See
-[`../how-to/analyze-trace-funnels.md`](../how-to/analyze-trace-funnels.md)
+[`../how-to/investigate/analyze-trace-funnels.md`](../how-to/investigate/analyze-trace-funnels.md)
 and [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
 
 A "Structure" button in the trace list's toolbar filters by how a trace's
@@ -203,7 +203,7 @@ child), `A => B` (any descendant), AND, OR and NOT, for example "a
 `checkout` span with a descendant `payment` span that errored". It's a
 `SpanFilter` field, evaluated at query time as a `TraceId` subquery, so
 the list, facets, saved views and dashboard panels all respect it. See
-[`../how-to/find-traces-by-structure.md`](../how-to/find-traces-by-structure.md)
+[`../how-to/investigate/find-traces-by-structure.md`](../how-to/investigate/find-traces-by-structure.md)
 and [ADR-0069](../../docs-internal/adr/0069-structural-trace-queries.md).
 
 ### Messaging
@@ -215,7 +215,7 @@ are computed from producer and consumer spans' OTel `messaging.*` attributes
 at query time, so there's no extra agent or table. The backlog comes from
 the collector's `kafkametrics` or `rabbitmq` receiver when one is present.
 Click a row for its producers, consumers, partitions, per-group lag or
-per-queue depth. See [`../how-to/monitor-message-queues.md`](../how-to/monitor-message-queues.md),
+per-queue depth. See [`../how-to/monitor/monitor-message-queues.md`](../how-to/monitor/monitor-message-queues.md),
 [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) and
 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md).
 
@@ -232,7 +232,7 @@ breakdown's External-calls tab falls back to the same domain when a span
 has no `peer.service`. The Service Map adds a leaf node for each host that
 outbound calls reached with no instrumented child span, read from the
 `outbound_calls` table (migration 0035) anti-joined against spans' parent
-ids. See [`../how-to/monitor-external-apis.md`](../how-to/monitor-external-apis.md),
+ids. See [`../how-to/monitor/monitor-external-apis.md`](../how-to/monitor/monitor-external-apis.md),
 [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md) and
 [ADR-0072](../../docs-internal/adr/0072-external-host-map-leaves.md).
 
