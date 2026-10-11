@@ -85,6 +85,34 @@ export async function getReleaseHealth(query: { windowMinutes: number; service?:
 	return (await res.json()) as ReleaseHealth;
 }
 
+export interface ReleaseHealthTrendPoint {
+	/** Bucket start, Unix epoch milliseconds. */
+	bucketUnixMs: number;
+	version: string;
+	sessions: number;
+	crashedSessions: number;
+}
+
+export interface ReleaseHealthTrend {
+	windowMinutes: number;
+	bucketMinutes: number;
+	points: ReleaseHealthTrendPoint[];
+}
+
+/** Sessions and crashed sessions per version per time bucket (ADR-0189). */
+export async function getReleaseHealthTrend(query: { windowMinutes: number; service?: string }, signal?: AbortSignal): Promise<ReleaseHealthTrend> {
+	const res = await apiFetch(`${API_BASE_URL}/api/app-sessions/release-health/trend`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ windowMinutes: query.windowMinutes, service: query.service || null }),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/app-sessions/release-health/trend failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as ReleaseHealthTrend;
+}
+
 export interface AppStartStat {
 	/** `service.version`, '' when the app reports none. */
 	version: string;

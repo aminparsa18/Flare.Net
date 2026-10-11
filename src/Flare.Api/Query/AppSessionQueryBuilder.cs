@@ -128,6 +128,56 @@ public static class AppSessionQueryBuilder
         return new AppSessionSql(sql, parameters);
     }
 
+    /// <summary>Most buckets a trend may span, so a tiny bucket over a week can't return an enormous series.</summary>
+    public const int MaxTrendBuckets = 500;
+
+    private static readonly int[] NiceBucketMinutes = [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440];
+
+    /// <summary>
+    /// A requested bucket width when it is positive and keeps the window within <see cref="MaxTrendBuckets"/>, otherwise
+    /// the smallest round width (5 minutes to a day) giving at most 60 buckets.
+    /// </summary>
+    public static int ResolveTrendBucketMinutes(int? requested, int windowMinutes)
+    {
+        if (requested is > 0 && (windowMinutes + requested.Value - 1) / requested.Value <= MaxTrendBuckets)
+            return requested.Value;
+
+        foreach (var minutes in NiceBucketMinutes)
+        {
+            if ((windowMinutes + minutes - 1) / minutes <= 60) return minutes;
+        }
+
+        return NiceBucketMinutes[^1];
+    }
+
+    /// <summary>
+    /// Crash-free trend: each session is counted once, in the bucket of its first span, under its version (ADR-0189).
+    /// Same session definition as <see cref="BuildReleaseHealth"/>. Columns: BucketUnixMs, Version, Sessions,
+    /// CrashedSessions; oldest bucket first.
+    /// </summary>
+    public static AppSessionSql BuildReleaseHealthTrend(ReleaseHealthTrendRequest request, int windowMinutes, int bucketMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = Where(parameters, windowMinutes, end, request.Service, version: null);
+        var sql = "SELECT\n" +
+            $"    toUnixTimestamp64Milli(toDateTime64(toStartOfInterval(FirstSeen, INTERVAL {bucketMinutes} MINUTE), 3)) AS BucketUnixMs,\n" +
+            "    Version,\n" +
+            "    count() AS Sessions,\n" +
+            "    countIf(Crashed) AS CrashedSessions\n" +
+            "FROM (\n" +
+            "    SELECT\n" +
+            "        min(StartTime) AS FirstSeen,\n" +
+            "        any(ResourceAttributes['service.version']) AS Version,\n" +
+            "        countIf(Name = 'app.unhandled_exception' AND lower(SpanAttributes['exception.escaped']) = 'true') > 0 AS Crashed\n" +
+            "    FROM spans\n" +
+            $"    WHERE {where}\n" +
+            $"    GROUP BY {SessionId}\n" +
+            ")\n" +
+            "GROUP BY BucketUnixMs, Version\n" +
+            "ORDER BY BucketUnixMs, Version";
+        return new AppSessionSql(sql, parameters);
+    }
+
     /// <summary>Row cap for each performance table. Neither is expected to reach it: one row per screen, or per version and start type.</summary>
     public const int MaxPerformanceRows = 200;
 

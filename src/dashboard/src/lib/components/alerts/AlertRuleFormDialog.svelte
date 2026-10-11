@@ -316,7 +316,7 @@
 			// declaration's comment - so it's populated from whichever filter this rule's
 			// conditionKind actually uses.
 			const targetSeriesKind = target.conditionKind === 'Anomaly' ? (target.anomalyCondition?.source ?? 'LogCount') : target.conditionKind;
-			services = targetSeriesKind === 'ExceptionCount' || targetSeriesKind === 'ReleaseErrors' ? (target.exceptionCondition?.filter?.services ?? []) : (target.condition.services ?? []);
+			services = targetSeriesKind === 'ExceptionCount' || targetSeriesKind === 'ReleaseErrors' || targetSeriesKind === 'CrashFreeRate' ? (target.exceptionCondition?.filter?.services ?? []) : (target.condition.services ?? []);
 			severityNumbers = target.condition.severityNumbers ?? [];
 			search = target.condition.search ?? '';
 			thresholdCountText = String(target.threshold.count);
@@ -385,14 +385,14 @@
 	const cooldownSeconds = $derived(Number(cooldownSecondsText));
 	const metricThresholdValue = $derived(Number(metricThresholdValueText));
 	const noDataWindowSeconds = $derived(Number(noDataWindowSecondsText));
-	const supportsNoData = $derived(seriesKind !== 'ExceptionCount' && seriesKind !== 'ReleaseErrors');
+	const supportsNoData = $derived(seriesKind !== 'ExceptionCount' && seriesKind !== 'ReleaseErrors' && seriesKind !== 'CrashFreeRate');
 	const noDataActive = $derived(supportsNoData && noDataEnabled);
 	const minDataPoints = $derived(Number(minDataPointsText));
-	const minDataPointsActive = $derived(conditionKind === 'MetricThreshold' && minDataPointsEnabled);
+	const minDataPointsActive = $derived((conditionKind === 'MetricThreshold' || conditionKind === 'CrashFreeRate') && minDataPointsEnabled);
 	const recoveryThreshold = $derived(Number(recoveryThresholdText));
 	const recoveryActive = $derived(conditionKind !== 'Anomaly' && recoveryEnabled);
 	// The value the recovery threshold sits on the recovering side of: a metric rule's value, or a count rule's count.
-	const recoveryReference = $derived(conditionKind === 'MetricThreshold' ? metricThresholdValue : thresholdCount);
+	const recoveryReference = $derived(conditionKind === 'MetricThreshold' || conditionKind === 'CrashFreeRate' ? metricThresholdValue : thresholdCount);
 	const recoveryValid = $derived(
 		recoveryThresholdText.trim() !== '' &&
 			Number.isFinite(recoveryThreshold) &&
@@ -465,7 +465,9 @@
 				? anomalyValid
 				: conditionKind === 'MetricThreshold'
 					? Number.isFinite(metricThresholdValue)
-					: Number.isFinite(thresholdCount) && thresholdCount > 0)
+					: conditionKind === 'CrashFreeRate'
+						? Number.isFinite(metricThresholdValue) && metricThresholdValue >= 0 && metricThresholdValue <= 100
+						: Number.isFinite(thresholdCount) && thresholdCount > 0)
 	);
 
 	const canSave = $derived(
@@ -581,7 +583,7 @@
 			// count is a placeholder (ignored server-side) when conditionKind is
 			// MetricThreshold - see AlertThreshold.Count's own doc comment.
 			// count is a placeholder for Anomaly too - it has no fixed threshold at all.
-			threshold: { count: conditionKind === 'MetricThreshold' || conditionKind === 'Anomaly' ? 0 : thresholdCount, comparator },
+			threshold: { count: conditionKind === 'MetricThreshold' || conditionKind === 'Anomaly' || conditionKind === 'CrashFreeRate' ? 0 : thresholdCount, comparator },
 			windowSeconds,
 			cooldownSeconds,
 			// Exactly one notification mode goes out - the legacy inline fields (only when
@@ -602,11 +604,11 @@
 				seriesKind === 'MetricThreshold'
 					? { metricName: metricName.trim(), type: metricType, aggregation: metricAggregation, filter: metricFilter }
 					: undefined,
-			metricThresholdValue: conditionKind === 'MetricThreshold' ? metricThresholdValue : undefined,
+			metricThresholdValue: conditionKind === 'MetricThreshold' || conditionKind === 'CrashFreeRate' ? metricThresholdValue : undefined,
 			exceptionCondition:
-				seriesKind === 'ExceptionCount' || seriesKind === 'ReleaseErrors'
+				seriesKind === 'ExceptionCount' || seriesKind === 'ReleaseErrors' || seriesKind === 'CrashFreeRate'
 					? {
-							// ReleaseErrors reads only the service scope (ADR-0186); its type/message stay empty.
+							// ReleaseErrors and CrashFreeRate read only the service scope (ADR-0186, ADR-0189); its type/message stay empty.
 							exceptionType: seriesKind === 'ExceptionCount' ? exceptionType.trim() : '',
 							exceptionMessage: seriesKind === 'ExceptionCount' ? exceptionMessage.trim() || undefined : undefined,
 							filter:
@@ -748,7 +750,15 @@
 
 			<div class="flex flex-col gap-1">
 				<span class="text-xs font-medium">{m.alertRuleForm_conditionKindLabel()}</span>
-				<Select.Root type="single" value={conditionKind} onValueChange={(v) => v && (conditionKind = v as AlertConditionKind)}>
+				<Select.Root type="single" value={conditionKind} onValueChange={(v) => {
+					if (!v) return;
+					conditionKind = v as AlertConditionKind;
+					// A crash-free rule fires when the rate drops: start from the usual "below 99%".
+					if (v === 'CrashFreeRate' && alerts.formTarget === 'new') {
+						comparator = 'LessThan';
+						metricThresholdValueText = '99';
+					}
+				}}>
 					<Select.Trigger class="w-48">
 						{conditionKind === 'MetricThreshold'
 							? m.alertRuleForm_conditionKindMetricThreshold()
@@ -758,7 +768,9 @@
 									? m.alertRuleForm_conditionKindAnomaly()
 									: conditionKind === 'ReleaseErrors'
 										? m.alertRuleForm_conditionKindReleaseErrors()
-										: m.alertRuleForm_conditionKindLogCount()}
+										: conditionKind === 'CrashFreeRate'
+											? m.alertRuleForm_conditionKindCrashFreeRate()
+											: m.alertRuleForm_conditionKindLogCount()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="LogCount" label={m.alertRuleForm_conditionKindLogCount()} />
@@ -766,6 +778,7 @@
 						<Select.Item value="ExceptionCount" label={m.alertRuleForm_conditionKindExceptionCount()} />
 						<Select.Item value="Anomaly" label={m.alertRuleForm_conditionKindAnomaly()} />
 						<Select.Item value="ReleaseErrors" label={m.alertRuleForm_conditionKindReleaseErrors()} />
+						<Select.Item value="CrashFreeRate" label={m.alertRuleForm_conditionKindCrashFreeRate()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
@@ -847,6 +860,16 @@
 					/>
 				</div>
 				<span class="text-muted-foreground text-xs">{m.alertRuleForm_releaseErrorsHint()}</span>
+			{:else if seriesKind === 'CrashFreeRate'}
+				<div class="flex flex-wrap items-center gap-2">
+					<PopoverMultiSelect
+						label={m.alertRuleForm_serviceLabel()}
+						options={serviceOptions}
+						selected={services}
+						onChange={(next) => (services = next)}
+					/>
+				</div>
+				<span class="text-muted-foreground text-xs">{m.alertRuleForm_crashFreeHint()}</span>
 			{:else if seriesKind === 'ExceptionCount'}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_exceptionTypeLabel()}</span>
@@ -996,7 +1019,7 @@
 							</Select.Root>
 						</div>
 						<Input type="number" bind:value={metricThresholdValueText} class="w-24" />
-						{#if thresholdUnitOptions.length}
+						{#if conditionKind === 'MetricThreshold' && thresholdUnitOptions.length}
 							<Select.Root type="single" value={thresholdUnit} onValueChange={(v) => (thresholdUnit = v ?? '')}>
 								<Select.Trigger class="w-24">
 									{thresholdUnit || selectedMetricUnit || m.alertRuleForm_thresholdUnitDefault()}
@@ -1009,7 +1032,7 @@
 								</Select.Content>
 							</Select.Root>
 						{/if}
-						<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_metricOverLabel()}</span>
+						<span class="text-muted-foreground pb-1.5 text-xs">{conditionKind === 'CrashFreeRate' ? m.alertRuleForm_crashFreeOver() : m.alertRuleForm_metricOverLabel()}</span>
 					{/if}
 					<Input type="number" min="1" bind:value={windowSecondsText} class="w-24" />
 					<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_seconds()}</span>
@@ -1060,7 +1083,22 @@
 				</div>
 			{/if}
 
-			{#if conditionKind === 'MetricThreshold'}
+			{#if conditionKind === 'CrashFreeRate'}
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center gap-2">
+						<Switch bind:checked={minDataPointsEnabled} />
+						<span class="text-xs font-medium">{m.alertRuleForm_minSessionsLabel()}</span>
+					</div>
+					{#if minDataPointsEnabled}
+						<div class="flex items-center gap-2">
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_minDataPointsAtLeast()}</span>
+							<Input type="number" min="1" max={MAX_MIN_DATA_POINTS} step="1" bind:value={minDataPointsText} class="w-24" />
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_minSessionsUnit()}</span>
+						</div>
+					{/if}
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_minSessionsHint()}</span>
+				</div>
+			{:else if conditionKind === 'MetricThreshold'}
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center gap-2">
 						<Switch bind:checked={minDataPointsEnabled} />
@@ -1361,6 +1399,14 @@
 							{:else}
 								{@const args = { value: formatAnomalyNumber(testResult.observedValue ?? 0), mean: formatAnomalyNumber(testResult.baselineMean), z: formatZScore(testResult.zScore) }}
 								{testResult.wouldFire ? m.alertRuleForm_testResultAnomalyFiring(args) : m.alertRuleForm_testResultAnomalyNotFiring(args)}
+							{/if}
+						{:else if testResult.conditionKind === 'CrashFreeRate'}
+							{#if testResult.observedValue == null}
+								{m.alertRuleForm_testResultCrashFreeNoSessions()}
+							{:else}
+								{testResult.wouldFire
+									? m.alertRuleForm_testResultFiringCrashFree({ value: testResult.observedValue.toFixed(2) })
+									: m.alertRuleForm_testResultNotFiringCrashFree({ value: testResult.observedValue.toFixed(2) })}
 							{/if}
 						{:else if testResult.conditionKind === 'MetricThreshold'}
 							{testResult.wouldFire

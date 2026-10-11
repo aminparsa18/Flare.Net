@@ -173,6 +173,10 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 **Sessions** 页面顶部按应用版本显示窗口内的无崩溃会话和无崩溃用户比例，方便把新版本与上一版本对比。应用上报了致命的未处理异常即视为会话崩溃；低于 99% 时以红色显示。用户数按链路段或资源上的 `user.id` 属性统计。`Flare.Maui` 不会设置该属性，因此在应用自行添加之前，用户列显示为短横线。
 
+表格下方的图表按时间绘制各版本的无崩溃率（会话最多的六个版本），这样可以看到某个发布是变差了还是恢复了，而不只是整个窗口的一个数字。每个会话只计入其开始时所在的时间桶。
+
+要在比率下降时收到通知，请创建条件为 **Crash-free sessions drop** 的告警规则。选择要监控的服务（未选择时为全部）、类似 `< 99`（百分比）的阈值以及类似 3600 秒的窗口。规则会在窗口内分别计算各版本的比率，并将最低的比率与阈值比较，因此有问题的旧版本会让规则持续触发，直到窗口越过它。开启 **Require a minimum number of sessions**，避免只有几次启动的版本触发规则；低于最小值的版本会被跳过，若没有版本满足条件，规则既不触发也不恢复。它没有无数据选项。通过 API 则是 `conditionKind: "CrashFreeRate"`，`metricThresholdValue` 为百分比，`minDataPoints` 为最少会话数，范围用 `exceptionCondition: { "exceptionType": "", "filter": { "services": ["shop-app"] } }` 指定。
+
 ## 检测应用卡死
 
 看门狗会向 UI 线程发送 ping，若在 `AppHangThreshold`（默认 2 秒，至少 500 毫秒）内没有响应，就报告一个带错误状态的 `app.hang` 链路段。它与 `hang` 面包屑一起显示在会话页面上，因此即使系统随后终止了应用，也能看到界面卡死。应用在后台时会暂停检测。在 Android 上，该链路段还带有 `hang.stacktrace`，即被阻塞线程的 Java 堆栈（托管帧显示为运行时的原生帧）；iOS 无法读取其他线程的堆栈。调试器暂停看起来也像卡死，调试时如有干扰可设置 `DetectAppHangs = false`。

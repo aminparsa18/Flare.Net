@@ -196,6 +196,10 @@ so you can compare a new release with the last one. A session counts as crashed 
 unhandled exception; the rate is red below 99%. Users are counted from a `user.id` attribute on spans or the
 resource. `Flare.Maui` does not set one, so the user columns show a dash until your app adds it.
 
+Below the table, a chart plots each version's crash-free rate over time (the busiest six versions), so you can see whether a release got worse or recovered instead of reading one number for the whole window. Each session is counted once, in the bucket where it started.
+
+To be paged when it drops, create an alert rule with the condition **Crash-free sessions drop**. Pick the services to watch (all when none is chosen), a threshold such as `< 99` (percent) and a window such as 3600 seconds. The rule rates each version over the window and compares the lowest rate with the threshold, so an old, bad version keeps it firing until the window moves past it. Turn on **Require a minimum number of sessions** so a version with a handful of launches can't trip it; a version below the minimum is skipped, and if none qualifies the rule is neither fired nor resolved. It has no no-data option. Over the API it is `conditionKind: "CrashFreeRate"`, `metricThresholdValue` as the percentage, `minDataPoints` as the minimum sessions, and `exceptionCondition: { "exceptionType": "", "filter": { "services": ["shop-app"] } }` for the scope.
+
 ## Detect app hangs
 
 A watchdog pings the UI thread and, when it does not answer for `AppHangThreshold` (2 seconds by default,

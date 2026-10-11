@@ -189,6 +189,11 @@ public static class AlertMessageFormatter
                 threshold = MetricUnitFormatter.Format(tv, scale);
             }
         }
+        else if (rule.ConditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            value = FormatPercent(observedValue);
+            threshold = rule.MetricThresholdValue is { } crashFreeThreshold ? FormatPercent(crashFreeThreshold) : "";
+        }
         else if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
         {
             value = FormatBurnRate(observedValue);
@@ -288,7 +293,7 @@ public static class AlertMessageFormatter
                 }
 
                 break;
-            case AlertConditionKind.ExceptionCount or AlertConditionKind.ReleaseErrors when rule.ExceptionCondition is { } exception:
+            case AlertConditionKind.ExceptionCount or AlertConditionKind.ReleaseErrors or AlertConditionKind.CrashFreeRate when rule.ExceptionCondition is { } exception:
                 foreach (var service in exception.Filter.Services ?? [])
                 {
                     Add("service.name", service);
@@ -392,6 +397,11 @@ public static class AlertMessageFormatter
                    $"(threshold {comparatorSymbol} {thresholdText}) over the last {rule.WindowSeconds}s";
         }
 
+        if (rule.ConditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            return $"{head}: crash-free sessions back to {FormatPercent(observedValue)} (threshold {comparatorSymbol} {FormatPercent(rule.MetricThresholdValue ?? 0)}) over the last {rule.WindowSeconds}s";
+        }
+
         var what = rule.ConditionKind switch
         {
             AlertConditionKind.ExceptionCount => $"{rule.ExceptionCondition?.ExceptionType ?? "?"} occurred {(ulong)observedValue} times",
@@ -403,6 +413,9 @@ public static class AlertMessageFormatter
 
     /// <summary>Burn rates read as "14.4", "6" or "0.5" - at most one decimal, no trailing zero.</summary>
     internal static string FormatBurnRate(double burnRate) => burnRate.ToString("0.#", CultureInfo.InvariantCulture);
+
+    /// <summary>Crash-free rates read as "99.2%" - at most two decimals, no trailing zero.</summary>
+    internal static string FormatPercent(double percent) => percent.ToString("0.##", CultureInfo.InvariantCulture) + "%";
 
     private static string SloThresholdSuffix(AlertRule rule) =>
         rule.SloCondition is { } slo ? $" (threshold >= {FormatBurnRate(slo.BurnRateThreshold)}x, also over {slo.ShortWindowSeconds}s)" : "";
@@ -423,6 +436,9 @@ public static class AlertMessageFormatter
 
     /// <summary>Label the worker sets on the in-memory rule of a <see cref="AlertConditionKind.ReleaseErrors"/> fire to name the release.</summary>
     public const string ReleaseLabel = "flare.release";
+
+    private static string ReleaseServiceScope(AlertRule rule) =>
+        rule.ExceptionCondition?.Filter.Services is { Count: > 0 } services ? $" in {string.Join(", ", services)}" : "";
 
     private static string ReleaseServiceSuffix(AlertRule rule) =>
         rule.Labels.TryGetValue(ReleaseLabel, out var release) ? $": {release}"
@@ -446,6 +462,13 @@ public static class AlertMessageFormatter
             var thresholdText = thresholdValue is { } tv ? MetricUnitFormatter.Format(tv, scale) : "";
             return $":rotating_light: Alert \"{rule.Name}\" fired: {metricName} = {MetricUnitFormatter.Format(observedValue, scale)} " +
                    $"({comparatorSymbol} {thresholdText}) over the last {rule.WindowSeconds}s";
+        }
+
+        if (rule.ConditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            var version = rule.Labels.TryGetValue(ReleaseLabel, out var worst) ? $" (version {worst})" : "";
+            return $":rotating_light: Alert \"{rule.Name}\" fired: {FormatPercent(observedValue)} of sessions were crash-free ({comparatorSymbol} {FormatPercent(rule.MetricThresholdValue ?? 0)}) " +
+                   $"over the last {rule.WindowSeconds}s{version}{ReleaseServiceScope(rule)}";
         }
 
         if (rule.ConditionKind == AlertConditionKind.ReleaseErrors)
@@ -547,6 +570,7 @@ public static class AlertMessageFormatter
             AlertConditionKind.ExceptionCount => BuildMatchingExceptionsUrl(rule, publicUrl, firedAt),
             AlertConditionKind.SloBurnRate => BuildSloUrl(rule, publicUrl),
             AlertConditionKind.ReleaseErrors => string.IsNullOrWhiteSpace(publicUrl) ? null : $"{publicUrl.TrimEnd('/')}/releases",
+            AlertConditionKind.CrashFreeRate => string.IsNullOrWhiteSpace(publicUrl) ? null : $"{publicUrl.TrimEnd('/')}/sessions",
             _ => BuildMatchingLogsUrl(rule, publicUrl, firedAt),
         };
 
@@ -564,6 +588,7 @@ public static class AlertMessageFormatter
             AlertConditionKind.ExceptionCount => "Matching exceptions",
             AlertConditionKind.SloBurnRate => "SLO",
             AlertConditionKind.ReleaseErrors => "Releases",
+            AlertConditionKind.CrashFreeRate => "Sessions",
             _ => "Matching logs",
         };
 

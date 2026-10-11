@@ -14,6 +14,7 @@
 	import { AppSessionsState, APP_SESSIONS_WINDOW_PRESETS, type AppSessionsWindowPreset } from '$lib/app-sessions/state.svelte';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
 	import { crashFreePercent, framePercent } from '$lib/app-sessions-api';
+	import ReleaseHealthTrendChart from '$lib/components/sessions/ReleaseHealthTrendChart.svelte';
 	import { buildSessionTimelineHref } from '$lib/deep-links';
 	import { formatCount } from '$lib/ingestion/format';
 	import { formatDateTime } from '$lib/time/format';
@@ -165,7 +166,12 @@
 						{/each}
 					</Table.Body>
 				</Table.Root>
-				<p class="text-muted-foreground pt-1 pb-4 text-xs">{m.sessionsPage_health_hint()}</p>
+				<p class="text-muted-foreground pt-1 pb-2 text-xs">{m.sessionsPage_health_hint()}</p>
+				{#if sessions.releaseTrend && sessions.releaseTrend.points.length > 0}
+					<h2 class="pt-2 pb-1 text-xs font-medium">{m.sessionsPage_trend_heading()}</h2>
+					<ReleaseHealthTrendChart trend={sessions.releaseTrend} />
+					<p class="text-muted-foreground pt-1 pb-4 text-xs">{m.sessionsPage_trend_hint()}</p>
+				{/if}
 			{/if}
 			{#if sessions.performance && (sessions.performance.starts.length > 0 || sessions.performance.screens.length > 0)}
 				<h2 class="pt-4 pb-1 text-xs font-medium">{m.sessionsPage_perf_heading()}</h2>

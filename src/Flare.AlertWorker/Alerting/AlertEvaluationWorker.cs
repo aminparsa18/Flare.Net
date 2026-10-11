@@ -68,6 +68,7 @@ public sealed class AlertEvaluationWorker(
     IOnCallRotationQueryService rotations,
     ISloQueryService slos,
     IReleaseQueryService releases,
+    IAppSessionQueryService appSessions,
     CompositeAlertNotifier notifier,
     IAlertAckLinkSigner ackLinks,
     IIncidentSummaryService incidentSummaries,
@@ -342,6 +343,31 @@ public sealed class AlertEvaluationWorker(
             // The long window's rate is the headline value; no events in it reads as 0, not a gap.
             observedValue = burn.LongBurnRate ?? 0;
             breached = burn.Breached;
+        }
+        else if (rule.ConditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            if (rule.ExceptionCondition is null || rule.MetricThresholdValue is not { } crashFreeThreshold)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) is CrashFreeRate but has no service scope or threshold; skipping.", rule.Id, rule.Name);
+                return;
+            }
+
+            // No version with enough sessions is "insufficient data", not a breach (and not a recovery either),
+            // the same way a metric rule with too few points is skipped.
+            var tally = await CrashFreeRateEvaluator.EvaluateAsync(appSessions, rule.ExceptionCondition.Filter.Services ?? [], rule.WindowSeconds, rule.MinDataPoints, cancellationToken);
+            if (tally is null)
+            {
+                logger.LogDebug("Alert rule {RuleId} ({RuleName}) has no version with {MinSessions}+ sessions in its window; insufficient data, not evaluating.", rule.Id, rule.Name, Math.Max(rule.MinDataPoints, 1));
+                return;
+            }
+
+            observedValue = tally.Rate;
+            breached = rule.Threshold.IsBreachedValue(tally.Rate, crashFreeThreshold);
+            if (breached)
+            {
+                // Name the version in the notification, like a ReleaseErrors fire; only the in-memory rule carries it.
+                rule = rule with { Labels = new Dictionary<string, string>(rule.Labels) { [AlertMessageFormatter.ReleaseLabel] = tally.Version.Length == 0 ? "(no version)" : tally.Version } };
+            }
         }
         else if (rule.ConditionKind == AlertConditionKind.ReleaseErrors)
         {
