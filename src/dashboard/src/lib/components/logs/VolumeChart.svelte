@@ -683,8 +683,6 @@
 											/>
 										{/each}
 
-										<ReleaseMarkers {markers} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
-
 										{#if selectedIndex !== null}
 											<!-- Persistent (not hover-only) marker for the bar-click selection, so the
 											     filtered-to range stays visible even after the pointer moves away. -->
@@ -771,6 +769,9 @@
 												vector-effect="non-scaling-stroke"
 											/>
 										{/if}
+
+										<!-- Deploy markers go over the bars (unlike the metrics chart's lines): a full-height bar would hide them. -->
+										<ReleaseMarkers {markers} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
 
 										{#if isDragging && !explorer.live && allowZoom}
 											<!-- Drag-to-zoom selection overlay - width tracks the pointer live, released ->

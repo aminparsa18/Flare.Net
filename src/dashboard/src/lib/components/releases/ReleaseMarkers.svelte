@@ -14,7 +14,8 @@
 {#each markers as marker (marker.release.id)}
 	{@const x = marker.fraction * width}
 	<line
-		{x}
+		x1={x}
+		x2={x}
 		y1={peakY}
 		y2={baselineY}
 		stroke="var(--chart-4, currentColor)"
@@ -23,7 +24,7 @@
 		opacity="0.8"
 		vector-effect="non-scaling-stroke"
 	/>
-	<line {x} y1={peakY} y2={baselineY} stroke="transparent" stroke-width="8" vector-effect="non-scaling-stroke">
+	<line x1={x} x2={x} y1={peakY} y2={baselineY} stroke="transparent" stroke-width="8" vector-effect="non-scaling-stroke">
 		<title>{m.releaseMarker_title({ service: marker.release.service, version: marker.release.version, time: new Date(marker.time).toLocaleString() })}</title>
 	</line>
 {/each}
