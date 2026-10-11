@@ -32,6 +32,8 @@
 - [教程：你的第一个警报](tutorials/first-alert.zh-CN.md)
 - [教程：你的第一个指标仪表板](tutorials/first-dashboard.zh-CN.md)
 - [教程：端到端排查缓慢的结账请求](tutorials/debug-a-slow-request.zh-CN.md)
+- [教程：把 Flare 添加到 .NET Aspire 应用](tutorials/add-flare-to-an-aspire-app.zh-CN.md)
+- [教程：监控 .NET MAUI 应用](tutorials/monitor-a-maui-app.zh-CN.md)
 
 **操作指南**
 

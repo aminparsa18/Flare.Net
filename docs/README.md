@@ -30,6 +30,8 @@ the full rule set on what goes where.
 - [Tutorial: your first alert](tutorials/first-alert.md)
 - [Tutorial: your first metrics dashboard](tutorials/first-dashboard.md)
 - [Tutorial: debug a slow checkout end to end](tutorials/debug-a-slow-request.md)
+- [Tutorial: add Flare to a .NET Aspire app](tutorials/add-flare-to-an-aspire-app.md)
+- [Tutorial: monitor a .NET MAUI app](tutorials/monitor-a-maui-app.md)
 
 **How-to guides**
 
