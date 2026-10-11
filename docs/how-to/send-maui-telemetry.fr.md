@@ -164,6 +164,13 @@ Le texte des boutons et les titres de page peuvent contenir des données personn
 activez `IncludeTextInBreadcrumbs` ou `IncludeTitleInBreadcrumbs`. Relevez `BreadcrumbLogLevel` (ou `None`) pour
 limiter les breadcrumbs de logs, et `Breadcrumbs = false` pour tout désactiver.
 
+Chaque appel `HttpClient` laisse aussi un breadcrumb `http` (`GET api.example.com/orders 200, 2 KB, 85 ms`, avec
+l'hôte et le chemin mais jamais la query string), et son span reçoit `http.request.body.size` et
+`http.response.body.size` d'après `Content-Length` ; un corps en chunked n'a pas de taille. Un appel qui échoue
+alors que l'appareil n'a pas d'accès internet est marqué `network.offline = true` et son breadcrumb indique
+`failed: offline` : une connexion perdue se distingue ainsi d'une erreur serveur. `InstrumentHttpClient = false`
+désactive tout cela.
+
 ## Attacher un utilisateur, des tags et masquer des données
 
 ```csharp

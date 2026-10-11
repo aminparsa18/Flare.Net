@@ -162,6 +162,12 @@ Button text and page titles can contain personal data, so they are left out unle
 (or its type) and pages their type name. Raise `BreadcrumbLogLevel`, or set it to `None`, to limit log
 breadcrumbs, and set `Breadcrumbs = false` to turn all of them off.
 
+Each `HttpClient` call also leaves an `http` breadcrumb (`GET api.example.com/orders 200, 2 KB, 85 ms`, with the
+host and path but never the query string) and its span gets `http.request.body.size` and
+`http.response.body.size` from `Content-Length`; a chunked body has no size. A call that fails while the device
+has no internet access is tagged `network.offline = true` and its breadcrumb says `failed: offline`, so a lost
+connection reads differently from a server error. `InstrumentHttpClient = false` turns all of this off.
+
 ## Attach a user, tags and scrub data
 
 ```csharp

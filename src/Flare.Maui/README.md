@@ -24,6 +24,10 @@ Breadcrumbs (lifecycle, taps, pages, log lines; [ADR-0172](../../docs-internal/a
 session timeline; `o.IncludeTextInBreadcrumbs` / `o.IncludeTitleInBreadcrumbs` are off by default (PII), and
 `FlareMaui.AddBreadcrumb(category, message)` adds your own.
 
+Network: every `HttpClient` call adds an `http` breadcrumb (method, host, path, status, size, time; no query string),
+sizes on the span from `Content-Length`, and `network.offline = true` on a failure with no internet access
+([ADR-0190](../../docs-internal/adr/0190-maui-network-breadcrumbs.md)).
+
 Hangs: a watchdog posts a ping to the UI thread and reports an `app.hang` span (error status, backdated to when
 the thread stopped answering) if it is blocked for `AppHangThreshold` (default 2 s, minimum 500 ms). It is paused in
 the background; `DetectAppHangs = false` turns it off. On Android the span carries `hang.stacktrace` (the blocked thread's Java stack); iOS cannot read another
