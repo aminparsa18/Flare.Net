@@ -41,10 +41,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pinned to the 10.0.1xx band, not global.json's rollForward (which lands on 10.0.4xx): that band's iOS and
+      # Mac Catalyst packs need Xcode 27, and macos-latest ships Xcode 26.x.
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.111
 
       - name: Restore MAUI workloads
         run: dotnet workload restore Flare.Maui.slnx
