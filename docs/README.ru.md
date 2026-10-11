@@ -32,6 +32,8 @@
 - [Руководство: ваше первое оповещение](tutorials/first-alert.ru.md)
 - [Руководство: ваш первый дашборд метрик](tutorials/first-dashboard.ru.md)
 - [Руководство: разбор медленного оформления заказа от начала до конца](tutorials/debug-a-slow-request.ru.md)
+- [Руководство: добавьте Flare в приложение .NET Aspire](tutorials/add-flare-to-an-aspire-app.ru.md)
+- [Руководство: мониторинг приложения .NET MAUI](tutorials/monitor-a-maui-app.ru.md)
 
 **Практические руководства**
 

@@ -32,6 +32,8 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Tutoriel : votre première alerte](tutorials/first-alert.fr.md)
 - [Tutoriel : votre premier tableau de bord de métriques](tutorials/first-dashboard.fr.md)
 - [Tutoriel : déboguer un checkout lent de bout en bout](tutorials/debug-a-slow-request.fr.md)
+- [Tutoriel : ajouter Flare à une application .NET Aspire](tutorials/add-flare-to-an-aspire-app.fr.md)
+- [Tutoriel : surveiller une application .NET MAUI](tutorials/monitor-a-maui-app.fr.md)
 
 **Guides pratiques**
 
