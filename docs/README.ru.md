@@ -115,6 +115,12 @@
 - [Архитектура](explanation/architecture.ru.md)
 - [Кластеризация](explanation/clustering.ru.md)
 - [Модель аутентификации](explanation/authentication-model.ru.md)
+- [Как работают алерты](explanation/how-alerting-works.ru.md)
+- [Как Flare хранит телеметрию и выполняет запросы](explanation/how-flare-stores-and-queries-telemetry.ru.md)
+- [Надёжность приёма и гарантии доставки](explanation/ingest-reliability-and-delivery-guarantees.ru.md)
+- [Сэмплирование, кластеризация и стоимость](explanation/sampling-clustering-and-cost.ru.md)
+- [Проекты и разграничение доступа](explanation/projects-and-access-scoping.ru.md)
+- [Хранение данных и многоуровневое хранилище](explanation/retention-and-tiering.ru.md)
 
 ## Документация для контрибьюторов
 

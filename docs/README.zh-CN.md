@@ -115,6 +115,12 @@
 -[Architecture](explanation/architecture.zh-CN.md)
 -[Clustering](explanation/clustering.zh-CN.md)
 -[Authentication model](explanation/authentication-model.zh-CN.md)
+-[告警的工作原理](explanation/how-alerting-works.zh-CN.md)
+-[Flare 如何存储和查询遥测数据](explanation/how-flare-stores-and-queries-telemetry.zh-CN.md)
+-[摄取可靠性与投递保证](explanation/ingest-reliability-and-delivery-guarantees.zh-CN.md)
+-[采样、聚类与成本](explanation/sampling-clustering-and-cost.zh-CN.md)
+-[项目与访问范围](explanation/projects-and-access-scoping.zh-CN.md)
+-[保留策略与分层存储](explanation/retention-and-tiering.zh-CN.md)
 
 ## 贡献文档
 

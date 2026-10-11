@@ -117,6 +117,12 @@ the full rule set on what goes where.
 - [Architecture](explanation/architecture.md)
 - [Clustering](explanation/clustering.md)
 - [Authentication model](explanation/authentication-model.md)
+- [How alerting works](explanation/how-alerting-works.md)
+- [How Flare stores and queries telemetry](explanation/how-flare-stores-and-queries-telemetry.md)
+- [Ingest reliability and delivery guarantees](explanation/ingest-reliability-and-delivery-guarantees.md)
+- [Sampling, clustering and cost](explanation/sampling-clustering-and-cost.md)
+- [Projects and access scoping](explanation/projects-and-access-scoping.md)
+- [Retention and tiering](explanation/retention-and-tiering.md)
 
 ## Contributing documentation
 
