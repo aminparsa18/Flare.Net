@@ -30,6 +30,8 @@
 - [Getting started](tutorials/getting-started.zh-CN.md)
 - [教程：你的第一条追踪](tutorials/first-trace.zh-CN.md)
 - [教程：你的第一个警报](tutorials/first-alert.zh-CN.md)
+- [教程：你的第一个指标仪表板](tutorials/first-dashboard.zh-CN.md)
+- [教程：端到端排查缓慢的结账请求](tutorials/debug-a-slow-request.zh-CN.md)
 
 **操作指南**
 
