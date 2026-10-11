@@ -36,6 +36,7 @@ builder.Services.AddSingleton<IAlertTemplateQueryService, AlertTemplateQueryServ
 builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
 builder.Services.AddSingleton<IReleaseQueryService, ReleaseQueryService>();
+builder.Services.AddSingleton<IAppSessionQueryService, AppSessionQueryService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));

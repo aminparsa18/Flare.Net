@@ -113,6 +113,11 @@ public static class IncidentSummaryPromptBuilder
                 sb.Append("\nWhat fired: a recent release introduced ").Append(Format(e.Observed, null)).Append(" new error groups, threshold ").Append(cmp).Append(' ').Append(rule.Threshold.Count);
                 AppendServices(sb, rule.ExceptionCondition?.Filter.Services);
                 break;
+            case AlertConditionKind.CrashFreeRate:
+                sb.Append("\nWhat fired: the lowest per-version crash-free session rate was ").Append(Format(e.Observed, null)).Append("%, threshold ").Append(cmp).Append(' ')
+                    .Append(Format(rule.MetricThresholdValue ?? double.NaN, null)).Append('%');
+                AppendServices(sb, rule.ExceptionCondition?.Filter.Services);
+                break;
             default:
                 sb.Append("\nWhat fired: ").Append(Format(e.Observed, null)).Append(" matching log events, threshold ").Append(cmp).Append(' ').Append(rule.Threshold.Count);
                 AppendServices(sb, rule.Condition.Services);

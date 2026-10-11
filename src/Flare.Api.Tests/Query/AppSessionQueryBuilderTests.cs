@@ -66,6 +66,30 @@ public class AppSessionQueryBuilderTests
     }
 
     [Fact]
+    public void BuildReleaseHealthTrend_BucketsEachSessionByItsFirstSpan_PerVersion()
+    {
+        var built = AppSessionQueryBuilder.BuildReleaseHealthTrend(new ReleaseHealthTrendRequest { Service = "shop-app" }, 1440, 30, End);
+
+        Assert.Contains("INTERVAL 30 MINUTE", built.Sql);
+        Assert.Contains("min(StartTime) AS FirstSeen", built.Sql);
+        Assert.Contains("GROUP BY SpanAttributes['session.id']", built.Sql);
+        Assert.Contains("GROUP BY BucketUnixMs, Version", built.Sql);
+        Assert.Contains("exception.escaped", built.Sql);
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.DoesNotContain("{version:String}", built.Sql);
+    }
+
+    [Theory]
+    [InlineData(null, 60, 5)]
+    [InlineData(null, 1440, 30)]
+    [InlineData(null, 10080, 180)]
+    [InlineData(15, 1440, 15)]
+    [InlineData(1, 10080, 180)]
+    [InlineData(0, 60, 5)]
+    public void ResolveTrendBucketMinutes_HonoursARequestThatFitsTheCap_ElseChoosesFromTheWindow(int? requested, int windowMinutes, int expected) =>
+        Assert.Equal(expected, AppSessionQueryBuilder.ResolveTrendBucketMinutes(requested, windowMinutes));
+
+    [Fact]
     public void BuildAppStarts_GroupsByVersionAndType_WithScopeFilters()
     {
         var built = AppSessionQueryBuilder.BuildAppStarts(new AppPerformanceRequest { Service = "shop-app", Version = "2.0" }, 60, End);

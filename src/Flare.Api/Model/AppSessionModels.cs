@@ -208,6 +208,48 @@ public sealed record ReleaseHealthResponse
 }
 
 /// <summary>
+/// Request for <c>POST /api/app-sessions/release-health/trend</c>: crashed and total sessions per version per time
+/// bucket, so the crash-free rate can be charted over time. See docs-internal/adr/0189-release-health-trends.md.
+/// </summary>
+public sealed record ReleaseHealthTrendRequest
+{
+    /// <summary>Lookback window; null/non-positive = <see cref="Query.AppSessionQueryBuilder.DefaultWindowMinutes"/>, clamped server-side.</summary>
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>Where the window ends, as Unix epoch milliseconds; null = now.</summary>
+    public long? EndUnixMs { get; init; }
+
+    /// <summary>Exact <c>ServiceName</c>. Null/empty = all services.</summary>
+    public string? Service { get; init; }
+
+    /// <summary>Bucket width in minutes; null/non-positive, or one that would exceed the bucket cap, = chosen from the window.</summary>
+    public int? BucketMinutes { get; init; }
+}
+
+/// <summary>One version's sessions that started in one bucket.</summary>
+public sealed record ReleaseHealthTrendPoint
+{
+    /// <summary>Bucket start, Unix epoch milliseconds.</summary>
+    public required long BucketUnixMs { get; init; }
+
+    public required string Version { get; init; }
+
+    public required ulong Sessions { get; init; }
+
+    public required ulong CrashedSessions { get; init; }
+}
+
+public sealed record ReleaseHealthTrendResponse
+{
+    public required int WindowMinutes { get; init; }
+
+    public required int BucketMinutes { get; init; }
+
+    /// <summary>Oldest bucket first, then version. Buckets with no sessions are absent.</summary>
+    public required IReadOnlyList<ReleaseHealthTrendPoint> Points { get; init; }
+}
+
+/// <summary>
 /// Request for <c>POST /api/app-sessions/performance</c>: app start and per-screen load and frame health over a window.
 /// See docs-internal/adr/0180-maui-mobile-performance.md.
 /// </summary>

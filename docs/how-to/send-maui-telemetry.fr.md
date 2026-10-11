@@ -200,6 +200,10 @@ comme plantée quand l'application a signalé une exception fatale non gérée ;
 utilisateurs sont comptés à partir d'un attribut `user.id` sur les spans ou la ressource. `Flare.Maui` n'en définit
 pas : les colonnes d'utilisateurs affichent un tiret tant que votre application n'en ajoute pas.
 
+Sous le tableau, un graphique trace le taux de sessions sans plantage de chaque version dans le temps (les six versions les plus actives), pour voir si une version s'est dégradée ou rétablie plutôt que de lire un seul chiffre pour toute la fenêtre. Chaque session est comptée une fois, dans l'intervalle où elle a démarré.
+
+Pour être prévenu quand il baisse, créez une règle d'alerte avec la condition **Crash-free sessions drop**. Choisissez les services à surveiller (tous si aucun n'est choisi), un seuil tel que `< 99` (pourcentage) et une fenêtre telle que 3600 secondes. La règle évalue chaque version sur la fenêtre et compare le taux le plus bas au seuil : une ancienne version défaillante maintient donc la règle déclenchée jusqu'à ce que la fenêtre la dépasse. Activez **Require a minimum number of sessions** pour qu'une version avec quelques lancements ne la déclenche pas ; une version sous le minimum est ignorée, et si aucune n'est éligible la règle ne se déclenche ni ne se résout. Elle n'a pas d'option d'absence de données. Via l'API : `conditionKind: "CrashFreeRate"`, `metricThresholdValue` en pourcentage, `minDataPoints` en sessions minimales et `exceptionCondition: { "exceptionType": "", "filter": { "services": ["shop-app"] } }` pour le périmètre.
+
 ## Détecter les blocages de l'application
 
 Un chien de garde envoie un ping au thread d'interface et, s'il ne répond pas pendant `AppHangThreshold` (2 secondes

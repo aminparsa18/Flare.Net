@@ -373,7 +373,7 @@ public static class AlertEndpoints
         return ApiSerialization.Write(http, new AlertHistoryResponse { Events = events }, AlertsJsonContext.Default.AlertHistoryResponse);
     }
 
-    private static async Task<IResult> HandleTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, ISloQueryService slos, IReleaseQueryService releases, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, ISloQueryService slos, IReleaseQueryService releases, IAppSessionQueryService sessions, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
         if (rule is null || !http.GetProjectAccess().CanRead(rule.ProjectId))
@@ -381,11 +381,11 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, slos, releases, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ThresholdUnit, rule.ExceptionCondition, rule.AnomalyCondition, rule.SloCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
+        var result = await EvaluateAsync(alerts, slos, releases, sessions, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ThresholdUnit, rule.ExceptionCondition, rule.AnomalyCondition, rule.SloCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
-    private static async Task<IResult> HandleTestDraftAsync(HttpContext http, IAlertQueryService alerts, ISloQueryService slos, IReleaseQueryService releases, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleTestDraftAsync(HttpContext http, IAlertQueryService alerts, ISloQueryService slos, IReleaseQueryService releases, IAppSessionQueryService sessions, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -402,7 +402,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, slos, releases, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ThresholdUnit, request.ExceptionCondition, request.AnomalyCondition, request.SloCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
+        var result = await EvaluateAsync(alerts, slos, releases, sessions, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ThresholdUnit, request.ExceptionCondition, request.AnomalyCondition, request.SloCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -575,7 +575,7 @@ public static class AlertEndpoints
         }
 
         var breaches = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual;
-        return rule.ConditionKind == AlertConditionKind.MetricThreshold
+        return rule.ConditionKind is AlertConditionKind.MetricThreshold or AlertConditionKind.CrashFreeRate
             ? (rule.MetricThresholdValue ?? 0, null)
             : (breaches ? rule.Threshold.Count : 0, null);
     }
@@ -635,6 +635,7 @@ public static class AlertEndpoints
         IAlertQueryService alerts,
         ISloQueryService slos,
         IReleaseQueryService releases,
+        IAppSessionQueryService sessions,
         TimeProvider timeProvider,
         AlertConditionKind conditionKind,
         LogFilter condition,
@@ -716,6 +717,26 @@ public static class AlertEndpoints
                 WindowSeconds = windowSeconds,
                 ConditionKind = conditionKind,
                 ObservedValue = burn?.LongBurnRate,
+            };
+        }
+
+        if (conditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            // A draft with no condition or threshold reports "wouldn't fire", same leniency as the other kinds.
+            if (exceptionCondition is null || metricThresholdValue is not { } crashFreeThreshold)
+            {
+                return new AlertTestResult { ObservedCount = 0, WouldFire = false, EvaluatedAt = now, WindowSeconds = windowSeconds, ConditionKind = conditionKind, ObservedValue = null };
+            }
+
+            var crashFree = await CrashFreeRateEvaluator.EvaluateAsync(sessions, exceptionCondition.Filter.Services ?? [], windowSeconds, minDataPoints, cancellationToken);
+            return new AlertTestResult
+            {
+                ObservedCount = 0,
+                WouldFire = crashFree is not null && threshold.IsBreachedValue(crashFree.Rate, crashFreeThreshold),
+                EvaluatedAt = now,
+                WindowSeconds = windowSeconds,
+                ConditionKind = conditionKind,
+                ObservedValue = crashFree?.Rate,
             };
         }
 

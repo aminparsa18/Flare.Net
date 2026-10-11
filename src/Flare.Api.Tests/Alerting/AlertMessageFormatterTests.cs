@@ -640,6 +640,35 @@ public class AlertMessageFormatterTests
     public void ThresholdValueOf_SloBurnRate_IsTheBurnRateThreshold() =>
         Assert.Equal(14.4, AlertMessageFormatter.ThresholdValueOf(MakeSloRule()));
 
+    private static AlertRule MakeCrashFreeRule() => MakeRule("Crash-free dropped") with
+    {
+        ConditionKind = AlertConditionKind.CrashFreeRate,
+        WindowSeconds = 3600,
+        MetricThresholdValue = 99.5,
+        Threshold = new AlertThreshold { Count = 1, Comparator = ThresholdComparator.LessThan },
+        ExceptionCondition = new ExceptionCountCondition { ExceptionType = "", Filter = new ExceptionFilter { Services = ["shop-app"] } },
+    };
+
+    [Fact]
+    public void BuildText_CrashFreeRate_ReportsThePercentageAndTheVersion()
+    {
+        var rule = MakeCrashFreeRule() with { Labels = new Dictionary<string, string> { [AlertMessageFormatter.ReleaseLabel] = "2.3.0" } };
+
+        var text = AlertMessageFormatter.BuildText(rule, 97.256);
+
+        Assert.Contains("97.26% of sessions were crash-free", text);
+        Assert.Contains("< 99.5%", text);
+        Assert.Contains("(version 2.3.0)", text);
+        Assert.Contains("in shop-app", text);
+    }
+
+    [Fact]
+    public void BuildFiredDataUrl_CrashFreeRate_LinksToTheSessionsPage()
+    {
+        Assert.Equal("https://flare.example/sessions", AlertMessageFormatter.BuildFiredDataUrl(MakeCrashFreeRule(), "https://flare.example/", DateTimeOffset.UnixEpoch));
+        Assert.Equal("Sessions", AlertMessageFormatter.FiredDataLabel(MakeCrashFreeRule()));
+    }
+
     private static AlertRule MakeReleaseRule() => MakeRule("New errors after deploy") with
     {
         ConditionKind = AlertConditionKind.ReleaseErrors,

@@ -86,8 +86,6 @@ folders are where "what happened and why" actually lives.
     MetricKit renderer on an iOS device (the tombstone one is verified on Android); Android before 11
     and iOS jetsam out-of-memory kills, which have no report to read; an exact iOS crash time (it is estimated from
     the last lifecycle event).
-  - Release-health trends: crash-free rate over time per version, and an alert rule on a crash-free threshold
-    (release health today is a window total).
   - Session replay-lite: tie screenshots and breadcrumbs to a per-session view on a schedule, not only on errors, with
     masking of sensitive views before capture.
   - Network breadcrumbs and request/response sizes, and offline-aware failures (distinguish no connectivity from a

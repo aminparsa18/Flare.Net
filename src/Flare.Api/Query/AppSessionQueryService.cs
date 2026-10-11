@@ -10,6 +10,8 @@ public interface IAppSessionQueryService
 
     Task<ReleaseHealthResponse> GetReleaseHealthAsync(ReleaseHealthRequest request, CancellationToken cancellationToken);
 
+    Task<ReleaseHealthTrendResponse> GetReleaseHealthTrendAsync(ReleaseHealthTrendRequest request, CancellationToken cancellationToken);
+
     Task<AppPerformanceResponse> GetPerformanceAsync(AppPerformanceRequest request, CancellationToken cancellationToken);
 
     Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken);
@@ -99,6 +101,29 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
         }
 
         return new ReleaseHealthResponse { WindowMinutes = windowMinutes, Versions = versions };
+    }
+
+    public async Task<ReleaseHealthTrendResponse> GetReleaseHealthTrendAsync(ReleaseHealthTrendRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = AppSessionQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var bucketMinutes = AppSessionQueryBuilder.ResolveTrendBucketMinutes(request.BucketMinutes, windowMinutes);
+        var end = AppSessionQueryBuilder.ResolveWindowEnd(request.EndUnixMs, timeProvider.GetUtcNow());
+        var built = AppSessionQueryBuilder.BuildReleaseHealthTrend(request, windowMinutes, bucketMinutes, end);
+
+        var points = new List<ReleaseHealthTrendPoint>();
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken);
+        while (reader.Read())
+        {
+            points.Add(new ReleaseHealthTrendPoint
+            {
+                BucketUnixMs = reader.GetFieldValue<long>(0),
+                Version = reader.GetString(1),
+                Sessions = reader.GetFieldValue<ulong>(2),
+                CrashedSessions = reader.GetFieldValue<ulong>(3),
+            });
+        }
+
+        return new ReleaseHealthTrendResponse { WindowMinutes = windowMinutes, BucketMinutes = bucketMinutes, Points = points };
     }
 
     public async Task<AppPerformanceResponse> GetPerformanceAsync(AppPerformanceRequest request, CancellationToken cancellationToken)
