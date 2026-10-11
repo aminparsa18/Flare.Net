@@ -36,6 +36,9 @@ bld/
 !src/dashboard/src/lib/components/logs/
 # The dashboard's /releases route (release markers, ADR-0182) would match [Rr]eleases/ above.
 !src/dashboard/src/routes/releases/
+# Release marker helpers and component (ADR-0185) live in folders the same pattern would swallow.
+!src/dashboard/src/lib/releases/
+!src/dashboard/src/lib/components/releases/
 
 # .NET Core
 project.lock.json
