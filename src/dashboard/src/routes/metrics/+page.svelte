@@ -131,7 +131,7 @@
 	<div class="flex min-h-0 flex-1" bind:this={panelsEl}>
 		{#if explorer.mode === 'formula'}
 			<FormulaBuilder />
-			<FormulaChart />
+			<FormulaChart releaseMarkers />
 		{:else}
 			<MetricPicker width={pickerWidth} />
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
