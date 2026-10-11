@@ -186,10 +186,12 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 No device identifier is sent either way.
 
-To drop a span entirely, set `BeforeSend`, which returns `false` for spans you do not want sent (it does not apply to
-logs). `ScrubAttribute` also receives span names (key `span.name`), span status messages (`status.message`) and, for
+To drop a span entirely, set `BeforeSend`, which returns `false` for spans you do not want sent (use `BeforeSendLog`
+for log records). `ScrubAttribute` also receives span names (key `span.name`), span status messages (`status.message`) and, for
 exceptions Flare reports itself, `exception.type`, `exception.message` and `exception.stacktrace`. Exceptions
-recorded by other instrumentation are not scrubbed.
+recorded by other instrumentation are not scrubbed, because an exception event cannot be changed once added. It also
+runs over resource attributes (`service.name` is never removed). `BeforeSendLog` receives each log record after
+scrubbing and returns `false` to drop it.
 
 Failed exports are retried from disk. At startup Flare deletes queued files older than `OfflineQueueMaxAge`
 (2 days) and then the oldest ones until the queue fits `OfflineQueueMaxBytes` (25 MB). It is a startup trim, so the

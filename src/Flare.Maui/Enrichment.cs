@@ -136,3 +136,28 @@ internal sealed class ScrubLogProcessor(Func<string, object?, object?> scrub) : 
         data.Attributes = result;
     }
 }
+
+/// <summary>
+/// Forwards a log record to the export processor unless <see cref="FlareMauiOptions.BeforeSendLog"/> rejects it.
+/// Log records have no recorded flag to clear, so the export processor is wrapped rather than followed.
+/// </summary>
+internal sealed class BeforeSendLogProcessor(BaseProcessor<LogRecord> inner, Func<LogRecord, bool> beforeSend) : BaseProcessor<LogRecord>
+{
+    public override void OnEnd(LogRecord data)
+    {
+        var keep = true;
+        try { keep = beforeSend(data); }
+        catch { /* keep the record */ }
+        if (keep) inner.OnEnd(data);
+    }
+
+    protected override bool OnForceFlush(int timeoutMilliseconds) => inner.ForceFlush(timeoutMilliseconds);
+
+    protected override bool OnShutdown(int timeoutMilliseconds) => inner.Shutdown(timeoutMilliseconds);
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) inner.Dispose();
+        base.Dispose(disposing);
+    }
+}
