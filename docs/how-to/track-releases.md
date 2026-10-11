@@ -30,15 +30,15 @@ A group counts as new when it had no occurrence in the 30 days before the deploy
 
 ## Regressions
 
-A group you resolved on the [Errors page](triage-errors.md) is shown as **Regressed** when it recurs in a version it had not been seen in. That works from `service.version` alone, with or without release markers. The Releases page answers the other questions: which errors a given version added, and which resolved groups came back in it. The **Regressions** column counts the latter, and expanding a row lists those groups first, with when each was resolved. The match is on the version string alone, so two services that share a version number share its regressions.
+A group you resolved on the [Errors page](triage-errors.md) is shown as **Regressed** when it recurs in a version it had not been seen in. That works from `service.version` alone, with or without release markers. The Releases page answers the other questions: which errors a given version added, and which resolved groups came back in it. The **Regressions** column counts the latter, and expanding a row lists those groups first, with when each was resolved. A group counts only if it occurred in that service under that version.
 
 ## Deploy markers on charts
 
-The Logs volume chart and the Metrics chart draw a dashed vertical line at each release deployed inside the chart's time range, for the services the chart is filtered to (every service when none is). Hover a line to see the service, version and time. At most the 12 newest are drawn. Dashboard panels do not draw them.
+The Logs volume chart and the Metrics chart draw a dashed vertical line at each release deployed inside the chart's time range, for the services the chart is filtered to (every service when none is). Hover a line to see the service, version and time. At most the 12 newest are drawn. Metrics and Logs dashboard panels draw them too.
 
 ## Alert on a bad release
 
-Create an alert rule with the condition **New errors after a release**. Pick the services to watch (all services when none is chosen), a threshold such as `>= 1`, and a window such as 3600 seconds. The rule looks at releases marked in the last window and fires when the worst of them introduced at least that many new exception groups, so it stays quiet between deploys. The notification links to the Releases page. It has no no-data option, since no new errors is the healthy state.
+Create an alert rule with the condition **New errors after a release**. Pick the services to watch (all services when none is chosen), a threshold such as `>= 1`, and a window such as 3600 seconds. The rule looks at releases marked in the last window and fires when the worst of them introduced at least that many new exception groups, so it stays quiet between deploys. The notification names the release with the most new groups and links to the Releases page. It has no no-data option, since no new errors is the healthy state.
 
 The same rule over the API is `conditionKind: "ReleaseErrors"` with `exceptionCondition: { "exceptionType": "", "filter": { "services": ["orders-api"] } }`; only the filter's services are read.
 

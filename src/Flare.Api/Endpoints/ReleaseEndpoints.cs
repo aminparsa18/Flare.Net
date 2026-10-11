@@ -32,8 +32,9 @@ public static class ReleaseEndpoints
         var list = await releases.ListAsync(service, cancellationToken);
         if (!string.IsNullOrEmpty(service) && list.Count > 0)
         {
-            var byVersion = (await RegressedAsync(issues, cancellationToken)).ToLookup(i => i.RegressedVersion);
-            list = list.Select(r => r with { RegressionCount = byVersion[r.Version].LongCount() }).ToList();
+            var regressed = await RegressedAsync(issues, cancellationToken);
+            var seen = await releases.FindGroupsSeenAsync(service, list.Min(r => r.DeployedAt).AddDays(-1), regressed.Select(i => (i.ExceptionType, i.ExceptionMessage)).ToList(), cancellationToken);
+            list = list.Select(r => r with { RegressionCount = regressed.LongCount(i => i.RegressedVersion == r.Version && seen.Contains((r.Version, i.ExceptionType, i.ExceptionMessage))) }).ToList();
         }
 
         var response = new ReleaseListResponse { Releases = list };
@@ -57,8 +58,11 @@ public static class ReleaseEndpoints
             return Results.Problem("No such release.", statusCode: StatusCodes.Status404NotFound);
         }
 
-        var regressions = (await RegressedAsync(issues, cancellationToken))
-            .Where(i => i.RegressedVersion == version)
+        var candidates = (await RegressedAsync(issues, cancellationToken)).Where(i => i.RegressedVersion == version).ToList();
+        var deployed = (await releases.ListAsync(service, cancellationToken)).FirstOrDefault(r => r.Version == version)?.DeployedAt ?? DateTimeOffset.UtcNow;
+        var seen = await releases.FindGroupsSeenAsync(service, deployed.AddDays(-1), candidates.Select(i => (i.ExceptionType, i.ExceptionMessage)).ToList(), cancellationToken);
+        var regressions = candidates
+            .Where(i => seen.Contains((version, i.ExceptionType, i.ExceptionMessage)))
             .Select(i => new ReleaseRegression
             {
                 ExceptionType = i.ExceptionType,

@@ -106,7 +106,7 @@
 </script>
 
 {#if ready}
-	<VolumeChart allowZoom={false} onBucketClick={onOpenRange} />
+	<VolumeChart allowZoom={false} releaseMarkers onBucketClick={onOpenRange} />
 {:else}
 	<div class="flex items-center justify-center py-8"><Spinner /></div>
 {/if}

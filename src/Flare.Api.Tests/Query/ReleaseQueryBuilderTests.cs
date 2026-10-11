@@ -61,4 +61,14 @@ public class ReleaseQueryBuilderTests
         Assert.Null(new ReleaseRequest { Service = "api", Version = "1", Url = "https://github.com/o/r/commit/abc" }.Validate(Deploy));
         Assert.NotNull(new ReleaseRequest { Service = "api", Version = "1", DeployedAt = Deploy.AddDays(3) }.Validate(Deploy));
     }
+
+    [Fact]
+    public void BuildGroupsSeenInService_ScopesToTheServiceAndTheGivenGroups()
+    {
+        var built = ReleaseQueryBuilder.BuildGroupsSeenInService("api", Deploy, [("System.TimeoutException", "boom")]);
+
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.Contains("has(arrayZip({types:Array(String)}, {messages:Array(String)}), (ExceptionType, ExceptionMessage))", built.Sql);
+        Assert.Contains("SELECT DISTINCT ResourceAttributes['service.version'] AS Version", built.Sql);
+    }
 }

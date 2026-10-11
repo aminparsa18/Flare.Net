@@ -86,8 +86,7 @@ folders are where "what happened and why" actually lives.
     MetricKit renderer on an iOS device (the tombstone one is verified on Android); Android before 11
     and iOS jetsam out-of-memory kills, which have no report to read; an exact iOS crash time (it is estimated from
     the last lifecycle event).
-  - Release tracking follow-ups (ADR-0182, ADR-0185, ADR-0186, ADR-0187): draw deploy markers on dashboard panels, name
-    the release in the release-errors alert text, and match regressions to a release by service as well as version.
+  - Release tracking follow-ups (ADR-0188): deploy markers on the Traces charts.
   - Release-health trends: crash-free rate over time per version, and an alert rule on a crash-free threshold
     (release health today is a window total).
   - Session replay-lite: tie screenshots and breadcrumbs to a per-session view on a schedule, not only on errors, with

@@ -421,8 +421,12 @@ public static class AlertMessageFormatter
         _ => rule.MetricThresholdValue,
     };
 
+    /// <summary>Label the worker sets on the in-memory rule of a <see cref="AlertConditionKind.ReleaseErrors"/> fire to name the release.</summary>
+    public const string ReleaseLabel = "flare.release";
+
     private static string ReleaseServiceSuffix(AlertRule rule) =>
-        rule.ExceptionCondition?.Filter.Services is { Count: > 0 } services ? $" in {string.Join(", ", services)}" : "";
+        rule.Labels.TryGetValue(ReleaseLabel, out var release) ? $": {release}"
+        : rule.ExceptionCondition?.Filter.Services is { Count: > 0 } services ? $" in {string.Join(", ", services)}" : "";
 
     private static string BuildFiredText(AlertRule rule, double observedValue, string? metricUnit)
     {

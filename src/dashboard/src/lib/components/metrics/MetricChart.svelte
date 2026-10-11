@@ -99,7 +99,7 @@
 		stacking?: PanelStacking;
 		/** The panel's title - names the downloaded CSV; the metric name on the Explorer page. */
 		title?: string;
-		/** Draw deploy markers (ADR-0182) for the filtered services; off for dashboard panels, which would each fetch them. */
+		/** Draw deploy markers (ADR-0182) for the filtered services. */
 		releaseMarkers?: boolean;
 		onPointClick?: (time: number) => void;
 	} = $props();
