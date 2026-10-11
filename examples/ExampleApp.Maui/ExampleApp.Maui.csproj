@@ -3,6 +3,8 @@
   <!-- A throwaway MAUI app for exercising Flare.Maui on a device or simulator. Like Flare.Maui itself it needs the
        MAUI workloads, so it is in Flare.Maui.slnx and not Flare.slnx. Windows is not a Flare.Maui target yet. -->
   <PropertyGroup>
+    <!-- Directory.Build.props sets a single TargetFramework; clear it so TargetFrameworks wins. -->
+    <TargetFramework />
     <TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <RootNamespace>ExampleApp.Maui</RootNamespace>

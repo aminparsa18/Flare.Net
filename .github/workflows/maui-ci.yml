@@ -50,7 +50,7 @@ jobs:
         run: dotnet workload restore Flare.Maui.slnx
 
       - name: Restore
-        run: dotnet restore Flare.Maui.slnx
+        run: dotnet restore Flare.Maui.slnx -p:Configuration=Release
 
       - name: Build
         run: dotnet build Flare.Maui.slnx --no-restore -c Release

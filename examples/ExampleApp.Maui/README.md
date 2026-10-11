@@ -39,7 +39,7 @@ dotnet build examples/ExampleApp.Maui -f net10.0-android -t:Run
 `maestro/` has one [Maestro](https://maestro.mobile.dev) flow per scenario (each button, the freeze, the managed and
 native crash with relaunch, the `service.version` override, and flow 15 for release tracking: it throws a version-specific
 error under 1.0.0 and 2.0.0, marks both as releases through `/api/releases` and checks that only the 2.0.0 error is new in 2.0.0;
-set `FLARE_TOKEN` if auth is on) and `maestro/run.sh`, which runs them on a connected Android
+set `FLARE_TOKEN` if auth is on; flow 16 turns airplane mode on, calls an unroutable host and checks for `network.offline` and a `failed: offline` breadcrumb) and `maestro/run.sh`, which runs them on a connected Android
 device and then asserts on the telemetry in ClickHouse (`ServiceName='example-maui-app'`, rows ingested after the flow
 started). It also checks that no `POST /v1/*` spans exist. Buttons are selected by their `AutomationId`. Needs the Maestro
 CLI, `adb reverse tcp:4318 tcp:4318` (the script re-adds it) and `docker compose up`:
