@@ -3,7 +3,9 @@
   <!-- A throwaway MAUI app for exercising Flare.Maui on a device or simulator. Like Flare.Maui itself it needs the
        MAUI workloads, so it is in Flare.Maui.slnx and not Flare.slnx. Windows is not a Flare.Maui target yet. -->
   <PropertyGroup>
-    <TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+    <!-- Directory.Build.props sets a single TargetFramework; clear it so TargetFrameworks wins. -->
+    <TargetFramework />
+    <TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <RootNamespace>ExampleApp.Maui</RootNamespace>
     <UseMaui>true</UseMaui>
@@ -18,7 +20,6 @@
     <ApplicationVersion>1</ApplicationVersion>
 
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 

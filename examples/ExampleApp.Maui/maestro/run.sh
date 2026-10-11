@@ -38,7 +38,10 @@ freeze_helper() {
   adb shell input tap 700 1000 >/dev/null 2>&1
 }
 
-check_01() { expect "GET /health span" "Name='GET' AND SpanAttributes['url.full'] LIKE '%/health'"; }
+check_01() {
+  expect "GET /health span" "Name='GET' AND SpanAttributes['url.full'] LIKE '%/health'" &&
+  expect "http breadcrumb with status and no query" "Name='breadcrumb' AND SpanAttributes['breadcrumb.category']='http' AND SpanAttributes['breadcrumb.message'] LIKE 'GET %/health 200%'"
+}
 check_02() { expect "navigation Push to DetailPage" "Name='navigation' AND SpanAttributes['navigation.source']='Push' AND SpanAttributes['screen.name'] LIKE '%DetailPage'"; }
 check_03() { expect "example.custom_work span" "Name='example.custom_work'"; }
 check_04() { expect "handled exception event" "has(\`Events.Name\`,'exception') AND arrayExists(m -> m['exception.message']='Handled example exception', \`Events.Attributes\`)"; }
@@ -71,6 +74,12 @@ check_14() {
   expect "that screen.load carries sampled UI-thread stacks" "Name='screen.load' AND SpanAttributes['screen.name'] LIKE '%SlowPage' AND toUInt32OrZero(SpanAttributes['profile.samples']) >= 3 AND SpanAttributes['profile.stacks'] LIKE '%;%'"
 }
 
+# Offline demo: airplane mode on, a call to an unroutable host. The span is tagged and the breadcrumb says why it failed.
+check_16() {
+  expect "failed call tagged network.offline" "Name='GET' AND SpanAttributes['url.full'] LIKE '%10.255.255.1%' AND SpanAttributes['network.offline']='true'" &&
+  expect "http breadcrumb says failed: offline" "Name='breadcrumb' AND SpanAttributes['breadcrumb.message'] LIKE 'GET 10.255.255.1/ping failed: offline%'"
+}
+
 # Releases demo: mark both versions through the API (Member/Admin token in FLARE_TOKEN when auth is on), then ask which
 # errors 2.0.0 introduced. The shared handled error was already seen under 1.0.0 (or earlier), so it must not be listed.
 API=${FLARE_API:-http://localhost:8080}
@@ -84,7 +93,7 @@ check_15() {
   echo "    ok   Releases lists only the 2.0.0 error as new in 2.0.0"
 }
 
-for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen 15-releases; do
+for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen 15-releases 16-offline; do
   p=${f%%-*}
   if [ $# -gt 0 ]; then case " $* " in *" $p "*) ;; *) continue ;; esac; fi
   echo "== $f"

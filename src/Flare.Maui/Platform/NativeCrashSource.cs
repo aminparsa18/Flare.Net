@@ -112,7 +112,7 @@ internal sealed class MetricKitCrashes : NSObject, IMXMetricManagerSubscriber
     }
 
     [Export("didReceiveDiagnosticPayloads:")]
-    public void DidReceiveDiagnosticPayloads(MXMetricManager manager, MXDiagnosticPayload[] payloads)
+    public void DidReceiveDiagnosticPayloads(MXDiagnosticPayload[] payloads)
     {
         try
         {
@@ -135,7 +135,7 @@ internal sealed class MetricKitCrashes : NSObject, IMXMetricManagerSubscriber
     }
 
     [Export("didReceiveMetricPayloads:")]
-    public void DidReceiveMetricPayloads(MXMetricManager manager, MXMetricPayload[] payloads)
+    public void DidReceiveMetricPayloads(MXMetricPayload[] payloads)
     {
     }
 

@@ -1,0 +1,16 @@
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- toggleAirplaneMode
+- tapOn:
+    id: "OfflineButton"
+- waitForAnimationToEnd:
+    timeout: 1500
+- toggleAirplaneMode
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "FlushButton"
+- waitForAnimationToEnd:
+    timeout: 2000

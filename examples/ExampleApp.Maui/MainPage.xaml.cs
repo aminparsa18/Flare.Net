@@ -53,6 +53,22 @@ public partial class MainPage : ContentPage
         }
     }
 
+    async void OnOfflineClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            // 10.255.255.1 is not routable, so this fails whether or not the device is online; with airplane mode on,
+            // the span is tagged network.offline and the breadcrumb says "failed: offline".
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var response = await Http.GetAsync("http://10.255.255.1/ping", cts.Token);
+            Say($"GET unreachable -> {(int)response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            Say($"GET unreachable failed: {ex.GetType().Name}");
+        }
+    }
+
     async void OnNavigateClicked(object? sender, EventArgs e) =>
         await Shell.Current.GoToAsync(nameof(DetailPage));
 

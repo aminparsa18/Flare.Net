@@ -15,6 +15,7 @@
             <BoxView HeightRequest="1" Color="Gray" />
 
             <Button Text="HttpClient call (traceparent + span)" AutomationId="HttpButton" Clicked="OnHttpClicked" />
+            <Button Text="HttpClient call to an unreachable host (offline demo)" AutomationId="OfflineButton" Clicked="OnOfflineClicked" />
             <Button Text="Navigate (Shell navigation span)" AutomationId="NavigateButton" Clicked="OnNavigateClicked" />
             <Button Text="Custom span + log + metric" AutomationId="CustomButton" Clicked="OnCustomClicked" />
             <Button Text="RecordException (handled)" AutomationId="RecordButton" Clicked="OnRecordClicked" />
