@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.Networking;
 using Microsoft.Maui.Devices;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.LifecycleEvents;
@@ -35,6 +36,7 @@ public static class FlareMauiAppBuilderExtensions
 #if ANDROID
         FlareMaui.MainThreadStackCapture = MainThreadStack.Capture;
 #endif
+        FlareMaui.IsOnline = () => Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
         FlareMaui.Initialize(options, device, Path.Combine(FileSystem.CacheDirectory, "flare-otlp"),
             Path.Combine(FileSystem.AppDataDirectory, "flare"));
         if (options.CaptureNativeCrashes) NativeCrashSource.CollectAndReport();

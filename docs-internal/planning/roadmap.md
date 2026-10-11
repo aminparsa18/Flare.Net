@@ -88,8 +88,6 @@ folders are where "what happened and why" actually lives.
     the last lifecycle event).
   - Session replay-lite: tie screenshots and breadcrumbs to a per-session view on a schedule, not only on errors, with
     masking of sensitive views before capture.
-  - Network breadcrumbs and request/response sizes, and offline-aware failures (distinguish no connectivity from a
-    server error).
   - Mobile performance follow-ups (ADR-0180; verified on a real Android device, arm64 Debug, by Maestro flows 12-14):
     an iOS device, an Android emulator and a Release build; a trend over time and an alert rule on a start/load
     regression; iOS process start time; time-to-first-frame rather than first resume (a warm start is only the

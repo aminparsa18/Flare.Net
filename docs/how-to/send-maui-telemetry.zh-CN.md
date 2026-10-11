@@ -149,6 +149,8 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 
 按钮文字和页面标题可能包含个人数据，因此默认不记录，除非设置 `IncludeTextInBreadcrumbs` 或 `IncludeTitleInBreadcrumbs`。提高 `BreadcrumbLogLevel`（或设为 `None`）可减少日志面包屑，设置 `Breadcrumbs = false` 可全部关闭。
 
+每次 `HttpClient` 调用还会留下一条 `http` 面包屑（如 `GET api.example.com/orders 200, 2 KB, 85 ms`，只含主机和路径，绝不含查询字符串），其链路段会带上取自 `Content-Length` 的 `http.request.body.size` 和 `http.response.body.size`；分块传输的内容没有大小。设备无网络时失败的调用会被标记为 `network.offline = true`，面包屑显示 `failed: offline`，这样断网与服务器错误可以区分。设置 `InstrumentHttpClient = false` 可关闭这些功能。
+
 ## 附加用户、标签并清除数据
 
 ```csharp

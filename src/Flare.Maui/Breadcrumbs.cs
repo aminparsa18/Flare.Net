@@ -16,13 +16,27 @@ internal static class Breadcrumbs
     internal const string SpanName = "breadcrumb";
     internal const int MaxMessageLength = 256;
 
-    /// <summary>Record one breadcrumb. A no-op unless the tracer provider is listening to <see cref="FlareMaui.Source"/>.</summary>
-    internal static void Add(ActivitySource source, string category, string message)
+    /// <summary>
+    /// Record one breadcrumb. A no-op unless the tracer provider is listening to <see cref="FlareMaui.Source"/>.
+    /// <paramref name="detached"/> starts it as its own trace instead of a child of the current span, for breadcrumbs
+    /// written from inside another span's callbacks (an HTTP call's).
+    /// </summary>
+    internal static void Add(ActivitySource source, string category, string message, bool detached = false)
     {
-        using var span = source.StartActivity(SpanName);
-        if (span is null) return;
-        span.SetTag("breadcrumb.category", category);
-        span.SetTag("breadcrumb.message", Truncate(message));
+        var current = Activity.Current;
+        if (detached) Activity.Current = null;
+        try
+        {
+            using var span = source.StartActivity(SpanName);
+            if (span is null) return;
+            span.SetTag("breadcrumb.category", category);
+            span.SetTag("breadcrumb.message", Truncate(message));
+        }
+        finally
+        {
+            // Disposing the span restores its (null) parent as current, so put the caller's span back.
+            if (detached) Activity.Current = current;
+        }
     }
 
     internal static string Truncate(string message) =>

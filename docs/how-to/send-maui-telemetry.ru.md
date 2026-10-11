@@ -164,6 +164,12 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 включите `IncludeTextInBreadcrumbs` или `IncludeTitleInBreadcrumbs`. Поднимите `BreadcrumbLogLevel` (или задайте
 `None`), чтобы ограничить крошки из логов, а `Breadcrumbs = false` отключает все.
 
+Каждый вызов `HttpClient` также оставляет крошку `http` (`GET api.example.com/orders 200, 2 KB, 85 ms`: хост и
+путь, но никогда не строка запроса), а на его спан попадают `http.request.body.size` и `http.response.body.size`
+из `Content-Length`; у chunked-тела размера нет. Вызов, упавший при отсутствии у устройства доступа в интернет,
+помечается `network.offline = true`, а его крошка содержит `failed: offline`, так что потеря связи отличается от
+ошибки сервера. `InstrumentHttpClient = false` отключает всё это.
+
 ## Привязка пользователя, тегов и очистка данных
 
 ```csharp

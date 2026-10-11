@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
+using OpenTelemetry.Instrumentation.Http;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -31,6 +32,9 @@ public static class FlareMaui
 
     /// <summary>Reads the UI thread's stack, or null where the platform cannot. Set by the platform glue before init.</summary>
     internal static Func<string?>? MainThreadStackCapture { get; set; }
+
+    /// <summary>Set by the platform glue: whether the device has internet access. Null where it cannot tell.</summary>
+    internal static Func<bool>? IsOnline { get; set; }
     private static readonly DateTimeOffset SdkStart = DateTimeOffset.UtcNow;
 
     /// <summary>
@@ -135,7 +139,7 @@ public static class FlareMaui
             .AddProcessor(new SessionProcessor(SessionId))
             .AddProcessor(new EnrichmentProcessor(_enrichment));
         foreach (var s in options.AdditionalSources) tracing.AddSource(s);
-        if (options.InstrumentHttpClient) tracing.AddHttpClientInstrumentation(h => h.FilterHttpRequestMessage = r => !options.IsExporterRequest(r.RequestUri));
+        if (options.InstrumentHttpClient) tracing.AddHttpClientInstrumentation(h => ConfigureHttp(h, options));
         if (options.ScrubAttribute is not null || options.BeforeSend is not null)
             tracing.AddProcessor(new ScrubProcessor(options.ScrubAttribute, options.BeforeSend));
         tracing.AddOtlpExporter(o => ConfigureExporter(o, options, "traces"));
@@ -185,6 +189,16 @@ public static class FlareMaui
             });
             _reporter.Attach();
         }
+    }
+
+    internal static void ConfigureHttp(HttpClientTraceInstrumentationOptions h, FlareMauiOptions options)
+    {
+        h.FilterHttpRequestMessage = r => !options.IsExporterRequest(r.RequestUri);
+        var crumbs = options.Breadcrumbs ? Source : null;
+        var online = IsOnline;
+        h.EnrichWithHttpRequestMessage = NetworkTracing.OnRequest;
+        h.EnrichWithHttpResponseMessage = (a, r) => NetworkTracing.OnResponse(a, r, crumbs);
+        h.EnrichWithException = (a, e) => NetworkTracing.OnException(a, e, crumbs, online);
     }
 
     /// <summary>Starts (first call) or unpauses the UI-thread watchdog. A no-op when hang detection is off.</summary>

@@ -407,3 +407,105 @@ public class EndToEndTests
         return p;
     }
 }
+
+[Collection("FlareMaui global state")]
+public class NetworkTracingTests
+{
+    private static TracerProvider Build(List<Activity> exported, FlareMauiOptions options, Func<bool>? online)
+    {
+        FlareMaui.IsOnline = online;
+        return Sdk.CreateTracerProviderBuilder()
+            .AddSource(FlareMaui.SourceName)
+            .AddHttpClientInstrumentation(h => FlareMaui.ConfigureHttp(h, options))
+            .AddInMemoryExporter(exported)
+            .Build();
+    }
+
+    private static FlareMauiOptions Options() => new() { Endpoint = new Uri("http://flare.invalid:4318"), ServiceName = "t" };
+
+    [Fact]
+    public async Task Successful_call_records_sizes_and_an_http_breadcrumb_without_the_query()
+    {
+        var port = FreePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://localhost:{port}/");
+        listener.Start();
+        _ = Task.Run(async () =>
+        {
+            var ctx = await listener.GetContextAsync();
+            using var ms = new MemoryStream();
+            await ctx.Request.InputStream.CopyToAsync(ms);
+            var body = new byte[2048];
+            ctx.Response.ContentLength64 = body.Length;
+            await ctx.Response.OutputStream.WriteAsync(body);
+            ctx.Response.Close();
+        });
+
+        var exported = new List<Activity>();
+        using (Build(exported, Options(), () => true))
+        {
+            using var http = new HttpClient();
+            var response = await http.PostAsync($"http://localhost:{port}/orders?token=secret", new ByteArrayContent(new byte[300]));
+            await response.Content.ReadAsByteArrayAsync();
+        }
+
+        var call = Assert.Single(exported, a => a.OperationName != "breadcrumb");
+        Assert.Equal(300L, call.GetTagItem(NetworkTracing.RequestSizeTag));
+        Assert.Equal(2048L, call.GetTagItem(NetworkTracing.ResponseSizeTag));
+        var crumb = Assert.Single(exported, a => a.OperationName == "breadcrumb");
+        Assert.Equal("http", crumb.GetTagItem("breadcrumb.category"));
+        var message = (string)crumb.GetTagItem("breadcrumb.message")!;
+        Assert.StartsWith($"POST localhost:{port}/orders 200, 2 KB", message);
+        Assert.DoesNotContain("secret", message);
+        Assert.Equal(default, crumb.ParentSpanId);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task Failed_call_is_marked_offline_only_without_connectivity(bool online, bool expectOffline)
+    {
+        var exported = new List<Activity>();
+        using (Build(exported, Options(), () => online))
+        {
+            using var http = new HttpClient();
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => http.GetAsync($"http://localhost:{FreePort()}/x"));
+        }
+
+        var call = Assert.Single(exported, a => a.OperationName != "breadcrumb");
+        Assert.Equal(expectOffline ? true : null, call.GetTagItem(NetworkTracing.OfflineTag));
+        var message = (string)Assert.Single(exported, a => a.OperationName == "breadcrumb").GetTagItem("breadcrumb.message")!;
+        Assert.Contains(expectOffline ? "failed: offline" : "failed: HttpRequestException", message);
+    }
+
+    [Fact]
+    public async Task Breadcrumbs_off_still_records_sizes_but_no_breadcrumb()
+    {
+        var exported = new List<Activity>();
+        var options = Options();
+        options.Breadcrumbs = false;
+        using (Build(exported, options, null))
+        {
+            using var http = new HttpClient();
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => http.PostAsync($"http://localhost:{FreePort()}/x", new ByteArrayContent(new byte[10])));
+        }
+
+        var call = Assert.Single(exported);
+        Assert.Equal(10L, call.GetTagItem(NetworkTracing.RequestSizeTag));
+    }
+
+    [Theory]
+    [InlineData(512L, "512 B")]
+    [InlineData(2048L, "2 KB")]
+    [InlineData(1_572_864L, "1.5 MB")]
+    public void FormatSize_picks_a_unit(long bytes, string expected) => Assert.Equal(expected, NetworkTracing.FormatSize(bytes));
+
+    private static int FreePort()
+    {
+        var l = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+        l.Start();
+        var port = ((IPEndPoint)l.LocalEndpoint).Port;
+        l.Stop();
+        return port;
+    }
+}
