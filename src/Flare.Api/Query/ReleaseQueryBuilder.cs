@@ -54,6 +54,25 @@ public static class ReleaseQueryBuilder
         return new ReleaseSql(sql, parameters);
     }
 
+    /// <summary>
+    /// Columns: version, type, message - which of the given groups occurred in <paramref name="service"/>, per version,
+    /// since <paramref name="since"/>. Lets a regression (matched to a release on version alone) be confirmed against the service.
+    /// </summary>
+    public static ReleaseSql BuildGroupsSeenInService(string service, DateTimeOffset since, IReadOnlyList<(string Type, string Message)> groups)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("service", service);
+        parameters.AddParameter("since", since.UtcDateTime);
+        parameters.AddParameter("types", groups.Select(g => g.Type).ToArray());
+        parameters.AddParameter("messages", groups.Select(g => g.Message).ToArray());
+        var sql = $"SELECT DISTINCT {VersionExpr} AS Version, EventAttributes['exception.type'] AS ExceptionType, EventAttributes['exception.message'] AS ExceptionMessage\n" +
+            "FROM spans\n" +
+            "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
+            "WHERE ServiceName = {service:String} AND StartTime >= {since:DateTime64(9)} AND EventName = 'exception'\n" +
+            "    AND has(arrayZip({types:Array(String)}, {messages:Array(String)}), (ExceptionType, ExceptionMessage))" + ServiceScope.Suffix(parameters);
+        return new ReleaseSql(sql, parameters);
+    }
+
     private static string FirstSeenSelect(ClickHouseParameterCollection parameters) =>
         "SELECT\n" +
         "    EventAttributes['exception.type'] AS ExceptionType,\n" +

@@ -355,6 +355,12 @@ public sealed class AlertEvaluationWorker(
             var tally = await ReleaseErrorsEvaluator.EvaluateAsync(releases, rule.ExceptionCondition, rule.WindowSeconds, cancellationToken);
             observedCount = (ulong)(tally?.NewErrorCount ?? 0);
             breached = rule.Threshold.IsBreached(observedCount);
+            if (tally is not null)
+            {
+                // Name the release in the notification (ADR-0188). Only the in-memory rule carries it; the
+                // stored one is untouched, so it never shows up as a user label.
+                rule = rule with { Labels = new Dictionary<string, string>(rule.Labels) { [AlertMessageFormatter.ReleaseLabel] = $"{tally.Release.Service} {tally.Release.Version}" } };
+            }
         }
         else if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
         {

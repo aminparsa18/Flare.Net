@@ -211,6 +211,7 @@
 		{seriesColors}
 		{legendFormat}
 		{stacking}
+		releaseMarkers
 		onPointClick={openAroundPoint}
 	/>
 {/if}

@@ -26,6 +26,9 @@ public interface IReleaseQueryService
     /// when empty), the one that introduced the most exception groups; null when none was deployed in that time.
     /// A release with no new groups still comes back, with a count of 0.
     /// </summary>
+    /// <summary>Which of <paramref name="groups"/> occurred in <paramref name="service"/> since <paramref name="since"/>, as (version, type, message).</summary>
+    Task<IReadOnlySet<(string Version, string Type, string Message)>> FindGroupsSeenAsync(string service, DateTimeOffset since, IReadOnlyList<(string Type, string Message)> groups, CancellationToken cancellationToken);
+
     Task<ReleaseErrorTally?> FindWorstRecentAsync(IReadOnlyList<string> services, TimeSpan within, CancellationToken cancellationToken);
 }
 
@@ -122,6 +125,24 @@ public sealed class ReleaseQueryService(IClickHouseClient client, IOptions<Query
         }
 
         return errors;
+    }
+
+    public async Task<IReadOnlySet<(string Version, string Type, string Message)>> FindGroupsSeenAsync(string service, DateTimeOffset since, IReadOnlyList<(string Type, string Message)> groups, CancellationToken cancellationToken)
+    {
+        var seen = new HashSet<(string, string, string)>();
+        if (groups.Count == 0)
+        {
+            return seen;
+        }
+
+        var built = ReleaseQueryBuilder.BuildGroupsSeenInService(service, since, groups);
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+        while (reader.Read())
+        {
+            seen.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
+        }
+
+        return seen;
     }
 
     public async Task<ReleaseErrorTally?> FindWorstRecentAsync(IReadOnlyList<string> services, TimeSpan within, CancellationToken cancellationToken)

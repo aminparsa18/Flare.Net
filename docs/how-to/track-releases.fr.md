@@ -30,15 +30,15 @@ Un groupe est considéré comme nouveau s'il n'avait aucune occurrence dans les 
 
 ## Régressions
 
-Un groupe que vous avez résolu sur la [page Erreurs](triage-errors.fr.md) passe à **Regressed** quand il réapparaît dans une version où il n'avait pas été vu. Cela fonctionne avec `service.version` seul, avec ou sans marqueurs de version. La page Releases répond aux deux autres questions : quelles erreurs une version donnée a ajoutées, et quels groupes résolus y sont revenus. La colonne **Regressions** compte les seconds, et déplier une ligne les liste en premier, avec la date de résolution. La correspondance se fait sur la seule chaîne de version : deux services qui partagent un numéro de version partagent ses régressions.
+Un groupe que vous avez résolu sur la [page Erreurs](triage-errors.fr.md) passe à **Regressed** quand il réapparaît dans une version où il n'avait pas été vu. Cela fonctionne avec `service.version` seul, avec ou sans marqueurs de version. La page Releases répond aux deux autres questions : quelles erreurs une version donnée a ajoutées, et quels groupes résolus y sont revenus. La colonne **Regressions** compte les seconds, et déplier une ligne les liste en premier, avec la date de résolution. Un groupe n'est compté que s'il s'est produit dans ce service sous cette version.
 
 ## Marqueurs de déploiement sur les graphiques
 
-Le graphique de volume des Logs et le graphique des Metrics tracent une ligne verticale en pointillés à chaque version déployée dans la plage de temps, pour les services filtrés (tous si aucun filtre). Survolez une ligne pour voir le service, la version et l'heure. Les 12 plus récentes au maximum sont tracées. Les panneaux de tableau de bord ne les affichent pas.
+Le graphique de volume des Logs et le graphique des Metrics tracent une ligne verticale en pointillés à chaque version déployée dans la plage de temps, pour les services filtrés (tous si aucun filtre). Survolez une ligne pour voir le service, la version et l'heure. Les 12 plus récentes au maximum sont tracées. Les panneaux Metrics et Logs des tableaux de bord les affichent aussi.
 
 ## Alerter sur une mauvaise version
 
-Créez une règle d'alerte avec la condition **Nouvelles erreurs après une version**. Choisissez les services à surveiller (tous si aucun n'est choisi), un seuil comme `>= 1` et une fenêtre comme 3600 secondes. La règle examine les versions marquées pendant la fenêtre et se déclenche lorsque la pire d'entre elles a introduit au moins ce nombre de nouveaux groupes d'exceptions ; elle reste donc silencieuse entre deux déploiements. La notification renvoie vers la page Releases. Elle n'a pas d'option « pas de données », car l'absence de nouvelles erreurs est l'état normal.
+Créez une règle d'alerte avec la condition **Nouvelles erreurs après une version**. Choisissez les services à surveiller (tous si aucun n'est choisi), un seuil comme `>= 1` et une fenêtre comme 3600 secondes. La règle examine les versions marquées pendant la fenêtre et se déclenche lorsque la pire d'entre elles a introduit au moins ce nombre de nouveaux groupes d'exceptions ; elle reste donc silencieuse entre deux déploiements. La notification nomme la version qui a introduit le plus de nouveaux groupes et renvoie vers la page Releases. Elle n'a pas d'option « pas de données », car l'absence de nouvelles erreurs est l'état normal.
 
 Via l'API, c'est `conditionKind: "ReleaseErrors"` avec `exceptionCondition: { "exceptionType": "", "filter": { "services": ["orders-api"] } }` ; seuls les services du filtre sont lus.
 

@@ -663,4 +663,13 @@ public class AlertMessageFormatterTests
         Assert.Equal("https://flare.example/releases", AlertMessageFormatter.BuildFiredDataUrl(MakeReleaseRule(), "https://flare.example/", DateTimeOffset.UnixEpoch));
         Assert.Equal("Releases", AlertMessageFormatter.FiredDataLabel(MakeReleaseRule()));
     }
+
+    [Fact]
+    public void BuildText_ReleaseErrors_NamesTheReleaseWhenTheWorkerSetsTheLabel()
+    {
+        var rule = MakeReleaseRule() with { Labels = new Dictionary<string, string> { [AlertMessageFormatter.ReleaseLabel] = "web 1.4.2" } };
+
+        Assert.Contains("introduced 2 new error groups", AlertMessageFormatter.BuildText(rule, 2));
+        Assert.Contains("): web 1.4.2", AlertMessageFormatter.BuildText(rule, 2));
+    }
 }

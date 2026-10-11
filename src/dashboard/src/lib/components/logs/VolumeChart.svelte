@@ -39,7 +39,7 @@
 		onBucketClick
 	}: {
 		allowZoom?: boolean;
-		/** Draw deploy markers (ADR-0182) for the filtered services; off for dashboard panels, which would each fetch them. */
+		/** Draw deploy markers (ADR-0182) for the filtered services. */
 		releaseMarkers?: boolean;
 		onBucketClick?: (range: { from: Date; to: Date }, groupKey: string | null | undefined) => void;
 	} = $props();
