@@ -59,10 +59,12 @@ jobs:
         run: dotnet workload restore Flare.Maui.slnx
 
       - name: Restore
-        run: dotnet restore Flare.Maui.slnx -p:Configuration=Release
+        run: dotnet restore Flare.Maui.slnx
 
+      # Debug on purpose: Release runs the IL linker over the example app for iOS and Android, which is minutes of
+      # work and only checks trimming of code no test exercises. Debug still compiles every target.
       - name: Build
-        run: dotnet build Flare.Maui.slnx --no-restore -c Release
+        run: dotnet build Flare.Maui.slnx --no-restore
 
       - name: Test
-        run: dotnet test Flare.Maui.slnx --no-build -c Release --logger "console;verbosity=normal"
+        run: dotnet test Flare.Maui.slnx --no-build --logger "console;verbosity=normal"
