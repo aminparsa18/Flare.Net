@@ -29,6 +29,9 @@
 	import { formatSeriesLabel, legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
+	import { fractionInBuckets, loadReleases, placeMarkers } from '$lib/releases/markers';
+	import type { Release } from '$lib/releases-api';
+	import ReleaseMarkers from '$lib/components/releases/ReleaseMarkers.svelte';
 
 	// yAxisMin/yAxisMax: same soft Y-axis floor/ceiling MetricChart.svelte's own props of
 	// the same name apply (DashboardPanel.yAxisMin/yAxisMax) - only ever set from a
@@ -45,7 +48,8 @@
 		seriesColors = {},
 		legendFormat,
 		stacking = 'none',
-		title = ''
+		title = '',
+		releaseMarkers = false
 	}: {
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
@@ -60,6 +64,8 @@
 		stacking?: PanelStacking;
 		/** The panel's title - names the downloaded CSV; the formula itself on the Explorer page. */
 		title?: string;
+		/** Draw deploy markers (ADR-0182) for the filtered services. */
+		releaseMarkers?: boolean;
 	} = $props();
 
 	const explorer = metricsExplorerContext.get();
@@ -122,6 +128,17 @@
 	const CHART_HEIGHT = 180;
 	const BASELINE_Y = CHART_HEIGHT - 4;
 	const PEAK_Y = 6;
+
+	let releases = $state<Release[]>([]);
+	$effect(() => {
+		if (!releaseMarkers) return;
+		const controller = new AbortController();
+		void loadReleases(explorer.filter.services, controller.signal).then((list) => {
+			if (!controller.signal.aborted) releases = list;
+		});
+		return () => controller.abort();
+	});
+	const markers = $derived(releaseMarkers ? placeMarkers(releases, (t) => fractionInBuckets(t, bucketTimes)) : []);
 
 	function xFor(time: number): number {
 		const count = bucketTimes.length;
@@ -266,6 +283,8 @@
 									{#each ticks.values as tick (tick)}
 										<line x1="0" y1={yFor(tick)} x2={CHART_WIDTH} y2={yFor(tick)} class="text-border" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke" />
 									{/each}
+
+									<ReleaseMarkers {markers} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
 
 									<ThresholdOverlay thresholds={percent ? [] : thresholds} {yFor} {minValue} {maxValue} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
 
