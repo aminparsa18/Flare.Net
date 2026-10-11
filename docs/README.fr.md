@@ -30,6 +30,8 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Prise en main](tutorials/getting-started.fr.md)
 - [Tutoriel : votre première trace](tutorials/first-trace.fr.md)
 - [Tutoriel : votre première alerte](tutorials/first-alert.fr.md)
+- [Tutoriel : votre premier tableau de bord de métriques](tutorials/first-dashboard.fr.md)
+- [Tutoriel : déboguer un checkout lent de bout en bout](tutorials/debug-a-slow-request.fr.md)
 
 **Guides pratiques**
 

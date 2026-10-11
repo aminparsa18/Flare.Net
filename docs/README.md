@@ -28,6 +28,8 @@ the full rule set on what goes where.
 - [Getting started](tutorials/getting-started.md)
 - [Tutorial: your first trace](tutorials/first-trace.md)
 - [Tutorial: your first alert](tutorials/first-alert.md)
+- [Tutorial: your first metrics dashboard](tutorials/first-dashboard.md)
+- [Tutorial: debug a slow checkout end to end](tutorials/debug-a-slow-request.md)
 
 **How-to guides**
 

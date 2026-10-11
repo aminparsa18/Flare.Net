@@ -30,6 +30,8 @@
 - [Начало работы](tutorials/getting-started.ru.md)
 - [Руководство: ваша первая трассировка](tutorials/first-trace.ru.md)
 - [Руководство: ваше первое оповещение](tutorials/first-alert.ru.md)
+- [Руководство: ваш первый дашборд метрик](tutorials/first-dashboard.ru.md)
+- [Руководство: разбор медленного оформления заказа от начала до конца](tutorials/debug-a-slow-request.ru.md)
 
 **Практические руководства**
 
