@@ -295,7 +295,7 @@ versions le compte donc comme un plantage de cette version, et la page Errors le
 
 - **Android 11+** lit `ApplicationExitInfo` : plantages natifs, ANR (avec le texte de la trace), échecs d'initialisation,
   usage excessif de ressources et kills pour manque de mémoire pendant que l'application était visible.
-- **iOS 14+ et Mac Catalyst** lisent les diagnostics de plantage MetricKit. iOS les livre jusqu'à un jour plus tard : l'heure
+- **iOS 14+** lisent les diagnostics de plantage MetricKit. iOS les livre jusqu'à un jour plus tard : l'heure
   est donc estimée d'après le dernier passage au premier plan ou en arrière-plan, et la pile est le JSON brut de
   MetricKit, non symbolisé.
 

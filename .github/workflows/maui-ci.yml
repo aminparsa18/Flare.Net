@@ -1,6 +1,6 @@
 # Restores, builds and tests Flare.Maui.slnx on macOS with the MAUI workloads installed.
 #
-# Separate from ci.yml on purpose: Flare.Maui multi-targets android/ios/maccatalyst, which
+# Separate from ci.yml on purpose: Flare.Maui multi-targets android/ios, which
 # only build with the MAUI workloads (and, for iOS, Xcode) on a macOS runner - and macOS
 # minutes cost ten times Linux ones. So it runs only when the MAUI project, its tests, or
 # this workflow change, and on demand. Flare.Maui is deliberately outside Flare.slnx
@@ -41,12 +41,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Pinned to the 10.0.1xx band, not global.json's rollForward (which lands on 10.0.4xx): that band's iOS and
-      # Mac Catalyst packs need Xcode 27, and macos-latest ships Xcode 26.x.
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.111
+          global-json-file: global.json
 
       - name: Restore MAUI workloads
         run: dotnet workload restore Flare.Maui.slnx

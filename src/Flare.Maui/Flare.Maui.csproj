@@ -4,10 +4,9 @@
     <!-- Directory.Build.props sets a single TargetFramework; clear it so TargetFrameworks wins.
          Plain net10.0 carries only the MAUI-free core (unit-tested); the mobile targets add the glue. -->
     <TargetFramework />
-    <TargetFrameworks>net10.0;net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+    <TargetFrameworks>net10.0;net10.0-android;net10.0-ios</TargetFrameworks>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">24.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-ios'))">15.0</SupportedOSPlatformVersion>
-    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-maccatalyst'))">15.0</SupportedOSPlatformVersion>
     <UseMaui Condition="'$(TargetFramework)' != 'net10.0'">true</UseMaui>
     <SingleProject>false</SingleProject>
     <InvariantGlobalization>false</InvariantGlobalization>

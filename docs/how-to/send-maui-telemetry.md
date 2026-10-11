@@ -288,7 +288,7 @@ Errors page groups it under a `Native.*` type.
 
 - **Android 11+** reads `ApplicationExitInfo`: native crashes, ANRs (with the trace text), initialization failures,
   excessive resource use, and low-memory kills while the app was visible.
-- **iOS 14+ and Mac Catalyst** read MetricKit crash diagnostics. iOS delivers them up to a day late, so the time is
+- **iOS 14+** read MetricKit crash diagnostics. iOS delivers them up to a day late, so the time is
   estimated from the launch's last foreground or background event, and the stack is MetricKit's raw call-stack JSON,
   not symbolicated.
 
