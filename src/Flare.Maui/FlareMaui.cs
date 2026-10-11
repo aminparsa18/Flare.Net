@@ -88,11 +88,32 @@ public static class FlareMaui
     /// <summary>Record an exception the app handled itself, so it shows on the Errors page.</summary>
     public static void RecordException(Exception exception) => _reporter?.Report(exception, fatal: false);
 
-    internal static ResourceBuilder BuildResource(FlareMauiOptions options, FlareDeviceInfo device, string? serviceVersion = null) =>
-        ResourceBuilder.CreateEmpty()
+    internal static ResourceBuilder BuildResource(FlareMauiOptions options, FlareDeviceInfo device, string? serviceVersion = null)
+    {
+        var resource = ResourceBuilder.CreateEmpty()
             .AddService(options.ServiceName!, serviceVersion: serviceVersion ?? options.ServiceVersion ?? device.AppVersion)
             .AddTelemetrySdk()
             .AddAttributes(device.ToResourceAttributes());
+        return options.ScrubAttribute is { } scrub ? ScrubResource(resource, scrub) : resource;
+    }
+
+    /// <summary>
+    /// Runs the scrubber over every resource attribute. <c>service.name</c> keeps its value if the scrubber removes it,
+    /// since a resource without one cannot be told apart on the server; a throwing scrubber leaves the attribute alone.
+    /// </summary>
+    internal static ResourceBuilder ScrubResource(ResourceBuilder resource, Func<string, object?, object?> scrub)
+    {
+        var scrubbed = new List<KeyValuePair<string, object>>();
+        foreach (var attribute in resource.Build().Attributes)
+        {
+            object? value;
+            try { value = scrub(attribute.Key, attribute.Value); }
+            catch { value = attribute.Value; }
+            if (value is null && attribute.Key == "service.name") value = attribute.Value;
+            if (value is not null) scrubbed.Add(new(attribute.Key, value));
+        }
+        return ResourceBuilder.CreateEmpty().AddAttributes(scrubbed);
+    }
 
     internal static void ConfigureExporter(OtlpExporterOptions o, FlareMauiOptions options, string signal)
     {
@@ -293,6 +314,6 @@ public static class FlareMaui
         ConfigureExporter(exporterOptions, options, "logs");
         // Built here rather than through AddOtlpExporter so Flush can reach it when the app is backgrounded.
         _logProcessor = new BatchLogRecordExportProcessor(new OtlpLogExporter(exporterOptions));
-        o.AddProcessor(_logProcessor);
+        o.AddProcessor(options.BeforeSendLog is { } beforeSend ? new BeforeSendLogProcessor(_logProcessor, beforeSend) : _logProcessor);
     }
 }

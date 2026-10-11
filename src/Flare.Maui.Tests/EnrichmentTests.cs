@@ -141,6 +141,38 @@ public class EnrichmentTests
 
         Assert.Equal("kept", Assert.Single(spans).OperationName);
     }
+
+    [Fact]
+    public void BeforeSendLog_drops_records_it_rejects_and_a_throwing_callback_keeps_them()
+    {
+        var logs = new List<string?>();
+        using var exporter = new InMemoryLogSink(logs);
+        using var factory = LoggerFactory.Create(b => b.AddOpenTelemetry(o =>
+            o.AddProcessor(new BeforeSendLogProcessor(new SimpleLogRecordExportProcessor(exporter),
+                r => r.FormattedMessage != "noisy" ? (r.FormattedMessage == "boom" ? throw new InvalidOperationException() : true) : false))
+            .IncludeFormattedMessage = true));
+        var log = factory.CreateLogger("t");
+        log.LogInformation("noisy");
+        log.LogInformation("kept");
+        log.LogInformation("boom");
+
+        Assert.Equal(["kept", "boom"], logs);
+    }
+
+    [Fact]
+    public void Resource_attributes_are_scrubbed_but_service_name_survives()
+    {
+        var options = new FlareMauiOptions { ServiceName = "app" };
+        var device = new FlareDeviceInfo("Android", "15", "Google", "Pixel 9", "2.3.1", "231");
+        var resource = FlareMaui.ScrubResource(
+            FlareMaui.BuildResource(options, device),
+            (key, v) => key is "service.name" or "service.version" ? null : v).Build();
+
+        var attributes = resource.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value);
+        Assert.Equal("app", attributes["service.name"]);
+        Assert.DoesNotContain("service.version", attributes.Keys);
+        Assert.Contains("telemetry.sdk.name", attributes.Keys);
+    }
 }
 
 public class OfflineQueueTests
@@ -187,4 +219,13 @@ public class OfflineQueueTests
         {
             Endpoint = new Uri("http://h:4318"), ServiceName = "a", OfflineQueueMaxAge = TimeSpan.Zero
         }.Validate());
+}
+
+internal sealed class InMemoryLogSink(List<string?> sink) : BaseExporter<LogRecord>
+{
+    public override ExportResult Export(in Batch<LogRecord> batch)
+    {
+        foreach (var record in batch) sink.Add(record.FormattedMessage);
+        return ExportResult.Success;
+    }
 }

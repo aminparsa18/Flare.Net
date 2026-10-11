@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry.Logs;
 
 namespace Flare.Maui;
 
@@ -56,18 +57,24 @@ public sealed class FlareMauiOptions
 
     /// <summary>
     /// Called for every span tag and log attribute before export with its key and value. Return the value to send,
-    /// a changed one to redact it, or <c>null</c> to remove the attribute. Resource attributes are not passed through.
-    /// Span names (key <c>span.name</c>), span status messages (<c>status.message</c>) and, for exceptions Flare
+    /// a changed one to redact it, or <c>null</c> to remove the attribute. Resource attributes go through it too
+    /// (<c>service.name</c> is never removed). Span names (key <c>span.name</c>), span status messages (<c>status.message</c>) and, for exceptions Flare
     /// reports itself, <c>exception.type</c>/<c>exception.message</c>/<c>exception.stacktrace</c> go through it too.
-    /// Exceptions recorded by other instrumentation are not scrubbed.
+    /// Exception events recorded by other instrumentation are not scrubbed: an event cannot be changed once added.
     /// </summary>
     public Func<string, object?, object?>? ScrubAttribute { get; set; }
 
     /// <summary>
     /// Called with each finished span before export; return <c>false</c> to drop it. It runs after the enrichment
-    /// processors, so it sees <c>user.id</c> and tags. Does not apply to logs.
+    /// processors, so it sees <c>user.id</c> and tags. Does not apply to logs; see <see cref="BeforeSendLog"/>.
     /// </summary>
     public Func<Activity, bool>? BeforeSend { get; set; }
+
+    /// <summary>
+    /// Called with each log record before export; return <c>false</c> to drop it. It runs after the enrichment and
+    /// <see cref="ScrubAttribute"/> processors, so it sees the final attributes. Breadcrumbs are taken before it.
+    /// </summary>
+    public Func<LogRecord, bool>? BeforeSendLog { get; set; }
 
     /// <summary>Delete queued export files older than this at startup. The exporter's own retention is not configurable.</summary>
     public TimeSpan OfflineQueueMaxAge { get; set; } = TimeSpan.FromDays(2);

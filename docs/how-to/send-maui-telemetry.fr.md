@@ -191,9 +191,11 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 Aucun identifiant d'appareil n'est envoyé dans les deux cas.
 
 Pour supprimer entièrement un span, définissez `BeforeSend`, qui renvoie `false` pour les spans à ne pas envoyer
-(sans effet sur les logs). `ScrubAttribute` reçoit aussi les noms de span (clé `span.name`), les messages de statut
+(pour les enregistrements de log, utilisez `BeforeSendLog`). `ScrubAttribute` reçoit aussi les noms de span (clé `span.name`), les messages de statut
 (`status.message`) et, pour les exceptions signalées par Flare lui-même, `exception.type`, `exception.message` et
-`exception.stacktrace`. Les exceptions enregistrées par d'autres instrumentations ne sont pas nettoyées.
+`exception.stacktrace`. Les exceptions enregistrées par d'autres instrumentations ne sont pas nettoyées, car un événement d'exception ne peut plus être modifié une fois ajouté. Il s'applique aussi
+aux attributs de ressource (`service.name` n'est jamais supprimé). `BeforeSendLog` reçoit chaque enregistrement de log
+après nettoyage et renvoie `false` pour l'abandonner.
 
 Les exports échoués sont rejoués depuis le disque. Au démarrage, Flare supprime les fichiers en attente plus
 vieux que `OfflineQueueMaxAge` (2 jours), puis les plus anciens jusqu'à passer sous `OfflineQueueMaxBytes` (25 Mo).

@@ -95,8 +95,8 @@ folders are where "what happened and why" actually lives.
   - Profiling follow-ups (ADR-0181): iOS, `app.start` profiles, managed frames, and a flame graph in the dashboard.
   - User feedback: an in-app "report a problem" prompt that attaches the session, with a dashboard inbox.
   - Windows support, and a live (not startup-only) offline queue cap.
-  - Log-record `BeforeSend` and resource-attribute scrubbing; extend `ScrubAttribute` to exceptions recorded by other
-    instrumentation.
+  - Scrub exception events recorded by other instrumentation (ADR-0191): an `ActivityEvent` is immutable once added, so
+    this needs a different mechanism than a processor.
   - Other client SDKs on the same server pieces (sessions, release health, scoped keys): Android native, iOS native,
     React Native and Flutter, each thin over OTLP.
   - Issue workflow: assignment, ownership rules from code owners, and links to Jira/GitHub issues from an error group.
