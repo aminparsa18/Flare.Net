@@ -20,6 +20,13 @@ public interface IReleaseQueryService
 
     /// <summary>Exception groups first seen under <paramref name="version"/>; null when that release isn't marked.</summary>
     Task<IReadOnlyList<ReleaseNewError>?> ListNewErrorsAsync(string service, string version, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Among releases deployed in the last <paramref name="within"/> (of <paramref name="services"/>, or any service
+    /// when empty), the one that introduced the most exception groups; null when none was deployed in that time.
+    /// A release with no new groups still comes back, with a count of 0.
+    /// </summary>
+    Task<ReleaseErrorTally?> FindWorstRecentAsync(IReadOnlyList<string> services, TimeSpan within, CancellationToken cancellationToken);
 }
 
 /// <summary>The ClickHouse seam for <c>releases</c> - same CRUD-via-tombstone / <see cref="LatestVersionSql"/> pattern as <see cref="ErrorIssueQueryService"/>.</summary>
@@ -115,6 +122,39 @@ public sealed class ReleaseQueryService(IClickHouseClient client, IOptions<Query
         }
 
         return errors;
+    }
+
+    public async Task<ReleaseErrorTally?> FindWorstRecentAsync(IReadOnlyList<string> services, TimeSpan within, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var recent = (await ListAsync(null, cancellationToken))
+            .Where(r => r.DeployedAt >= now - within && r.DeployedAt <= now && (services.Count == 0 || services.Contains(r.Service)))
+            .ToList();
+
+        ReleaseErrorTally? worst = null;
+        foreach (var group in recent.GroupBy(r => r.Service))
+        {
+            var counts = new Dictionary<string, long>();
+            var built = ReleaseQueryBuilder.BuildNewErrorCounts(group.Key, group.Min(r => r.DeployedAt));
+            await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken))
+            {
+                while (reader.Read())
+                {
+                    counts[reader.GetString(0)] = (long)reader.GetFieldValue<ulong>(1);
+                }
+            }
+
+            foreach (var release in group)
+            {
+                var count = counts.GetValueOrDefault(release.Version);
+                if (worst is null || count > worst.NewErrorCount || (count == worst.NewErrorCount && release.DeployedAt > worst.Release.DeployedAt))
+                {
+                    worst = new ReleaseErrorTally(release, count);
+                }
+            }
+        }
+
+        return worst;
     }
 
     private async Task<Release?> GetAsync(string id, CancellationToken cancellationToken)

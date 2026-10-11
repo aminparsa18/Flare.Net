@@ -11,4 +11,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(Release))]
 [JsonSerializable(typeof(ReleaseListResponse))]
 [JsonSerializable(typeof(ReleaseErrorsResponse))]
+[JsonSerializable(typeof(ReleaseRegression))]
 public sealed partial class ReleasesJsonContext : JsonSerializerContext;

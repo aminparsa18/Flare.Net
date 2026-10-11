@@ -639,4 +639,28 @@ public class AlertMessageFormatterTests
     [Fact]
     public void ThresholdValueOf_SloBurnRate_IsTheBurnRateThreshold() =>
         Assert.Equal(14.4, AlertMessageFormatter.ThresholdValueOf(MakeSloRule()));
+
+    private static AlertRule MakeReleaseRule() => MakeRule("New errors after deploy") with
+    {
+        ConditionKind = AlertConditionKind.ReleaseErrors,
+        WindowSeconds = 3600,
+        ExceptionCondition = new ExceptionCountCondition { ExceptionType = "", Filter = new ExceptionFilter { Services = ["web"] } },
+    };
+
+    [Fact]
+    public void BuildText_ReleaseErrors_ReportsNewErrorGroupsInTheService()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeReleaseRule(), 3);
+
+        Assert.Contains("introduced 3 new error groups", text);
+        Assert.Contains("in web", text);
+        Assert.DoesNotContain("events", text);
+    }
+
+    [Fact]
+    public void BuildFiredDataUrl_ReleaseErrors_LinksToTheReleasesPage()
+    {
+        Assert.Equal("https://flare.example/releases", AlertMessageFormatter.BuildFiredDataUrl(MakeReleaseRule(), "https://flare.example/", DateTimeOffset.UnixEpoch));
+        Assert.Equal("Releases", AlertMessageFormatter.FiredDataLabel(MakeReleaseRule()));
+    }
 }

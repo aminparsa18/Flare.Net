@@ -67,6 +67,7 @@ public sealed class AlertEvaluationWorker(
     IMaintenanceWindowQueryService maintenanceWindows,
     IOnCallRotationQueryService rotations,
     ISloQueryService slos,
+    IReleaseQueryService releases,
     CompositeAlertNotifier notifier,
     IAlertAckLinkSigner ackLinks,
     IIncidentSummaryService incidentSummaries,
@@ -341,6 +342,19 @@ public sealed class AlertEvaluationWorker(
             // The long window's rate is the headline value; no events in it reads as 0, not a gap.
             observedValue = burn.LongBurnRate ?? 0;
             breached = burn.Breached;
+        }
+        else if (rule.ConditionKind == AlertConditionKind.ReleaseErrors)
+        {
+            if (rule.ExceptionCondition is null)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) is ReleaseErrors but has no exception condition; skipping.", rule.Id, rule.Name);
+                return;
+            }
+
+            // No release in the window reads as 0 new errors: a rule watching deploys is quiet between them.
+            var tally = await ReleaseErrorsEvaluator.EvaluateAsync(releases, rule.ExceptionCondition, rule.WindowSeconds, cancellationToken);
+            observedCount = (ulong)(tally?.NewErrorCount ?? 0);
+            breached = rule.Threshold.IsBreached(observedCount);
         }
         else if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
         {

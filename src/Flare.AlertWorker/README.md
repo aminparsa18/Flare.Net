@@ -31,6 +31,9 @@ A `SloBurnRate` rule evaluates one SLO's error-budget burn rate over its long an
 (`Alerting/SloBurnRateEvaluator`, reading the `span_sli_minute` pre-aggregate) and breaches only
 when both are at or above the threshold - see
 [`docs-internal/adr/0108-slo-error-budgets.md`](../../docs-internal/adr/0108-slo-error-budgets.md).
+A `ReleaseErrors` rule counts the exception groups the worst release deployed in the last `WindowSeconds` introduced
+(`Alerting/ReleaseErrorsEvaluator`, reading `releases` and `spans`), scoped by the services in its exception condition's
+filter - see [`docs-internal/adr/0186-release-error-alerting.md`](../../docs-internal/adr/0186-release-error-alerting.md).
 A rule with `EvaluationIntervalSeconds > 0` is evaluated only on ticks where it's due
 (its last-evaluated marker, a per-rule Redis key `flare:alerts:last-eval:{id}`, is at least
 that old minus half a poll interval), so slow/expensive rules can run every 5m/15m instead

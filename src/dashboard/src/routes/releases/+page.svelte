@@ -130,6 +130,7 @@
 						<Table.Head>{m.releases_deployedColumn()}</Table.Head>
 						<Table.Head>{m.releases_commitColumn()}</Table.Head>
 						<Table.Head class="text-right">{m.releases_newErrorsColumn()}</Table.Head>
+						<Table.Head class="text-right">{m.releases_regressionsColumn()}</Table.Head>
 						{#if auth.canMutate}<Table.Head class="text-right">{m.releases_actionsColumn()}</Table.Head>{/if}
 					</Table.Row>
 				</Table.Header>
@@ -166,6 +167,13 @@
 									<span class="text-muted-foreground">{release.newErrorCount ?? '-'}</span>
 								{/if}
 							</Table.Cell>
+							<Table.Cell class="text-right tabular-nums">
+								{#if release.regressionCount}
+									<Badge variant="warning">{release.regressionCount}</Badge>
+								{:else}
+									<span class="text-muted-foreground">{release.regressionCount ?? '-'}</span>
+								{/if}
+							</Table.Cell>
 							{#if auth.canMutate}
 								<Table.Cell class="text-right">
 									<Button
@@ -182,7 +190,7 @@
 						</Table.Row>
 						{#if expanded[release.id]}
 							<Table.Row class="bg-muted/30">
-								<Table.Cell colspan={auth.canMutate ? 5 : 4} class="pl-9">
+								<Table.Cell colspan={auth.canMutate ? 6 : 5} class="pl-9">
 									{#if release.notes}
 										<p class="text-muted-foreground mb-2 text-xs whitespace-pre-wrap">{release.notes}</p>
 									{/if}
@@ -190,9 +198,22 @@
 										<Spinner />
 									{:else if typeof detail === 'string'}
 										<p class="text-destructive text-xs">{detail}</p>
-									{:else if detail.errors.length === 0}
-										<p class="text-muted-foreground text-xs">{m.releases_noNewErrors({ days: detail.historyDays })}</p>
 									{:else}
+										{#if detail.regressions.length > 0}
+											<p class="mb-1 text-xs font-medium">{m.releases_regressionsHeading()}</p>
+											<ul class="mb-3 space-y-1">
+												{#each detail.regressions as r (r.exceptionType + '\u001f' + r.exceptionMessage)}
+													<li class="flex items-baseline gap-2 text-xs">
+														<a href={errorsHref(release, r.exceptionType)} class="font-mono font-medium underline-offset-2 hover:underline">{r.exceptionType}</a>
+														<span class="text-muted-foreground min-w-0 flex-1 truncate">{r.exceptionMessage}</span>
+														<span class="text-muted-foreground">{m.releases_resolvedOn({ date: formatDateTime(new Date(r.resolvedAtUnixMs).toISOString()) })}</span>
+													</li>
+												{/each}
+											</ul>
+										{/if}
+										{#if detail.errors.length === 0}
+											<p class="text-muted-foreground text-xs">{m.releases_noNewErrors({ days: detail.historyDays })}</p>
+										{:else}
 										<ul class="space-y-1">
 											{#each detail.errors as e (e.exceptionType + '\u001f' + e.exceptionMessage)}
 												<li class="flex items-baseline gap-2 text-xs">
@@ -203,6 +224,7 @@
 											{/each}
 										</ul>
 										<p class="text-muted-foreground mt-2 text-[11px]">{m.releases_historyNote({ days: detail.historyDays })}</p>
+										{/if}
 									{/if}
 								</Table.Cell>
 							</Table.Row>
