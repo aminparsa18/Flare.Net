@@ -518,6 +518,11 @@ await AdminProvisioner.ApplyAsync(
 // middleware and endpoint sees the request already split into PathBase + Path. No-op unset.
 app.UseFlareBasePath(BasePath.Normalize(builder.Configuration[BasePath.ConfigurationKey]));
 
+// Baseline security headers (ADR-0200) - early so error and CORS-preflight responses carry them too.
+app.UseFlareSecurityHeaders(
+    builder.Configuration.GetSection(SecurityHeadersOptions.SectionName).Get<SecurityHeadersOptions>() ?? new SecurityHeadersOptions(),
+    app.Environment.IsDevelopment());
+
 app.UseCors();
 app.UseWebSockets();
 

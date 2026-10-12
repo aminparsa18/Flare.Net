@@ -44,6 +44,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Exécution avec le CLI](how-to/deploy/run-with-cli.fr.md)
 - [Exécution en mode cluster](how-to/deploy/run-cluster-mode.fr.md)
 - [Servir sous un sous-chemin](how-to/deploy/serve-under-a-sub-path.fr.md)
+- [Configurer les en-têtes de sécurité](how-to/deploy/security-response-headers.fr.md)
 - [Déployer avec Helm](how-to/deploy/deploy-with-helm.fr.md)
 
 *Administration*

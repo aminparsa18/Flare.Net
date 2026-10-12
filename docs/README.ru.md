@@ -44,6 +44,7 @@
 - [Запуск через CLI](how-to/deploy/run-with-cli.ru.md)
 - [Запуск в кластерном режиме](how-to/deploy/run-cluster-mode.ru.md)
 - [Работа по вложенному пути](how-to/deploy/serve-under-a-sub-path.ru.md)
+- [Заголовки безопасности ответов](how-to/deploy/security-response-headers.ru.md)
 - [Развёртывание с Helm](how-to/deploy/deploy-with-helm.ru.md)
 
 *Администрирование*
