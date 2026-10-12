@@ -23,8 +23,15 @@ public sealed class PipelineRuleAnnotator(IPipelineRuleCache ruleCache, IOptions
 {
     public Task<IReadOnlyList<LogEvent>> AnnotateAsync(IReadOnlyList<LogEvent> events, CancellationToken cancellationToken)
     {
+        if (!options.Value.Enabled)
+        {
+            return Task.FromResult(events);
+        }
+
+        var pii = options.Value.Pii;
+        var piiDetectors = pii.Enabled ? pii.Detectors : PiiDetectors.None;
         var rules = ruleCache.CurrentRules;
-        if (!options.Value.Enabled || rules.Count == 0)
+        if (piiDetectors == PiiDetectors.None && rules.Count == 0)
         {
             return Task.FromResult(events);
         }
@@ -32,9 +39,30 @@ public sealed class PipelineRuleAnnotator(IPipelineRuleCache ruleCache, IOptions
         var result = new LogEvent[events.Count];
         for (var i = 0; i < events.Count; i++)
         {
-            result[i] = PipelineRuleExecutor.Apply(events[i], rules);
+            // Managed PII redaction runs before user rules so an extract rule can't copy a raw value into a new attribute.
+            var logEvent = piiDetectors == PiiDetectors.None ? events[i] : RedactPii(events[i], piiDetectors);
+            result[i] = rules.Count == 0 ? logEvent : PipelineRuleExecutor.Apply(logEvent, rules);
         }
 
         return Task.FromResult<IReadOnlyList<LogEvent>>(result);
+    }
+
+    private static LogEvent RedactPii(LogEvent logEvent, PiiDetectors detectors)
+    {
+        var body = logEvent.Body is null ? null : PiiRedactor.Redact(logEvent.Body, detectors);
+        Dictionary<string, string>? attributes = null;
+        foreach (var (key, value) in logEvent.LogAttributes)
+        {
+            var redacted = PiiRedactor.Redact(value, detectors);
+            if (redacted != value)
+            {
+                attributes ??= new Dictionary<string, string>(logEvent.LogAttributes);
+                attributes[key] = redacted;
+            }
+        }
+
+        return body == logEvent.Body && attributes is null
+            ? logEvent
+            : logEvent with { Body = body, LogAttributes = attributes ?? logEvent.LogAttributes };
     }
 }

@@ -105,10 +105,12 @@ folders are where "what happened and why" actually lives.
     rollback.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
-  - **Managed PII detection at ingest.** Redaction today means hand-written regex pipeline rules. Ship a built-in rule
-    set (emails, Luhn-checked card numbers, IBANs, JWTs, bearer tokens, private keys) reusing the patterns in
-    `AiRedactor`, one toggle, previewable with the [ADR-0034](../adr/0034-pipeline-rules-preview.md) simulator. A
-    report-only scan that lists attributes that look like PII, without changing data, is a smaller first step.
+  - **Managed PII detection: preview and scan coverage for spans.** Built-in redaction (logs and spans), its preview
+    and a report-only scan shipped ([ADR-0199](../adr/0199-managed-pii-redaction.md)), but the preview and scan only
+    sample logs.
+  - **Managed PII redaction dashboard toggle.** Enabling it is `PipelineRules__Pii__*` Ingest config today (restart
+    required). A settings page toggle needs a runtime-settings mechanism Ingest does not have: a settings table with
+    single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
   - **Security response headers.** No HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors` or CSP is set
     by Flare.Api or the dashboard's Node server. Add them with a configurable CSP and document the reverse-proxy
     interaction.

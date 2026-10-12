@@ -15,4 +15,17 @@ public sealed class PipelineRuleOptions
 
     /// <summary>How often <see cref="PipelineRuleCache"/> re-polls <c>pipeline_rules</c> for changes. A newly created/edited/disabled rule takes up to this long to take effect on this replica.</summary>
     public TimeSpan RefreshInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>Managed PII/secret redaction (ADR-0199). Off by default; applied before user-defined rules, to <c>Body</c> and log attribute values.</summary>
+    public PiiRedactionOptions Pii { get; set; } = new();
+}
+
+/// <summary>Bound from <c>PipelineRules:Pii</c>.</summary>
+public sealed class PiiRedactionOptions
+{
+    /// <summary>One toggle for the whole built-in rule set. Takes effect on restart.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>Which detectors run. Defaults to all; narrow with e.g. <c>Email,CreditCard</c>.</summary>
+    public PiiDetectors Detectors { get; set; } = PiiDetectors.All;
 }

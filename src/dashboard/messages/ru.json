@@ -3722,5 +3722,10 @@
 	"erasure_statusPending": "Ожидает",
 	"erasure_statusRunning": "Удаляется",
 	"erasure_statusSuccess": "Готово",
-	"erasure_statusFailed": "Ошибка"
+	"erasure_statusFailed": "Ошибка",
+	"piiPreview_button": "Предпросмотр скрытия PII",
+	"piiPreview_title": "Предпросмотр управляемого скрытия PII",
+	"piiPreview_description": "Сканирует недавние логи и показывает, что скроют встроенные детекторы (email, номера карт, IBAN, JWT, bearer-токены, приватные ключи). Ничего не записывается. Включается на Flare.Ingest через PipelineRules__Pii__Enabled=true.",
+	"piiScan_button": "Найти PII в полях",
+	"piiScan_summary": "Найдено пар поле/детектор: {fields} (проверено логов: {sampled})"
 }

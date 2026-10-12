@@ -11,9 +11,11 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import PiiPreviewDialog from './PiiPreviewDialog.svelte';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 
 	const pipelineRules = pipelineRulesContext.get();
+	let piiPreviewOpen = $state(false);
 
 	// Same shape as AlertRuleTable.svelte's summarizeCondition - "matches all logs" is a
 	// visible, deliberate state here too (see docs-internal/adr/0033-pipeline-rules-extraction-redaction.md's
@@ -53,11 +55,18 @@
 		<h1 class="text-sm font-semibold">{m.pipelineRuleTable_heading()}</h1>
 		<p class="text-muted-foreground text-xs">{m.pipelineRuleTable_subheading()}</p>
 	</div>
-	<Button size="sm" onclick={() => pipelineRules.openCreate()}>
-		<PlusIcon data-icon="inline-start" />
-		{m.pipelineRuleTable_newRule()}
-	</Button>
+	<div class="flex items-center gap-2">
+		<Button size="sm" variant="outline" onclick={() => (piiPreviewOpen = true)}>
+			<ShieldIcon data-icon="inline-start" />
+			{m.piiPreview_button()}
+		</Button>
+		<Button size="sm" onclick={() => pipelineRules.openCreate()}>
+			<PlusIcon data-icon="inline-start" />
+			{m.pipelineRuleTable_newRule()}
+		</Button>
+	</div>
 </div>
+<PiiPreviewDialog bind:open={piiPreviewOpen} />
 
 {#if pipelineRules.loading}
 	<div class="flex flex-1 items-center justify-center">

@@ -15,6 +15,8 @@ namespace Flare.Api.Json;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UseStringEnumConverter = true)]
 [JsonSerializable(typeof(PipelineRuleRequest))]
+[JsonSerializable(typeof(PiiPreviewRequest))]
+[JsonSerializable(typeof(PiiScanResult))]
 [JsonSerializable(typeof(PipelineRule))]
 [JsonSerializable(typeof(PipelineRuleListResponse))]
 [JsonSerializable(typeof(PipelineRulePreviewResult))]
