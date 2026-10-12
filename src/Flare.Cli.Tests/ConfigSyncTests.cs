@@ -172,6 +172,25 @@ public class ConfigSyncTests
         Assert.False(ConfigSync.KeyLimitsBody(Obj("""{"name":"prod"}"""))["limitsEnabled"]!.GetValue<bool>());
     }
 
+    [Fact]
+    public void KeyExpiry_IsExported_AndOnlyComparedWhenTheFileNamesOne()
+    {
+        var raw = Obj("""{"id":"k","name":"prod","isActive":true,"expiresAt":"2027-01-01T00:00:00+00:00"}""");
+        var key = ConfigSync.ToExportKey(raw)!;
+        Assert.Equal(DateTimeOffset.Parse("2027-01-01T00:00:00Z"), DateTimeOffset.Parse(key["expiresAt"]!.GetValue<string>()));
+        var existing = new[] { new ConfigExisting("k", "prod", raw, key) };
+
+        // No expiresAt in the file: leave the key's expiry alone.
+        Assert.Equal(ConfigOutcome.Unchanged, ConfigSync.PlanKeys([Obj("""{"name":"prod"}""")], existing)[0].Outcome);
+        // Same instant in another offset: unchanged. Different instant: update.
+        Assert.Equal(ConfigOutcome.Unchanged, ConfigSync.PlanKeys([Obj("""{"name":"prod","expiresAt":"2027-01-01T02:00:00+02:00"}""")], existing)[0].Outcome);
+        var later = Obj("""{"name":"prod","expiresAt":"2027-06-01T00:00:00Z"}""");
+        Assert.Equal(ConfigOutcome.Update, ConfigSync.PlanKeys([later], existing)[0].Outcome);
+        Assert.True(ConfigSync.KeyExpiryDiffers(later, raw));
+        Assert.Equal(DateTimeOffset.Parse("2027-06-01T00:00:00Z").ToUnixTimeMilliseconds(), ConfigSync.KeyExpiryBody(later)!["expiresAtUnixMs"]!.GetValue<long>());
+        Assert.Null(ConfigSync.KeyExpiryBody(Obj("""{"name":"prod","expiresAt":"soon"}""")));
+    }
+
     private static readonly ConfigKind Forwarding = ConfigSync.RestKinds.Single(k => k.Section == ConfigSync.ForwardingSection);
 
     private const string StoredTarget = """

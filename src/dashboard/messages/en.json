@@ -1762,6 +1762,7 @@
 	"accessTokenTable_confirmRevoke": "Revoke access token \"{name}\"? This cannot be undone.",
 	"accessTokenTable_statusActive": "Active",
 	"accessTokenTable_statusExpired": "Expired",
+	"accessTokenTable_expiresSoon": "Expires in {days}d",
 	"accessTokenTable_statusRevoked": "Revoked",
 	"accessTokenTable_neverExpires": "Never",
 	"accessTokenTable_neverUsed": "Never",

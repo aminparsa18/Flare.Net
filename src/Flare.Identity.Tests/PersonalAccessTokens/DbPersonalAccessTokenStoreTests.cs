@@ -44,6 +44,22 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ListWithExpiryAsync_ReturnsNonRevokedTokensWithAnExpiry()
+    {
+        var soon = _timeProvider.GetUtcNow().AddDays(2);
+        await _store.CreateAsync(_userId, "never", expiresAt: null);
+        var (expiring, _) = await _store.CreateAsync(_userId, "expiring", soon);
+        var (revoked, _) = await _store.CreateAsync(_userId, "revoked", soon);
+        await _store.RevokeAsync(revoked.Id);
+
+        var listed = await _store.ListWithExpiryAsync();
+
+        var only = Assert.Single(listed);
+        Assert.Equal(expiring.Id, only.Id);
+        Assert.Equal(soon, only.ExpiresAt);
+    }
+
+    [Fact]
     public async Task CreateAsync_GeneratesADifferentRawTokenEachTime()
     {
         var (_, rawA) = await _store.CreateAsync(_userId, "token-a", expiresAt: null);

@@ -1762,6 +1762,7 @@
 	"accessTokenTable_confirmRevoke": "Отозвать токен доступа «{name}»? Это действие необратимо.",
 	"accessTokenTable_statusActive": "Активен",
 	"accessTokenTable_statusExpired": "Истёк",
+	"accessTokenTable_expiresSoon": "Истекает через {days} дн.",
 	"accessTokenTable_statusRevoked": "Отозван",
 	"accessTokenTable_neverExpires": "Никогда",
 	"accessTokenTable_neverUsed": "Никогда",

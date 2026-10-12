@@ -16,7 +16,13 @@
 
 	const tokens = accessTokensContext.get();
 
-	type Status = 'active' | 'expired' | 'revoked';
+	const SOON_DAYS = 14;
+
+	type Status = 'active' | 'expiring' | 'expired' | 'revoked';
+
+	function daysLeft(expiresAt: string): number {
+		return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000));
+	}
 
 	// RevokedAt wins over an expired ExpiresAt if somehow both are true (can't happen
 	// today - revoking doesn't touch ExpiresAt - but this keeps the precedence explicit
@@ -24,13 +30,16 @@
 	// RevokedAt-first check on the backend.
 	function status(token: AccessToken): Status {
 		if (token.revokedAt) return 'revoked';
-		return token.isActive ? 'active' : 'expired';
+		if (!token.isActive) return 'expired';
+		return token.expiresAt && daysLeft(token.expiresAt) <= SOON_DAYS ? 'expiring' : 'active';
 	}
 
-	function statusLabel(status: Status): string {
+	function statusLabel(status: Status, expiresAt?: string | null): string {
 		switch (status) {
 			case 'active':
 				return m.accessTokenTable_statusActive();
+			case 'expiring':
+				return m.accessTokenTable_expiresSoon({ days: daysLeft(expiresAt!) });
 			case 'expired':
 				return m.accessTokenTable_statusExpired();
 			case 'revoked':
@@ -42,6 +51,7 @@
 		switch (status) {
 			case 'active':
 				return 'outline';
+			case 'expiring':
 			case 'expired':
 				return 'warning';
 			case 'revoked':
@@ -108,7 +118,7 @@
 					{@const tokenStatus = status(token)}
 					<Table.Row>
 						<Table.Cell class="font-medium">{token.name}</Table.Cell>
-						<Table.Cell><Badge variant={statusVariant(tokenStatus)}>{statusLabel(tokenStatus)}</Badge></Table.Cell>
+						<Table.Cell><Badge variant={statusVariant(tokenStatus)}>{statusLabel(tokenStatus, token.expiresAt)}</Badge></Table.Cell>
 						<Table.Cell class="text-muted-foreground">{formatDateTime(token.createdAt)}</Table.Cell>
 						<Table.Cell class="text-muted-foreground">
 							{token.expiresAt ? formatDateTime(token.expiresAt) : m.accessTokenTable_neverExpires()}
