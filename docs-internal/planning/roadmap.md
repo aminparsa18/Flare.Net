@@ -110,9 +110,6 @@ folders are where "what happened and why" actually lives.
     single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
-  - **Webhook SSRF guard.** Alert webhooks, status-page subscriptions and forwarding targets post to user-supplied URLs
-    with no private-range check (`WebhookPost`). Add an opt-out block on loopback, link-local (`169.254.169.254`) and
-    RFC1918 targets, with an allowlist, enforced at connect time so redirects and DNS rebinding can't bypass it.
   - **Audit export, streaming and read auditing.** CSV/JSON export, optional forwarding to a syslog/webhook sink, and
     hash-chaining so tampering is detectable ([ADR-0079](../adr/0079-audit-log.md) covers config changes only). An
     opt-in record of who queried telemetry is the other half compliance reviewers ask for.

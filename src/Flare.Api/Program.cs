@@ -8,6 +8,7 @@ using Flare.Api.Auth;
 using Flare.Api.Caching;
 using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
+using Flare.ServiceDefaults.Outbound;
 using Flare.Api.Export;
 using Flare.Api.HostStats;
 using Flare.Api.KubernetesResources;
@@ -415,14 +416,14 @@ builder.Services.AddHttpClient(Flare.Api.Ai.OpenAiCompatibleLlmClient.HttpClient
 builder.Services.AddSingleton<Flare.Api.Ai.ILlmClient, Flare.Api.Ai.OpenAiCompatibleLlmClient>();
 builder.Services.AddSingleton<Flare.Api.Ai.IExceptionExplainService, Flare.Api.Ai.ExceptionExplainService>();
 builder.Services.AddSingleton<Flare.Api.Ai.INlFilterService, Flare.Api.Ai.NlFilterService>();
-builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
+builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook").AddOutboundGuard();
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
-builder.Services.AddHttpClient<TeamsAlertNotifier>("alert-teams");
-builder.Services.AddHttpClient<JiraAlertNotifier>("alert-jira");
-builder.Services.AddHttpClient<IncidentIoAlertNotifier>("alert-incidentio");
+builder.Services.AddHttpClient<TeamsAlertNotifier>("alert-teams").AddOutboundGuard();
+builder.Services.AddHttpClient<JiraAlertNotifier>("alert-jira").AddOutboundGuard();
+builder.Services.AddHttpClient<IncidentIoAlertNotifier>("alert-incidentio").AddOutboundGuard();
 builder.Services.AddHttpClient<JsmOpsAlertNotifier>("alert-jsmops");
-builder.Services.AddHttpClient<DiscordAlertNotifier>("alert-discord");
+builder.Services.AddHttpClient<DiscordAlertNotifier>("alert-discord").AddOutboundGuard();
 builder.Services.AddSingleton<EmailAlertNotifier>();
 // Registered as its own concrete type (not just IAlertNotifier) so NotificationChannelEndpoints/
 // AlertEndpoints's send-test handlers can inject it directly for SendAllAsync - the fan-out

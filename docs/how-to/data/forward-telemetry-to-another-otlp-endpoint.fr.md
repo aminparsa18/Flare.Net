@@ -78,6 +78,17 @@ resource "flare_forwarding_target" "grafana" {
 
 Les valeurs d'en-tête sont en écriture seule : Flare ne les renvoie jamais, donc une modification faite hors de Terraform n'est pas détectée. Les cibles de la configuration `Forwarding:Targets` sont distinctes et ne sont pas gérées ainsi.
 
+## Les destinations privées sont bloquées par défaut
+
+Flare refuse d'envoyer vers le loopback, les adresses privées (RFC 1918), link-local (`169.254.169.254`) et autres adresses non publiques, afin qu'une cible ne puisse pas viser le réseau interne de l'hôte. Pour envoyer vers un récepteur interne, autorisez-le sur Flare.Ingest :
+
+```bash
+Outbound__Allow__0=10.20.0.0/16
+Outbound__Allow__1=*.corp.local
+```
+
+Chaque entrée est une IP, un CIDR ou un nom d'hôte (exact ou `*.suffixe`). `Outbound__BlockPrivateNetworks=false` désactive la vérification. Les mêmes réglages s'appliquent aux canaux d'alerte de Flare.Api et Flare.AlertWorker. Notes de conception : [ADR-0201](../../../docs-internal/adr/0201-outbound-ssrf-guard.md).
+
 ## À quoi s'attendre
 
 - Seules les requêtes acceptées par Flare sont transférées. Celles qui sont rejetées (limite d'une clé d'ingestion dépassée, service non autorisé, requête malformée) ne le sont pas.

@@ -87,6 +87,17 @@ resource "flare_forwarding_target" "grafana" {
 
 Header values are write-only: Flare never returns them, so a change made outside Terraform is not detected. Targets in `Forwarding:Targets` configuration are separate and not managed this way.
 
+## Private destinations are blocked by default
+
+Flare refuses to send to loopback, private (RFC 1918), link-local (`169.254.169.254`) and other non-public addresses, so a target cannot be pointed at the host's own network. To send to an internal receiver, allow it on Flare.Ingest:
+
+```bash
+Outbound__Allow__0=10.20.0.0/16
+Outbound__Allow__1=*.corp.local
+```
+
+Each entry is an IP, a CIDR, or a host name (exact or `*.suffix`). `Outbound__BlockPrivateNetworks=false` disables the check. The same settings apply to alert channels on Flare.Api and Flare.AlertWorker. Design notes: [ADR-0201](../../../docs-internal/adr/0201-outbound-ssrf-guard.md).
+
 ## What to expect
 
 - Only requests Flare accepted are forwarded. Rejected ones (over an ingest key's limit, service not

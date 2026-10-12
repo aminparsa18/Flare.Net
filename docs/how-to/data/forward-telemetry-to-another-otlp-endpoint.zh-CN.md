@@ -78,6 +78,17 @@ resource "flare_forwarding_target" "grafana" {
 
 请求头的值只写不读：Flare 不会返回它们，因此在 Terraform 之外所做的更改不会被检测到。`Forwarding:Targets` 配置中的目标是独立的，不通过这种方式管理。
 
+## 默认阻止私有目标地址
+
+Flare 默认拒绝向环回地址、私有地址（RFC 1918）、链路本地地址（`169.254.169.254`）及其他非公网地址发送数据，因此转发目标无法指向主机所在的内部网络。如需发送到内部接收端，请在 Flare.Ingest 上放行：
+
+```bash
+Outbound__Allow__0=10.20.0.0/16
+Outbound__Allow__1=*.corp.local
+```
+
+每个条目可以是 IP、CIDR 或主机名（精确匹配或 `*.后缀`）。设置 `Outbound__BlockPrivateNetworks=false` 可关闭该检查。同样的设置也适用于 Flare.Api 和 Flare.AlertWorker 上的告警渠道。设计说明：[ADR-0201](../../../docs-internal/adr/0201-outbound-ssrf-guard.md)。
+
 ## 需要了解
 
 - 只转发 Flare 已接受的请求。被拒绝的请求（超出摄取密钥限额、服务不被允许、格式错误）不会转发。
