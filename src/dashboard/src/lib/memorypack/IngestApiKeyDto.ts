@@ -27,6 +27,7 @@ export class IngestApiKeyDto {
 	projectId: string | null;
 	allowedOrigins: string[];
 	allowedServices: string[];
+	expiresAt: Date | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -46,6 +47,7 @@ export class IngestApiKeyDto {
 		this.projectId = null;
 		this.allowedOrigins = [];
 		this.allowedServices = [];
+		this.expiresAt = null;
 	}
 
 	static serialize(value: IngestApiKeyDto | null): Uint8Array {
@@ -60,7 +62,7 @@ export class IngestApiKeyDto {
 			return;
 		}
 
-		writer.writeObjectHeader(17);
+		writer.writeObjectHeader(18);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writeDateTimeOffset(writer, value.createdAt);
@@ -78,6 +80,7 @@ export class IngestApiKeyDto {
 		writer.writeNullableGuid(value.projectId);
 		writer.writeArray(value.allowedOrigins, (writer, x) => writer.writeString(x));
 		writer.writeArray(value.allowedServices, (writer, x) => writer.writeString(x));
+		writeNullableDateTimeOffset(writer, value.expiresAt);
 	}
 
 	static serializeArray(value: (IngestApiKeyDto | null)[] | null): Uint8Array {
@@ -101,7 +104,7 @@ export class IngestApiKeyDto {
 		}
 
 		const value = new IngestApiKeyDto();
-		if (count == 17) {
+		if (count == 18) {
 			value.id = reader.readGuid();
 			value.name = reader.readString() ?? '';
 			value.createdAt = readDateTimeOffset(reader);
@@ -119,7 +122,8 @@ export class IngestApiKeyDto {
 			value.projectId = reader.readNullableGuid();
 			value.allowedOrigins = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
 			value.allowedServices = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
-		} else if (count > 17) {
+			value.expiresAt = readNullableDateTimeOffset(reader);
+		} else if (count > 18) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -157,6 +161,8 @@ export class IngestApiKeyDto {
 			if (count == 16) return value;
 			value.allowedServices = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
 			if (count == 17) return value;
+			value.expiresAt = readNullableDateTimeOffset(reader);
+			if (count == 18) return value;
 		}
 		return value;
 	}

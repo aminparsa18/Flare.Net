@@ -45,6 +45,9 @@ Flare 的确切角色、身份解析事实和配置密钥
 | `Identity:Admin:Reconcile` | `false` | 每次启动时还会将该账户重置为配置的密码、Admin 角色并启用。在界面中修改的密码会在重启后恢复。 |
 | `Auth:CookieName` | `flare_session` | 会话 cookie 名称。 |
 | `Auth:SessionLifetime` | `14.00:00:00`（14 天） | 固定会话过期，在登录时设置。 |
+| `Auth:SessionIdleTimeout` | 未设置（关闭） | 会话在此时长内没有请求即登出，例如 `00:30:00`。精度约为一分钟。参见 [ADR-0206](../../docs-internal/adr/0206-session-idle-timeout-password-policy.md)。 |
+| `Auth:PasswordPolicy:MinLength` | `8` | 任何本地密码的最小长度（引导、邀请/重置、修改、`Identity:Admin:*`）。登录时不会重新检查已有密码。 |
+| `Auth:PasswordPolicy:RequireUppercase` / `RequireLowercase` / `RequireDigit` / `RequireSymbol` | `false` | 至少需要一个该类别的字符。 |
 | `Auth:CookieSecure` | `true` | 仅为本地普通 HTTP 开发设置 `false`。 |
 | `Auth:CookieSameSite` | `Lax` | `None`（与 `CookieSecure=true`）如果您的仪表板和 API 曾经跨越真正不同的域，而不仅仅是 `localhost` 上的不同端口。 |
 | `Auth:MaxFailedLoginAttempts` | `5` | 同一 (用户名, 客户端 IP) 对在被锁定前允许的连续本地登录失败次数。只有本地用户名/密码登录会被这样限流 - 参见[身份验证模型](../explanation/authentication-model.zh-CN.md#本地用户名密码)。 |

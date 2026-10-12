@@ -48,6 +48,18 @@ public sealed partial record IngestApiKeyDto
 
     /// <summary>service.name values the key may write for (ADR-0150); empty = any. Appended last, same reason.</summary>
     public IReadOnlyList<string> AllowedServices { get; init; } = [];
+
+    /// <summary>When the key stops working (ADR-0207); null = never. <see cref="IsActive"/> is already false once this has passed. Appended last, same reason.</summary>
+    public DateTimeOffset? ExpiresAt { get; init; }
+}
+
+/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/expiry</c> - sets the expiry, or clears it when null.
+/// Unix milliseconds because <c>DateTimeOffset</c> can't carry the TypeScript generator.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record SetIngestApiKeyExpiryRequest
+{
+    public long? ExpiresAtUnixMs { get; init; }
 }
 
 /// <summary>Request body for <c>PUT /api/ingest-keys/{id}/services</c> - replaces the allowlist; empty removes the restriction.</summary>
@@ -93,6 +105,9 @@ public sealed partial record CreateIngestApiKeyRequest
 
     /// <summary>Tags the key with an owning project (ADR-0123); null or <see cref="Guid.Empty"/> = instance-wide.</summary>
     public Guid? ProjectId { get; init; }
+
+    /// <summary>Optional expiry as Unix milliseconds (ADR-0207); must be in the future. Null = never expires.</summary>
+    public long? ExpiresAtUnixMs { get; init; }
 }
 
 /// <summary>Request body for <c>PUT /api/ingest-keys/{id}/project</c>. A null or <see cref="Guid.Empty"/> project makes the key instance-wide.</summary>

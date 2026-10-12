@@ -48,6 +48,9 @@ erroné.
 | `Identity:Admin:Reconcile` | `false` | Réinitialise aussi le compte indiqué (mot de passe configuré, rôle Admin, activé) à chaque démarrage. Un mot de passe modifié dans l'interface revient à la valeur configurée au redémarrage. |
 | `Auth:CookieName` | `flare_session` | Nom du cookie de session. |
 | `Auth:SessionLifetime` | `14.00:00:00` (14 jours) | Expiration fixe de la session, définie à la connexion. |
+| `Auth:SessionIdleTimeout` | non défini (désactivé) | Déconnecte une session après cette durée sans requête, p. ex. `00:30:00`. Précis à environ une minute. Voir [ADR-0206](../../docs-internal/adr/0206-session-idle-timeout-password-policy.md). |
+| `Auth:PasswordPolicy:MinLength` | `8` | Longueur minimale de tout mot de passe local (amorçage, invitation/réinitialisation, changement, `Identity:Admin:*`). Les mots de passe existants ne sont jamais revérifiés à la connexion. |
+| `Auth:PasswordPolicy:RequireUppercase` / `RequireLowercase` / `RequireDigit` / `RequireSymbol` | `false` | Exige au moins un caractère de cette catégorie. |
 | `Auth:CookieSecure` | `true` | Ne réglez `false` que pour le développement local en HTTP simple. |
 | `Auth:CookieSameSite` | `Lax` | `None` (avec `CookieSecure=true`) si votre tableau de bord et votre API se retrouvent un jour séparés sur des domaines véritablement différents, pas seulement des ports différents sur `localhost`. |
 | `Auth:MaxFailedLoginAttempts` | `5` | Tentatives de connexion locale échouées consécutives pour la même paire (nom d'utilisateur, IP client) avant verrouillage. Seule la connexion locale par nom d'utilisateur/mot de passe est limitée ainsi - voir [le modèle d'authentification](../explanation/authentication-model.fr.md#local-nom-dutilisateurmot-de-passe). |

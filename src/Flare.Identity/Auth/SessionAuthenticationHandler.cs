@@ -75,6 +75,13 @@ public sealed class SessionAuthenticationHandler(
             return AuthenticateResult.Fail("Session not found or expired.");
         }
 
+        if (authOptions.Value.SessionIdleTimeout is { } idle && idle > TimeSpan.Zero
+            && DateTimeOffset.UtcNow - session.LastSeenAt > idle)
+        {
+            await sessionStore.DeleteAsync(token, Context.RequestAborted);
+            return AuthenticateResult.Fail("Session expired after inactivity.");
+        }
+
         var user = await userStore.FindByIdAsync(session.UserId, Context.RequestAborted);
         if (user is null || user.IsDisabled)
         {

@@ -4,7 +4,7 @@ namespace Flare.Identity.IngestKeys;
 
 public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFactory, TimeProvider timeProvider) : IIngestApiKeyStore
 {
-    public async Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, CancellationToken cancellationToken = default)
+    public async Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, DateTimeOffset? expiresAt = null, CancellationToken cancellationToken = default)
     {
         var id = Guid.NewGuid();
         var now = timeProvider.GetUtcNow();
@@ -15,17 +15,18 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         await using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO IngestApiKeys (Id, Name, KeyHash, CreatedAt, RevokedAt, ProjectId)
-            VALUES (@id, @name, @keyHash, @createdAt, NULL, @projectId)
+            INSERT INTO IngestApiKeys (Id, Name, KeyHash, CreatedAt, RevokedAt, ProjectId, ExpiresAt)
+            VALUES (@id, @name, @keyHash, @createdAt, NULL, @projectId, @expiresAt)
             """;
         command.AddParameter("@id", id.ToString());
         command.AddParameter("@name", name);
         command.AddParameter("@keyHash", keyHash);
         command.AddParameter("@createdAt", now.ToString("O"));
         command.AddParameter("@projectId", (object?)projectId?.ToString() ?? DBNull.Value);
+        command.AddParameter("@expiresAt", (object?)expiresAt?.ToString("O") ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
 
-        return (new IngestApiKey(id, name, now, RevokedAt: null) { ProjectId = projectId }, rawKey);
+        return (new IngestApiKey(id, name, now, RevokedAt: null) { ProjectId = projectId, ExpiresAt = expiresAt }, rawKey);
     }
 
     public async Task<IReadOnlyList<IngestApiKey>> ListAsync(CancellationToken cancellationToken = default)
@@ -35,7 +36,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         command.CommandText =
             """
             SELECT Id, Name, CreatedAt, RevokedAt,
-                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, ProjectId, AllowedOrigins, AllowedServices
+                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, ProjectId, AllowedOrigins, AllowedServices, ExpiresAt
             FROM IngestApiKeys ORDER BY CreatedAt
             """;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -53,6 +54,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
                 ProjectId = reader.IsDBNull(9) ? null : Guid.Parse(reader.GetString(9)),
                 AllowedOrigins = IngestKeyOrigins.Deserialize(reader.IsDBNull(10) ? null : reader.GetString(10)),
                 AllowedServices = IngestKeyServices.Deserialize(reader.IsDBNull(11) ? null : reader.GetString(11)),
+                ExpiresAt = reader.IsDBNull(12) ? null : DateTimeOffset.Parse(reader.GetString(12)),
             });
         }
         return keys;
@@ -98,6 +100,16 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
+    public async Task<bool> SetExpiryAsync(Guid id, DateTimeOffset? expiresAt, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE IngestApiKeys SET ExpiresAt = @expiresAt WHERE Id = @id";
+        command.AddParameter("@id", id.ToString());
+        command.AddParameter("@expiresAt", (object?)expiresAt?.ToString("O") ?? DBNull.Value);
+        return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+    }
+
     public async Task RevokeAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
@@ -138,7 +150,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         command.CommandText =
             """
             SELECT Id, Name, KeyHash,
-                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, AllowedOrigins, AllowedServices
+                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, AllowedOrigins, AllowedServices, ExpiresAt
             FROM IngestApiKeys WHERE RevokedAt IS NULL
             """;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -154,6 +166,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
             {
                 AllowedOrigins = IngestKeyOrigins.Deserialize(reader.IsDBNull(8) ? null : reader.GetString(8)),
                 AllowedServices = IngestKeyServices.Deserialize(reader.IsDBNull(9) ? null : reader.GetString(9)),
+                ExpiresAt = reader.IsDBNull(10) ? null : DateTimeOffset.Parse(reader.GetString(10)),
             });
         }
         return keys;

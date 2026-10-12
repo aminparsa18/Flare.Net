@@ -31,6 +31,7 @@ public static class UserEndpoints
         endpoints.MapPost("/api/users/invite", HandleInviteAsync);
         endpoints.MapPost("/api/users/invite/bulk", HandleBulkInviteAsync);
         endpoints.MapPost("/api/users/{id:guid}/password-reset", HandlePasswordResetAsync);
+        endpoints.MapPost("/api/users/{id:guid}/sign-out", HandleSignOutAsync);
         return endpoints;
     }
 
@@ -174,6 +175,20 @@ public static class UserEndpoints
             http,
             new PasswordSetLinkResponse { User = ToDto(target), Token = token.RawToken, ExpiresAt = token.ExpiresAt },
             UsersJsonContext.Default.PasswordSetLinkResponse);
+    }
+
+    /// <summary>Admin "sign out everywhere" for any account, local or SSO (ADR-0206): revokes every session
+    /// without touching the password or the account. Personal access tokens are unaffected - revoke those separately.</summary>
+    internal static async Task<IResult> HandleSignOutAsync(
+        Guid id, IUserStore users, ISessionStore sessions, CancellationToken cancellationToken)
+    {
+        if (await users.FindByIdAsync(id, cancellationToken) is null)
+        {
+            return Results.NotFound();
+        }
+
+        await sessions.DeleteAllForUserAsync(id, cancellationToken);
+        return Results.NoContent();
     }
 
     internal static async Task<IResult> HandleListAsync(HttpContext http, IUserStore users, CancellationToken cancellationToken)

@@ -5,7 +5,7 @@ public interface IIngestApiKeyStore
     /// <summary>Creates a new key and returns both the stored record and the raw key
     /// value - the raw value is generated here and only ever returned this once.
     /// <paramref name="projectId"/> tags the key with an owning project (ADR-0123); null = instance-wide.</summary>
-    Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, CancellationToken cancellationToken = default);
+    Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, DateTimeOffset? expiresAt = null, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<IngestApiKey>> ListAsync(CancellationToken cancellationToken = default);
 
@@ -14,6 +14,10 @@ public interface IIngestApiKeyStore
 
     /// <summary>Renames a key. False when it doesn't exist.</summary>
     Task<bool> RenameAsync(Guid id, string name, CancellationToken cancellationToken = default);
+
+    /// <summary>Sets or (with null) clears a key's expiry (ADR-0207). Allowed on an already-expired key, which is how
+    /// a key is extended. False if no key has that id.</summary>
+    Task<bool> SetExpiryAsync(Guid id, DateTimeOffset? expiresAt, CancellationToken cancellationToken = default);
 
     Task RevokeAsync(Guid id, CancellationToken cancellationToken = default);
 

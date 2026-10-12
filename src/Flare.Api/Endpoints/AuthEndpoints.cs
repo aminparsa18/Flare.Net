@@ -172,8 +172,6 @@ public static class AuthEndpoints
         return user is null || user.IsDisabled ? Results.Unauthorized() : ApiSerialization.Write(http, ToDto(user), AuthJsonContext.Default.AuthUserDto);
     }
 
-    internal const int MinPasswordLength = 8;
-
     /// <summary>Self-service change for a local account: verifies the current password, then
     /// revokes every other session (the caller's own stays signed in).</summary>
     internal static async Task<IResult> HandleChangePasswordAsync(
@@ -205,9 +203,9 @@ public static class AuthEndpoints
             return Results.Problem("Current and new password are required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (request.NewPassword.Length < MinPasswordLength)
+        if (authOptions.Value.PasswordPolicy.Validate(request.NewPassword) is { } rejection)
         {
-            return Results.Problem($"Password must be at least {MinPasswordLength} characters.", statusCode: StatusCodes.Status400BadRequest);
+            return Results.Problem(rejection, statusCode: StatusCodes.Status400BadRequest);
         }
 
         var user = await users.FindByIdAsync(userId, cancellationToken);
@@ -243,6 +241,7 @@ public static class AuthEndpoints
         IUserStore users,
         ISessionStore sessions,
         IPasswordSetTokenStore tokens,
+        IOptions<AuthOptions> authOptions,
         CancellationToken cancellationToken)
     {
         SetPasswordRequest? request;
@@ -261,9 +260,9 @@ public static class AuthEndpoints
         }
 
         // Validated before consuming so a too-short password doesn't burn the link.
-        if (request.Password.Length < MinPasswordLength)
+        if (authOptions.Value.PasswordPolicy.Validate(request.Password) is { } rejection)
         {
-            return Results.Problem($"Password must be at least {MinPasswordLength} characters.", statusCode: StatusCodes.Status400BadRequest);
+            return Results.Problem(rejection, statusCode: StatusCodes.Status400BadRequest);
         }
 
         var userId = await tokens.ConsumeAsync(request.Token, cancellationToken);
@@ -366,9 +365,9 @@ public static class AuthEndpoints
             return Results.Problem("Username and password are required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (request.Password.Length < MinPasswordLength)
+        if (authOptions.Value.PasswordPolicy.Validate(request.Password) is { } rejection)
         {
-            return Results.Problem($"Password must be at least {MinPasswordLength} characters.", statusCode: StatusCodes.Status400BadRequest);
+            return Results.Problem(rejection, statusCode: StatusCodes.Status400BadRequest);
         }
 
         User user;

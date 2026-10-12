@@ -7,6 +7,23 @@ namespace Flare.Api.Tests.Endpoints;
 public class IngestApiKeyEndpointsTests
 {
     [Fact]
+    public void ParseExpiry_NullMeansNever_FutureIsAccepted_PastAndOutOfRangeAreRejected()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        Assert.Equal((null, null), IngestApiKeyEndpoints.ParseExpiry(null, now));
+
+        var future = now.AddDays(1);
+        var ok = IngestApiKeyEndpoints.ParseExpiry(future.ToUnixTimeMilliseconds(), now);
+        Assert.Null(ok.Error);
+        Assert.Equal(future.ToUnixTimeMilliseconds(), ok.ExpiresAt!.Value.ToUnixTimeMilliseconds());
+
+        Assert.NotNull(IngestApiKeyEndpoints.ParseExpiry(now.AddMinutes(-1).ToUnixTimeMilliseconds(), now).Error);
+        Assert.NotNull(IngestApiKeyEndpoints.ParseExpiry(-5, now).Error);
+        Assert.NotNull(IngestApiKeyEndpoints.ParseExpiry(long.MaxValue, now).Error);
+    }
+
+    [Fact]
     public void ValidateLimits_AcceptsAllCapsUnset()
     {
         Assert.Null(IngestApiKeyEndpoints.ValidateLimits(new UpdateIngestApiKeyLimitsRequest { LimitsEnabled = true }));

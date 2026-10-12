@@ -30,6 +30,20 @@ public class IngestApiKeyCacheTests
     }
 
     [Fact]
+    public async Task IsValid_ReturnsFalse_ForAnExpiredKey_EvenThoughItIsStillInTheCache()
+    {
+        var store = new FakeIngestApiKeyStore();
+        var (_, expiredRaw) = await store.CreateAsync("old", expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1));
+        var (_, liveRaw) = await store.CreateAsync("new", expiresAt: DateTimeOffset.UtcNow.AddDays(1));
+        var cache = CreateCache(store, new IngestAuthOptions());
+
+        await cache.InitializeAsync(CancellationToken.None);
+
+        Assert.False(cache.IsValid(expiredRaw));
+        Assert.True(cache.IsValid(liveRaw));
+    }
+
+    [Fact]
     public async Task IsValid_ReturnsFalse_ForARevokedKey()
     {
         var store = new FakeIngestApiKeyStore();

@@ -16,6 +16,15 @@ public sealed class AuthOptions
     /// live-tail WebSocket).</summary>
     public TimeSpan SessionLifetime { get; set; } = TimeSpan.FromDays(14);
 
+    /// <summary>Sign a session out after this long without a request (ADR-0206). Null or zero (the
+    /// default) disables it, leaving only the absolute <see cref="SessionLifetime"/>. Activity is
+    /// tracked in <c>Sessions.LastSeenAt</c>, which is refreshed at most once a minute, so values
+    /// under a few minutes are imprecise.</summary>
+    public TimeSpan? SessionIdleTimeout { get; set; }
+
+    /// <summary>Complexity rules applied wherever a local password is set (ADR-0206).</summary>
+    public PasswordPolicy PasswordPolicy { get; set; } = new();
+
     /// <summary>Set false only for local plain-HTTP dev - every real deployment should
     /// run behind TLS and keep this true.</summary>
     public bool CookieSecure { get; set; } = true;
