@@ -47,6 +47,9 @@ internal sealed class FlareEnrichment(bool sendDefaultPii)
         else _attributes[key] = value;
     }
 
+    /// <summary>The current value of <paramref name="key"/>, or null.</summary>
+    public string? Get(string key) => _attributes.TryGetValue(key, out var value) ? value as string : null;
+
     public IEnumerable<KeyValuePair<string, object>> Snapshot() => _attributes.ToArray();
 }
 

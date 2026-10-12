@@ -3648,5 +3648,17 @@
 	"releases_confirmDelete": "Удалить отметку релиза {service} {version}? Телеметрия не затрагивается.",
 	"releases_noNewErrors": "Ни одна группа исключений не появилась впервые в этой версии (просмотрено {days} дн. до деплоя).",
 	"releases_occurrences": "{count} раз",
-	"releases_historyNote": "Группа считается новой, если за {days} дн. до деплоя её не было."
+	"releases_historyNote": "Группа считается новой, если за {days} дн. до деплоя её не было.",
+	"feedbackPage_title": "Отзывы · Flare",
+	"feedbackPage_heading": "Отзывы пользователей",
+	"feedbackPage_link": "Отзывы",
+	"feedbackPage_back": "Все сессии",
+	"feedbackPage_emptyTitle": "В этом периоде нет отзывов",
+	"feedbackPage_emptyDescription": "Пользователи отправляют отзывы из приложения через FlareMaui.SendFeedbackAsync или встроенный диалог FlareFeedback.PromptAsync. Каждое сообщение приходит вместе со своей сессией.",
+	"feedbackPage_truncated": "Показаны 200 новейших сообщений; сузьте период или сервис, чтобы увидеть остальные.",
+	"feedbackPage_timeColumn": "Время",
+	"feedbackPage_userColumn": "Пользователь",
+	"feedbackPage_messageColumn": "Сообщение",
+	"feedbackPage_anonymous": "Аноним",
+	"feedbackPage_openSession": "Открыть сессию"
 }

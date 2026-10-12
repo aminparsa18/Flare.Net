@@ -30,6 +30,8 @@ public static class FlareMaui
     private static RunTracker? _runs;
     private static NativeCrashEmitter? _crashEmitter;
     private static PerformanceTracker? _perf;
+    private static HttpClient? _feedbackHttp;
+    private static string? _appVersion;
 
     /// <summary>Reads the UI thread's stack, or null where the platform cannot. Set by the platform glue before init.</summary>
     internal static Func<string?>? MainThreadStackCapture { get; set; }
@@ -85,6 +87,21 @@ public static class FlareMaui
     /// <c>cart.items</c>. Replaces the previous values of the same name; null clears them.
     /// </summary>
     public static void SetContext(string name, IReadOnlyDictionary<string, string>? values) => _enrichment.SetContext(name, values);
+
+    /// <summary>
+    /// Send a "report a problem" message to Flare, tied to this session and to the user set with <see cref="SetUser"/>
+    /// (ADR-0193). It shows in the dashboard's feedback inbox with a link to the session timeline. <paramref name="email"/>
+    /// and <paramref name="name"/> are what the user typed for this report, so they are sent as given. The message is not
+    /// scrubbed. Returns false when nothing was stored (not initialized, empty message, offline or rejected).
+    /// </summary>
+    public static Task<bool> SendFeedbackAsync(string message, string? email = null, string? name = null, CancellationToken cancellationToken = default)
+    {
+        if (_options is not { } options || SessionId is not { } session) return Task.FromResult(false);
+        _feedbackHttp ??= new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        var sender = new FeedbackSender(options, session, _feedbackHttp, () => _enrichment.Get("user.id"), () => _appVersion);
+        AddBreadcrumb("feedback", "report a problem");
+        return sender.SendAsync(message, email, name, cancellationToken);
+    }
 
     /// <summary>Record an exception the app handled itself, so it shows on the Errors page.</summary>
     public static void RecordException(Exception exception) => _reporter?.Report(exception, fatal: false);
@@ -153,6 +170,7 @@ public static class FlareMaui
         SessionId = NewSessionId();
         _breadcrumbs = options.Breadcrumbs;
         _options = options;
+        _appVersion = options.ServiceVersion ?? device.AppVersion;
         _enrichment = new FlareEnrichment(options.SendDefaultPii);
 
         var tracing = Sdk.CreateTracerProviderBuilder()
@@ -301,6 +319,8 @@ public static class FlareMaui
         _replay = null;
         _screenshotHttp?.Dispose();
         _screenshotHttp = null;
+        _feedbackHttp?.Dispose();
+        _feedbackHttp = null;
         _hangs?.Dispose();
         _hangs = null;
         _options = null;

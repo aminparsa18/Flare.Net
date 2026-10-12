@@ -23,6 +23,7 @@ public static class AppSessionEndpoints
         endpoints.MapPost("/api/app-sessions/screenshot", HandleScreenshotAsync);
         endpoints.MapPost("/api/app-sessions/replay", HandleReplayAsync);
         endpoints.MapPost("/api/app-sessions/replay/frame", HandleReplayFrameAsync);
+        endpoints.MapPost("/api/app-feedback/list", HandleFeedbackAsync);
         return endpoints;
     }
 
@@ -174,6 +175,25 @@ public static class AppSessionEndpoints
         return frame is null
             ? Results.NotFound()
             : ApiSerialization.Write(http, frame, AppSessionJsonContext.Default.AppSessionScreenshotResponse);
+    }
+
+    private static async Task<IResult> HandleFeedbackAsync(
+        HttpContext http,
+        IAppSessionQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        AppFeedbackRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AppSessionJsonContext.Default.AppFeedbackRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await queryService.GetFeedbackAsync(request ?? new AppFeedbackRequest(), cancellationToken);
+        return ApiSerialization.Write(http, response, AppSessionJsonContext.Default.AppFeedbackResponse);
     }
 
     private static async Task<IResult> HandleListAsync(

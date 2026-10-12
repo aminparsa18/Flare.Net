@@ -3648,5 +3648,17 @@
 	"releases_confirmDelete": "Remove the release marker for {service} {version}? Telemetry is not affected.",
 	"releases_noNewErrors": "No exception group first appeared in this version (looked back {days} days before the deploy).",
 	"releases_occurrences": "{count} occurrences",
-	"releases_historyNote": "A group counts as new when it had no occurrence in the {days} days before the deploy."
+	"releases_historyNote": "A group counts as new when it had no occurrence in the {days} days before the deploy.",
+	"feedbackPage_title": "Feedback · Flare",
+	"feedbackPage_heading": "User feedback",
+	"feedbackPage_link": "Feedback",
+	"feedbackPage_back": "All sessions",
+	"feedbackPage_emptyTitle": "No feedback in this window",
+	"feedbackPage_emptyDescription": "Users send feedback from the app with FlareMaui.SendFeedbackAsync or the built-in FlareFeedback.PromptAsync prompt. Each message arrives with its session.",
+	"feedbackPage_truncated": "Showing the newest 200 messages; narrow the window or service to see the rest.",
+	"feedbackPage_timeColumn": "Time",
+	"feedbackPage_userColumn": "User",
+	"feedbackPage_messageColumn": "Message",
+	"feedbackPage_anonymous": "Anonymous",
+	"feedbackPage_openSession": "Open session"
 }

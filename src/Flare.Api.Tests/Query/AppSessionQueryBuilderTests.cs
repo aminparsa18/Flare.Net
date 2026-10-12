@@ -234,4 +234,26 @@ public class AppSessionQueryBuilderTests
         Assert.Equal(End, to);
         Assert.Equal(TimeSpan.FromMinutes(AppSessionQueryBuilder.MaxTimelineWindowMinutes), to - from);
     }
+
+    [Fact]
+    public void BuildFeedback_NewestFirst_ParametrisesFilters()
+    {
+        var built = AppSessionQueryBuilder.BuildFeedback(new AppFeedbackRequest { Service = "shop", SessionId = "abc" }, 60, End);
+
+        Assert.Contains("FROM app_feedback", built.Sql);
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.Contains("SessionId = {sessionId:String}", built.Sql);
+        Assert.Contains("ORDER BY StartTime DESC", built.Sql);
+        Assert.Contains($"LIMIT {AppSessionQueryBuilder.MaxFeedbackRows + 1}", built.Sql);
+        Assert.DoesNotContain("shop", built.Sql);
+    }
+
+    [Fact]
+    public void BuildFeedback_WithoutFilters_OnlyBoundsTheWindow()
+    {
+        var built = AppSessionQueryBuilder.BuildFeedback(new AppFeedbackRequest(), 60, End);
+
+        Assert.DoesNotContain("{service:String}", built.Sql);
+        Assert.DoesNotContain("{sessionId:String}", built.Sql);
+    }
 }
