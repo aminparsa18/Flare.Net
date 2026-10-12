@@ -14,6 +14,8 @@ Les motifs qui se chevauchent entre projets sont permis ; un utilisateur voit l'
 
 Dès qu'un projet existe, un utilisateur non admin ne voit que les services autorisés par ses projets, dans les logs, traces, métriques, erreurs, panneaux de tableaux de bord, SLO et le suivi en direct. Un service qui ne correspond à aucun projet n'est visible que des Admins globaux. Un non-admin sans projet ne voit rien. Les Admins globaux voient toujours tout. Restreindre les motifs d'un projet prend effet immédiatement.
 
+Les services producteurs de la page Resources (et leurs liens vers ingest) suivent la même règle ; ses nœuds de conteneur, de pod et d'hôte décrivent la pile de Flare elle-même et sont visibles de tout utilisateur connecté.
+
 Non délimités : les pages d'infrastructure qui ne sont pas indexées par service (Hosts, Kubernetes, santé de l'ingestion) et les jauges de retard au niveau du broker (lag Kafka, profondeur de file).
 
 ## Affecter tableaux de bord, alertes, SLO, vues et clés d'ingestion
