@@ -46,6 +46,11 @@ Error screenshots are opt-in (`o.CaptureScreenshotOnError = true`): the current 
 reported, uploaded to `/v1/screenshots` and shown on the session timeline. A screenshot can contain anything on screen
 ([ADR-0174](../../docs-internal/adr/0174-maui-error-screenshots.md)).
 
+Session replay-lite is opt-in too (`o.ScreenshotInterval = TimeSpan.FromSeconds(10)`, at least 5 s): the foreground page is
+uploaded on that schedule, up to `MaxReplayScreenshots` (120) per launch, and the Sessions page plays the frames back above
+the timeline. Text inputs are hidden in every screenshot (`MaskTextInputs`, on by default; a password `Entry` always), and
+`FlareMask.IsMasked` hides any other view ([ADR-0192](../../docs-internal/adr/0192-maui-session-replay-lite.md)).
+
 Your own spans and metrics: add the source/meter name to `o.AdditionalSources` / `o.AdditionalMeters`.
 `FlareMaui.RecordException(ex)` reports an exception you handled. `FlareMaui.Tracing` and `.Metering` expose the
 providers.

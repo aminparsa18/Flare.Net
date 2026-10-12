@@ -248,7 +248,32 @@ reported. It appears as a **Screenshot** button on that row of the session page.
 screenshot shows whatever was on screen, including text the user typed. Images are JPEG, kept under
 `ScreenshotMaxBytes` (300 KB by default, at most 512 KB) by lowering the quality, and limited to 5 per launch and
 one per 10 seconds. The upload goes to `POST /v1/screenshots` on the same endpoint and ingest key as the rest, and
-follows the Traces retention setting. Hide sensitive views in your app before they can be captured.
+follows the Traces retention setting. Text inputs are hidden in every screenshot, and so is any view you mark; see [Replay a session](#replay-a-session).
+
+## Replay a session
+
+Set `ScreenshotInterval = TimeSpan.FromSeconds(10)` (at least 5 seconds) to also upload a screenshot of the foreground
+page on that schedule. The session page then shows a **Session replay** player above the timeline: a scrubber and play
+button over the frames, with the span the app was in at each moment, so you can see what the user saw before an error
+and not only at it. It is off by default, takes no frames while the app is in the background, and stops after
+`MaxReplayScreenshots` frames per launch (120 by default; the player shows up to 720 per session). Frames are the same
+JPEGs as error screenshots (`ScreenshotMaxBytes`), follow the Traces retention setting, and need
+[migration 0081](../../../db/clickhouse/0081_app_screenshots_kind.sql) on an existing ClickHouse.
+
+Masking applies to both error screenshots and replay frames. Before each capture, `Entry`, `Editor` and `SearchBar` views
+are made transparent for an instant and restored right after; set `MaskTextInputs = false` to keep them (a password
+`Entry` is always hidden). Hide anything else by marking it, in XAML or code:
+
+```xml
+<Label Text="{Binding AccountBalance}" flare:FlareMask.IsMasked="True" />
+```
+
+```csharp
+FlareMask.SetIsMasked(balanceLabel, true);
+```
+
+A masked container hides its children. Masking only covers what MAUI renders on the main page: a native dialog or a
+system keyboard is not part of the capture.
 
 ## Report unhandled exceptions
 

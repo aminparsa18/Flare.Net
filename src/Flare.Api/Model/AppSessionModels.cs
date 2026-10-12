@@ -145,6 +145,29 @@ public sealed record AppSessionScreenshotResponse
     public required string ImageBase64 { get; init; }
 }
 
+/// <summary>
+/// The scheduled screenshots of one session (ADR-0192): the capture times, oldest first, so the dashboard can build a
+/// scrubber without downloading any image. Each frame is fetched on demand by its time.
+/// </summary>
+public sealed record AppSessionReplayResponse
+{
+    public required string SessionId { get; init; }
+
+    public required IReadOnlyList<long> FrameUnixMs { get; init; }
+
+    /// <summary>True when the session has more frames than the response carries (the newest were cut).</summary>
+    public bool Truncated { get; init; }
+}
+
+/// <summary>Request body for <c>POST /api/app-sessions/replay/frame</c>: the scheduled screenshot taken at one time.</summary>
+public sealed record AppSessionReplayFrameRequest
+{
+    public string? SessionId { get; init; }
+
+    /// <summary>A time from <see cref="AppSessionReplayResponse.FrameUnixMs"/>, Unix epoch ms.</summary>
+    public long? TimeUnixMs { get; init; }
+}
+
 public sealed record AppSessionTimelineResponse
 {
     public required string SessionId { get; init; }

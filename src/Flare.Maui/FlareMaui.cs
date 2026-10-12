@@ -26,6 +26,7 @@ public static class FlareMaui
     private static volatile bool _breadcrumbs;
     private static AppHangWatchdog? _hangs;
     private static HttpClient? _screenshotHttp;
+    private static ReplayScheduler? _replay;
     private static RunTracker? _runs;
     private static NativeCrashEmitter? _crashEmitter;
     private static PerformanceTracker? _perf;
@@ -200,6 +201,8 @@ public static class FlareMaui
                 options.ScrubAttribute);
         }
 
+        StartReplay(options);
+
         if (options.CaptureUnhandledExceptions)
         {
             _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options), options.ScrubAttribute, () =>
@@ -267,10 +270,26 @@ public static class FlareMaui
     /// <summary>Pauses the watchdog while the app is backgrounded.</summary>
     internal static void PauseHangDetection() => _hangs?.Pause();
 
+    /// <summary>The app is in the foreground: scheduled session-replay frames (ADR-0192) start, if enabled.</summary>
+    internal static void ResumeReplay() => _replay?.Start();
+
+    /// <summary>The app went to the background: no frames until it returns.</summary>
+    internal static void PauseReplay() => _replay?.Stop();
+
+    private static void StartReplay(FlareMauiOptions options)
+    {
+        if (options.ScreenshotInterval is not { } interval || ScreenshotCapture is not { } capture) return;
+        _screenshotHttp ??= new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        // Spacing is half the interval so a late tick is not dropped; the cap is what bounds the upload volume.
+        var reporter = new ScreenshotReporter(options, SessionId!, ct => capture(options.ScreenshotMaxBytes, ct), _screenshotHttp,
+            periodic: true, maxPerSession: options.MaxReplayScreenshots, minInterval: interval / 2);
+        _replay = new ReplayScheduler(interval, reporter.ReportFrame);
+    }
+
     private static Action<string, string, bool>? ScreenshotAfterReport(FlareMauiOptions options)
     {
         if (!options.CaptureScreenshotOnError || ScreenshotCapture is not { } capture) return null;
-        _screenshotHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        _screenshotHttp ??= new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         var reporter = new ScreenshotReporter(options, SessionId!, ct => capture(options.ScreenshotMaxBytes, ct), _screenshotHttp);
         return (traceId, spanId, fatal) => reporter.Report(traceId, spanId, fatal ? TimeSpan.FromSeconds(3) : null);
     }
@@ -278,6 +297,8 @@ public static class FlareMaui
     /// <summary>Stops exporting and releases the providers. For tests; apps leave telemetry on until exit.</summary>
     internal static void Shutdown()
     {
+        _replay?.Dispose();
+        _replay = null;
         _screenshotHttp?.Dispose();
         _screenshotHttp = null;
         _hangs?.Dispose();

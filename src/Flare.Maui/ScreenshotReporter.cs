@@ -5,26 +5,34 @@ using OpenTelemetry;
 namespace Flare.Maui;
 
 /// <summary>
-/// Uploads an error screenshot to <c>POST /v1/screenshots</c> after an exception span was reported
-/// (ADR-0174). The capture itself is platform code, passed in as <paramref name="capture"/>. Best effort and
-/// rate limited: a failure never reaches the app, and an exception loop cannot upload more than
-/// <see cref="MaxPerSession"/> images or more than one per <see cref="MinInterval"/>.
+/// Uploads a screenshot to <c>POST /v1/screenshots</c>: an error screenshot after an exception span was reported
+/// (ADR-0174), or a scheduled session-replay frame (ADR-0192, <paramref name="periodic"/>). The capture itself is
+/// platform code, passed in as <paramref name="capture"/>. Best effort and rate limited: a failure never reaches the
+/// app, and an exception loop cannot upload more than <see cref="MaxPerSession"/> images or more than one per
+/// <see cref="MinInterval"/> (a scheduled reporter uses its own cap and spacing).
 /// </summary>
 internal sealed class ScreenshotReporter(
     FlareMauiOptions options,
     string sessionId,
     Func<CancellationToken, Task<byte[]?>> capture,
     HttpClient http,
-    TimeProvider? time = null)
+    TimeProvider? time = null,
+    bool periodic = false,
+    int maxPerSession = ScreenshotReporter.MaxPerSession,
+    TimeSpan? minInterval = null)
 {
     internal const int MaxPerSession = 5;
     internal static readonly TimeSpan MinInterval = TimeSpan.FromSeconds(10);
     internal const string ContentType = "image/jpeg";
 
     private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private readonly TimeSpan _minInterval = minInterval ?? MinInterval;
     private readonly object _gate = new();
     private int _sent;
     private DateTimeOffset _last = DateTimeOffset.MinValue;
+
+    /// <summary>Capture and upload a scheduled frame (no span). Only for a reporter built with <c>periodic: true</c>.</summary>
+    public void ReportFrame() => Report(string.Empty, string.Empty, null);
 
     /// <summary>Capture and upload; when <paramref name="wait"/> is set, block up to that long (a fatal crash is about to end the process).</summary>
     public void Report(string traceId, string spanId, TimeSpan? wait)
@@ -45,7 +53,8 @@ internal sealed class ScreenshotReporter(
             var image = await capture(timeout.Token).ConfigureAwait(false);
             if (image is not { Length: > 0 } || image.Length > options.ScreenshotMaxBytes) return;
 
-            var query = $"?service={Uri.EscapeDataString(options.ServiceName!)}&session_id={sessionId}&trace_id={traceId}&span_id={spanId}";
+            var query = $"?service={Uri.EscapeDataString(options.ServiceName!)}&session_id={sessionId}"
+                + (periodic ? "&kind=periodic" : $"&trace_id={traceId}&span_id={spanId}");
             using var request = new HttpRequestMessage(HttpMethod.Post, options.Endpoint!.AbsoluteUri.TrimEnd('/') + "/v1/screenshots" + query)
             {
                 Content = new ByteArrayContent(image) { Headers = { ContentType = new MediaTypeHeaderValue(ContentType) } },
@@ -67,7 +76,7 @@ internal sealed class ScreenshotReporter(
         lock (_gate)
         {
             var now = _time.GetUtcNow();
-            if (_sent >= MaxPerSession || now - _last < MinInterval) return false;
+            if (_sent >= maxPerSession || now - _last < _minInterval) return false;
             _sent++;
             _last = now;
             return true;

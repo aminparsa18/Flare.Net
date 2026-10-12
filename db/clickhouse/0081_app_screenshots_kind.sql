@@ -1,0 +1,11 @@
+-- Scheduled session screenshots, migration 0081 (see docs-internal/adr/0192-maui-session-replay-lite.md).
+--
+-- `app_screenshots.Kind` tells an error screenshot ('error', tied to an exception span by TraceId/SpanId; the
+-- default, so every row from migration 0079 stays valid) from a scheduled one ('periodic', taken every few
+-- seconds while the app is in the foreground, with empty TraceId/SpanId). The session replay view lists the
+-- 'periodic' rows by `StartTime`.
+--
+-- Existing numbered migrations are immutable once merged (see this directory's README's "Migration
+-- convention"), hence a new file. Like migrations 0002-0080, run this by hand via `clickhouse-client`
+-- against any already-running instance.
+ALTER TABLE clickhousedb.app_screenshots ADD COLUMN IF NOT EXISTS Kind LowCardinality(String) DEFAULT 'error' CODEC(ZSTD(1));

@@ -5,9 +5,10 @@ using Flare.Ingest.Pipeline;
 namespace Flare.Ingest.Otlp;
 
 /// <summary>
-/// <c>POST /v1/screenshots</c> - an error screenshot from a client app (ADR-0174). Not OTLP, but under
+/// <c>POST /v1/screenshots</c> - an error or scheduled screenshot from a client app (ADR-0174, ADR-0192). Not OTLP, but under
 /// <c>/v1</c> so the ingest-key middleware, its service allow-list and the browser CORS policy cover it like
-/// the signal endpoints. The body is the image; the rest is in the query string.
+/// the signal endpoints. The body is the image; the rest is in the query string. <c>kind=periodic</c> (session replay) needs no
+/// trace or span id; the default <c>kind=error</c> needs both.
 /// </summary>
 public static partial class ScreenshotEndpoints
 {
@@ -31,12 +32,24 @@ public static partial class ScreenshotEndpoints
     {
         var query = http.Request.Query;
         string sessionId = query["session_id"].ToString(), traceId = query["trace_id"].ToString(),
-            spanId = query["span_id"].ToString(), service = query["service"].ToString();
+            spanId = query["span_id"].ToString(), service = query["service"].ToString(),
+            kind = query["kind"].ToString().ToLowerInvariant();
+        if (kind.Length == 0) kind = ScreenshotRecord.ErrorKind;
+        var periodic = kind == ScreenshotRecord.PeriodicKind;
         var contentType = (http.Request.ContentType ?? string.Empty).Split(';')[0].Trim().ToLowerInvariant();
 
         if (!ContentTypes.Contains(contentType))
             return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
-        if (string.IsNullOrWhiteSpace(service) || !SessionIdPattern().IsMatch(sessionId)
+        if (kind != ScreenshotRecord.ErrorKind && !periodic)
+            return Results.Problem("kind must be 'error' or 'periodic'.", statusCode: StatusCodes.Status400BadRequest);
+        if (periodic)
+        {
+            // A scheduled frame belongs to the session, not to a span.
+            if (string.IsNullOrWhiteSpace(service) || !SessionIdPattern().IsMatch(sessionId))
+                return Results.Problem("service and session_id are required.", statusCode: StatusCodes.Status400BadRequest);
+            traceId = spanId = string.Empty;
+        }
+        else if (string.IsNullOrWhiteSpace(service) || !SessionIdPattern().IsMatch(sessionId)
             || !TraceIdPattern().IsMatch(traceId) || !SpanIdPattern().IsMatch(spanId))
             return Results.Problem("service, session_id, trace_id (32 hex) and span_id (16 hex) are required.", statusCode: StatusCodes.Status400BadRequest);
         if (IngestKeyScope.RejectsService(http, service))
@@ -60,7 +73,7 @@ public static partial class ScreenshotEndpoints
         try
         {
             await writer.WriteAsync(
-                new ScreenshotRecord(now, service, sessionId, traceId, spanId, contentType, buffer.ToArray()),
+                new ScreenshotRecord(now, service, sessionId, traceId, spanId, contentType, buffer.ToArray(), kind),
                 now, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

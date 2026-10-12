@@ -83,4 +83,33 @@ public class ScreenshotEndpointsTests
         Assert.Equal(403, status);
         Assert.Empty(writer.Written);
     }
+
+    [Fact]
+    public async Task Periodic_screenshot_needs_no_trace_or_span_ids()
+    {
+        var (status, writer) = await PostAsync([1], query: "?service=shop&session_id=abcdef0123456789&kind=periodic&trace_id=junk");
+
+        Assert.Equal(204, status);
+        var row = Assert.Single(writer.Written);
+        Assert.Equal(("periodic", "", ""), (row.Kind, row.TraceId, row.SpanId));
+    }
+
+    [Fact]
+    public async Task Error_screenshot_defaults_to_error_kind_and_unknown_kind_is_rejected()
+    {
+        var (_, writer) = await PostAsync([1]);
+        Assert.Equal("error", Assert.Single(writer.Written).Kind);
+
+        var (status, rejected) = await PostAsync([1], query: "?service=shop&session_id=abcdef0123456789&kind=video");
+        Assert.Equal(400, status);
+        Assert.Empty(rejected.Written);
+    }
+
+    [Fact]
+    public async Task Periodic_screenshot_still_respects_the_service_allowlist()
+    {
+        var (status, writer) = await PostAsync([1], query: "?service=shop&session_id=abcdef0123456789&kind=periodic", allowed: "other");
+        Assert.Equal(403, status);
+        Assert.Empty(writer.Written);
+    }
 }
