@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Alerting;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
 
@@ -20,6 +21,9 @@ public interface INotificationChannelQueryService
 
     Task<NotificationChannel?> UpdateAsync(Guid id, NotificationChannelRequest request, CancellationToken cancellationToken);
 
+    /// <summary>Re-saves every channel that still holds a plaintext secret so it is stored encrypted (ADR-0205). Returns how many were rewritten.</summary>
+    Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken);
+
     /// <summary>Soft-deletes (inserts a tombstone version) - see 0016_notification_channels.sql. Returns false if <paramref name="id"/> doesn't exist.</summary>
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
 }
@@ -31,7 +35,7 @@ public interface INotificationChannelQueryService
 /// rationale, which applies here unchanged) against <c>notification_channels</c> instead
 /// of <c>alert_rules</c>.
 /// </summary>
-public sealed class NotificationChannelQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : INotificationChannelQueryService
+public sealed class NotificationChannelQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, INotificationSecretProtector secrets) : INotificationChannelQueryService
 {
     private const string ChannelColumns =
         "Id, Name, Description, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, SendResolved, JiraBaseUrl, JiraEmail, JiraApiToken, JiraProjectKey, JiraIssueType, IncidentIoToken, JsmOpsApiKey";
@@ -148,6 +152,36 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         return updated;
     }
 
+    public async Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken)
+    {
+        var sql = LatestVersionSql.Select("notification_channels", "Id, WebhookUrl, TelegramBotToken, PagerDutyRoutingKey, JiraApiToken, IncidentIoToken, JsmOpsApiKey");
+        var legacy = new List<Guid>();
+        await using (var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                for (var i = 1; i <= 6; i++)
+                {
+                    if (secrets.NeedsProtection(reader.GetString(i)))
+                    {
+                        legacy.Add(reader.GetGuid(0));
+                        break;
+                    }
+                }
+            }
+        }
+
+        foreach (var id in legacy)
+        {
+            if (await GetAsync(id, cancellationToken) is { } channel)
+            {
+                await InsertChannelVersionAsync(channel with { UpdatedAt = timeProvider.GetUtcNow() }, isDeleted: false, cancellationToken);
+            }
+        }
+
+        return legacy.Count;
+    }
+
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         var existing = await GetAsync(id, cancellationToken);
@@ -169,19 +203,19 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         parameters.AddParameter("description", channel.Description);
         parameters.AddParameter("isDeleted", isDeleted ? (byte)1 : (byte)0);
         parameters.AddParameter("type", channel.Type.ToString());
-        parameters.AddParameter("webhookUrl", channel.WebhookUrl);
-        parameters.AddParameter("telegramBotToken", channel.TelegramBotToken);
+        parameters.AddParameter("webhookUrl", secrets.Protect(channel.WebhookUrl));
+        parameters.AddParameter("telegramBotToken", secrets.Protect(channel.TelegramBotToken));
         parameters.AddParameter("telegramChatId", channel.TelegramChatId);
         parameters.AddParameter("emailTo", channel.EmailTo);
-        parameters.AddParameter("pagerDutyRoutingKey", channel.PagerDutyRoutingKey);
+        parameters.AddParameter("pagerDutyRoutingKey", secrets.Protect(channel.PagerDutyRoutingKey));
         parameters.AddParameter("sendResolved", channel.SendResolved ? (byte)1 : (byte)0);
         parameters.AddParameter("jiraBaseUrl", channel.JiraBaseUrl);
         parameters.AddParameter("jiraEmail", channel.JiraEmail);
-        parameters.AddParameter("jiraApiToken", channel.JiraApiToken);
+        parameters.AddParameter("jiraApiToken", secrets.Protect(channel.JiraApiToken));
         parameters.AddParameter("jiraProjectKey", channel.JiraProjectKey);
         parameters.AddParameter("jiraIssueType", channel.JiraIssueType);
-        parameters.AddParameter("incidentIoToken", channel.IncidentIoToken);
-        parameters.AddParameter("jsmOpsApiKey", channel.JsmOpsApiKey);
+        parameters.AddParameter("incidentIoToken", secrets.Protect(channel.IncidentIoToken));
+        parameters.AddParameter("jsmOpsApiKey", secrets.Protect(channel.JsmOpsApiKey));
         parameters.AddParameter("createdAt", channel.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", channel.UpdatedAt.UtcDateTime);
 
@@ -195,7 +229,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
     }
 
-    private static List<NotificationChannel> ReadChannels(ClickHouseDataReader reader)
+    private List<NotificationChannel> ReadChannels(ClickHouseDataReader reader)
     {
         var channels = new List<NotificationChannel>();
         while (reader.Read())
@@ -206,27 +240,27 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         return channels;
     }
 
-    private static NotificationChannel ReadChannel(ClickHouseDataReader reader) => new()
+    private NotificationChannel ReadChannel(ClickHouseDataReader reader) => new()
     {
         Id = reader.GetGuid(0),
         Name = reader.GetString(1),
         Description = reader.GetString(2),
         Type = Enum.Parse<NotificationChannelType>(reader.GetString(3)),
-        WebhookUrl = reader.GetString(4),
-        TelegramBotToken = reader.GetString(5),
+        WebhookUrl = secrets.Unprotect(reader.GetString(4)),
+        TelegramBotToken = secrets.Unprotect(reader.GetString(5)),
         TelegramChatId = reader.GetString(6),
         EmailTo = reader.GetString(7),
-        PagerDutyRoutingKey = reader.GetString(8),
+        PagerDutyRoutingKey = secrets.Unprotect(reader.GetString(8)),
         CreatedAt = ReadUtc(reader, 9),
         UpdatedAt = ReadUtc(reader, 10),
         SendResolved = reader.GetByte(11) != 0,
         JiraBaseUrl = reader.GetString(12),
         JiraEmail = reader.GetString(13),
-        JiraApiToken = reader.GetString(14),
+        JiraApiToken = secrets.Unprotect(reader.GetString(14)),
         JiraProjectKey = reader.GetString(15),
         JiraIssueType = reader.GetString(16),
-        IncidentIoToken = reader.GetString(17),
-        JsmOpsApiKey = reader.GetString(18),
+        IncidentIoToken = secrets.Unprotect(reader.GetString(17)),
+        JsmOpsApiKey = secrets.Unprotect(reader.GetString(18)),
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>

@@ -110,9 +110,6 @@ folders are where "what happened and why" actually lives.
     single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
-  - **Encrypt stored channel secrets.** Webhook URLs, bot tokens and routing keys come back masked, but nothing in
-    `src/Flare.Api` calls Data Protection on them, so they look plaintext at rest. Verify first; if so, wrap them with
-    `IDataProtector` (the key ring is already shared via Redis) and add key rotation, otherwise document it.
   - **Session and credential hygiene.** Sessions have an absolute 14-day lifetime and no idle timeout. Add an idle
     timeout, "sign out everywhere" per user, a configurable password policy (only `MinPasswordLength = 8` in
     `AdminProvisioner` today), and expiry/rotation warnings for ingest keys and personal access tokens.

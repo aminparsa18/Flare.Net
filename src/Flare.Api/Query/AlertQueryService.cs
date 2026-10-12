@@ -24,6 +24,9 @@ public interface IAlertQueryService
     /// <summary>Soft-deletes (inserts a tombstone version) - see 0003_alert_rules.sql. Returns false if <paramref name="id"/> doesn't exist.</summary>
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>Re-saves every rule that still holds a plaintext secret so it is stored encrypted (ADR-0205). Returns how many were rewritten.</summary>
+    Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken);
+
     /// <summary>Read by <c>AlertEvaluationWorker</c> on every poll tick.</summary>
     Task<IReadOnlyList<AlertRule>> GetEnabledRulesAsync(CancellationToken cancellationToken);
 
@@ -122,7 +125,7 @@ public interface IAlertQueryService
 /// back immediately" CRUD). All reads go through <see cref="LatestVersionSql"/>
 /// (latest version per Id, then <c>IsDeleted = 0</c>). See db/clickhouse/0003_alert_rules.sql for the full rationale.
 /// </remarks>
-public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues) : IAlertQueryService
+public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues, INotificationSecretProtector secrets) : IAlertQueryService
 {
     private const string RuleColumns =
         "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson, ProjectId, EscalateAfterMinutes, EscalationChannelIds, EscalationRotationId, SecondEscalateAfterMinutes, SecondEscalationChannelIds, NotificationTemplateId";
@@ -274,6 +277,36 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
 
         await InsertRuleVersionAsync(updated, isDeleted: false, cancellationToken);
         return updated;
+    }
+
+    public async Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken)
+    {
+        var sql = LatestVersionSql.Select("alert_rules", "Id, WebhookUrl, TelegramBotToken, PagerDutyRoutingKey");
+        var legacy = new List<Guid>();
+        await using (var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                for (var i = 1; i <= 3; i++)
+                {
+                    if (secrets.NeedsProtection(reader.GetString(i)))
+                    {
+                        legacy.Add(reader.GetGuid(0));
+                        break;
+                    }
+                }
+            }
+        }
+
+        foreach (var id in legacy)
+        {
+            if (await GetAsync(id, cancellationToken) is { } rule)
+            {
+                await InsertRuleVersionAsync(rule with { UpdatedAt = timeProvider.GetUtcNow() }, isDeleted: false, cancellationToken);
+            }
+        }
+
+        return legacy.Count;
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -776,11 +809,11 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("thresholdComparator", rule.Threshold.Comparator.ToString());
         parameters.AddParameter("windowSeconds", (uint)rule.WindowSeconds);
         parameters.AddParameter("cooldownSeconds", (uint)rule.CooldownSeconds);
-        parameters.AddParameter("webhookUrl", rule.WebhookUrl);
-        parameters.AddParameter("telegramBotToken", rule.TelegramBotToken);
+        parameters.AddParameter("webhookUrl", secrets.Protect(rule.WebhookUrl));
+        parameters.AddParameter("telegramBotToken", secrets.Protect(rule.TelegramBotToken));
         parameters.AddParameter("telegramChatId", rule.TelegramChatId);
         parameters.AddParameter("emailTo", rule.EmailTo);
-        parameters.AddParameter("pagerDutyRoutingKey", rule.PagerDutyRoutingKey);
+        parameters.AddParameter("pagerDutyRoutingKey", secrets.Protect(rule.PagerDutyRoutingKey));
         parameters.AddParameter("createdAt", rule.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", rule.UpdatedAt.UtcDateTime);
         parameters.AddParameter("conditionKind", rule.ConditionKind.ToString());
@@ -817,7 +850,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
     }
 
-    private static List<AlertRule> ReadRules(ClickHouseDataReader reader)
+    private List<AlertRule> ReadRules(ClickHouseDataReader reader)
     {
         var rules = new List<AlertRule>();
         while (reader.Read())
@@ -828,7 +861,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         return rules;
     }
 
-    private static AlertRule ReadRule(ClickHouseDataReader reader) => new()
+    private AlertRule ReadRule(ClickHouseDataReader reader) => new()
     {
         Id = reader.GetGuid(0),
         Name = reader.GetString(1),
@@ -842,11 +875,11 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         },
         WindowSeconds = (int)reader.GetFieldValue<uint>(7),
         CooldownSeconds = (int)reader.GetFieldValue<uint>(8),
-        WebhookUrl = reader.GetString(9),
-        TelegramBotToken = reader.GetString(10),
+        WebhookUrl = secrets.Unprotect(reader.GetString(9)),
+        TelegramBotToken = secrets.Unprotect(reader.GetString(10)),
         TelegramChatId = reader.GetString(11),
         EmailTo = reader.GetString(12),
-        PagerDutyRoutingKey = reader.GetString(13),
+        PagerDutyRoutingKey = secrets.Unprotect(reader.GetString(13)),
         CreatedAt = ReadUtc(reader, 14),
         UpdatedAt = ReadUtc(reader, 15),
         ConditionKind = Enum.Parse<AlertConditionKind>(reader.GetString(16)),
