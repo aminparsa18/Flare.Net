@@ -1,8 +1,10 @@
 using System.Net.WebSockets;
+using System.Security.Claims;
 using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.LiveTail;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Endpoints;
 
@@ -22,7 +24,8 @@ public static class LogTailEndpoints
         return endpoints;
     }
 
-    private static async Task HandleTailAsync(HttpContext http, LogTailBroadcaster broadcaster, ILogger<LogTailSubscription> logger)
+    private static async Task HandleTailAsync(
+        HttpContext http, LogTailBroadcaster broadcaster, IOptions<LiveTailOptions> options, ILogger<LogTailSubscription> logger)
     {
         if (!http.WebSockets.IsWebSocketRequest)
         {
@@ -30,8 +33,32 @@ public static class LogTailEndpoints
             return;
         }
 
-        using var socket = await http.WebSockets.AcceptWebSocketAsync();
-        var subscription = broadcaster.Subscribe();
+        if (!WebSocketOriginGuard.IsAllowed(http))
+        {
+            return;
+        }
+
+        // Claimed before the upgrade so a refused caller gets a plain 429 and never holds a socket.
+        var userKey = http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
+        var subscription = broadcaster.TrySubscribe(userKey);
+        if (subscription is null)
+        {
+            http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            return;
+        }
+
+        WebSocket socket;
+        try
+        {
+            socket = await http.WebSockets.AcceptWebSocketAsync();
+        }
+        catch
+        {
+            broadcaster.Unsubscribe(subscription);
+            throw;
+        }
+
+        using var _ = socket;
 
         // Linked so either loop ending (client closed the socket, or the send loop hit a
         // fatal WebSocket error) tears down the other rather than leaking a half-open
@@ -40,7 +67,7 @@ public static class LogTailEndpoints
 
         try
         {
-            var receiveTask = ReceiveControlMessagesAsync(socket, subscription, lifetimeCts.Token, logger);
+            var receiveTask = ReceiveControlMessagesAsync(socket, subscription, options.Value, lifetimeCts.Token, logger);
             var sendTask = SendServerMessagesAsync(socket, subscription, lifetimeCts.Token);
 
             await Task.WhenAny(receiveTask, sendTask);
@@ -65,8 +92,8 @@ public static class LogTailEndpoints
     }
 
     /// <summary>Parses inbound <see cref="LogTailClientMessage"/> frames and applies them to <paramref name="subscription"/>.</summary>
-    private static async Task ReceiveControlMessagesAsync(
-        WebSocket socket, LogTailSubscription subscription, CancellationToken cancellationToken, ILogger logger)
+    internal static async Task ReceiveControlMessagesAsync(
+        WebSocket socket, LogTailSubscription subscription, LiveTailOptions options, CancellationToken cancellationToken, ILogger logger)
     {
         var buffer = new byte[8 * 1024];
         try
@@ -82,11 +109,17 @@ public static class LogTailEndpoints
                     {
                         return;
                     }
+                    if (messageStream.Length + result.Count > options.MaxClientMessageBytes)
+                    {
+                        await socket.CloseOutputAsync(
+                            WebSocketCloseStatus.MessageTooBig, "Message exceeds the live-tail size limit.", CancellationToken.None);
+                        return;
+                    }
                     messageStream.Write(buffer, 0, result.Count);
                 } while (!result.EndOfMessage);
 
                 messageStream.Position = 0;
-                ApplyClientMessage(messageStream, subscription, logger);
+                ApplyClientMessage(messageStream, subscription, options, logger);
             }
         }
         catch (OperationCanceledException)
@@ -99,7 +132,7 @@ public static class LogTailEndpoints
         }
     }
 
-    private static void ApplyClientMessage(Stream json, LogTailSubscription subscription, ILogger logger)
+    private static void ApplyClientMessage(Stream json, LogTailSubscription subscription, LiveTailOptions options, ILogger logger)
     {
         LogTailClientMessage? message;
         try
@@ -124,9 +157,19 @@ public static class LogTailEndpoints
                 subscription.TryPublishError("Live tail can't evaluate a trace span filter (traceSpanFilter); use search instead.");
                 break;
             case LogTailClientMessageType.Subscribe:
-                subscription.Filter = message.Filter ?? new LogFilter();
+            {
+                var filter = message.Filter ?? new LogFilter();
+                var patterns = LiveTailFilterGuard.TryCompile(filter, options, out var filterError);
+                if (patterns is null)
+                {
+                    subscription.TryPublishError(filterError!);
+                    break;
+                }
+
+                subscription.SetFilter(filter, patterns);
                 subscription.Paused = false;
                 break;
+            }
             case LogTailClientMessageType.Pause:
                 subscription.Paused = true;
                 break;

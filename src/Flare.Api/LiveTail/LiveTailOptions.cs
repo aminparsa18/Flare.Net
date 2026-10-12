@@ -34,4 +34,31 @@ public sealed class LiveTailOptions
     /// blocking the shared broadcaster loop for every other subscriber.
     /// </summary>
     public int SubscriberChannelCapacity { get; set; } = 500;
+
+    /// <summary>
+    /// Largest client-to-server message (summed across fragments) the receive loop accepts; past
+    /// it the socket is closed with 1009. Control messages are small JSON, so 64 KB is generous.
+    /// </summary>
+    public int MaxClientMessageBytes { get; set; } = 64 * 1024;
+
+    /// <summary>Max concurrent live-tail sockets per user (anonymous callers share one bucket). Past it the upgrade is refused with 429.</summary>
+    public int MaxConnectionsPerUser { get; set; } = 10;
+
+    /// <summary>Max concurrent live-tail sockets across all users. Past it the upgrade is refused with 429.</summary>
+    public int MaxConnections { get; set; } = 200;
+
+    /// <summary>Max entries in one subscription's filter: services, severities, scope names, attribute and body-JSON filters, and their in/not-in values combined.</summary>
+    public int MaxFilterItems { get; set; } = 100;
+
+    /// <summary>Max length of any single string in a subscription's filter (search text, values, keys, paths).</summary>
+    public int MaxFilterStringLength { get; set; } = 1_024;
+
+    /// <summary>Max <c>regex</c>/<c>not-regex</c> operators in one subscription's filter. Each is compiled once at subscribe time.</summary>
+    public int MaxRegexPatterns { get; set; } = 10;
+
+    /// <summary>Max length of one regex pattern.</summary>
+    public int MaxRegexPatternLength { get; set; } = 256;
+
+    /// <summary>Per-match timeout for subscription regexes. A match that exceeds it counts as no match.</summary>
+    public TimeSpan RegexMatchTimeout { get; set; } = TimeSpan.FromMilliseconds(50);
 }

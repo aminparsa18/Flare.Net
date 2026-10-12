@@ -43,6 +43,11 @@ public static class HostStatsEndpoints
             return;
         }
 
+        if (!WebSocketOriginGuard.IsAllowed(http))
+        {
+            return;
+        }
+
         using var socket = await http.WebSockets.AcceptWebSocketAsync();
         var subscription = poller.Subscribe();
 

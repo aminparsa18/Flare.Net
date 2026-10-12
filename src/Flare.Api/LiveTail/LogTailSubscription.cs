@@ -19,8 +19,9 @@ public sealed class LogTailSubscription
     private readonly Channel<LogTailServerMessage> _channel;
     private int _droppedSinceLastReport;
 
-    public LogTailSubscription(int channelCapacity)
+    public LogTailSubscription(int channelCapacity, string userKey = "")
     {
+        UserKey = userKey;
         _channel = Channel.CreateBounded<LogTailServerMessage>(new BoundedChannelOptions(channelCapacity)
         {
             // A full channel means this connection's send loop can't keep up - fail the
@@ -33,11 +34,25 @@ public sealed class LogTailSubscription
         });
     }
 
+    /// <summary>The identity this connection counts against for <see cref="LiveTailOptions.MaxConnectionsPerUser"/>.</summary>
+    public string UserKey { get; }
+
     /// <summary>The service allow-list of the connecting user (ADR-0123), captured at subscribe time; null = unrestricted.</summary>
     public IReadOnlyList<string>? AllowedServices { get; } = Query.ServiceScope.Current;
 
     /// <summary>The current filter, applied by <see cref="LogTailBroadcaster"/> at fan-out time. Replaced wholesale on every <see cref="LogTailClientMessageType.Subscribe"/> message.</summary>
-    public LogFilter Filter { get; set; } = new();
+    public LogFilter Filter => _state.Filter;
+
+    /// <summary>The regexes compiled for <see cref="Filter"/> at subscribe time, keyed by pattern text.</summary>
+    public IReadOnlyDictionary<string, System.Text.RegularExpressions.Regex>? CompiledPatterns => _state.Patterns;
+
+    /// <summary>Replaces the filter and its compiled patterns together, so the broadcaster never sees one without the other.</summary>
+    public void SetFilter(LogFilter filter, IReadOnlyDictionary<string, System.Text.RegularExpressions.Regex>? patterns) =>
+        _state = new FilterState(filter, patterns);
+
+    private volatile FilterState _state = new(new LogFilter(), null);
+
+    private sealed record FilterState(LogFilter Filter, IReadOnlyDictionary<string, System.Text.RegularExpressions.Regex>? Patterns);
 
     /// <summary>
     /// While <see langword="true"/>, <see cref="TryPublishEvent"/> is a no-op - events

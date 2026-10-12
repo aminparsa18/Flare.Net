@@ -39,6 +39,11 @@ public static class ResourceGraphEndpoints
             return;
         }
 
+        if (!WebSocketOriginGuard.IsAllowed(http))
+        {
+            return;
+        }
+
         using var socket = await http.WebSockets.AcceptWebSocketAsync();
         var subscription = registry.Subscribe();
 
