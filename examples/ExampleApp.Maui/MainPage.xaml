@@ -20,6 +20,7 @@
             <Button Text="Custom span + log + metric" AutomationId="CustomButton" Clicked="OnCustomClicked" />
             <Button Text="RecordException (handled)" AutomationId="RecordButton" Clicked="OnRecordClicked" />
             <Button Text="RecordException unique to this version (Releases demo)" AutomationId="ReleaseErrorButton" Clicked="OnReleaseErrorClicked" />
+            <Button Text="Report a problem (user feedback prompt)" AutomationId="FeedbackButton" Clicked="OnFeedbackClicked" />
             <Button Text="Unhandled exception on a task" AutomationId="UnhandledTaskButton" Clicked="OnUnhandledTaskClicked" />
             <Button Text="Flush now" AutomationId="FlushButton" Clicked="OnFlushClicked" />
             <Button Text="Scrubbing: email tag redacted, noisy span dropped" AutomationId="ScrubButton" Clicked="OnScrubClicked" />

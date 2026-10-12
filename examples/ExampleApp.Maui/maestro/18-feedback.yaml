@@ -1,0 +1,12 @@
+# User feedback (ADR-0193): open the built-in prompt, type a message, skip the e-mail, and confirm the thank-you alert.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "FeedbackButton"
+- inputText: "The cart froze after I tapped pay"
+- tapOn: "Send"
+- tapOn: "Skip"
+- assertVisible: "Thanks, your report was sent."
+- tapOn: "OK"
