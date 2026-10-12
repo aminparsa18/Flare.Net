@@ -14,6 +14,7 @@ export class ExceptionGroup {
 	firstSeen: Date;
 	lastSeen: Date;
 	affectedServices: (string | null)[] | null;
+	samplePaths: (string | null)[] | null;
 
 	constructor() {
 		this.exceptionType = null;
@@ -22,6 +23,7 @@ export class ExceptionGroup {
 		this.firstSeen = new Date(0);
 		this.lastSeen = new Date(0);
 		this.affectedServices = null;
+		this.samplePaths = null;
 	}
 
 	static serialize(value: ExceptionGroup | null): Uint8Array {
@@ -36,13 +38,14 @@ export class ExceptionGroup {
 			return;
 		}
 
-		writer.writeObjectHeader(6);
+		writer.writeObjectHeader(7);
 		writer.writeString(value.exceptionType);
 		writer.writeString(value.exceptionMessage);
 		writer.writeUint64(value.occurrenceCount);
 		writeDateTimeOffset(writer, value.firstSeen);
 		writeDateTimeOffset(writer, value.lastSeen);
 		writer.writeArray(value.affectedServices, (writer, x) => writer.writeString(x));
+		writer.writeArray(value.samplePaths, (writer, x) => writer.writeString(x));
 	}
 
 	static serializeArray(value: (ExceptionGroup | null)[] | null): Uint8Array {
@@ -66,14 +69,15 @@ export class ExceptionGroup {
 		}
 
 		const value = new ExceptionGroup();
-		if (count == 6) {
+		if (count == 7) {
 			value.exceptionType = reader.readString();
 			value.exceptionMessage = reader.readString();
 			value.occurrenceCount = reader.readUint64();
 			value.firstSeen = readDateTimeOffset(reader);
 			value.lastSeen = readDateTimeOffset(reader);
 			value.affectedServices = reader.readArray((reader) => reader.readString());
-		} else if (count > 6) {
+			value.samplePaths = reader.readArray((reader) => reader.readString());
+		} else if (count > 7) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -89,6 +93,8 @@ export class ExceptionGroup {
 			if (count == 5) return value;
 			value.affectedServices = reader.readArray((reader) => reader.readString());
 			if (count == 6) return value;
+			value.samplePaths = reader.readArray((reader) => reader.readString());
+			if (count == 7) return value;
 		}
 		return value;
 	}

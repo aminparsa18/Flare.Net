@@ -10,11 +10,14 @@ public enum ErrorOwnershipKind
 
     /// <summary>The group's <c>exception.type</c>.</summary>
     ExceptionType,
+
+    /// <summary>A CODEOWNERS-style path glob matched against the source files in the group's sample stack trace (<c>ExceptionGroup.SamplePaths</c>).</summary>
+    Path,
 }
 
 /// <summary>
 /// One "errors like this belong to that person" rule. <see cref="Pattern"/> is a case-insensitive
-/// glob (<c>*</c> matches any run of characters); the first rule in list order that matches a
+/// glob (<c>*</c> matches any run of characters; <see cref="ErrorOwnershipKind.Path"/> rules use CODEOWNERS path syntax); the first rule in list order that matches a
 /// group is its owner unless the group has an explicit assignee. See
 /// <c>docs-internal/adr/0195-error-issue-links-ownership.md</c>.
 /// </summary>

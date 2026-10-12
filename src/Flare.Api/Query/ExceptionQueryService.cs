@@ -1,3 +1,4 @@
+using Flare.Api.Errors;
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
@@ -42,6 +43,7 @@ public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<Que
                 FirstSeen = ReadUtc(reader, 3),
                 LastSeen = ReadUtc(reader, 4),
                 AffectedServices = reader.GetFieldValue<string[]>(5),
+                SamplePaths = StackFramePaths.Extract(reader.GetString(6)),
             });
         }
 

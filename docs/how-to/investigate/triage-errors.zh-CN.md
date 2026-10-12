@@ -23,6 +23,10 @@
 
 点击工具栏中的 **归属规则**,把错误映射到人。每条规则用不区分大小写的模式匹配 **服务** 名称或 **异常类型**,其中 `*` 代表任意文本,例如 `payments-*` 或 `*Timeout*`,并填写负责人的用户名。规则从上到下依次检查,第一条匹配的规则拥有该分组,显示为“负责人 alice(规则)”。可用箭头调整顺序。
 
+第三种类型 **文件路径** 使用 [CODEOWNERS](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) 路径语法匹配分组堆栈跟踪中的源文件:`/src/payments/`(仓库根目录下的目录)、`*.sql`(任意深度)、`docs/*.md`、`src/**/Charge.cs`。Flare 从每个分组的一条示例堆栈跟踪中读取文件路径,因此只有带文件信息的栈帧才有效(.NET 需要符号,或带源码路径的确定性构建)。构建机上的检出位置无关紧要,因为模式会与每个路径的所有尾部片段比对。
+
+**导入 CODEOWNERS** 会把粘贴的 CODEOWNERS 文件转换为文件路径规则。每行取第一个负责人并去掉开头的 `@`,顺序会被反转,因为 CODEOWNERS 以靠后的行为准,而 Flare 取第一条匹配。负责人只有与 Flare 用户名一致才有用,保存前请检查列表。
+
 通过 **分配给我** 指定的人始终优先于规则。规则不会作为已保存的分配记录:修改规则后,显示的负责人也随之改变。
 
 ## 回归

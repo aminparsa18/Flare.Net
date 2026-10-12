@@ -58,7 +58,8 @@ public static class ExceptionGroupQueryBuilder
             "    count() AS OccurrenceCount,\n" +
             "    min(EventTime) AS FirstSeen,\n" +
             "    max(EventTime) AS LastSeen,\n" +
-            "    groupUniqArray(ServiceName) AS AffectedServices\n" +
+            "    groupUniqArray(ServiceName) AS AffectedServices,\n" +
+            "    substring(anyIf(EventAttributes['exception.stacktrace'], EventAttributes['exception.stacktrace'] != ''), 1, 16000) AS SampleStackTrace\n" +
             "FROM spans\n" +
             "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
             $"WHERE {filterSql.WhereSql} AND EventAttributes['exception.type'] != ''\n" +

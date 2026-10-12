@@ -96,9 +96,8 @@ folders are where "what happened and why" actually lives.
     this needs a different mechanism than a processor.
   - Other client SDKs on the same server pieces (sessions, release health, scoped keys): Android native, iOS native,
     React Native and Flutter, each thin over OTLP.
-  - Issue workflow follow-ups (ADR-0195): ownership rules from CODEOWNERS paths (the groups list carries no stack
-    frames to match), showing the owner in alert messages, a "my errors" filter, and prefilled new-issue links and
-    issue creation for Jira and GitLab.
+  - Issue workflow follow-ups (ADR-0195, ADR-0196): showing the owner in alert messages, a "my errors" filter, and
+    prefilled new-issue links and issue creation for Jira and GitLab.
   - Alert integrations beyond webhook/Slack/Telegram/email/PagerDuty: Teams, Opsgenie, Discord, and a Jira ticket on
     first occurrence.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping and
