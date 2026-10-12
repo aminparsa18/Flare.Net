@@ -29,7 +29,7 @@ controlled by configuration (`PipelineRules:Pii:Enabled`, `PipelineRules:Pii:Det
 - Scope: log `Body` and `LogAttributes` values, and for spans the attributes, status message and
   event/link attributes (`exception.message`/`exception.stacktrace` live on events), redacted in
   `SpanFlushWorker` before the ClickHouse write. Resource/scope attributes, span names and metrics
-  are not scanned. The preview and scan endpoints still sample logs only.
+  are not scanned. 
 - Runs before user rules so an extraction rule cannot copy a raw value into a new
   attribute, and before Drain clustering so templates never contain the raw value.
 
@@ -49,9 +49,17 @@ separately over the same 500-log sample and returns, per (field, detector), a lo
 masked, truncated example, so the report never echoes the PII itself. The dashboard exposes it in the
 preview dialog.
 
+## Spans in preview and scan
+
+`POST /api/pipeline-rules/pii-span-preview` and `pii-scan` with `signal: "spans"` sample the 500 most recent spans
+(`SpanCondition` filters them) and cover exactly the fields Ingest redacts: status message, span attributes, and event
+and link attributes. Fields are named `status_message`, `attr:{key}`, `event:{name}:{key}`, `link:{key}`. The span
+preview returns field-level before/after pairs (JSON), since a span has no log-style body/attribute-bag shape. The
+dashboard dialog has a Logs/Spans switch.
+
 ## Consequences
 
-Not covered: span data in the preview and scan (on the roadmap), and resource attributes.
+Not covered: resource attributes.
 
 A dashboard toggle is deferred (on the roadmap): Ingest has no runtime-settings mechanism (sampling is also
 config-only), so it needs a new table, cluster migration and polling cache. Until then it stays

@@ -17,6 +17,7 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(PipelineRuleRequest))]
 [JsonSerializable(typeof(PiiPreviewRequest))]
 [JsonSerializable(typeof(PiiScanResult))]
+[JsonSerializable(typeof(PiiSpanPreviewResult))]
 [JsonSerializable(typeof(PipelineRule))]
 [JsonSerializable(typeof(PipelineRuleListResponse))]
 [JsonSerializable(typeof(PipelineRulePreviewResult))]

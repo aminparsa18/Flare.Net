@@ -39,6 +39,7 @@ public static class PipelineRuleEndpoints
         endpoints.MapPost("/api/pipeline-rules/preview", HandlePreviewDraftAsync);
         endpoints.MapPost("/api/pipeline-rules/pii-preview", HandlePiiPreviewAsync);
         endpoints.MapPost("/api/pipeline-rules/pii-scan", HandlePiiScanAsync);
+        endpoints.MapPost("/api/pipeline-rules/pii-span-preview", HandlePiiSpanPreviewAsync);
         return endpoints;
     }
 
@@ -140,7 +141,7 @@ public static class PipelineRuleEndpoints
     /// field (body or attribute key) and detector how many logs contain a match, with one masked example.
     /// Tells an operator where PII lives before enabling redaction. Writes nothing.
     /// </summary>
-    private static async Task<IResult> HandlePiiScanAsync(HttpContext http, ILogQueryService logs, CancellationToken cancellationToken)
+    private static async Task<IResult> HandlePiiScanAsync(HttpContext http, ILogQueryService logs, ISpanQueryService spans, CancellationToken cancellationToken)
     {
         PiiPreviewRequest? request;
         try
@@ -159,15 +160,36 @@ public static class PipelineRuleEndpoints
             return Results.Problem($"Unknown detectors '{request.Detectors}'. Valid: {string.Join(", ", Enum.GetNames<PiiDetectors>())}.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var sample = await logs.SearchAsync(new LogSearchRequest { Filter = request.Condition, PageSize = PiiPreviewSampleSize }, cancellationToken);
         var found = new Dictionary<(string Field, PiiDetectors Detector), (int Count, string Example)>();
-        foreach (var logEvent in sample.Events)
+        int sampled;
+        if (string.Equals(request.Signal, "spans", StringComparison.OrdinalIgnoreCase))
         {
-            Scan("body", logEvent.Body, selected, found);
-            foreach (var (key, value) in logEvent.LogAttributes)
+            var sample = await spans.SearchAsync(new SpanSearchRequest { Filter = request.SpanCondition, PageSize = PiiPreviewSampleSize }, cancellationToken);
+            sampled = sample.Spans.Count;
+            foreach (var span in sample.Spans)
             {
-                Scan(key, value, selected, found);
+                foreach (var (field, value) in PiiSpanFields.Enumerate(span))
+                {
+                    Scan(field, value, selected, found);
+                }
             }
+        }
+        else if (string.IsNullOrWhiteSpace(request.Signal) || string.Equals(request.Signal, "logs", StringComparison.OrdinalIgnoreCase))
+        {
+            var sample = await logs.SearchAsync(new LogSearchRequest { Filter = request.Condition, PageSize = PiiPreviewSampleSize }, cancellationToken);
+            sampled = sample.Events.Count;
+            foreach (var logEvent in sample.Events)
+            {
+                Scan("body", logEvent.Body, selected, found);
+                foreach (var (key, value) in logEvent.LogAttributes)
+                {
+                    Scan(key, value, selected, found);
+                }
+            }
+        }
+        else
+        {
+            return Results.Problem($"Unknown signal '{request.Signal}'. Valid: logs, spans.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         var findings = found
@@ -175,7 +197,7 @@ public static class PipelineRuleEndpoints
             .ThenBy(f => f.Key.Field, StringComparer.Ordinal)
             .Select(f => new PiiScanFinding { Field = f.Key.Field, Detector = f.Key.Detector.ToString(), Count = f.Value.Count, Example = f.Value.Example })
             .ToList();
-        return ApiSerialization.Write(http, new PiiScanResult { SampledCount = sample.Events.Count, Findings = findings }, PipelineRulesJsonContext.Default.PiiScanResult);
+        return ApiSerialization.Write(http, new PiiScanResult { SampledCount = sampled, Findings = findings }, PipelineRulesJsonContext.Default.PiiScanResult);
     }
 
     /// <summary>Examples are masked with every detector, not just the matching one, so a body holding an email and a card never leaks the other.</summary>
@@ -200,6 +222,60 @@ public static class PipelineRuleEndpoints
                 ? (existing.Count + 1, existing.Example)
                 : (1, Truncate(PiiRedactor.Redact(value, PiiDetectors.All)));
         }
+    }
+
+    /// <summary>
+    /// Span counterpart of <see cref="HandlePiiPreviewAsync"/>: over the <see cref="PiiPreviewSampleSize"/> most recent
+    /// spans matching <c>SpanCondition</c>, returns the (at most <see cref="PreviewSampleSize"/>) spans whose status
+    /// message or attributes would change, as field-level before/after pairs.
+    /// </summary>
+    private static async Task<IResult> HandlePiiSpanPreviewAsync(HttpContext http, ISpanQueryService spans, CancellationToken cancellationToken)
+    {
+        PiiPreviewRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, PipelineRulesJsonContext.Default.PiiPreviewRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        request ??= new PiiPreviewRequest();
+        var detectors = PiiDetectors.All;
+        if (!string.IsNullOrWhiteSpace(request.Detectors) && !Enum.TryParse(request.Detectors, ignoreCase: true, out detectors))
+        {
+            return Results.Problem($"Unknown detectors '{request.Detectors}'. Valid: {string.Join(", ", Enum.GetNames<PiiDetectors>())}.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var sample = await spans.SearchAsync(new SpanSearchRequest { Filter = request.SpanCondition, PageSize = PiiPreviewSampleSize }, cancellationToken);
+        var matches = new List<PiiSpanPreviewMatch>();
+        var changedCount = 0;
+        foreach (var span in sample.Spans)
+        {
+            var changes = new List<PiiFieldChange>();
+            foreach (var (field, value) in PiiSpanFields.Enumerate(span))
+            {
+                var redacted = PiiRedactor.Redact(value, detectors);
+                if (redacted != value)
+                {
+                    changes.Add(new PiiFieldChange { Field = field, Before = value, After = redacted });
+                }
+            }
+
+            if (changes.Count == 0)
+            {
+                continue;
+            }
+
+            changedCount++;
+            if (matches.Count < PreviewSampleSize)
+            {
+                matches.Add(new PiiSpanPreviewMatch { TraceId = span.TraceId, SpanId = span.SpanId, StartTime = span.StartTime, ServiceName = span.ServiceName, Name = span.Name, Changes = changes });
+            }
+        }
+
+        return ApiSerialization.Write(http, new PiiSpanPreviewResult { SampledCount = sample.Spans.Count, ChangedCount = changedCount, Matches = matches }, PipelineRulesJsonContext.Default.PiiSpanPreviewResult);
     }
 
     /// <summary>

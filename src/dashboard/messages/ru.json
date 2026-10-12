@@ -3725,7 +3725,10 @@
 	"erasure_statusFailed": "Ошибка",
 	"piiPreview_button": "Предпросмотр скрытия PII",
 	"piiPreview_title": "Предпросмотр управляемого скрытия PII",
-	"piiPreview_description": "Сканирует недавние логи и показывает, что скроют встроенные детекторы (email, номера карт, IBAN, JWT, bearer-токены, приватные ключи). Ничего не записывается. Включается на Flare.Ingest через PipelineRules__Pii__Enabled=true.",
+	"piiPreview_description": "Сканирует недавние логи или спаны и показывает, что скроют встроенные детекторы (email, номера карт, IBAN, JWT, bearer-токены, приватные ключи). Ничего не записывается. Включается на Flare.Ingest через PipelineRules__Pii__Enabled=true.",
 	"piiScan_button": "Найти PII в полях",
-	"piiScan_summary": "Найдено пар поле/детектор: {fields} (проверено логов: {sampled})"
+	"piiScan_summary": "Найдено пар поле/детектор: {fields} (проверено логов: {sampled})",
+	"piiSignal_logs": "Логи",
+	"piiSignal_spans": "Спаны",
+	"piiScan_summarySpans": "Найдено пар поле/детектор: {fields} (проверено спанов: {sampled})"
 }

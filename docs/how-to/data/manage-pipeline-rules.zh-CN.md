@@ -127,7 +127,7 @@ PipelineRules__Pii__Detectors=Email,CreditCard,Jwt
 
 Span 同样被覆盖：span 属性、状态消息，以及 span 事件和链接的属性（`exception.message` 和 `exception.stacktrace` 所在位置）都会以相同方式脱敏。span 名称不会被扫描。
 
-启用之前，可在 Pipeline Rules 页面点击 **预览 PII 脱敏**。它会扫描最多 500 条最近的日志并显示将被屏蔽的内容，不会写入任何数据。
+启用之前，可在 Pipeline Rules 页面点击 **预览 PII 脱敏**。它会扫描最多 500 条最近的日志（或在 **跨度** 标签页扫描跨度）并显示将被屏蔽的内容，不会写入任何数据。
 
 同一对话框中还有 **扫描字段中的 PII**，这是一个只读扫描，按检测器列出看起来像 PII 的日志正文或属性字段，并给出计数和一个已屏蔽的示例。可用它在决定启用哪些检测器之前，先弄清 PII 位于何处。
 

@@ -329,12 +329,55 @@ public sealed record PiiPreviewRequest
 
     /// <summary>Which logs to sample; omitted = the search default (most recent, 1-hour lookback).</summary>
     public LogFilter Condition { get; init => field = value ?? new(); } = new();
+
+    /// <summary>Which spans to sample for <c>pii-span-preview</c> and for <c>pii-scan</c> with <see cref="Signal"/> <c>spans</c>; omitted = the search default.</summary>
+    public SpanFilter SpanCondition { get; init => field = value ?? new(); } = new();
+
+    /// <summary><c>pii-scan</c> only: <c>logs</c> (default) or <c>spans</c>.</summary>
+    public string? Signal { get; init; }
+}
+
+/// <summary>One span field the managed PII redaction would change, in <see cref="PiiSpanPreviewMatch"/>.</summary>
+public sealed record PiiFieldChange
+{
+    /// <summary><c>status_message</c>, <c>attr:{key}</c>, <c>event:{name}:{key}</c> or <c>link:{key}</c>.</summary>
+    public required string Field { get; init; }
+
+    public required string Before { get; init; }
+
+    public required string After { get; init; }
+}
+
+/// <summary>One sampled span that managed PII redaction would change.</summary>
+public sealed record PiiSpanPreviewMatch
+{
+    public required string TraceId { get; init; }
+
+    public required string SpanId { get; init; }
+
+    public required DateTimeOffset StartTime { get; init; }
+
+    public required string ServiceName { get; init; }
+
+    public required string Name { get; init; }
+
+    public required IReadOnlyList<PiiFieldChange> Changes { get; init; }
+}
+
+/// <summary>Response of <c>POST /api/pipeline-rules/pii-span-preview</c> (JSON only).</summary>
+public sealed record PiiSpanPreviewResult
+{
+    public required int SampledCount { get; init; }
+
+    public required int ChangedCount { get; init; }
+
+    public required IReadOnlyList<PiiSpanPreviewMatch> Matches { get; init; }
 }
 
 /// <summary>One field/detector pair found by <c>POST /api/pipeline-rules/pii-scan</c> (ADR-0199).</summary>
 public sealed record PiiScanFinding
 {
-    /// <summary><c>body</c> or the log attribute key.</summary>
+    /// <summary>Logs: <c>body</c> or the attribute key. Spans: <c>status_message</c>, <c>attr:{key}</c>, <c>event:{name}:{key}</c> or <c>link:{key}</c>.</summary>
     public required string Field { get; init; }
 
     /// <summary>A <c>PiiDetectors</c> name, e.g. <c>Email</c>.</summary>

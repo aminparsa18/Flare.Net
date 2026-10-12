@@ -152,9 +152,9 @@ turns off managed redaction too.
 
 Spans are covered too: span attributes, the status message, and span event and link attributes (where `exception.message` and `exception.stacktrace` live) are redacted the same way. The span name is not scanned.
 
-Before enabling it, click **Preview PII redaction** on the Pipeline Rules page. It scans up to 500 recent logs and shows what would be masked; nothing is written.
+Before enabling it, click **Preview PII redaction** on the Pipeline Rules page. It scans up to 500 recent logs, or spans via the **Spans** tab, and shows what would be masked; nothing is written.
 
-The same dialog has **Scan fields for PII**, a report-only scan that lists which log body or attribute fields look like PII, per detector, with a count and one masked example. Use it to find where PII lives before deciding what to enable.
+The same dialog has **Scan fields for PII**, a report-only scan that lists which log body or attribute fields (or, on the **Spans** tab, span status message and attribute fields) look like PII, per detector, with a count and one masked example. Use it to find where PII lives before deciding what to enable.
 
 ## Changes take a little time to apply
 

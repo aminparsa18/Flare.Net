@@ -3725,7 +3725,10 @@
 	"erasure_statusFailed": "Failed",
 	"piiPreview_button": "Preview PII redaction",
 	"piiPreview_title": "Managed PII redaction preview",
-	"piiPreview_description": "Scans recent logs and shows what the built-in detectors (emails, card numbers, IBANs, JWTs, bearer tokens, private keys) would mask. Nothing is written. Enable it on Flare.Ingest with PipelineRules__Pii__Enabled=true.",
+	"piiPreview_description": "Scans recent logs or spans and shows what the built-in detectors (emails, card numbers, IBANs, JWTs, bearer tokens, private keys) would mask. Nothing is written. Enable it on Flare.Ingest with PipelineRules__Pii__Enabled=true.",
 	"piiScan_button": "Scan fields for PII",
-	"piiScan_summary": "{fields} field/detector pairs found in {sampled} logs"
+	"piiScan_summary": "{fields} field/detector pairs found in {sampled} logs",
+	"piiSignal_logs": "Logs",
+	"piiSignal_spans": "Spans",
+	"piiScan_summarySpans": "{fields} field/detector pairs found in {sampled} spans"
 }

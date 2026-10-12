@@ -3725,7 +3725,10 @@
 	"erasure_statusFailed": "失败",
 	"piiPreview_button": "预览 PII 脱敏",
 	"piiPreview_title": "托管 PII 脱敏预览",
-	"piiPreview_description": "扫描最近的日志，显示内置检测器（电子邮件、银行卡号、IBAN、JWT、Bearer 令牌、私钥）会屏蔽的内容。不会写入任何数据。在 Flare.Ingest 上通过 PipelineRules__Pii__Enabled=true 启用。",
+	"piiPreview_description": "扫描最近的日志或跨度，显示内置检测器（电子邮件、银行卡号、IBAN、JWT、Bearer 令牌、私钥）会屏蔽的内容。不会写入任何数据。在 Flare.Ingest 上通过 PipelineRules__Pii__Enabled=true 启用。",
 	"piiScan_button": "扫描字段中的 PII",
-	"piiScan_summary": "在 {sampled} 条日志中发现 {fields} 个字段/检测器组合"
+	"piiScan_summary": "在 {sampled} 条日志中发现 {fields} 个字段/检测器组合",
+	"piiSignal_logs": "日志",
+	"piiSignal_spans": "跨度",
+	"piiScan_summarySpans": "在 {sampled} 个跨度中发现 {fields} 个字段/检测器组合"
 }

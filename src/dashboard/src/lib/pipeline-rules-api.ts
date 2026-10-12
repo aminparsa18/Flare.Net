@@ -361,12 +361,46 @@ export interface PiiScanResult {
 	findings: PiiScanFinding[];
 }
 
-/** Report-only scan (ADR-0199): which body/attribute fields in recent logs look like PII. JSON, not MemoryPack. */
-export async function scanForPii(): Promise<PiiScanResult> {
-	const res = await apiFetch(`${API_BASE_URL}/api/pipeline-rules/pii-scan`, {
+export interface PiiFieldChange {
+	field: string;
+	before: string;
+	after: string;
+}
+
+export interface PiiSpanPreviewMatch {
+	traceId: string;
+	spanId: string;
+	startTime: string;
+	serviceName: string;
+	name: string;
+	changes: PiiFieldChange[];
+}
+
+export interface PiiSpanPreviewResult {
+	sampledCount: number;
+	changedCount: number;
+	matches: PiiSpanPreviewMatch[];
+}
+
+/** Dry-runs managed PII redaction (ADR-0199) over recent spans. JSON, not MemoryPack. */
+export async function previewSpanPiiRedaction(): Promise<PiiSpanPreviewResult> {
+	const res = await apiFetch(`${API_BASE_URL}/api/pipeline-rules/pii-span-preview`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: '{}'
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/pipeline-rules/pii-span-preview failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as PiiSpanPreviewResult;
+}
+
+/** Report-only scan (ADR-0199): which fields in recent logs or spans look like PII. JSON, not MemoryPack. */
+export async function scanForPii(signal: 'logs' | 'spans' = 'logs'): Promise<PiiScanResult> {
+	const res = await apiFetch(`${API_BASE_URL}/api/pipeline-rules/pii-scan`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ signal })
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/pipeline-rules/pii-scan failed: ${res.status} ${res.statusText}`);
