@@ -105,6 +105,32 @@ ClickHouse 之前。保存规则前先预览它（见下文[保存前预览规�
 标记）。禁用的规则仍会保存，但不再被应用——便于在排查问题期间暂停某条规则
 而不丢失其配置。
 
+## 启用托管 PII 脱敏
+
+除了手写正则规则，`Flare.Ingest` 还内置了一组检测器，可对电子邮件地址、
+银行卡号（Luhn 校验）、IBAN（mod-97 校验）、JWT、`Bearer` 令牌和 PEM 私钥
+进行脱敏。默认关闭。通过 `Flare.Ingest` 的配置启用（需要重启）：
+
+```
+PipelineRules__Pii__Enabled=true
+# 可选：缩小检测器范围（默认全部）
+PipelineRules__Pii__Detectors=Email,CreditCard,Jwt
+```
+
+可用的检测器有 `Email`、`CreditCard`、`Iban`、`Jwt`、`BearerToken` 和
+`PrivateKey`。每个匹配项会被替换为带标签的掩码，例如 `[REDACTED:email]`。
+扫描范围是每条日志的正文和日志属性值（不包括资源或作用域属性，也不包括
+指标），在您自己的规则之前、模式聚类之前运行。未通过校验和的数字
+串（如订单号和时间戳）保持不变。这是尽力而为的模式匹配，不提供保证；
+针对您数据特有的内容请继续使用自定义规则。将 `PipelineRules__Enabled=false`
+同样会关闭托管脱敏。
+
+Span 同样被覆盖：span 属性、状态消息，以及 span 事件和链接的属性（`exception.message` 和 `exception.stacktrace` 所在位置）都会以相同方式脱敏。span 名称不会被扫描。
+
+启用之前，可在 Pipeline Rules 页面点击 **预览 PII 脱敏**。它会扫描最多 500 条最近的日志并显示将被屏蔽的内容，不会写入任何数据。
+
+同一对话框中还有 **扫描字段中的 PII**，这是一个只读扫描，按检测器列出看起来像 PII 的日志正文或属性字段，并给出计数和一个已屏蔽的示例。可用它在决定启用哪些检测器之前，先弄清 PII 位于何处。
+
 ## 更改生效需要一点时间
 
 新建、编辑或禁用的规则最多需要 30 秒才能生效——`Flare.Ingest` 按此间隔轮询

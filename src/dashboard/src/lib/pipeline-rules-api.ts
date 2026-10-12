@@ -327,3 +327,49 @@ export async function previewDraftPipelineRule(request: PipelineRuleRequest): Pr
 	}
 	return toPipelineRulePreviewResult(dtoResult);
 }
+
+/**
+ * Dry-runs Ingest's managed PII redaction (ADR-0199) over a recent sample of all logs.
+ * `detectors` is a comma-separated list (e.g. `Email,CreditCard`); omitted = all.
+ */
+export async function previewPiiRedaction(detectors?: string): Promise<PipelineRulePreviewResult> {
+	const res = await apiFetch(`${API_BASE_URL}/api/pipeline-rules/pii-preview`, {
+		method: 'POST',
+		headers: { ...memoryPackAcceptHeaders(), 'Content-Type': 'application/json' },
+		body: JSON.stringify({ detectors: detectors || null })
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/pipeline-rules/pii-preview failed: ${res.status} ${res.statusText}`);
+	}
+	const dto = GeneratedPipelineRulePreviewResult.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding PipelineRulePreviewResult.');
+	}
+	return toPipelineRulePreviewResult(dto);
+}
+
+export interface PiiScanFinding {
+	field: string;
+	detector: string;
+	count: number;
+	/** One occurrence, already masked server-side. */
+	example: string;
+}
+
+export interface PiiScanResult {
+	sampledCount: number;
+	findings: PiiScanFinding[];
+}
+
+/** Report-only scan (ADR-0199): which body/attribute fields in recent logs look like PII. JSON, not MemoryPack. */
+export async function scanForPii(): Promise<PiiScanResult> {
+	const res = await apiFetch(`${API_BASE_URL}/api/pipeline-rules/pii-scan`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: '{}'
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/pipeline-rules/pii-scan failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as PiiScanResult;
+}

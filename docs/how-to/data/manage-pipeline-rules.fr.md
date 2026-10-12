@@ -144,6 +144,39 @@ Désactivez le bouton **Enabled** dans la boîte de dialogue de création/
 appliquée — utile pour mettre une règle en pause pendant une investigation
 sans perdre sa configuration.
 
+## Activer le masquage PII géré
+
+Plutôt que d'écrire des règles regex à la main, `Flare.Ingest` fournit un
+jeu de détecteurs intégré qui masque les adresses e-mail, les numéros de
+carte bancaire (vérifiés par Luhn), les IBAN (vérifiés par modulo 97), les
+JWT, les jetons `Bearer` et les clés privées PEM. Il est désactivé par
+défaut. Activez-le par configuration de `Flare.Ingest` (redémarrage
+nécessaire) :
+
+```
+PipelineRules__Pii__Enabled=true
+# facultatif : restreindre les détecteurs (par défaut : tous)
+PipelineRules__Pii__Detectors=Email,CreditCard,Jwt
+```
+
+Les détecteurs valides sont `Email`, `CreditCard`, `Iban`, `Jwt`,
+`BearerToken` et `PrivateKey`. Chaque occurrence est remplacée par un
+masque étiqueté, par exemple `[REDACTED:email]`. L'analyse porte sur le
+corps de chaque log et sur les valeurs de ses attributs de log (pas sur les
+attributs de ressource ou de portée ni sur les métriques), elle
+s'exécute avant vos propres règles et avant le clustering de motifs. Les
+suites de chiffres qui échouent à la somme de contrôle, comme les
+identifiants de commande et les horodatages, sont laissées intactes. Il
+s'agit d'une détection au mieux, sans garantie ; conservez des règles
+personnalisées pour ce qui est propre à vos données. Définir
+`PipelineRules__Enabled=false` désactive aussi le masquage géré.
+
+Les spans sont aussi couverts : attributs de span, message de statut, et attributs d'événements et de liens de span (où se trouvent `exception.message` et `exception.stacktrace`) sont masqués de la même façon. Le nom du span n'est pas analysé.
+
+Avant de l'activer, cliquez sur **Aperçu du masquage PII** (« Preview PII redaction ») sur la page Pipeline Rules. Il analyse jusqu'à 500 logs récents et montre ce qui serait masqué ; rien n'est écrit.
+
+La même fenêtre propose **Analyser les champs pour PII** (« Scan fields for PII ») : une analyse en lecture seule qui liste les champs de corps ou d'attribut de log ressemblant à des PII, par détecteur, avec un compteur et un exemple masqué. Utilisez-la pour repérer où se trouvent les PII avant de choisir quoi activer.
+
 ## Les changements mettent un peu de temps à s'appliquer
 
 Une règle nouvellement créée, modifiée ou désactivée met jusqu'à 30 secondes

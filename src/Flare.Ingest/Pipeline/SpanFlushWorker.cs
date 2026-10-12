@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Ingest.Model;
+using Flare.Ingest.Pipeline.Rules;
 using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -32,6 +33,7 @@ public sealed class SpanFlushWorker(
     IConnectionMultiplexer connectionMultiplexer,
     IClickHouseSpanWriter writer,
     IOptions<SpanEventPipelineOptions> options,
+    IOptions<PipelineRuleOptions> pipelineRuleOptions,
     IFlushHealthTracker flushHealth,
     ILogger<SpanFlushWorker> logger) : BackgroundService
 {
@@ -193,6 +195,16 @@ public sealed class SpanFlushWorker(
     private async Task FlushAsync(IDatabase db, SpanEventPipelineOptions opts, List<(RedisValue Id, SpanRecord Span)> batch)
     {
         var spans = batch.Select(b => b.Span).ToArray();
+
+        // Managed PII redaction (ADR-0199), same config gate as the log path.
+        var rules = pipelineRuleOptions.Value;
+        if (rules.Enabled && rules.Pii.Enabled && rules.Pii.Detectors != PiiDetectors.None)
+        {
+            for (var i = 0; i < spans.Length; i++)
+            {
+                spans[i] = PiiRedactor.RedactSpan(spans[i], rules.Pii.Detectors);
+            }
+        }
 
         try
         {

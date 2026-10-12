@@ -317,3 +317,40 @@ public sealed partial record PipelineRulePreviewResult
 
     public required IReadOnlyList<PipelineRulePreviewMatch> Matches { get; init; }
 }
+
+/// <summary>
+/// Request body for <c>POST /api/pipeline-rules/pii-preview</c> (ADR-0199) - JSON only.
+/// <see cref="Detectors"/> is a comma-separated list matching Ingest's
+/// <c>PipelineRules:Pii:Detectors</c> (e.g. <c>Email,CreditCard</c>); omitted or empty = all.
+/// </summary>
+public sealed record PiiPreviewRequest
+{
+    public string? Detectors { get; init; }
+
+    /// <summary>Which logs to sample; omitted = the search default (most recent, 1-hour lookback).</summary>
+    public LogFilter Condition { get; init => field = value ?? new(); } = new();
+}
+
+/// <summary>One field/detector pair found by <c>POST /api/pipeline-rules/pii-scan</c> (ADR-0199).</summary>
+public sealed record PiiScanFinding
+{
+    /// <summary><c>body</c> or the log attribute key.</summary>
+    public required string Field { get; init; }
+
+    /// <summary>A <c>PiiDetectors</c> name, e.g. <c>Email</c>.</summary>
+    public required string Detector { get; init; }
+
+    /// <summary>How many sampled logs had a match in this field.</summary>
+    public required int Count { get; init; }
+
+    /// <summary>One occurrence with the match already masked and truncated, so the report never echoes the PII.</summary>
+    public required string Example { get; init; }
+}
+
+/// <summary>Response of <c>POST /api/pipeline-rules/pii-scan</c> (JSON only); findings are ordered by <see cref="PiiScanFinding.Count"/> descending.</summary>
+public sealed record PiiScanResult
+{
+    public required int SampledCount { get; init; }
+
+    public required IReadOnlyList<PiiScanFinding> Findings { get; init; }
+}

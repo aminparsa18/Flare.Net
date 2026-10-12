@@ -23,6 +23,9 @@ public static class PipelineRuleEndpoints
     /// </summary>
     public const int PreviewSampleSize = 20;
 
+    /// <summary>Rows scanned by the managed-PII preview (see <see cref="HandlePiiPreviewAsync"/>).</summary>
+    public const int PiiPreviewSampleSize = 500;
+
     public static IEndpointRouteBuilder MapPipelineRuleEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/pipeline-rules", HandleCreateAsync);
@@ -34,6 +37,8 @@ public static class PipelineRuleEndpoints
         // draft-rule route below - same ordering reason AlertEndpoints' /test pair documents.
         endpoints.MapPost("/api/pipeline-rules/{id:guid}/preview", HandlePreviewSavedAsync);
         endpoints.MapPost("/api/pipeline-rules/preview", HandlePreviewDraftAsync);
+        endpoints.MapPost("/api/pipeline-rules/pii-preview", HandlePiiPreviewAsync);
+        endpoints.MapPost("/api/pipeline-rules/pii-scan", HandlePiiScanAsync);
         return endpoints;
     }
 
@@ -127,6 +132,138 @@ public static class PipelineRuleEndpoints
         }
 
         var result = await PreviewAsync(logs, request!.Condition, request.Actions ?? [], cancellationToken);
+        return ApiSerialization.Write(http, result, PipelineRulesJsonContext.Default.PipelineRulePreviewResult);
+    }
+
+    /// <summary>
+    /// Report-only scan (ADR-0199): over the <see cref="PiiPreviewSampleSize"/> most recent logs, counts per
+    /// field (body or attribute key) and detector how many logs contain a match, with one masked example.
+    /// Tells an operator where PII lives before enabling redaction. Writes nothing.
+    /// </summary>
+    private static async Task<IResult> HandlePiiScanAsync(HttpContext http, ILogQueryService logs, CancellationToken cancellationToken)
+    {
+        PiiPreviewRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, PipelineRulesJsonContext.Default.PiiPreviewRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        request ??= new PiiPreviewRequest();
+        var selected = PiiDetectors.All;
+        if (!string.IsNullOrWhiteSpace(request.Detectors) && !Enum.TryParse(request.Detectors, ignoreCase: true, out selected))
+        {
+            return Results.Problem($"Unknown detectors '{request.Detectors}'. Valid: {string.Join(", ", Enum.GetNames<PiiDetectors>())}.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var sample = await logs.SearchAsync(new LogSearchRequest { Filter = request.Condition, PageSize = PiiPreviewSampleSize }, cancellationToken);
+        var found = new Dictionary<(string Field, PiiDetectors Detector), (int Count, string Example)>();
+        foreach (var logEvent in sample.Events)
+        {
+            Scan("body", logEvent.Body, selected, found);
+            foreach (var (key, value) in logEvent.LogAttributes)
+            {
+                Scan(key, value, selected, found);
+            }
+        }
+
+        var findings = found
+            .OrderByDescending(f => f.Value.Count)
+            .ThenBy(f => f.Key.Field, StringComparer.Ordinal)
+            .Select(f => new PiiScanFinding { Field = f.Key.Field, Detector = f.Key.Detector.ToString(), Count = f.Value.Count, Example = f.Value.Example })
+            .ToList();
+        return ApiSerialization.Write(http, new PiiScanResult { SampledCount = sample.Events.Count, Findings = findings }, PipelineRulesJsonContext.Default.PiiScanResult);
+    }
+
+    private static void Scan(string field, string value, PiiDetectors selected, Dictionary<(string, PiiDetectors), (int Count, string Example)> found)
+    {
+        foreach (var detector in Enum.GetValues<PiiDetectors>())
+        {
+            if (detector is PiiDetectors.None or PiiDetectors.All || !selected.HasFlag(detector))
+            {
+                continue;
+            }
+
+            var masked = PiiRedactor.Redact(value, detector);
+            if (masked == value)
+            {
+                continue;
+            }
+
+            found[(field, detector)] = found.TryGetValue((field, detector), out var existing)
+                ? (existing.Count + 1, existing.Example)
+                : (1, masked.Length > 200 ? masked[..200] : masked);
+        }
+    }
+
+    /// <summary>
+    /// Dry-run of Ingest's managed PII redaction (ADR-0199) over a wider recent sample
+    /// (<see cref="PiiPreviewSampleSize"/>), returning only logs it would change (capped at
+    /// <see cref="PreviewSampleSize"/>) - most logs hold no PII, so a 20-row sample would
+    /// usually show nothing. <c>SampledCount</c> is how many were scanned.
+    /// </summary>
+    private static async Task<IResult> HandlePiiPreviewAsync(HttpContext http, ILogQueryService logs, CancellationToken cancellationToken)
+    {
+        PiiPreviewRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, PipelineRulesJsonContext.Default.PiiPreviewRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        request ??= new PiiPreviewRequest();
+        var detectors = PiiDetectors.All;
+        if (!string.IsNullOrWhiteSpace(request.Detectors) && !Enum.TryParse(request.Detectors, ignoreCase: true, out detectors))
+        {
+            return Results.Problem($"Unknown detectors '{request.Detectors}'. Valid: {string.Join(", ", Enum.GetNames<PiiDetectors>())}.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var sample = await logs.SearchAsync(new LogSearchRequest { Filter = request.Condition, PageSize = PiiPreviewSampleSize }, cancellationToken);
+        var matches = new List<PipelineRulePreviewMatch>();
+        var changedCount = 0;
+        foreach (var logEvent in sample.Events)
+        {
+            var body = PiiRedactor.Redact(logEvent.Body, detectors);
+            Dictionary<string, string>? attributes = null;
+            foreach (var (key, value) in logEvent.LogAttributes)
+            {
+                var redacted = PiiRedactor.Redact(value, detectors);
+                if (redacted != value)
+                {
+                    attributes ??= new Dictionary<string, string>(logEvent.LogAttributes);
+                    attributes[key] = redacted;
+                }
+            }
+
+            if (body == logEvent.Body && attributes is null)
+            {
+                continue;
+            }
+
+            changedCount++;
+            if (matches.Count < PreviewSampleSize)
+            {
+                matches.Add(new PipelineRulePreviewMatch
+                {
+                    EventId = logEvent.EventId,
+                    Timestamp = logEvent.Timestamp,
+                    ServiceName = logEvent.ServiceName,
+                    BeforeBody = logEvent.Body,
+                    AfterBody = body,
+                    BeforeAttributes = logEvent.LogAttributes,
+                    AfterAttributes = attributes ?? logEvent.LogAttributes,
+                    Changed = true,
+                });
+            }
+        }
+
+        var result = new PipelineRulePreviewResult { SampledCount = sample.Events.Count, ChangedCount = changedCount, Matches = matches };
         return ApiSerialization.Write(http, result, PipelineRulesJsonContext.Default.PipelineRulePreviewResult);
     }
 

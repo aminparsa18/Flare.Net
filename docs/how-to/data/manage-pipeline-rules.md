@@ -126,6 +126,36 @@ table shows a **Disabled** badge once you do). A disabled rule stays saved
 but stops being applied — useful for pausing a rule while you investigate
 without losing its configuration.
 
+## Turn on managed PII redaction
+
+Instead of writing regex rules by hand, `Flare.Ingest` ships a built-in
+detector set that redacts email addresses, payment card numbers
+(Luhn-checked), IBANs (mod-97-checked), JWTs, `Bearer` tokens and PEM
+private keys. It is off by default. Turn it on with configuration on
+`Flare.Ingest` (restart required):
+
+```
+PipelineRules__Pii__Enabled=true
+# optional: narrow the detector set (default: all)
+PipelineRules__Pii__Detectors=Email,CreditCard,Jwt
+```
+
+Valid detectors are `Email`, `CreditCard`, `Iban`, `Jwt`, `BearerToken` and
+`PrivateKey`. Each match is replaced with a labelled mask such as
+`[REDACTED:email]`. It scans every log's body and log-attribute values (not
+resource or scope attributes or metrics), runs
+before your own rules, and before pattern clustering. Digit runs that fail
+the checksum, such as order ids and timestamps, are left alone. It is
+best-effort pattern matching, not a guarantee; keep custom rules for
+anything specific to your data. Setting `PipelineRules__Enabled=false`
+turns off managed redaction too.
+
+Spans are covered too: span attributes, the status message, and span event and link attributes (where `exception.message` and `exception.stacktrace` live) are redacted the same way. The span name is not scanned.
+
+Before enabling it, click **Preview PII redaction** on the Pipeline Rules page. It scans up to 500 recent logs and shows what would be masked; nothing is written.
+
+The same dialog has **Scan fields for PII**, a report-only scan that lists which log body or attribute fields look like PII, per detector, with a count and one masked example. Use it to find where PII lives before deciding what to enable.
+
 ## Changes take a little time to apply
 
 A newly created, edited, or disabled rule takes up to 30 seconds to take
