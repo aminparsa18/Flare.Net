@@ -89,6 +89,13 @@ public partial class MainPage : ContentPage
         Say("RecordException called.");
     }
 
+    // The built-in "report a problem" prompt (ADR-0193): message, then an optional e-mail; lands in Sessions > Feedback.
+    async void OnFeedbackClicked(object? sender, EventArgs e)
+    {
+        var sent = await FlareFeedback.PromptAsync(this, askForEmail: true);
+        Say(sent ? "Feedback sent." : "Feedback not sent.");
+    }
+
     // The message carries the version, so each version introduces its own exception group: mark the versions as
     // releases (flare releases mark) and the Releases page lists this one as new under the version that threw it.
     void OnReleaseErrorClicked(object? sender, EventArgs e)
