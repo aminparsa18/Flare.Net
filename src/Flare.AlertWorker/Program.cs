@@ -30,6 +30,8 @@ builder.Services.Configure<QueryLimitsOptions>(builder.Configuration.GetSection(
 // read the same promoted columns Flare.Api's queries do. Refreshed from system.columns.
 builder.Services.AddSingleton<IPromotedAttributeRegistry, PromotedAttributeRegistry>();
 builder.Services.AddHostedService<PromotedAttributeRefreshWorker>();
+// Notification secrets are stored encrypted (ADR-0205); the shared key ring above lets this process read what Flare.Api wrote.
+builder.Services.AddSingleton<INotificationSecretProtector, NotificationSecretProtector>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();

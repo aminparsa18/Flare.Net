@@ -28,6 +28,8 @@ internal sealed class FakeNotificationChannelQueryService : INotificationChannel
     public Task<NotificationChannel?> UpdateAsync(Guid id, NotificationChannelRequest request, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Not needed by NotificationChannelResolver tests.");
 
+    public Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken) => Task.FromResult(0);
+
     public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Not needed by NotificationChannelResolver tests.");
 }

@@ -104,6 +104,8 @@ public class AlertNoDataEvaluatorTests
 
         public Task<AlertRule?> UpdateAsync(Guid id, AlertRuleRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken) => Task.FromResult(0);
+
         public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyList<AlertRule>> GetEnabledRulesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
