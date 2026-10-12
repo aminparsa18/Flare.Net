@@ -88,7 +88,12 @@ public sealed class SessionAuthenticationHandler(
             return AuthenticateResult.Fail("User not found or disabled.");
         }
 
-        if (DateTimeOffset.UtcNow - session.LastSeenAt > LastSeenTouchInterval)
+        // A short idle timeout needs a fresher LastSeenAt than the usual once-a-minute, or a session in
+        // continuous use would be cut off; a quarter of the timeout keeps it accurate.
+        var touchInterval = authOptions.Value.SessionIdleTimeout is { } idleTimeout && idleTimeout > TimeSpan.Zero
+            ? TimeSpan.FromTicks(Math.Min(LastSeenTouchInterval.Ticks, idleTimeout.Ticks / 4))
+            : LastSeenTouchInterval;
+        if (DateTimeOffset.UtcNow - session.LastSeenAt > touchInterval)
         {
             await sessionStore.TouchLastSeenAsync(token, Context.RequestAborted);
         }
