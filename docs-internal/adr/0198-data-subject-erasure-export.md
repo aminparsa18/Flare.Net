@@ -19,10 +19,11 @@ spans, span events, metrics and profiles, and in the plain columns of app feedba
   where exception events keep theirs). `app_feedback` also matches its `UserId`/`Email` columns for the
   `user.id`/`enduser.id` and `user.email`/`enduser.email` keys. Empty values are rejected, since `map[key] = ''` is
   true for every row without the key.
-- **Sessions are followed one hop.** `app_screenshots` and `app_feedback` carry only a `SessionId`. The session ids
-  are collected from the `session.id` attribute of matching logs and spans (capped at 10,000), resolved
-  *before* anything is deleted because the spans that name them are among the rows being removed, and then
-  matched with `SessionId IN (...)`.
+- **Sessions are followed one hop, into every table that can carry one.** The session ids are collected from the `session.id`
+  attribute of matching logs and spans (capped at 10,000), resolved *before* anything is deleted because the spans
+  that name them are among the rows being removed, and then matched with `SessionId IN (...)` in
+  `app_screenshots`/`app_feedback` and with `<map>['session.id'] IN (...)` in logs, spans and the four metric tables. A log line
+  in the person's session that never repeats the `user.id` is therefore still erased. Profiles carry no session id.
 - **Raw telemetry tables only.** The tables of `RetentionSignal` plus `app_feedback`: `logs`, `spans`, the four
   `metrics_*`, `profile_samples`, `app_screenshots`, `app_feedback`. The materialized rollups hold counts and
   quantiles with no identifiers and are left alone, which is also what [ADR-0143](0143-retention-ttl.md) does for TTL.
@@ -57,7 +58,6 @@ spans, span events, metrics and profiles, and in the plain columns of app feedba
   sensible HTTP request, and it gives no progress.
 - **Matching `ResourceAttributes` only, or a fixed list of keys.** Rejected: where an app records `user.id` varies
   (resource, span, log, data point), and a fixed list would silently miss data.
-- **Following sessions through every signal.** Only logs and spans carry `session.id` today. Metrics do not.
 - **Storing the identifiers to re-run or verify later.** Rejected as above: it would keep the personal data.
 
 ## Consequences

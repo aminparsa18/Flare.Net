@@ -14,7 +14,11 @@ namespace Flare.Api.Endpoints;
 public static class ErasureEndpoints
 {
     /// <summary>Audit entry shape: which attributes were matched and a hash of the values, never the values (they are the personal data).</summary>
-    private sealed record ErasureAuditChange(string[] Keys, string SubjectHash, long Rows);
+    /// <remarks>The attribute list is called <c>attributes</c>, not <c>keys</c>: the audit diff redacts anything named like a secret.</remarks>
+    private sealed record ErasureAuditChange(string[] Attributes, string SubjectHash, long Rows);
+
+    /// <summary>Export audits what was asked for; the row count is only known after streaming, so it is left out.</summary>
+    private sealed record ExportAuditChange(string[] Attributes, string SubjectHash);
 
     public static IEndpointRouteBuilder MapErasureEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -68,10 +72,9 @@ public static class ErasureEndpoints
             return problem;
         }
 
-        AuditContext.SetChange(http, null, new ErasureAuditChange(
+        AuditContext.SetChange(http, null, new ExportAuditChange(
             request!.Identifiers!.Select(i => i.Key).Distinct().ToArray(),
-            ErasureSql.SubjectHash(request.Identifiers!),
-            0));
+            ErasureSql.SubjectHash(request.Identifiers!)));
 
         http.Response.ContentType = "application/x-ndjson";
         http.Response.Headers.ContentDisposition = "attachment; filename=\"flare-subject-export.ndjson\"";
