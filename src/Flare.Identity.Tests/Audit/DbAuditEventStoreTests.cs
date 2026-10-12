@@ -108,4 +108,131 @@ public class DbAuditEventStoreTests : IAsyncLifetime
 
         await Assert.ThrowsAnyAsync<DbException>(() => command.ExecuteNonQueryAsync());
     }
+
+    [Fact]
+    public async Task AppendAsync_ChainsEachRowToThePreviousHash()
+    {
+        await _store.AppendAsync(Event(T0));
+        await _store.AppendAsync(Event(T0.AddMinutes(1)));
+
+        var rows = await _store.QueryAsync(new AuditEventFilter(), null, 10);
+
+        Assert.Equal(string.Empty, rows[1].PrevHash);
+        Assert.Equal(rows[1].Hash, rows[0].PrevHash);
+        Assert.NotEqual(rows[1].Hash, rows[0].Hash);
+    }
+
+    [Fact]
+    public async Task VerifyChainAsync_AcceptsAnUntamperedChain_AndAfterRetentionPrune()
+    {
+        for (var i = 0; i < 5; i++)
+        {
+            await _store.AppendAsync(Event(T0.AddDays(i)));
+        }
+
+        var full = await _store.VerifyChainAsync();
+        await _store.PruneAsync(T0.AddDays(2));
+        var pruned = await _store.VerifyChainAsync();
+
+        Assert.True(full.Valid);
+        Assert.Equal(5, full.ChainedEvents);
+        Assert.True(pruned.Valid);
+        Assert.Equal(3, pruned.ChainedEvents);
+        Assert.Equal(full.HeadHash, pruned.HeadHash);
+    }
+
+    [Fact]
+    public async Task VerifyChainAsync_DetectsEditedContent()
+    {
+        for (var i = 0; i < 3; i++)
+        {
+            await _store.AppendAsync(Event(T0.AddMinutes(i)));
+        }
+
+        var target = (await _store.QueryAsync(new AuditEventFilter(), null, 10))[1];
+        await TamperAsync($"DROP TRIGGER IF EXISTS TR_AuditEvents_NoUpdate; UPDATE AuditEvents SET ActorName = 'mallory' WHERE Id = {target.Id}");
+
+        var result = await _store.VerifyChainAsync();
+
+        Assert.False(result.Valid);
+        Assert.Equal(target.Id, result.FirstBrokenId);
+    }
+
+    [Fact]
+    public async Task VerifyChainAsync_DetectsARemovedMiddleRow()
+    {
+        for (var i = 0; i < 3; i++)
+        {
+            await _store.AppendAsync(Event(T0.AddMinutes(i)));
+        }
+
+        var rows = await _store.QueryAsync(new AuditEventFilter(), null, 10);
+        await TamperAsync($"DELETE FROM AuditEvents WHERE Id = {rows[1].Id}");
+
+        var result = await _store.VerifyChainAsync();
+
+        Assert.False(result.Valid);
+        Assert.Equal(rows[0].Id, result.FirstBrokenId);
+    }
+
+    [Fact]
+    public async Task VerifyChainAsync_CountsRowsWithoutAHashAsLegacy()
+    {
+        await TamperAsync(
+            "INSERT INTO AuditEvents (Timestamp, ActorName, ActorKind, Action, ResourceType, Route, StatusCode) "
+            + "VALUES ('2026-01-01T00:00:00.0000000+00:00', 'old', 'session', 'update', 'alert', 'PUT /x', 204)");
+        await _store.AppendAsync(Event(T0));
+
+        var result = await _store.VerifyChainAsync();
+
+        Assert.True(result.Valid);
+        Assert.Equal(1, result.LegacyEvents);
+        Assert.Equal(1, result.ChainedEvents);
+    }
+
+    [Fact]
+    public async Task VerifyChainAsync_OnAnEmptyTable_IsValid()
+    {
+        var result = await _store.VerifyChainAsync();
+
+        Assert.True(result.Valid);
+        Assert.Equal(0, result.ChainedEvents);
+        Assert.Null(result.HeadHash);
+    }
+
+    [Fact]
+    public async Task QueryAfterAsync_ReturnsOldestFirstAfterTheCursor()
+    {
+        for (var i = 0; i < 4; i++)
+        {
+            await _store.AppendAsync(Event(T0.AddMinutes(i), resourceId: $"r{i}"));
+        }
+
+        var first = (await _store.QueryAfterAsync(0, 2)).ToList();
+        var next = await _store.QueryAfterAsync(first[^1].Id, 10);
+
+        Assert.Equal(["r0", "r1"], first.Select(e => e.ResourceId));
+        Assert.Equal(["r2", "r3"], next.Select(e => e.ResourceId));
+    }
+
+    [Fact]
+    public async Task ForwardingCursor_DefaultsToZero_AndUpserts()
+    {
+        Assert.Equal(0, await _store.GetForwardingCursorAsync("webhook"));
+
+        await _store.SetForwardingCursorAsync("webhook", 5);
+        await _store.SetForwardingCursorAsync("webhook", 9);
+        await _store.SetForwardingCursorAsync("syslog", 2);
+
+        Assert.Equal(9, await _store.GetForwardingCursorAsync("webhook"));
+        Assert.Equal(2, await _store.GetForwardingCursorAsync("syslog"));
+    }
+
+    private async Task TamperAsync(string sql)
+    {
+        await using var connection = await _database.ConnectionFactory.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync();
+    }
 }

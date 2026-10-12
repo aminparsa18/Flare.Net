@@ -55,6 +55,13 @@ Entra/OIDC перенаправляют на `/login?error=account-disabled`; LD
 | `Auth:PatRateLimitPermitLimit` | `120` | Сколько запросов один [персональный токен доступа](../explanation/authentication-model.ru.md#персональные-токены-доступа) может сделать за `PatRateLimitWindow`, прежде чем `Flare.Api` начнёт отвечать ему `429`. Сеансовый (cookie) трафик панели управления этому никогда не подвергается. |
 | `Auth:PatRateLimitWindow` | `00:01:00` (1 минута) | Фиксированное окно, за которое измеряется `PatRateLimitPermitLimit`. |
 | `Audit:RetentionDays` | `365` | Сколько дней хранить события [журнала аудита](../how-to/admin/configure-authentication.ru.md#журнал-аудита), прежде чем ежечасное задание их удалит. `0` — хранить бессрочно. |
+| `Audit:RecordReads` | `false` | Записывать в [журнал аудита](../how-to/admin/configure-authentication.ru.md#журнал-аудита) также, кто запрашивал телеметрию (логи, трассы, метрики, ошибки). |
+| `Audit:ReadDedupeSeconds` | `60` | Повтор одним пользователем того же чтения записывается раз в указанное число секунд. `0` — записывать каждый запрос. |
+| `Audit:Forwarding:Webhook:Url` | пусто | Отправлять каждое новое [событие аудита](../how-to/admin/configure-authentication.ru.md#журнал-аудита) POST-запросом с JSON-массивом на этот URL. Пусто — получатель отключён. |
+| `Audit:Forwarding:Webhook:Secret` | пусто | Если задан, запросы содержат `X-Flare-Signature: sha256=<HMAC-SHA256 тела>`. |
+| `Audit:Forwarding:Syslog:Host` | пусто | Отправлять каждое новое событие аудита как сообщение syslog RFC 5424 на этот хост. Пусто — получатель отключён. |
+| `Audit:Forwarding:Syslog:Port` / `:Protocol` | `514` / `tcp` | Порт syslog и протокол: `tcp` (кадрирование с подсчётом октетов) или `udp`. |
+| `Audit:Forwarding:IntervalSeconds` / `:BatchSize` | `10` / `100` | Как часто каждый получатель опрашивает новые события и сколько событий в одной отправке. |
 | `Auth:IngestKeyRequired` | `false` | Отклоняет ли `Flare.Ingest` запросы OTLP без действительного ключа API. |
 | `Auth:StaticIngestApiKey` | не установлено | Фиксированный ключ приёма данных, устанавливаемый через конфигурацию вместо панели управления — см. [ключи API приёма данных](../how-to/admin/configure-authentication.ru.md#ключи-api-приёма-данных). |
 | `Cors:AllowedOrigins:0`, `:1`, … | нет | Источник(и), которым разрешено вызывать `Flare.Api` с учётными данными (то есть собственный источник панели управления). Обязательно — `Flare.Api` больше не использует `AllowAnyOrigin()` по умолчанию. Также служит списком разрешённых `returnUrl` для входа через Entra. |

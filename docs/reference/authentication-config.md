@@ -51,6 +51,13 @@ generic `401` a wrong password gets.
 | `Auth:PatRateLimitPermitLimit` | `120` | Requests a single [personal access token](../explanation/authentication-model.md#personal-access-tokens) may make per `PatRateLimitWindow` before `Flare.Api` starts returning `429`s for it. Cookie/session (dashboard) traffic is never subject to this. |
 | `Auth:PatRateLimitWindow` | `00:01:00` (1 minute) | Fixed window `PatRateLimitPermitLimit` is measured over. |
 | `Audit:RetentionDays` | `365` | Days to keep [audit log](../how-to/admin/configure-authentication.md#audit-log) events before an hourly job deletes them. `0` keeps them forever. |
+| `Audit:RecordReads` | `false` | Also record who queried telemetry (logs, traces, metrics, errors) in the [audit log](../how-to/admin/configure-authentication.md#audit-log). |
+| `Audit:ReadDedupeSeconds` | `60` | Record the same user repeating the same read once per this many seconds. `0` records every request. |
+| `Audit:Forwarding:Webhook:Url` | empty | POST every new [audit event](../how-to/admin/configure-authentication.md#audit-log) as a JSON array to this URL. Empty disables the sink. |
+| `Audit:Forwarding:Webhook:Secret` | empty | When set, requests carry `X-Flare-Signature: sha256=<HMAC-SHA256 of the body>`. |
+| `Audit:Forwarding:Syslog:Host` | empty | Send every new audit event as an RFC 5424 syslog message to this host. Empty disables the sink. |
+| `Audit:Forwarding:Syslog:Port` / `:Protocol` | `514` / `tcp` | Syslog port, and `tcp` (octet-counted framing) or `udp`. |
+| `Audit:Forwarding:IntervalSeconds` / `:BatchSize` | `10` / `100` | How often each sink polls for new events, and events per delivery. |
 | `Auth:IngestKeyRequired` | `false` | Whether `Flare.Ingest` rejects OTLP requests with no valid API key. |
 | `Auth:StaticIngestApiKey` | unset | A fixed ingest key set via config instead of the dashboard — see [ingest API keys](../how-to/admin/configure-authentication.md#ingest-api-keys). |
 | `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra login `returnUrl` allow-list. |
