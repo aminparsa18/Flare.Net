@@ -2,6 +2,8 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using Flare.Api.HostStats;
 using Flare.Api.Json;
+using Flare.Api.LiveTail;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Endpoints;
 
@@ -35,7 +37,7 @@ public static class HostStatsEndpoints
     private static IResult HandleHistory(HttpContext http, HostStatsPoller poller) =>
         ApiSerialization.Write(http, poller.GetHistory(), HostStatsJsonContext.Default.IReadOnlyListHostStatsHistoryPoint);
 
-    private static async Task HandleWatchAsync(HttpContext http, HostStatsPoller poller)
+    private static async Task HandleWatchAsync(HttpContext http, HostStatsPoller poller, IOptions<LiveTailOptions> options)
     {
         if (!http.WebSockets.IsWebSocketRequest)
         {
@@ -51,10 +53,12 @@ public static class HostStatsEndpoints
         using var socket = await http.WebSockets.AcceptWebSocketAsync();
         var subscription = poller.Subscribe();
 
+        using var lifetimeCts = WebSocketLifetime.Link(http, options.Value);
+
         try
         {
-            var closeTask = WaitForCloseAsync(socket, http.RequestAborted);
-            var sendTask = SendSnapshotsAsync(socket, subscription, http.RequestAborted);
+            var closeTask = WaitForCloseAsync(socket, lifetimeCts.Token);
+            var sendTask = SendSnapshotsAsync(socket, subscription, lifetimeCts.Token);
 
             await Task.WhenAny(closeTask, sendTask);
         }

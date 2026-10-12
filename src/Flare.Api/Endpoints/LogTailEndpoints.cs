@@ -60,10 +60,10 @@ public static class LogTailEndpoints
 
         using var _ = socket;
 
-        // Linked so either loop ending (client closed the socket, or the send loop hit a
+        // Also capped at MaxSocketLifetime so the client re-authorizes on reconnect. Linked so either loop ending (client closed the socket, or the send loop hit a
         // fatal WebSocket error) tears down the other rather than leaking a half-open
         // connection.
-        using var lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(http.RequestAborted);
+        using var lifetimeCts = WebSocketLifetime.Link(http, options.Value);
 
         try
         {

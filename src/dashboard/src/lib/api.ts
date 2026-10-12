@@ -683,6 +683,51 @@ export interface LiveTailConnection {
 }
 
 /**
+ * Opens a WebSocket that reopens itself after any close the caller didn't ask for. The server caps
+ * socket lifetime (`LiveTail:MaxSocketLifetime`) so authorization is re-checked on reconnect, so
+ * a close is routine, not an error. `attach` wires per-socket listeners; `close()` stops reconnecting.
+ */
+function openReconnectingSocket(
+	wsUrl: string,
+	attach: (socket: WebSocket) => void,
+	onStatusChange?: (status: 'connecting' | 'open' | 'closed' | 'error') => void
+): { close(): void; current(): WebSocket } {
+	let socket: WebSocket;
+	let closedByCaller = false;
+	let retryDelayMs = 500;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+
+	function connect() {
+		onStatusChange?.('connecting');
+		socket = new WebSocket(wsUrl);
+		socket.addEventListener('open', () => {
+			retryDelayMs = 500;
+			onStatusChange?.('open');
+		});
+		socket.addEventListener('close', () => {
+			if (closedByCaller) {
+				onStatusChange?.('closed');
+				return;
+			}
+			timer = setTimeout(connect, retryDelayMs);
+			retryDelayMs = Math.min(retryDelayMs * 2, 15_000);
+		});
+		socket.addEventListener('error', () => onStatusChange?.('error'));
+		attach(socket);
+	}
+	connect();
+
+	return {
+		current: () => socket,
+		close() {
+			closedByCaller = true;
+			clearTimeout(timer);
+			socket.close();
+		}
+	};
+}
+
+/**
  * Opens the live-tail WebSocket and sends an initial `subscribe` once connected.
  * `pendingFilter` tracks the most recently requested filter so a `subscribe()` call that
  * arrives before the handshake completes isn't lost - the `open` handler always sends
@@ -690,54 +735,56 @@ export interface LiveTailConnection {
  */
 export function connectLiveTail(filter: LogFilter, handlers: LiveTailHandlers): LiveTailConnection {
 	const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/api/logs/tail`;
-	const socket = new WebSocket(wsUrl);
 	let pendingFilter = filter;
-
-	handlers.onStatusChange?.('connecting');
+	let paused = false;
 
 	function send(message: LogTailClientMessage) {
+		const socket = conn.current();
 		if (socket.readyState === WebSocket.OPEN) {
 			socket.send(JSON.stringify(message));
 		}
 	}
 
-	socket.addEventListener('open', () => {
-		handlers.onStatusChange?.('open');
-		send({ type: 'Subscribe', filter: pendingFilter });
-	});
-
-	socket.addEventListener('message', (ev) => {
-		const message: LogTailServerMessage = JSON.parse(ev.data);
-		switch (message.type) {
-			case 'Event':
-				handlers.onEvent?.(message.event);
-				break;
-			case 'Dropped':
-				handlers.onDropped?.(message.droppedCount);
-				break;
-			case 'Error':
-				handlers.onError?.(message.error);
-				break;
-		}
-	});
-
-	socket.addEventListener('close', () => handlers.onStatusChange?.('closed'));
-	socket.addEventListener('error', () => handlers.onStatusChange?.('error'));
+	const conn = openReconnectingSocket(
+		wsUrl,
+		(socket) => {
+			socket.addEventListener('open', () => {
+				send({ type: 'Subscribe', filter: pendingFilter });
+				if (paused) send({ type: 'Pause' });
+			});
+			socket.addEventListener('message', (ev) => {
+				const message: LogTailServerMessage = JSON.parse(ev.data);
+				switch (message.type) {
+					case 'Event':
+						handlers.onEvent?.(message.event);
+						break;
+					case 'Dropped':
+						handlers.onDropped?.(message.droppedCount);
+						break;
+					case 'Error':
+						handlers.onError?.(message.error);
+						break;
+				}
+			});
+		},
+		handlers.onStatusChange
+	);
 
 	return {
 		subscribe(newFilter) {
 			pendingFilter = newFilter;
+			paused = false;
 			send({ type: 'Subscribe', filter: newFilter });
 		},
 		pause() {
+			paused = true;
 			send({ type: 'Pause' });
 		},
 		resume() {
+			paused = false;
 			send({ type: 'Resume' });
 		},
-		close() {
-			socket.close();
-		}
+		close: conn.close
 	};
 }
 
@@ -866,23 +913,17 @@ export interface ResourcesWatchConnection {
  */
 export function connectResourcesWatch(handlers: ResourcesWatchHandlers): ResourcesWatchConnection {
 	const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/api/resources/watch`;
-	const socket = new WebSocket(wsUrl);
+	const conn = openReconnectingSocket(
+		wsUrl,
+		(socket) =>
+			socket.addEventListener('message', (ev) => {
+				const snapshot: ResourceGraphSnapshot = JSON.parse(ev.data);
+				handlers.onSnapshot?.(snapshot);
+			}),
+		handlers.onStatusChange
+	);
 
-	handlers.onStatusChange?.('connecting');
-
-	socket.addEventListener('open', () => handlers.onStatusChange?.('open'));
-	socket.addEventListener('message', (ev) => {
-		const snapshot: ResourceGraphSnapshot = JSON.parse(ev.data);
-		handlers.onSnapshot?.(snapshot);
-	});
-	socket.addEventListener('close', () => handlers.onStatusChange?.('closed'));
-	socket.addEventListener('error', () => handlers.onStatusChange?.('error'));
-
-	return {
-		close() {
-			socket.close();
-		}
-	};
+	return { close: conn.close };
 }
 
 // ---- Resources page: Host overview panel (HostStatsSnapshot.cs) ----------
@@ -978,23 +1019,17 @@ export interface HostStatsWatchConnection {
  */
 export function connectHostStatsWatch(handlers: HostStatsWatchHandlers): HostStatsWatchConnection {
 	const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/api/resources/host/watch`;
-	const socket = new WebSocket(wsUrl);
+	const conn = openReconnectingSocket(
+		wsUrl,
+		(socket) =>
+			socket.addEventListener('message', (ev) => {
+				const snapshot: HostStatsSnapshot = JSON.parse(ev.data);
+				handlers.onSnapshot?.(snapshot);
+			}),
+		handlers.onStatusChange
+	);
 
-	handlers.onStatusChange?.('connecting');
-
-	socket.addEventListener('open', () => handlers.onStatusChange?.('open'));
-	socket.addEventListener('message', (ev) => {
-		const snapshot: HostStatsSnapshot = JSON.parse(ev.data);
-		handlers.onSnapshot?.(snapshot);
-	});
-	socket.addEventListener('close', () => handlers.onStatusChange?.('closed'));
-	socket.addEventListener('error', () => handlers.onStatusChange?.('error'));
-
-	return {
-		close() {
-			socket.close();
-		}
-	};
+	return { close: conn.close };
 }
 
 /** Mirrors `Model/HostStatsHistoryPoint.cs` - one sample in the Resource trends chart. */
