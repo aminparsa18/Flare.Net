@@ -116,7 +116,7 @@
 						<Table.Cell class="text-right tabular-nums">{group.affectedServices.length}</Table.Cell>
 						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(group.firstSeen)}</Table.Cell>
 						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(group.lastSeen)}</Table.Cell>
-						<Table.Cell><ErrorIssueStatus issue={errors.issueFor(group)} /></Table.Cell>
+						<Table.Cell><ErrorIssueStatus issue={errors.issueFor(group)} owner={errors.ownerOf(group)} /></Table.Cell>
 						{#if auth.canMutate}<Table.Cell class="text-right"><ErrorIssueActions {group} /></Table.Cell>{/if}
 					</Table.Row>
 				{/each}
