@@ -210,6 +210,26 @@ public class OfflineQueueTests
     }
 
     [Fact]
+    public async Task StartTrimming_enforces_the_cap_while_the_app_runs()
+    {
+        var dir = NewDir();
+        try
+        {
+            var now = DateTime.UtcNow;
+            var old = Write(dir, "a", 100, now.AddHours(-2));
+            using var timer = OfflineQueue.StartTrimming(dir, maxBytes: 150, TimeSpan.FromDays(2), TimeSpan.FromMilliseconds(50));
+            // A batch the exporter writes after startup pushes the queue over the cap.
+            var fresh = Write(dir, "b", 100, now.AddHours(-1));
+
+            for (var i = 0; i < 100 && File.Exists(old); i++) await Task.Delay(50);
+
+            Assert.False(File.Exists(old));
+            Assert.True(File.Exists(fresh));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
     public void Prune_ignores_a_missing_directory() =>
         OfflineQueue.Prune(Path.Combine(Path.GetTempPath(), "flare-q-missing-" + Guid.NewGuid().ToString("N")), 1, TimeSpan.FromDays(1), DateTime.UtcNow);
 
@@ -218,6 +238,13 @@ public class OfflineQueueTests
         Assert.Throws<InvalidOperationException>(() => new FlareMauiOptions
         {
             Endpoint = new Uri("http://h:4318"), ServiceName = "a", OfflineQueueMaxAge = TimeSpan.Zero
+        }.Validate());
+
+    [Fact]
+    public void Options_reject_a_non_positive_trim_interval() =>
+        Assert.Throws<InvalidOperationException>(() => new FlareMauiOptions
+        {
+            Endpoint = new Uri("http://h:4318"), ServiceName = "a", OfflineQueueTrimInterval = TimeSpan.Zero
         }.Validate());
 }
 

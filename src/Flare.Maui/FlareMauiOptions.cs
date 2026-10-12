@@ -94,11 +94,14 @@ public sealed class FlareMauiOptions
     /// </summary>
     public Func<LogRecord, bool>? BeforeSendLog { get; set; }
 
-    /// <summary>Delete queued export files older than this at startup. The exporter's own retention is not configurable.</summary>
+    /// <summary>Delete queued export files older than this, at startup and then every <see cref="OfflineQueueTrimInterval"/>. The exporter's own retention is not configurable.</summary>
     public TimeSpan OfflineQueueMaxAge { get; set; } = TimeSpan.FromDays(2);
 
-    /// <summary>Delete the oldest queued export files at startup until the queue is under this size, in bytes.</summary>
+    /// <summary>Delete the oldest queued export files, at startup and then every <see cref="OfflineQueueTrimInterval"/>, until the queue is under this size, in bytes.</summary>
     public long OfflineQueueMaxBytes { get; set; } = 25L * 1024 * 1024;
+
+    /// <summary>How often the running app re-applies <see cref="OfflineQueueMaxAge"/> and <see cref="OfflineQueueMaxBytes"/>. Between runs the queue can briefly exceed the size.</summary>
+    public TimeSpan OfflineQueueTrimInterval { get; set; } = TimeSpan.FromMinutes(1);
 
     /// <summary>Trace <c>HttpClient</c> calls and propagate <c>traceparent</c>.</summary>
     public bool InstrumentHttpClient { get; set; } = true;
@@ -172,8 +175,8 @@ public sealed class FlareMauiOptions
             throw new InvalidOperationException("UseFlare: MaxReplayScreenshots must be at least 1.");
         if ((CaptureScreenshotOnError || ScreenshotInterval is not null) && ScreenshotMaxBytes is < 10_000 or > 512 * 1024)
             throw new InvalidOperationException("UseFlare: ScreenshotMaxBytes must be between 10 KB and 512 KB.");
-        if (EnableOfflineQueue && (OfflineQueueMaxAge <= TimeSpan.Zero || OfflineQueueMaxBytes < 0))
-            throw new InvalidOperationException("UseFlare: OfflineQueueMaxAge must be positive and OfflineQueueMaxBytes not negative.");
+        if (EnableOfflineQueue && (OfflineQueueMaxAge <= TimeSpan.Zero || OfflineQueueMaxBytes < 0 || OfflineQueueTrimInterval <= TimeSpan.Zero))
+            throw new InvalidOperationException("UseFlare: OfflineQueueMaxAge and OfflineQueueTrimInterval must be positive and OfflineQueueMaxBytes not negative.");
         if (string.IsNullOrWhiteSpace(ServiceName))
             throw new InvalidOperationException("UseFlare: ServiceName is required.");
     }

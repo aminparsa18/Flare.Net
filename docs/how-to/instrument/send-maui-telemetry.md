@@ -194,8 +194,8 @@ runs over resource attributes (`service.name` is never removed). `BeforeSendLog`
 scrubbing and returns `false` to drop it.
 
 Failed exports are retried from disk. At startup Flare deletes queued files older than `OfflineQueueMaxAge`
-(2 days) and then the oldest ones until the queue fits `OfflineQueueMaxBytes` (25 MB). It is a startup trim, so the
-queue can exceed the size while the app runs.
+(2 days) and then the oldest ones until the queue fits `OfflineQueueMaxBytes` (25 MB). It repeats every
+`OfflineQueueTrimInterval` (1 minute) while the app runs, so the queue can exceed the size only briefly between trims.
 
 ## Check release health
 

@@ -199,7 +199,7 @@ après nettoyage et renvoie `false` pour l'abandonner.
 
 Les exports échoués sont rejoués depuis le disque. Au démarrage, Flare supprime les fichiers en attente plus
 vieux que `OfflineQueueMaxAge` (2 jours), puis les plus anciens jusqu'à passer sous `OfflineQueueMaxBytes` (25 Mo).
-C'est un nettoyage au démarrage : la file peut dépasser cette taille pendant l'exécution.
+Ce nettoyage est répété toutes les `OfflineQueueTrimInterval` (1 minute) pendant l'exécution : la file ne peut dépasser cette taille que brièvement entre deux nettoyages.
 
 ## Vérifier la santé d'une version
 

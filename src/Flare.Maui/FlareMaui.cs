@@ -25,6 +25,7 @@ public static class FlareMaui
     private static BaseProcessor<LogRecord>? _logProcessor;
     private static volatile bool _breadcrumbs;
     private static AppHangWatchdog? _hangs;
+    private static Timer? _queueTrim;
     private static HttpClient? _screenshotHttp;
     private static ReplayScheduler? _replay;
     private static RunTracker? _runs;
@@ -164,6 +165,7 @@ public static class FlareMaui
         {
             OfflineQueue.Prune(queueDirectory, options.OfflineQueueMaxBytes, options.OfflineQueueMaxAge, DateTime.UtcNow);
             EnableDiskRetry(queueDirectory);
+            _queueTrim = OfflineQueue.StartTrimming(queueDirectory, options.OfflineQueueMaxBytes, options.OfflineQueueMaxAge, options.OfflineQueueTrimInterval);
         }
 
         var resource = BuildResource(options, device);
@@ -323,6 +325,8 @@ public static class FlareMaui
         _feedbackHttp = null;
         _hangs?.Dispose();
         _hangs = null;
+        _queueTrim?.Dispose();
+        _queueTrim = null;
         _options = null;
         _reporter?.Detach();
         _reporter = null;
