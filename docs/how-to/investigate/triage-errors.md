@@ -13,6 +13,18 @@ Open the **⋯** menu at the end of a row:
 
 Changing status needs the Member or Admin role. Viewers see the status but not the menu.
 
+## Link an issue
+
+Open the **⋯** menu and choose **Link issue…** to paste the URL of the issue that tracks the group (GitHub, GitLab, Jira or anything with an http(s) address). The status cell then shows a link such as "Issue #42"; **Remove issue link** clears it.
+
+If the group's service has a GitHub repository configured for [stack-trace source links](link-exceptions-to-source-code.md), the menu also offers **New GitHub issue**. It opens GitHub's new-issue page with the title and a short description (exception, services, counts and a link back to Flare) already filled in. Flare doesn't call GitHub itself, so you file the issue as yourself and then paste its URL into **Link issue…**.
+
+## Assign owners automatically
+
+Click **Ownership rules** in the toolbar to map errors to people. Each rule matches either a **service** name or an **exception type** with a case-insensitive pattern where `*` stands for any text, for example `payments-*` or `*Timeout*`, and names the owner's username. Rules are checked top to bottom and the first match owns the group, shown as "Owner alice (rule)". Use the arrows to reorder them.
+
+A person set with **Assign to me** always wins over a rule. Rules are not applied retroactively as stored assignments: change a rule and the owner shown changes with it.
+
 ## Regressions
 
 A resolved group that occurs again in a `service.version` it had not been seen in is shown as **Regressed**, with the version. An occurrence in a version the group was already seen in does not count: the fix has probably not reached that instance yet. If your services don't report `service.version`, any new occurrence of a resolved group counts as a regression.

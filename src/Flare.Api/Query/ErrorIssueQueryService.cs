@@ -28,7 +28,7 @@ public interface IErrorIssueQueryService
 public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IErrorIssueQueryService
 {
     private const string IssueColumns =
-        "Id, ExceptionType, ExceptionMessage, Status, Assignee, StatusChangedAt, StatusChangedBy, IgnoreUntil, IgnoreUntilOccurrences, KnownVersions, CreatedAt, UpdatedAt";
+        "Id, ExceptionType, ExceptionMessage, Status, Assignee, StatusChangedAt, StatusChangedBy, IgnoreUntil, IgnoreUntilOccurrences, KnownVersions, CreatedAt, UpdatedAt, IssueUrl";
 
     public async Task<IReadOnlyList<ErrorIssue>> ListAsync(CancellationToken cancellationToken)
     {
@@ -56,6 +56,7 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
 
         var status = request.Status ?? existing?.Status ?? ErrorIssueStatus.Open;
         var assignee = request.Assignee is null ? existing?.Assignee ?? "" : request.Assignee.Trim();
+        var issueUrl = request.IssueUrl is null ? existing?.IssueUrl ?? "" : request.IssueUrl.Trim();
         var statusChanged = existing is null ? status != ErrorIssueStatus.Open : request.Status is { } s && s != existing.Status;
         // Re-applying Ignored/Resolved restarts the clock too (new ignore limits, new resolve baseline).
         statusChanged |= request.Status is ErrorIssueStatus.Ignored or ErrorIssueStatus.Resolved;
@@ -67,6 +68,7 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
             ExceptionMessage = request.ExceptionMessage,
             Status = status,
             Assignee = assignee,
+            IssueUrl = issueUrl,
             StatusChangedAt = statusChanged || existing is null ? now : existing.StatusChangedAt,
             StatusChangedBy = statusChanged || existing is null ? changedBy : existing.StatusChangedBy,
             IgnoreUntil = status == ErrorIssueStatus.Ignored ? (statusChanged ? request.IgnoreUntil : existing?.IgnoreUntil) : null,
@@ -78,7 +80,7 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
             UpdatedAt = now,
         };
 
-        var cleared = status == ErrorIssueStatus.Open && assignee.Length == 0;
+        var cleared = status == ErrorIssueStatus.Open && assignee.Length == 0 && issueUrl.Length == 0;
         if (cleared && existing is null)
         {
             return null;
@@ -168,12 +170,13 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
         parameters.AddParameter("knownVersions", issue.KnownVersions.ToArray());
         parameters.AddParameter("createdAt", issue.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", issue.UpdatedAt.UtcDateTime);
+        parameters.AddParameter("issueUrl", issue.IssueUrl);
 
         const string sql = """
             INSERT INTO error_issues
-                (Id, ExceptionType, ExceptionMessage, IsDeleted, Status, Assignee, StatusChangedAt, StatusChangedBy, IgnoreUntil, IgnoreUntilOccurrences, KnownVersions, CreatedAt, UpdatedAt)
+                (Id, ExceptionType, ExceptionMessage, IsDeleted, Status, Assignee, StatusChangedAt, StatusChangedBy, IgnoreUntil, IgnoreUntilOccurrences, KnownVersions, CreatedAt, UpdatedAt, IssueUrl)
             VALUES
-                ({id:String}, {exceptionType:String}, {exceptionMessage:String}, {isDeleted:UInt8}, {status:String}, {assignee:String}, {statusChangedAt:DateTime64(3)}, {statusChangedBy:String}, {ignoreUntil:Nullable(DateTime64(3))}, {ignoreUntilOccurrences:Nullable(UInt32)}, {knownVersions:Array(String)}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:String}, {exceptionType:String}, {exceptionMessage:String}, {isDeleted:UInt8}, {status:String}, {assignee:String}, {statusChangedAt:DateTime64(3)}, {statusChangedBy:String}, {ignoreUntil:Nullable(DateTime64(3))}, {ignoreUntilOccurrences:Nullable(UInt32)}, {knownVersions:Array(String)}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {issueUrl:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -193,6 +196,7 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
         KnownVersions = reader.GetFieldValue<string[]>(9),
         CreatedAt = ReadUtc(reader, 10),
         UpdatedAt = ReadUtc(reader, 11),
+        IssueUrl = reader.GetString(12),
     };
 
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>

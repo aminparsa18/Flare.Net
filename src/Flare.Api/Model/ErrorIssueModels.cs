@@ -52,6 +52,9 @@ public sealed partial record ErrorIssue
 
     public string StatusChangedBy { get; init; } = "";
 
+    /// <summary>The external tracker issue (GitHub, GitLab, ...) this group is linked to; empty = none.</summary>
+    public string IssueUrl { get; init; } = "";
+
     /// <summary>Ignored only: the ignore lapses at this instant. Null = no time limit.</summary>
     public DateTimeOffset? IgnoreUntil { get; init; }
 
@@ -88,6 +91,7 @@ public sealed partial record ErrorIssueListResponse
 public sealed partial record ErrorIssueRequest
 {
     public const int MaxAssigneeLength = 200;
+    public const int MaxIssueUrlLength = 2048;
     public const int MaxIgnoreOccurrences = 1_000_000;
 
     public required string ExceptionType { get; init; }
@@ -106,6 +110,9 @@ public sealed partial record ErrorIssueRequest
     /// <summary>Username to assign to; "" clears the assignment; null keeps the current one.</summary>
     public string? Assignee { get; init; }
 
+    /// <summary>URL of the tracker issue to link; "" removes the link; null keeps the current one. Must be an absolute http(s) URL.</summary>
+    public string? IssueUrl { get; init; }
+
     /// <summary>Returns an error message, or null when this request is valid.</summary>
     public string? Validate(DateTimeOffset now)
     {
@@ -122,6 +129,14 @@ public sealed partial record ErrorIssueRequest
         if ((Assignee?.Length ?? 0) > MaxAssigneeLength)
         {
             return $"assignee must be at most {MaxAssigneeLength} characters.";
+        }
+
+        if (!string.IsNullOrEmpty(IssueUrl)
+            && (IssueUrl.Length > MaxIssueUrlLength
+                || !Uri.TryCreate(IssueUrl.Trim(), UriKind.Absolute, out var issueUri)
+                || issueUri.Scheme is not ("http" or "https")))
+        {
+            return $"issueUrl must be an absolute http(s) URL of at most {MaxIssueUrlLength} characters.";
         }
 
         if (IgnoreUntil is not null || IgnoreUntilOccurrences is not null)

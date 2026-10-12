@@ -96,11 +96,44 @@ folders are where "what happened and why" actually lives.
     this needs a different mechanism than a processor.
   - Other client SDKs on the same server pieces (sessions, release health, scoped keys): Android native, iOS native,
     React Native and Flutter, each thin over OTLP.
-  - Issue workflow: assignment, ownership rules from code owners, and links to Jira/GitHub issues from an error group.
+  - Issue workflow follow-ups (ADR-0195): ownership rules from CODEOWNERS paths (the groups list carries no stack
+    frames to match), showing the owner in alert messages, a "my errors" filter, and prefilled new-issue links and
+    issue creation for Jira and GitLab.
   - Alert integrations beyond webhook/Slack/Telegram/email/PagerDuty: Teams, Opsgenie, Discord, and a Jira ticket on
     first occurrence.
-  - Hosted-service parity items a self-hoster still expects: SSO group mapping, audit export, data-residency docs, and
+  - Hosted-service parity items a self-hoster still expects: SSO group mapping and
     an upgrade guide with tested rollback.
+- **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
+  redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
+  - **Data-subject erasure and export (GDPR Art. 15/17).** Telemetry can only leave through TTL; there is no delete or
+    export by predicate. Add an admin endpoint, CLI command and page that deletes (`ALTER ... DELETE`, single + cluster)
+    or exports every log, span, metric, exception and session row matching a `user.id`, email or IP, with a dry-run
+    count, a confirmation step, mutation-progress tracking (mutations are async, see `src/Flare.Api/README.md`) and an
+    audit-log entry. Needs an ADR; sits next to [ADR-0143](../adr/0143-retention-ttl.md).
+  - **Managed PII detection at ingest.** Redaction today means hand-written regex pipeline rules. Ship a built-in rule
+    set (emails, Luhn-checked card numbers, IBANs, JWTs, bearer tokens, private keys) reusing the patterns in
+    `AiRedactor`, one toggle, previewable with the [ADR-0034](../adr/0034-pipeline-rules-preview.md) simulator. A
+    report-only scan that lists attributes that look like PII, without changing data, is a smaller first step.
+  - **Security response headers.** No HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors` or CSP is set
+    by Flare.Api or the dashboard's Node server. Add them with a configurable CSP and document the reverse-proxy
+    interaction.
+  - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
+    recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
+  - **Webhook SSRF guard.** Alert webhooks, status-page subscriptions and forwarding targets post to user-supplied URLs
+    with no private-range check (`WebhookPost`). Add an opt-out block on loopback, link-local (`169.254.169.254`) and
+    RFC1918 targets, with an allowlist, enforced at connect time so redirects and DNS rebinding can't bypass it.
+  - **Audit export, streaming and read auditing.** CSV/JSON export, optional forwarding to a syslog/webhook sink, and
+    hash-chaining so tampering is detectable ([ADR-0079](../adr/0079-audit-log.md) covers config changes only). An
+    opt-in record of who queried telemetry is the other half compliance reviewers ask for.
+  - **Encrypt stored channel secrets.** Webhook URLs, bot tokens and routing keys come back masked, but nothing in
+    `src/Flare.Api` calls Data Protection on them, so they look plaintext at rest. Verify first; if so, wrap them with
+    `IDataProtector` (the key ring is already shared via Redis) and add key rotation, otherwise document it.
+  - **Session and credential hygiene.** Sessions have an absolute 14-day lifetime and no idle timeout. Add an idle
+    timeout, "sign out everywhere" per user, a configurable password policy (only `MinPasswordLength = 8` in
+    `AdminProvisioner` today), and expiry/rotation warnings for ingest keys and personal access tokens.
+  - **Data-residency, DPA and sub-processor docs** (replaces the data-residency mention in the hosted-parity line above):
+    a `docs/explanation` page on where each store lives, what can leave the box (AI providers, notification channels,
+    update check), and a no-phone-home statement.
 - **Map-aware text index for attribute filters, once ClickHouse 26.9+ is pinned.** The `keyValuePairs` text index serves
   `attr['k'] = 'v'` only and 4 to 7x speeds up broad equality filters, at about 15x the bloom filters' size and with the
   bloom filters still needed for `mapContains`/`IN`/regex; it does not exist on the pinned 26.8 LTS. Re-benchmark on a real

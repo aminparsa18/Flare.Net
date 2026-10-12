@@ -12,6 +12,10 @@ import {
 	type ExceptionGroup,
 	type ExceptionOccurrencesResponse
 } from '$lib/errors-api';
+import { listOwnershipRules, replaceOwnershipRules } from '$lib/error-ownership-api';
+import { listSourceLinks } from '$lib/source-links-api';
+import { ownerFromRules, type OwnershipRule } from '$lib/errors/ownership';
+import type { SourceLinkConfig } from '$lib/errors/source-links';
 import { issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '$lib/error-issues-api';
 import type { ResourceAttributeFilter } from '$lib/services-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
@@ -64,6 +68,12 @@ export class ErrorsExplorerState {
 	statusFilter = $state<ErrorsStatusFilter>('active');
 	/** Last failed triage write (e.g. a Viewer's 403), shown above the table. */
 	issueError = $state<string | null>(null);
+
+	/** Ownership rules (ADR-0195) in match order; best-effort like `issues`. */
+	ownershipRules = $state.raw<OwnershipRule[]>([]);
+
+	/** Per-service source repos (ADR-0095), read to offer "new GitHub issue" for a group; best-effort. */
+	sourceLinks = $state.raw<SourceLinkConfig[]>([]);
 
 	/** The window `groups` was fetched over - pinned per search (a relative preset's "now" moves on), so a row's new-tab link (`groupHref`) reopens exactly what the table shows. */
 	searchedRange = $state.raw<ResolvedTimeRange | null>(null);
@@ -125,11 +135,15 @@ export class ErrorsExplorerState {
 			const range = this.currentRange();
 			// Triage state is best-effort: a failed read leaves every group looking Open
 			// rather than failing the whole page.
-			const [res, issues] = await Promise.all([
+			const [res, issues, rules, links] = await Promise.all([
 				getExceptionGroups({ filter: this.buildFilter(range), topN }, abort.signal),
-				listErrorIssues(abort.signal).catch(() => null)
+				listErrorIssues(abort.signal).catch(() => null),
+				listOwnershipRules(abort.signal).catch(() => null),
+				listSourceLinks(abort.signal).catch(() => null)
 			]);
 			if (abort.signal.aborted) return;
+			if (rules) this.ownershipRules = rules;
+			if (links) this.sourceLinks = links;
 			if (issues) this.issues = new Map(issues.map((i) => [issueKey(i.exceptionType, i.exceptionMessage), i]));
 			this.groups = res.groups;
 			this.searchedRange = range;
@@ -192,6 +206,19 @@ export class ErrorsExplorerState {
 	/** The group's triage state, or null while nobody has triaged it (reads as Open). */
 	issueFor(group: ExceptionGroup): ErrorIssue | null {
 		return this.issues.get(issueKey(group.exceptionType, group.exceptionMessage)) ?? null;
+	}
+
+	/** Who the group belongs to: its explicit assignee, else the first matching ownership rule. */
+	ownerOf(group: ExceptionGroup): { user: string; viaRule: boolean } | null {
+		const assignee = this.issueFor(group)?.assignee;
+		if (assignee) return { user: assignee, viaRule: false };
+		const rule = ownerFromRules(this.ownershipRules, group.exceptionType, group.affectedServices);
+		return rule ? { user: rule.owner, viaRule: true } : null;
+	}
+
+	/** Saves the whole rule list and adopts the server's copy. Throws on failure so the editor can show it. */
+	async saveOwnershipRules(rules: OwnershipRule[]): Promise<void> {
+		this.ownershipRules = await replaceOwnershipRules(rules);
 	}
 
 	statusOf(group: ExceptionGroup): ErrorIssueStatus {

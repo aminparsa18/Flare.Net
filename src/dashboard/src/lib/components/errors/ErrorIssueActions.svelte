@@ -7,6 +7,8 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import { authContext } from '$lib/auth/context';
+	import LinkIssueDialog from './LinkIssueDialog.svelte';
+	import { buildGitHubIssueUrl } from '$lib/errors/issue-links';
 	import type { ExceptionGroup } from '$lib/errors-api';
 	import * as m from '$lib/paraglide/messages';
 
@@ -19,6 +21,25 @@
 	const assignee = $derived(errors.issueFor(group)?.assignee ?? '');
 	// With auth off there is no current user to assign to.
 	const me = $derived(auth.currentUser?.username ?? '');
+
+	const issueUrl = $derived(errors.issueFor(group)?.issueUrl ?? '');
+	let linkOpen = $state(false);
+
+	// The prefilled new-issue page of the first affected service whose source repo is on GitHub (ADR-0195).
+	const newGitHubIssueUrl = $derived(
+		buildGitHubIssueUrl(
+			{
+				exceptionType: group.exceptionType,
+				exceptionMessage: group.exceptionMessage,
+				services: group.affectedServices,
+				occurrenceCount: Number(group.occurrenceCount),
+				firstSeen: group.firstSeen,
+				lastSeen: group.lastSeen,
+				flareUrl: new URL(errors.groupHref(group) ?? '/errors', window.location.origin).toString()
+			},
+			errors.sourceLinks
+		)
+	);
 
 	const DAY_MS = 24 * 60 * 60 * 1000;
 	const ignoreUntil = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
@@ -45,6 +66,14 @@
 		<DropdownMenu.Item onclick={() => errors.updateIssue(group, { status: 'Ignored', ignoreUntil: ignoreUntil(1) })}>{m.errorIssue_ignore24h()}</DropdownMenu.Item>
 		<DropdownMenu.Item onclick={() => errors.updateIssue(group, { status: 'Ignored', ignoreUntil: ignoreUntil(7) })}>{m.errorIssue_ignore7d()}</DropdownMenu.Item>
 		<DropdownMenu.Item onclick={() => errors.updateIssue(group, { status: 'Ignored', ignoreUntilOccurrences: 100 })}>{m.errorIssue_ignore100()}</DropdownMenu.Item>
+		<DropdownMenu.Separator />
+		{#if newGitHubIssueUrl}
+			<DropdownMenu.Item onclick={() => window.open(newGitHubIssueUrl, '_blank', 'noopener,noreferrer')}>{m.errorIssue_newGitHubIssue()}</DropdownMenu.Item>
+		{/if}
+		<DropdownMenu.Item onclick={() => (linkOpen = true)}>{issueUrl ? m.errorIssue_changeLink() : m.errorIssue_linkIssue()}</DropdownMenu.Item>
+		{#if issueUrl}
+			<DropdownMenu.Item onclick={() => errors.updateIssue(group, { issueUrl: '' })}>{m.errorIssue_removeLink()}</DropdownMenu.Item>
+		{/if}
 		{#if me || assignee}
 			<DropdownMenu.Separator />
 			{#if me && assignee !== me}
@@ -56,3 +85,5 @@
 		{/if}
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
+
+<LinkIssueDialog bind:open={linkOpen} current={issueUrl} onSave={(url) => errors.updateIssue(group, { issueUrl: url })} />

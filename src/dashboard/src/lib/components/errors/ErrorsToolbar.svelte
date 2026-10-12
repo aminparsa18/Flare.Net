@@ -7,12 +7,17 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import XIcon from '@lucide/svelte/icons/x';
+	import UsersIcon from '@lucide/svelte/icons/users';
+	import OwnershipRulesDialog from './OwnershipRulesDialog.svelte';
+	import { authContext } from '$lib/auth/context';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import type { ErrorsStatusFilter } from '$lib/errors/state.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const errors = errorsExplorerContext.get();
+	const auth = authContext.get();
+	let ownershipOpen = $state(false);
 
 	// No live-tail / custom-range calendar here - same "only fixed-duration presets make
 	// sense" call TracesToolbar's own remarks document for itself; an exceptions rollup is
@@ -99,7 +104,14 @@
 		{m.errorsToolbar_clearFilters()}
 	</Button>
 
-	<Button variant="outline" size="sm" class="ml-auto" onclick={() => errors.runSearch()} disabled={errors.loading}>
+	{#if auth.canMutate}
+		<Button variant="outline" size="sm" class="ml-auto" onclick={() => (ownershipOpen = true)}>
+			<UsersIcon data-icon="inline-start" />
+			{m.errorOwnership_open()}
+		</Button>
+	{/if}
+
+	<Button variant="outline" size="sm" class={auth.canMutate ? '' : 'ml-auto'} onclick={() => errors.runSearch()} disabled={errors.loading}>
 		{#if errors.loading}
 			<Spinner class="size-4" data-icon="inline-start" />
 		{:else}
@@ -108,3 +120,5 @@
 		{m.errorsToolbar_refresh()}
 	</Button>
 </div>
+
+<OwnershipRulesDialog bind:open={ownershipOpen} />
