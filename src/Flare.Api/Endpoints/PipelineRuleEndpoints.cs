@@ -178,6 +178,9 @@ public static class PipelineRuleEndpoints
         return ApiSerialization.Write(http, new PiiScanResult { SampledCount = sample.Events.Count, Findings = findings }, PipelineRulesJsonContext.Default.PiiScanResult);
     }
 
+    /// <summary>Examples are masked with every detector, not just the matching one, so a body holding an email and a card never leaks the other.</summary>
+    private static string Truncate(string text) => text.Length > 200 ? text[..200] : text;
+
     private static void Scan(string field, string value, PiiDetectors selected, Dictionary<(string, PiiDetectors), (int Count, string Example)> found)
     {
         foreach (var detector in Enum.GetValues<PiiDetectors>())
@@ -195,7 +198,7 @@ public static class PipelineRuleEndpoints
 
             found[(field, detector)] = found.TryGetValue((field, detector), out var existing)
                 ? (existing.Count + 1, existing.Example)
-                : (1, masked.Length > 200 ? masked[..200] : masked);
+                : (1, Truncate(PiiRedactor.Redact(value, PiiDetectors.All)));
         }
     }
 
