@@ -14,6 +14,9 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as m from '$lib/paraglide/messages';
 	import { formatAxisTime, formatChartTime } from '$lib/time/format';
+	import { fractionInRange, loadReleases, placeMarkers } from '$lib/releases/markers';
+	import type { Release } from '$lib/releases-api';
+	import ReleaseMarkers from '$lib/components/releases/ReleaseMarkers.svelte';
 
 	const explorer = logsExplorerContext.get();
 
@@ -32,9 +35,12 @@
 	// key convention as `Segment.key` below.
 	let {
 		allowZoom = true,
+		releaseMarkers = false,
 		onBucketClick
 	}: {
 		allowZoom?: boolean;
+		/** Draw deploy markers (ADR-0182) for the filtered services. */
+		releaseMarkers?: boolean;
 		onBucketClick?: (range: { from: Date; to: Date }, groupKey: string | null | undefined) => void;
 	} = $props();
 
@@ -157,6 +163,22 @@
 	// bucket's bucketStart into a [from, to) window, since LogAggregateBucket carries no
 	// bucketEnd of its own.
 	let bucketWidthSeconds = $state(1);
+
+	let releases = $state<Release[]>([]);
+	$effect(() => {
+		if (!releaseMarkers) return;
+		const controller = new AbortController();
+		void loadReleases(explorer.filter.services, controller.signal).then((list) => {
+			if (!controller.signal.aborted) releases = list;
+		});
+		return () => controller.abort();
+	});
+	const markers = $derived.by(() => {
+		if (!releaseMarkers || !rangeFrom || !rangeTo) return [];
+		const from = new Date(rangeFrom).getTime();
+		const to = new Date(rangeTo).getTime();
+		return placeMarkers(releases, (t) => fractionInRange(t, from, to));
+	});
 
 	function currentRange(): { from: string; to: string } {
 		if (explorer.live) {
@@ -747,6 +769,9 @@
 												vector-effect="non-scaling-stroke"
 											/>
 										{/if}
+
+										<!-- Deploy markers go over the bars (unlike the metrics chart's lines): a full-height bar would hide them. -->
+										<ReleaseMarkers {markers} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
 
 										{#if isDragging && !explorer.live && allowZoom}
 											<!-- Drag-to-zoom selection overlay - width tracks the pointer live, released ->

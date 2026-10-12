@@ -1,7 +1,7 @@
 # Flare Helm chart
 
 Official chart for running Flare on Kubernetes. Full guide:
-[docs/how-to/deploy-with-helm.md](../../../docs/how-to/deploy-with-helm.md).
+[docs/how-to/deploy/deploy-with-helm.md](../../../docs/how-to/deploy/deploy-with-helm.md).
 
 ```bash
 helm install flare ./deploy/helm/flare -n flare --create-namespace

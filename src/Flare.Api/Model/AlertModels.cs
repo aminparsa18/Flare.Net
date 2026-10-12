@@ -54,6 +54,15 @@ public enum AlertSeverity
 /// <see cref="SloBurnRate"/> evaluates <see cref="AlertRule.SloCondition"/>: the multi-window
 /// error-budget burn rate of an <see cref="Slo"/> - see
 /// <c>docs-internal/adr/0108-slo-error-budgets.md</c>.
+/// <see cref="ReleaseErrors"/> counts the exception groups a release introduced
+/// (see <c>ReleaseQueryService</c>) over <see cref="AlertRule.Threshold"/>'s <see cref="AlertThreshold.Count"/>;
+/// it reads <see cref="AlertRule.ExceptionCondition"/> for its service scope only (its exception
+/// type and message are ignored) - see <c>docs-internal/adr/0186-release-error-alerting.md</c>.
+/// <see cref="CrashFreeRate"/> compares the lowest per-version crash-free session percentage in the window with
+/// <see cref="AlertRule.MetricThresholdValue"/> (typically with <see cref="ThresholdComparator.LessThan"/>), over
+/// versions with at least <see cref="AlertRule.MinDataPoints"/> sessions; like <see cref="ReleaseErrors"/> it reads
+/// <see cref="AlertRule.ExceptionCondition"/> for its service scope only - see
+/// <c>docs-internal/adr/0189-release-health-trends.md</c>.
 /// </remarks>
 public enum AlertConditionKind
 {
@@ -62,6 +71,8 @@ public enum AlertConditionKind
     ExceptionCount,
     Anomaly,
     SloBurnRate,
+    ReleaseErrors,
+    CrashFreeRate,
 }
 
 /// <summary>The seasonal period an <see cref="AnomalyCondition"/>'s baseline windows are shifted back by.</summary>
@@ -556,6 +567,14 @@ public sealed partial record AlertRule
 
     /// <summary>Where the second escalation step goes. Ignored while <see cref="SecondEscalateAfterMinutes"/> is 0. Appended after <see cref="SecondEscalateAfterMinutes"/>.</summary>
     public IReadOnlyList<Guid> SecondEscalationChannelIds { get; init; } = [];
+
+    /// <summary>
+    /// A shared <see cref="AlertTemplate"/> (ADR-0148) whose wording this rule uses; null (the
+    /// default) picks none, so the instance default template, if any, applies. This rule's own
+    /// <see cref="NotificationTitleTemplate"/>/<see cref="NotificationBodyTemplate"/> still win
+    /// per field. Appended after <see cref="SecondEscalationChannelIds"/>.
+    /// </summary>
+    public Guid? NotificationTemplateId { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -684,6 +703,9 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.SecondEscalationChannelIds"/>'s doc comment. Omitted/null means none. Appended after <see cref="SecondEscalateAfterMinutes"/>.</summary>
     public IReadOnlyList<Guid>? SecondEscalationChannelIds { get; init; }
 
+    /// <summary>See <see cref="AlertRule.NotificationTemplateId"/>'s doc comment. Omitted/null means none. Appended after <see cref="SecondEscalationChannelIds"/>.</summary>
+    public Guid? NotificationTemplateId { get; init; }
+
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
     /// (<see cref="WebhookUrl"/> - covers both a generic webhook consumer and Slack -
@@ -763,6 +785,9 @@ public sealed partial record AlertRuleRequest
                 "metricCondition and metricThresholdValue are required when conditionKind is MetricThreshold.",
             AlertConditionKind.ExceptionCount when ExceptionCondition is null =>
                 "exceptionCondition is required when conditionKind is ExceptionCount.",
+            AlertConditionKind.ReleaseErrors when ExceptionCondition is null =>
+                "exceptionCondition is required when conditionKind is ReleaseErrors (its filter.services scopes the releases watched; empty watches every service).",
+            AlertConditionKind.CrashFreeRate => ValidateCrashFreeRate(),
             AlertConditionKind.Anomaly => ValidateAnomaly(),
             AlertConditionKind.SloBurnRate => ValidateSloBurnRate(),
             _ => null,
@@ -774,6 +799,10 @@ public sealed partial record AlertRuleRequest
             0 => null,
             _ when seriesKind == AlertConditionKind.ExceptionCount =>
                 "noDataWindowSeconds is not supported when conditionKind is ExceptionCount - zero exceptions is the healthy state, not missing data.",
+            _ when seriesKind == AlertConditionKind.ReleaseErrors =>
+                "noDataWindowSeconds is not supported when conditionKind is ReleaseErrors - no new errors is the healthy state, not missing data.",
+            _ when seriesKind == AlertConditionKind.CrashFreeRate =>
+                "noDataWindowSeconds is not supported when conditionKind is CrashFreeRate - a quiet app has no sessions to rate, not a broken exporter.",
             _ when seriesKind == AlertConditionKind.SloBurnRate =>
                 "noDataWindowSeconds is not supported when conditionKind is SloBurnRate - a window with no requests has no burn rate, not a missing exporter.",
             < MinNoDataWindowSeconds =>
@@ -796,13 +825,25 @@ public sealed partial record AlertRuleRequest
             0 => null,
             < 0 or > MaxMinDataPoints =>
                 $"minDataPoints must be 0 (disabled) or between 1 and {MaxMinDataPoints}.",
-            _ when kind != AlertConditionKind.MetricThreshold =>
-                "minDataPoints is only supported when conditionKind is MetricThreshold - a count rule's observed count is already its sample size.",
+            _ when kind is not (AlertConditionKind.MetricThreshold or AlertConditionKind.CrashFreeRate) =>
+                "minDataPoints is only supported when conditionKind is MetricThreshold or CrashFreeRate - a count rule's observed count is already its sample size.",
             _ => null,
         };
 
         return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateRecoveryThreshold(kind) ?? ValidateEscalation() ?? ValidateThresholdUnit(kind) ?? ValidateTemplates() ?? AlertLabels.Validate(Labels, "labels");
     }
+
+    /// <summary>
+    /// <see cref="AlertConditionKind.CrashFreeRate"/> arm of <see cref="ValidateCondition"/>: an
+    /// <see cref="ExceptionCondition"/> (its <c>filter.services</c> scopes the apps rated) and a
+    /// <see cref="MetricThresholdValue"/> that is a percentage between 0 and 100.
+    /// </summary>
+    private string? ValidateCrashFreeRate() =>
+        ExceptionCondition is null
+            ? "exceptionCondition is required when conditionKind is CrashFreeRate (its filter.services scopes the apps rated; empty rates every service)."
+            : MetricThresholdValue is not { } percent || !double.IsFinite(percent) || percent is < 0 or > 100
+                ? "metricThresholdValue is required when conditionKind is CrashFreeRate and must be a crash-free percentage between 0 and 100."
+                : null;
 
     /// <summary>
     /// <see cref="AlertConditionKind.Anomaly"/> arm of <see cref="ValidateCondition"/>:
@@ -821,7 +862,7 @@ public sealed partial record AlertRuleRequest
 
         return anomaly.Source switch
         {
-            AlertConditionKind.Anomaly =>
+            AlertConditionKind.Anomaly or AlertConditionKind.ReleaseErrors or AlertConditionKind.SloBurnRate or AlertConditionKind.CrashFreeRate =>
                 "anomalyCondition.source must be LogCount, MetricThreshold or ExceptionCount.",
             AlertConditionKind.MetricThreshold when MetricCondition is null =>
                 "metricCondition is required when anomalyCondition.source is MetricThreshold.",
@@ -900,7 +941,7 @@ public sealed partial record AlertRuleRequest
             return "recoveryThreshold is not supported when conditionKind is SloBurnRate - its short window already makes it recover quickly.";
         }
 
-        var threshold = kind == AlertConditionKind.MetricThreshold ? MetricThresholdValue ?? 0 : Threshold.Count;
+        var threshold = kind is AlertConditionKind.MetricThreshold or AlertConditionKind.CrashFreeRate ? MetricThresholdValue ?? 0 : Threshold.Count;
         var lessThan = Threshold.Comparator == ThresholdComparator.LessThan;
         return lessThan && recovery < threshold
             ? $"recoveryThreshold must be at or above the threshold ({threshold}) for a LessThan rule."

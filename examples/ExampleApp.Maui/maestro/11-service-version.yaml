@@ -1,0 +1,27 @@
+# service.version override: save 2.0.0, relaunch, emit a span, then clear the override again.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "VersionEntry"
+- eraseText: 30
+- inputText: "2.0.0"
+- hideKeyboard
+- tapOn:
+    id: "SaveButton"
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "CustomButton"
+- tapOn:
+    id: "FlushButton"
+- waitForAnimationToEnd:
+    timeout: 2000
+# Restore: clear the override so later runs use the default version.
+- tapOn:
+    id: "VersionEntry"
+- eraseText: 30
+- hideKeyboard
+- tapOn:
+    id: "SaveButton"

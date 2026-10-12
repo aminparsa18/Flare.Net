@@ -123,7 +123,7 @@ Nothing is written.**
   affects the action-application logic itself (`PipelineRuleActionExecutor`
   runs the exact same regex/replace semantics `PipelineRuleExecutor` does
   at ingest time), only which rows get sampled.
-- `docs/how-to/manage-pipeline-rules.md`'s "no dry-run/preview" caveat is
+- `docs/how-to/data/manage-pipeline-rules.md`'s "no dry-run/preview" caveat is
   now stale and removed in the same change as this ADR.
 
 ## Related documentation
@@ -134,5 +134,5 @@ Nothing is written.**
   action executor.
 - `src/Flare.Api/Endpoints/PipelineRuleEndpoints.cs` - the preview
   saved/draft endpoint pair.
-- `docs/how-to/manage-pipeline-rules.md` - the user-facing how-to, updated
+- `docs/how-to/data/manage-pipeline-rules.md` - the user-facing how-to, updated
   with a "Preview a rule before saving" section.

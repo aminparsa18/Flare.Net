@@ -25,7 +25,7 @@
 
 services:
   keeper-1:
-    image: clickhouse/clickhouse-keeper:latest
+    image: clickhouse/clickhouse-keeper:26.8
     labels:
       flare.resource: "true"
       flare.role: "clickhouse-keeper"
@@ -39,7 +39,7 @@ services:
       retries: 30
 
   keeper-2:
-    image: clickhouse/clickhouse-keeper:latest
+    image: clickhouse/clickhouse-keeper:26.8
     labels:
       flare.resource: "true"
       flare.role: "clickhouse-keeper"
@@ -53,7 +53,7 @@ services:
       retries: 30
 
   keeper-3:
-    image: clickhouse/clickhouse-keeper:latest
+    image: clickhouse/clickhouse-keeper:26.8
     labels:
       flare.resource: "true"
       flare.role: "clickhouse-keeper"
@@ -75,7 +75,7 @@ services:
   # first-boot init hook independently would be redundant and timing-sensitive against
   # Keeper's own startup.
   clickhouse-1:
-    image: clickhouse/clickhouse-server:latest
+    image: clickhouse/clickhouse-server:26.8
     labels:
       flare.resource: "true"
       flare.role: "clickhouse"
@@ -97,7 +97,7 @@ services:
       retries: 30
 
   clickhouse-2:
-    image: clickhouse/clickhouse-server:latest
+    image: clickhouse/clickhouse-server:26.8
     labels:
       flare.resource: "true"
       flare.role: "clickhouse"
@@ -119,7 +119,7 @@ services:
       retries: 30
 
   clickhouse-3:
-    image: clickhouse/clickhouse-server:latest
+    image: clickhouse/clickhouse-server:26.8
     labels:
       flare.resource: "true"
       flare.role: "clickhouse"
@@ -141,7 +141,7 @@ services:
       retries: 30
 
   clickhouse-4:
-    image: clickhouse/clickhouse-server:latest
+    image: clickhouse/clickhouse-server:26.8
     labels:
       flare.resource: "true"
       flare.role: "clickhouse"

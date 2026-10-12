@@ -33,7 +33,7 @@ public static class IncidentSummaryPromptBuilder
         if (evidence.Exceptions.Count > 0)
         {
             sections.Add("Exceptions in the window (most frequent first):\n" + string.Join("\n", evidence.Exceptions.Select(e =>
-                $"- {e.Count}x {Clip(e.Type)}: {Clip(e.Message)} (service {Clip(e.Service)})")));
+                $"- {e.Count}x {Clip(e.Type)}: {Clip(e.Message)} (service {Clip(e.Service)}{(e.Owner.Length > 0 ? $", owner {Clip(e.Owner)}" : "")})")));
         }
 
         if (evidence.LogPatterns.Count > 0)
@@ -107,6 +107,15 @@ public static class IncidentSummaryPromptBuilder
             case AlertConditionKind.ExceptionCount:
                 sb.Append("\nWhat fired: ").Append(Format(e.Observed, null)).Append(" occurrences of exception ").Append(Clip(rule.ExceptionCondition?.ExceptionType ?? "?"))
                     .Append(", threshold ").Append(cmp).Append(' ').Append(rule.Threshold.Count);
+                AppendServices(sb, rule.ExceptionCondition?.Filter.Services);
+                break;
+            case AlertConditionKind.ReleaseErrors:
+                sb.Append("\nWhat fired: a recent release introduced ").Append(Format(e.Observed, null)).Append(" new error groups, threshold ").Append(cmp).Append(' ').Append(rule.Threshold.Count);
+                AppendServices(sb, rule.ExceptionCondition?.Filter.Services);
+                break;
+            case AlertConditionKind.CrashFreeRate:
+                sb.Append("\nWhat fired: the lowest per-version crash-free session rate was ").Append(Format(e.Observed, null)).Append("%, threshold ").Append(cmp).Append(' ')
+                    .Append(Format(rule.MetricThresholdValue ?? double.NaN, null)).Append('%');
                 AppendServices(sb, rule.ExceptionCondition?.Filter.Services);
                 break;
             default:

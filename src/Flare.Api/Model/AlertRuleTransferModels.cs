@@ -27,6 +27,9 @@ public sealed record AlertRuleExportItem
     /// <summary>Name of the SLO an <see cref="AlertConditionKind.SloBurnRate"/> rule watches.</summary>
     public string? SloName { get; init; }
 
+    /// <summary>Name of the shared notification template (ADR-0148) the rule references; import resolves it on the target instance.</summary>
+    public string? TemplateName { get; init; }
+
     /// <summary>
     /// True when the source rule used a legacy inline channel (webhook URL, Telegram token, ...).
     /// Its credentials are never exported, so import rejects the rule with an explanation.

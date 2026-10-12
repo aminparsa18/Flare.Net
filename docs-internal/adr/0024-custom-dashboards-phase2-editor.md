@@ -137,6 +137,6 @@ to `LayoutJson`.**
 
 - `docs-internal/adr/0023-custom-dashboards.md` - the storage/query-model
   ADR this one builds on without changing.
-- `docs/how-to/build-custom-dashboards.md` - the user-facing how-to,
+- `docs/how-to/dashboards/build-custom-dashboards.md` - the user-facing how-to,
   updated in the same PR as this ADR per this repo's documentation
   convention.

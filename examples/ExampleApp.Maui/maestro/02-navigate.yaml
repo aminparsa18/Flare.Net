@@ -1,0 +1,12 @@
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "NavigateButton"
+- assertVisible: "A second Shell route.*"
+- back
+- assertVisible:
+    id: "NavigateButton"
+- tapOn:
+    id: "FlushButton"

@@ -37,7 +37,7 @@ export function userRoleFromString(value: UserRoleName): UserRole {
 }
 
 /** Matches `IngestionModels.cs`'s `IngestionSignal` member order. */
-const INGESTION_SIGNAL_NAMES = ['Logs', 'Traces', 'Metrics'] as const;
+const INGESTION_SIGNAL_NAMES = ['Logs', 'Traces', 'Metrics', 'Profiles'] as const;
 
 export type IngestionSignalName = (typeof INGESTION_SIGNAL_NAMES)[number];
 
@@ -185,7 +185,7 @@ export function logPostProcessFunctionTypeFromString(value: LogPostProcessFuncti
 }
 
 /** Matches `AlertModels.cs`'s `AlertConditionKind` member order. Not itself MemoryPack-TS-generated - `AlertRule`/`AlertRuleRequest`, its only consumers, are hand-written (nest `LogFilter`). */
-const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold', 'ExceptionCount', 'Anomaly', 'SloBurnRate'] as const;
+const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold', 'ExceptionCount', 'Anomaly', 'SloBurnRate', 'ReleaseErrors', 'CrashFreeRate'] as const;
 
 export type AlertConditionKindName = (typeof ALERT_CONDITION_KIND_NAMES)[number];
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Ai;
 using Flare.Api.Alerting;
 using Flare.Api.Model;
 using Xunit;
@@ -62,6 +63,33 @@ public class AlertMessageFormatterTests
         var rule = MakeRule() with { NotificationBodyTemplate = "{{value}} errors:\n{{log_samples}}" };
         var message = AlertMessageFormatter.BuildMessage(rule, 3, isTest: false, publicUrl: null, metricUnit: null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null, logSamples: "line one\nline two");
         Assert.Equal("3 errors:\nline one\nline two", message.Text);
+    }
+
+    [Fact]
+    public void BuildText_appends_owner_for_a_real_fire_only()
+    {
+        Assert.Contains("\nOwner: alice, bob", AlertMessageFormatter.BuildText(MakeRule(), 12, owner: "alice, bob"));
+        Assert.DoesNotContain("Owner:", AlertMessageFormatter.BuildText(MakeRule(), 12, isTest: true, owner: "alice"));
+        Assert.DoesNotContain("Owner:", AlertMessageFormatter.BuildText(MakeRule(), 12, noData: true, owner: "alice"));
+        Assert.DoesNotContain("Owner:", AlertMessageFormatter.BuildText(MakeRule(), 12, resolved: true, owner: "alice"));
+        Assert.DoesNotContain("Owner:", AlertMessageFormatter.BuildText(MakeRule(), 12));
+    }
+
+    [Fact]
+    public void BuildMessage_renders_owner_placeholder()
+    {
+        var rule = MakeRule() with { NotificationBodyTemplate = "page {{owner}}" };
+        var message = AlertMessageFormatter.BuildMessage(rule, 3, isTest: false, publicUrl: null, metricUnit: null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null, owner: "alice");
+        Assert.Equal("page alice", message.Text);
+        Assert.Null(AlertTemplateRenderer.Validate("{{owner}}", "body", 500));
+    }
+
+    [Fact]
+    public void AlertOwners_joins_distinct_owners_in_rank_order()
+    {
+        IncidentExceptionGroup Group(string owner) => new("T", "m", 1, "svc", "", owner);
+        Assert.Equal("alice, bob", AlertOwners.Join([Group("alice"), Group(""), Group("Alice"), Group("bob")]));
+        Assert.Equal("", AlertOwners.Join([Group("")]));
     }
 
     [Fact]
@@ -639,4 +667,66 @@ public class AlertMessageFormatterTests
     [Fact]
     public void ThresholdValueOf_SloBurnRate_IsTheBurnRateThreshold() =>
         Assert.Equal(14.4, AlertMessageFormatter.ThresholdValueOf(MakeSloRule()));
+
+    private static AlertRule MakeCrashFreeRule() => MakeRule("Crash-free dropped") with
+    {
+        ConditionKind = AlertConditionKind.CrashFreeRate,
+        WindowSeconds = 3600,
+        MetricThresholdValue = 99.5,
+        Threshold = new AlertThreshold { Count = 1, Comparator = ThresholdComparator.LessThan },
+        ExceptionCondition = new ExceptionCountCondition { ExceptionType = "", Filter = new ExceptionFilter { Services = ["shop-app"] } },
+    };
+
+    [Fact]
+    public void BuildText_CrashFreeRate_ReportsThePercentageAndTheVersion()
+    {
+        var rule = MakeCrashFreeRule() with { Labels = new Dictionary<string, string> { [AlertMessageFormatter.ReleaseLabel] = "2.3.0" } };
+
+        var text = AlertMessageFormatter.BuildText(rule, 97.256);
+
+        Assert.Contains("97.26% of sessions were crash-free", text);
+        Assert.Contains("< 99.5%", text);
+        Assert.Contains("(version 2.3.0)", text);
+        Assert.Contains("in shop-app", text);
+    }
+
+    [Fact]
+    public void BuildFiredDataUrl_CrashFreeRate_LinksToTheSessionsPage()
+    {
+        Assert.Equal("https://flare.example/sessions", AlertMessageFormatter.BuildFiredDataUrl(MakeCrashFreeRule(), "https://flare.example/", DateTimeOffset.UnixEpoch));
+        Assert.Equal("Sessions", AlertMessageFormatter.FiredDataLabel(MakeCrashFreeRule()));
+    }
+
+    private static AlertRule MakeReleaseRule() => MakeRule("New errors after deploy") with
+    {
+        ConditionKind = AlertConditionKind.ReleaseErrors,
+        WindowSeconds = 3600,
+        ExceptionCondition = new ExceptionCountCondition { ExceptionType = "", Filter = new ExceptionFilter { Services = ["web"] } },
+    };
+
+    [Fact]
+    public void BuildText_ReleaseErrors_ReportsNewErrorGroupsInTheService()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeReleaseRule(), 3);
+
+        Assert.Contains("introduced 3 new error groups", text);
+        Assert.Contains("in web", text);
+        Assert.DoesNotContain("events", text);
+    }
+
+    [Fact]
+    public void BuildFiredDataUrl_ReleaseErrors_LinksToTheReleasesPage()
+    {
+        Assert.Equal("https://flare.example/releases", AlertMessageFormatter.BuildFiredDataUrl(MakeReleaseRule(), "https://flare.example/", DateTimeOffset.UnixEpoch));
+        Assert.Equal("Releases", AlertMessageFormatter.FiredDataLabel(MakeReleaseRule()));
+    }
+
+    [Fact]
+    public void BuildText_ReleaseErrors_NamesTheReleaseWhenTheWorkerSetsTheLabel()
+    {
+        var rule = MakeReleaseRule() with { Labels = new Dictionary<string, string> { [AlertMessageFormatter.ReleaseLabel] = "web 1.4.2" } };
+
+        Assert.Contains("introduced 2 new error groups", AlertMessageFormatter.BuildText(rule, 2));
+        Assert.Contains("): web 1.4.2", AlertMessageFormatter.BuildText(rule, 2));
+    }
 }

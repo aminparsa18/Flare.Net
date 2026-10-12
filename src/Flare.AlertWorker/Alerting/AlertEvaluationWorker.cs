@@ -67,6 +67,9 @@ public sealed class AlertEvaluationWorker(
     IMaintenanceWindowQueryService maintenanceWindows,
     IOnCallRotationQueryService rotations,
     ISloQueryService slos,
+    IReleaseQueryService releases,
+    IAppSessionQueryService appSessions,
+    IAlertEvidenceQueryService evidenceQueries,
     CompositeAlertNotifier notifier,
     IAlertAckLinkSigner ackLinks,
     IIncidentSummaryService incidentSummaries,
@@ -342,6 +345,50 @@ public sealed class AlertEvaluationWorker(
             observedValue = burn.LongBurnRate ?? 0;
             breached = burn.Breached;
         }
+        else if (rule.ConditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            if (rule.ExceptionCondition is null || rule.MetricThresholdValue is not { } crashFreeThreshold)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) is CrashFreeRate but has no service scope or threshold; skipping.", rule.Id, rule.Name);
+                return;
+            }
+
+            // No version with enough sessions is "insufficient data", not a breach (and not a recovery either),
+            // the same way a metric rule with too few points is skipped.
+            var tally = await CrashFreeRateEvaluator.EvaluateAsync(appSessions, rule.ExceptionCondition.Filter.Services ?? [], rule.WindowSeconds, rule.MinDataPoints, cancellationToken);
+            if (tally is null)
+            {
+                logger.LogDebug("Alert rule {RuleId} ({RuleName}) has no version with {MinSessions}+ sessions in its window; insufficient data, not evaluating.", rule.Id, rule.Name, Math.Max(rule.MinDataPoints, 1));
+                return;
+            }
+
+            observedValue = tally.Rate;
+            breached = rule.Threshold.IsBreachedValue(tally.Rate, crashFreeThreshold);
+            if (breached)
+            {
+                // Name the version in the notification, like a ReleaseErrors fire; only the in-memory rule carries it.
+                rule = rule with { Labels = new Dictionary<string, string>(rule.Labels) { [AlertMessageFormatter.ReleaseLabel] = tally.Version.Length == 0 ? "(no version)" : tally.Version } };
+            }
+        }
+        else if (rule.ConditionKind == AlertConditionKind.ReleaseErrors)
+        {
+            if (rule.ExceptionCondition is null)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) is ReleaseErrors but has no exception condition; skipping.", rule.Id, rule.Name);
+                return;
+            }
+
+            // No release in the window reads as 0 new errors: a rule watching deploys is quiet between them.
+            var tally = await ReleaseErrorsEvaluator.EvaluateAsync(releases, rule.ExceptionCondition, rule.WindowSeconds, cancellationToken);
+            observedCount = (ulong)(tally?.NewErrorCount ?? 0);
+            breached = rule.Threshold.IsBreached(observedCount);
+            if (tally is not null)
+            {
+                // Name the release in the notification (ADR-0188). Only the in-memory rule carries it; the
+                // stored one is untouched, so it never shows up as a user label.
+                rule = rule with { Labels = new Dictionary<string, string>(rule.Labels) { [AlertMessageFormatter.ReleaseLabel] = $"{tally.Release.Service} {tally.Release.Version}" } };
+            }
+        }
         else if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
         {
             if (rule.ExceptionCondition is null)
@@ -426,7 +473,8 @@ public sealed class AlertEvaluationWorker(
         }
 
         var logSamples = await TryGetLogSamplesAsync(rule, from, now, noData, cancellationToken);
-        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, logSamples: logSamples, ackUrl: ackLinks.CreateUrl(rule.Id, now));
+        var owner = await TryGetOwnerAsync(rule, from, now, noData, anomaly, cancellationToken);
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, logSamples: logSamples, ackUrl: ackLinks.CreateUrl(rule.Id, now), owner: owner);
         var firedEntry = WithNotificationOutcome(BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly), rule, ruleChannels, results, "fired");
         await alerts.InsertEventAsync(firedEntry, cancellationToken);
 
@@ -497,6 +545,30 @@ public sealed class AlertEvaluationWorker(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Could not fetch sample log lines for alert rule {RuleId} ({RuleName}); notifying without them.", rule.Id, rule.Name);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Who owns the top error groups behind an <see cref="AlertConditionKind.ExceptionCount"/> fire,
+    /// for the <c>{{owner}}</c> placeholder (ADR-0197). Best-effort like <see cref="TryGetLogSamplesAsync"/>:
+    /// the lookup is a bounded top-N query, and any failure yields null.
+    /// </summary>
+    private async Task<string?> TryGetOwnerAsync(AlertRule rule, DateTimeOffset from, DateTimeOffset now, bool noData, AnomalyScore? anomaly, CancellationToken cancellationToken)
+    {
+        if (noData || anomaly is not null || rule.ConditionKind != AlertConditionKind.ExceptionCount || rule.ExceptionCondition is not { } condition)
+        {
+            return null;
+        }
+
+        try
+        {
+            var owners = AlertOwners.Join(await evidenceQueries.GetExceptionGroupsAsync(condition, from, now, AlertOwners.GroupCount, cancellationToken));
+            return owners.Length > 0 ? owners : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not look up the owner for alert rule {RuleId} ({RuleName}); notifying without it.", rule.Id, rule.Name);
             return null;
         }
     }

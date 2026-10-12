@@ -1,0 +1,11 @@
+-- Status page subscriber component filter, migration 0077.
+--
+-- `status_subscribers.Components` (Flare.Api.Model.StatusPageModels.cs): the page components a visitor asked to
+-- hear about, as the opaque keys the public page exposes (a hash of page and component, never the monitor or SLO
+-- id). Empty (the default, and every existing row) means every component. See
+-- `docs-internal/adr/0163-status-subscriber-components.md`.
+--
+-- Existing numbered migrations are immutable once merged (see this directory's README's "Migration
+-- convention"), hence a new file. Like migrations 0002-0076, run this by hand via `clickhouse-client`
+-- against any already-running instance.
+ALTER TABLE clickhousedb.status_subscribers ADD COLUMN IF NOT EXISTS Components Array(UUID) DEFAULT [];

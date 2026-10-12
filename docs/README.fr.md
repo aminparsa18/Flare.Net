@@ -28,38 +28,81 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 
 **Tutoriels**
 - [Prise en main](tutorials/getting-started.fr.md)
+- [Tutoriel : votre première trace](tutorials/first-trace.fr.md)
+- [Tutoriel : votre première alerte](tutorials/first-alert.fr.md)
+- [Tutoriel : votre premier tableau de bord de métriques](tutorials/first-dashboard.fr.md)
+- [Tutoriel : déboguer un checkout lent de bout en bout](tutorials/debug-a-slow-request.fr.md)
+- [Tutoriel : ajouter Flare à une application .NET Aspire](tutorials/add-flare-to-an-aspire-app.fr.md)
+- [Tutoriel : surveiller une application .NET MAUI](tutorials/monitor-a-maui-app.fr.md)
 
 **Guides pratiques**
-- [Exécution autonome](how-to/run-standalone.fr.md)
-- [Exécution avec .NET Aspire](how-to/run-with-aspire.fr.md)
-- [Exécution avec le CLI](how-to/run-with-cli.fr.md)
-- [Configurer l'authentification](how-to/configure-authentication.fr.md)
-- [Exécution en mode cluster](how-to/run-cluster-mode.fr.md)
-- [Laisser un assistant IA interroger Flare](how-to/connect-ai-assistants.fr.md)
-- [Interroger Flare avec Grafana ou l'API Prometheus](how-to/query-with-prometheus-api.fr.md)
-- [Servir sous un sous-chemin](how-to/serve-under-a-sub-path.fr.md)
-- [Déployer avec Helm](how-to/deploy-with-helm.fr.md)
-- [Surveiller des hôtes avec l'OpenTelemetry Collector](how-to/monitor-hosts.fr.md)
-- [Surveiller les clusters Kubernetes (nœuds, charges de travail, pods, volumes) avec l'OpenTelemetry Collector](how-to/monitor-kubernetes.fr.md)
-- [Surveiller des files de messages](how-to/monitor-message-queues.fr.md)
-- [Surveiller les API externes](how-to/monitor-external-apis.fr.md)
-- [Surveiller les appels LLM](how-to/monitor-llm-calls.fr.md)
-- [Trouver où les requêtes décrochent avec les entonnoirs de traces](how-to/analyze-trace-funnels.fr.md)
-- [Trouver les requêtes N+1](how-to/find-n-plus-one-queries.fr.md)
-- [Trouver les problèmes de santé du runtime .NET](how-to/find-runtime-health-problems.fr.md)
-- [Comparer deux déploiements d'un service](how-to/compare-deploys.fr.md)
-- [Définir des SLO et être alerté quand le budget d'erreurs se consomme](how-to/define-slos.fr.md)
-- [Organiser les équipes avec des projets](how-to/organize-teams-with-projects.fr.md)
-- [Trouver des traces selon les relations entre leurs spans](how-to/find-traces-by-structure.fr.md)
-- [Relier les traces de pile d'exception à votre code source](how-to/link-exceptions-to-source-code.fr.md)
-- [Trier les erreurs et détecter les régressions](how-to/triage-errors.fr.md)
-- [Obtenir un résumé IA d'une alerte déclenchée](how-to/summarize-alerts-with-ai.fr.md)
-- [Acquitter ou suspendre une alerte en cours](how-to/acknowledge-and-snooze-alerts.fr.md)
-- [Savoir si un span était lent par rapport à ses semblables](how-to/compare-span-duration.fr.md)
-- [Trouver les métriques à forte cardinalité](how-to/find-high-cardinality-metrics.fr.md)
-- [Réduire les attributs d'une métrique à l'ingestion](how-to/reduce-metric-attributes.fr.md)
-- [Transformer une recherche de logs en métrique](how-to/log-based-metrics.fr.md)
-- [Accélérer les filtres sur un attribut de log ou de span fréquemment utilisé](how-to/promote-attribute-columns.fr.md)
+
+*Déployer et exploiter*
+
+- [Exécution autonome](how-to/deploy/run-standalone.fr.md)
+- [Exécution avec .NET Aspire](how-to/deploy/run-with-aspire.fr.md)
+- [Exécution avec le CLI](how-to/deploy/run-with-cli.fr.md)
+- [Exécution en mode cluster](how-to/deploy/run-cluster-mode.fr.md)
+- [Servir sous un sous-chemin](how-to/deploy/serve-under-a-sub-path.fr.md)
+- [Déployer avec Helm](how-to/deploy/deploy-with-helm.fr.md)
+
+*Administration*
+
+- [Configurer l'authentification](how-to/admin/configure-authentication.fr.md)
+- [Organiser les équipes avec des projets](how-to/admin/organize-teams-with-projects.fr.md)
+
+*Instrumenter vos applications (navigateur, .NET MAUI)*
+
+- [Envoyer la télémétrie du navigateur à Flare](how-to/instrument/send-browser-telemetry.fr.md)
+- [Envoyer la télémétrie d'une application .NET MAUI à Flare](how-to/instrument/send-maui-telemetry.fr.md)
+
+*Surveiller l'infrastructure et les services*
+
+- [Surveiller des hôtes avec l'OpenTelemetry Collector](how-to/monitor/monitor-hosts.fr.md)
+- [Surveiller les clusters Kubernetes (nœuds, charges de travail, pods, volumes) avec l'OpenTelemetry Collector](how-to/monitor/monitor-kubernetes.fr.md)
+- [Surveiller des files de messages](how-to/monitor/monitor-message-queues.fr.md)
+- [Surveiller les API externes](how-to/monitor/monitor-external-apis.fr.md)
+- [Surveiller les appels LLM](how-to/monitor/monitor-llm-calls.fr.md)
+- [Publier une page de statut](how-to/monitor/publish-a-status-page.fr.md)
+
+*Investiguer traces, erreurs et versions*
+
+- [Trouver où les requêtes décrochent avec les entonnoirs de traces](how-to/investigate/analyze-trace-funnels.fr.md)
+- [Trouver les requêtes N+1](how-to/investigate/find-n-plus-one-queries.fr.md)
+- [Explorer les profils continus](how-to/investigate/profile-with-continuous-profiling.fr.md)
+- [Trouver les problèmes de santé du runtime .NET](how-to/investigate/find-runtime-health-problems.fr.md)
+- [Comparer deux déploiements d'un service](how-to/investigate/compare-deploys.fr.md)
+- [Suivre les versions et les erreurs qu'elles introduisent](how-to/investigate/track-releases.fr.md)
+- [Trouver des traces selon les relations entre leurs spans](how-to/investigate/find-traces-by-structure.fr.md)
+- [Relier les traces de pile d'exception à votre code source](how-to/investigate/link-exceptions-to-source-code.fr.md)
+- [Trier les erreurs et détecter les régressions](how-to/investigate/triage-errors.fr.md)
+- [Savoir si un span était lent par rapport à ses semblables](how-to/investigate/compare-span-duration.fr.md)
+
+*Alertes et SLO*
+
+- [Définir des SLO et être alerté quand le budget d'erreurs se consomme](how-to/alerting/define-slos.fr.md)
+- [Obtenir un résumé IA d'une alerte déclenchée](how-to/alerting/summarize-alerts-with-ai.fr.md)
+- [Acquitter ou suspendre une alerte en cours](how-to/alerting/acknowledge-and-snooze-alerts.fr.md)
+- [Partager la formulation des notifications entre règles](how-to/alerting/share-alert-notification-templates.fr.md)
+
+*Tableaux de bord*
+
+
+*Gérer les données, la rétention et les coûts*
+
+- [Trouver les métriques à forte cardinalité](how-to/data/find-high-cardinality-metrics.fr.md)
+- [Réduire les attributs d'une métrique à l'ingestion](how-to/data/reduce-metric-attributes.fr.md)
+- [Transformer une recherche de logs en métrique](how-to/data/log-based-metrics.fr.md)
+- [Définir la rétention des données et déplacer les anciennes données vers un stockage froid](how-to/data/set-data-retention.fr.md)
+- [Voir ce qui consomme le stockage](how-to/data/see-what-drives-storage.fr.md)
+- [Transférer la télémétrie vers un autre endpoint OTLP](how-to/data/forward-telemetry-to-another-otlp-endpoint.fr.md)
+- [Archiver la télémétrie vers un stockage compatible S3](how-to/data/archive-telemetry-to-s3.fr.md)
+- [Accélérer les filtres sur un attribut de log ou de span fréquemment utilisé](how-to/data/promote-attribute-columns.fr.md)
+
+*Intégrations*
+
+- [Laisser un assistant IA interroger Flare](how-to/integrations/connect-ai-assistants.fr.md)
+- [Interroger Flare avec Grafana ou l'API Prometheus](how-to/integrations/query-with-prometheus-api.fr.md)
 
 **Référence**
 - [Commandes CLI](reference/cli-commands.fr.md)
@@ -72,6 +115,12 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Architecture](explanation/architecture.fr.md)
 - [Clustering](explanation/clustering.fr.md)
 - [Modèle d'authentification](explanation/authentication-model.fr.md)
+- [Fonctionnement des alertes](explanation/how-alerting-works.fr.md)
+- [Comment Flare stocke et interroge la télémétrie](explanation/how-flare-stores-and-queries-telemetry.fr.md)
+- [Fiabilité de l'ingestion et garanties de livraison](explanation/ingest-reliability-and-delivery-guarantees.fr.md)
+- [Échantillonnage, clustering et coût](explanation/sampling-clustering-and-cost.fr.md)
+- [Projets et cloisonnement des accès](explanation/projects-and-access-scoping.fr.md)
+- [Rétention et stockage à froid](explanation/retention-and-tiering.fr.md)
 
 ## Contribuer à la documentation
 

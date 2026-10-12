@@ -1,0 +1,14 @@
+# Background the app and bring it back: the second foreground is a warm start.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "NavigateButton"
+- pressKey: home
+- launchApp:
+    stopApp: false
+- assertVisible:
+    id: "NavigateButton"
+- tapOn:
+    id: "FlushButton"

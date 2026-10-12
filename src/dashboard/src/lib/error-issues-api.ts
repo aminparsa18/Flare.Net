@@ -18,6 +18,8 @@ export interface ErrorIssue {
 	assignee: string;
 	statusChangedAt: string;
 	statusChangedBy: string;
+	/** Linked tracker issue URL; empty = none. */
+	issueUrl: string;
 	ignoreUntil: string | null;
 	ignoreUntilOccurrences: number | null;
 	/** Ignored with an occurrence limit: occurrences since the ignore began. */
@@ -36,6 +38,8 @@ export interface ErrorIssueRequest {
 	ignoreUntilOccurrences?: number;
 	/** '' clears the assignment; omit to keep it. */
 	assignee?: string;
+	/** '' removes the link; omit to keep it. */
+	issueUrl?: string;
 }
 
 /** Key a group's issue is looked up by in the page - the pair, since the fingerprint is server-side. */

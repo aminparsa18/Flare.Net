@@ -42,6 +42,28 @@ public sealed partial record IngestApiKeyDto
 
     /// <summary>The owning project (ADR-0123), or null for an instance-wide key. Appended last for the same hand-written TypeScript reader reason as the members above.</summary>
     public Guid? ProjectId { get; init; }
+
+    /// <summary>Browser origins the key is restricted to (ADR-0149); empty = unrestricted. Appended last, same reason.</summary>
+    public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
+
+    /// <summary>service.name values the key may write for (ADR-0150); empty = any. Appended last, same reason.</summary>
+    public IReadOnlyList<string> AllowedServices { get; init; } = [];
+}
+
+/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/services</c> - replaces the allowlist; empty removes the restriction.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record SetIngestApiKeyServicesRequest
+{
+    public required string[] Services { get; init; }
+}
+
+/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/origins</c> - replaces the allowlist; empty removes the restriction.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record SetIngestApiKeyOriginsRequest
+{
+    public required string[] Origins { get; init; }
 }
 
 /// <summary>Request body for <c>PUT /api/ingest-keys/{id}/limits</c> - replaces all five
@@ -79,6 +101,14 @@ public sealed partial record CreateIngestApiKeyRequest
 public sealed partial record SetIngestApiKeyProjectRequest
 {
     public Guid? ProjectId { get; init; }
+}
+
+/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/name</c>.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record RenameIngestApiKeyRequest
+{
+    public required string Name { get; init; }
 }
 
 /// <summary><see cref="RawKey"/> is shown exactly once, here - Flare never stores or

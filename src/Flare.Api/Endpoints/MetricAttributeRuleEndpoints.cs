@@ -29,6 +29,11 @@ public static class MetricAttributeRuleEndpoints
             return error;
         }
 
+        if (NameUniqueness.Conflict((await rules.ListAsync(cancellationToken)).Select(r => (r.Id, r.Name)), "metric attribute rule", request!.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var rule = await rules.CreateAsync(request!, cancellationToken);
         AuditContext.SetResourceId(http, rule.Id);
         return ApiSerialization.Write(http, rule, MetricAttributeRulesJsonContext.Default.MetricAttributeRule, statusCode: StatusCodes.Status201Created);
@@ -84,6 +89,11 @@ public static class MetricAttributeRuleEndpoints
         }
 
         var before = await rules.GetAsync(id, cancellationToken);
+        if (NameUniqueness.Conflict((await rules.ListAsync(cancellationToken)).Select(r => (r.Id, r.Name)), "metric attribute rule", request!.Name, id, before?.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var rule = await rules.UpdateAsync(id, request!, cancellationToken);
         if (rule is null)
         {

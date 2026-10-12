@@ -29,9 +29,10 @@
 	const SIGNAL_COLOR: Record<IngestionSignal, string> = {
 		Logs: 'var(--chart-1)',
 		Traces: 'var(--chart-2)',
-		Metrics: 'var(--chart-4)'
+		Metrics: 'var(--chart-4)',
+		Profiles: 'var(--chart-5)'
 	};
-	const SIGNALS: IngestionSignal[] = ['Logs', 'Traces', 'Metrics'];
+	const SIGNALS: IngestionSignal[] = ['Logs', 'Traces', 'Metrics', 'Profiles'];
 
 	type ChartMetric = 'events' | 'requests' | 'bytes';
 

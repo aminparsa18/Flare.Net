@@ -11,4 +11,7 @@ public static class FlareClaimTypes
     /// tell a PAT-authenticated request apart from a session one without a second
     /// authentication scheme.</summary>
     public const string PersonalAccessTokenId = "flare:pat_id";
+
+    /// <summary>Present only on a ticket built from a dashboard render token (ADR-0142); its value is the dashboard it was minted for.</summary>
+    public const string RenderDashboardId = "flare:render_dashboard_id";
 }

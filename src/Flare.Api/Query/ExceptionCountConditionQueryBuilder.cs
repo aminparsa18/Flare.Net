@@ -28,14 +28,15 @@ public static class ExceptionCountConditionQueryBuilder
     /// <summary>
     /// The matching occurrences grouped by (type, message), most frequent first - the incident
     /// summary's view of the same condition <see cref="Build(ExceptionCountCondition, DateTimeOffset, DateTimeOffset)"/> counts.
-    /// Columns: type, message, count, service, a sample trace id (or "").
+    /// Columns: type, message, count, service, a sample trace id (or ""), every affected service, and a sample stack trace
+    /// (the same expression the Errors page uses, so ownership rules can match its paths - ADR-0197).
     /// </summary>
     public static ExceptionCountConditionSql BuildTopGroups(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, int limit, IReadOnlyList<string>? ignoredGroupKeys = null) =>
         Build(
             condition,
             from,
             to,
-            "EventAttributes['exception.type'] AS ExType, EventAttributes['exception.message'] AS ExMessage, count() AS Occurrences, any(ServiceName), anyIf(TraceId, TraceId != '')",
+            "EventAttributes['exception.type'] AS ExType, EventAttributes['exception.message'] AS ExMessage, count() AS Occurrences, any(ServiceName), anyIf(TraceId, TraceId != ''), groupUniqArray(ServiceName), substring(anyIf(EventAttributes['exception.stacktrace'], EventAttributes['exception.stacktrace'] != ''), 1, 16000)",
             $"\nGROUP BY ExType, ExMessage ORDER BY Occurrences DESC LIMIT {Math.Clamp(limit, 1, 50)}",
             ignoredGroupKeys);
 

@@ -8,12 +8,15 @@ using Flare.Api.Auth;
 using Flare.Api.Caching;
 using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
+using Flare.Api.Export;
 using Flare.Api.HostStats;
 using Flare.Api.KubernetesResources;
 using Flare.Api.LiveTail;
 using Flare.Api.Pipeline;
 using Flare.Api.Prometheus;
 using Flare.Api.Query;
+using Flare.Api.Status;
+using Flare.Api.Retention;
 using Flare.Api.ResourceGraph;
 using Flare.Api.Updates;
 using Flare.Identity;
@@ -149,8 +152,19 @@ builder.Services.AddRateLimiter(options =>
         }
 
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        await context.HttpContext.Response.WriteAsync("Personal access token rate limit exceeded.", cancellationToken);
+        await context.HttpContext.Response.WriteAsync("Rate limit exceeded.", cancellationToken);
     };
+
+    // Public status page subscriptions (ADR-0162): partitioned by caller address. Behind a reverse proxy
+    // that address is the proxy's, so this is a generous backstop; the per-address resend cooldown and the
+    // per-page cap are what actually bound abuse.
+    options.AddPolicy(StatusSubscriptionEndpoints.RateLimitPolicy, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromHours(1),
+            QueueLimit = 0,
+        }));
 
     options.AddPolicy(PatRateLimitPolicy, httpContext =>
     {
@@ -230,6 +244,8 @@ builder.Services.AddSingleton<IKubernetesInventoryQueryService, KubernetesInvent
 builder.Services.AddSingleton<IExceptionQueryService, ExceptionQueryService>();
 builder.Services.AddSingleton<IMessagingQueryService, MessagingQueryService>();
 builder.Services.AddSingleton<IExternalApiQueryService, ExternalApiQueryService>();
+builder.Services.AddSingleton<IAppSessionQueryService, AppSessionQueryService>();
+builder.Services.AddSingleton<IProfileQueryService, ProfileQueryService>();
 builder.Services.AddSingleton<ILlmQueryService, LlmQueryService>();
 builder.Services.AddSingleton<ITraceFunnelQueryService, TraceFunnelQueryService>();
 builder.Services.AddSingleton<INPlusOneQueryService, NPlusOneQueryService>();
@@ -238,7 +254,20 @@ builder.Services.AddSingleton<IVersionComparisonQueryService, VersionComparisonQ
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();
+// Managed OTLP forwarding targets + S3 archive settings (ADR-0157), and the status the workers publish to Redis.
+builder.Services.AddSingleton<ITelemetryExportQueryService, TelemetryExportQueryService>();
+builder.Services.AddSingleton<IExportStatusStore, RedisExportStatusStore>();
 builder.Services.AddSingleton<ILogMetricQueryService, LogMetricQueryService>();
+// Data retention (ADR-0143): factory registration for the same ClickHouse:ClusterMode reason as
+// SpanQueryService above - cluster mode alters the `_local` tables ON CLUSTER.
+builder.Services.AddSingleton(sp => new RetentionService(
+    sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
+    sp.GetRequiredService<TimeProvider>(),
+    sp.GetRequiredService<ILogger<RetentionService>>(),
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
+builder.Services.AddSingleton<IRetentionService>(sp => sp.GetRequiredService<RetentionService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RetentionService>());
 builder.Services.AddSingleton<IMetricAttributeRuleCoverageService, MetricAttributeRuleCoverageService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
@@ -250,6 +279,7 @@ builder.Services.AddSingleton<IIngestApiKeyUsageQueryService, IngestApiKeyUsageQ
 // from single-node-scoped to cluster()/clusterAllReplicas()-scoped. Factory registration
 // (not a plain AddSingleton<,>) since the ctor now takes that bool alongside its two
 // injected dependencies.
+builder.Services.AddSingleton<IUsageQueryService, UsageQueryService>();
 builder.Services.AddSingleton<IIndexingQueryService>(sp => new IndexingQueryService(
     sp.GetRequiredService<IClickHouseClient>(),
     sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
@@ -291,6 +321,7 @@ builder.Services.AddSingleton<IClusterStatusService>(sp => new ClusterQueryServi
 builder.Services.Configure<LogEventPipelineOptions>(builder.Configuration.GetSection(LogEventPipelineOptions.SectionName));
 builder.Services.Configure<SpanEventPipelineOptions>(builder.Configuration.GetSection(SpanEventPipelineOptions.SectionName));
 builder.Services.Configure<MetricEventPipelineOptions>(builder.Configuration.GetSection(MetricEventPipelineOptions.SectionName));
+builder.Services.Configure<ProfileEventPipelineOptions>(builder.Configuration.GetSection(ProfileEventPipelineOptions.SectionName));
 builder.Services.AddSingleton<PipelineStreamKeys>();
 
 builder.Services.AddSingleton<IPipelineQueryService, PipelineQueryService>();
@@ -350,6 +381,7 @@ builder.Services.AddSingleton<Flare.Api.Auth.IPasswordResetMailer, Flare.Api.Aut
 // options class since those two knobs are AlertWorker-only.
 builder.Services.Configure<AlertLinkOptions>(builder.Configuration.GetSection(AlertLinkOptions.SectionName));
 builder.Services.AddSingleton<IAlertAckLinkSigner, AlertAckLinkSigner>();
+builder.Services.AddSingleton<IDashboardRenderTokenSigner, DashboardRenderTokenSigner>();
 // Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
 // discovery) for free. Registered as their own concrete types, not IAlertNotifier -
@@ -361,6 +393,7 @@ builder.Services.AddFlareMcp(builder.Configuration);
 builder.Services.AddHttpClient(Flare.Api.Source.SourceSnippetService.HttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSingleton<Flare.Api.Source.ISourceSnippetService, Flare.Api.Source.SourceSnippetService>();
+builder.Services.AddSingleton<Flare.Api.SourceMaps.IStackTraceSymbolicator, Flare.Api.SourceMaps.StackTraceSymbolicator>();
 // AI actions (ADR-0103): the standard resilience handler's 10s attempt timeout and retries would
 // cut off and re-send a slow, non-idempotent LLM call, so it's removed; the service owns the timeout.
 builder.Services.Configure<Flare.Api.Ai.AiOptions>(builder.Configuration.GetSection(Flare.Api.Ai.AiOptions.SectionName));
@@ -403,11 +436,24 @@ builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChan
 // Maintenance windows (ADR-0055) - CRUD here; AlertEvaluationWorker reads the same table to
 // suppress notifications while one is active.
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
+// Shared alert notification templates (ADR-0148) - CRUD here; CompositeAlertNotifier resolves them at send time.
+builder.Services.AddSingleton<IAlertTemplateQueryService, AlertTemplateQueryService>();
 builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
+builder.Services.AddSingleton<IDashboardScheduleQueryService, DashboardScheduleQueryService>();
 // Synthetic monitors (ADR-0128) - CRUD here; Flare.AlertWorker runs the probes.
 builder.Services.AddSingleton<ISyntheticMonitorQueryService, SyntheticMonitorQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IStatusPageQueryService, StatusPageQueryService>();
+builder.Services.AddSingleton<IStatusIncidentQueryService, StatusIncidentQueryService>();
+builder.Services.AddSingleton<IStatusIncidentNotifier, StatusIncidentNotifier>();
+builder.Services.AddSingleton<IStatusSubscriberQueryService, StatusSubscriberQueryService>();
+builder.Services.AddSingleton<IStatusSubscriberMailer, StatusSubscriberMailer>();
+builder.Services.AddSingleton<IStatusSubscriptionLinkSigner, StatusSubscriptionLinkSigner>();
+builder.Services.AddSingleton<IPublicStatusService, PublicStatusService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
+builder.Services.AddSingleton<IErrorOwnershipQueryService, ErrorOwnershipQueryService>();
+builder.Services.AddSingleton<IReleaseQueryService, ReleaseQueryService>();
 
 builder.Services.AddOpenApi();
 
@@ -425,6 +471,8 @@ builder.Services.AddCors(options =>
         .AllowAnyHeader()
         .AllowCredentials());
 });
+// The public status endpoints also accept the origin of any enabled page's custom domain (ADR-0165).
+builder.Services.AddSingleton<Microsoft.AspNetCore.Cors.Infrastructure.ICorsPolicyProvider, StatusCorsPolicyProvider>();
 
 var app = builder.Build();
 
@@ -487,6 +535,9 @@ if (app.Environment.IsDevelopment())
 app.MapAuthEndpoints();
 // Signed acknowledge links from alert notifications (ADR-0127): the token is the credential, so no session is needed.
 app.MapAlertAckLinkEndpoints();
+// Public status pages (ADR-0158): served to anyone while a page is enabled; nothing internal in the response.
+app.MapPublicStatusEndpoints();
+app.MapStatusSubscriptionEndpoints();
 // Slack button clicks and PagerDuty ack events (ADR-0138): the request signature is the credential; 404 until a secret is configured.
 app.MapAlertAckIntegrationEndpoints();
 app.MapEntraAuthEndpoints();
@@ -508,6 +559,7 @@ authenticatedRoutes.MapMetricsEndpoints();
 authenticatedRoutes.MapPrometheusEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSourceLinkReadEndpoints();
+authenticatedRoutes.MapSourceMapReadEndpoints();
 authenticatedRoutes.MapAiEndpoints();
 authenticatedRoutes.MapHostInventoryEndpoints();
 authenticatedRoutes.MapMetricCatalogEndpoints();
@@ -515,8 +567,12 @@ authenticatedRoutes.MapPodMetricsEndpoints();
 authenticatedRoutes.MapKubernetesInventoryEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
 authenticatedRoutes.MapErrorIssueReadEndpoints();
+authenticatedRoutes.MapErrorOwnershipReadEndpoints();
+authenticatedRoutes.MapReleaseReadEndpoints();
 authenticatedRoutes.MapMessagingEndpoints();
 authenticatedRoutes.MapExternalApiEndpoints();
+authenticatedRoutes.MapAppSessionEndpoints();
+authenticatedRoutes.MapProfileEndpoints();
 authenticatedRoutes.MapLlmEndpoints();
 authenticatedRoutes.MapTraceFunnelEndpoints();
 authenticatedRoutes.MapNPlusOneEndpoints();
@@ -527,6 +583,8 @@ authenticatedRoutes.MapUserPreferencesEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();
 authenticatedRoutes.MapPipelineEndpoints();
 authenticatedRoutes.MapIndexingEndpoints();
+// Archive status holds no secrets and feeds the Ingestion page (ADR-0157); the targets/settings are Admin-only below.
+authenticatedRoutes.MapTelemetryExportStatusEndpoints();
 authenticatedRoutes.MapResourceGraphEndpoints();
 authenticatedRoutes.MapHostStatsEndpoints();
 authenticatedRoutes.MapVersionEndpoints();
@@ -553,14 +611,21 @@ memberRoutes.MapNotificationChannelEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a maintenance window silences
 // alert notifications.
 memberRoutes.MapMaintenanceWindowEndpoints();
+// Same Member/Admin-only rationale - a template decides what every alert notification says.
+memberRoutes.MapAlertTemplateEndpoints();
 // Same Member/Admin-only rationale - a rotation chooses who an escalation pages.
 memberRoutes.MapOnCallRotationEndpoints();
+// Same Member/Admin-only rationale - a schedule makes this server email a rendered dashboard to the addresses it names.
+memberRoutes.MapDashboardScheduleEndpoints();
 // Same Member/Admin-only rationale - a monitor makes this server send requests to the target it names.
 memberRoutes.MapSyntheticMonitorEndpoints();
 // Same Member/Admin-only rationale - an SLO's burn-rate rules page people; reads are on authenticatedRoutes.
 memberRoutes.MapSloWriteEndpoints();
 // Same Member/Admin-only rationale - ignoring an error group silences exception-count alert rules.
 memberRoutes.MapErrorIssueWriteEndpoints();
+memberRoutes.MapErrorOwnershipWriteEndpoints();
+// Same Member/Admin-only rationale - a release marker is written by a deploy pipeline, not read-only.
+memberRoutes.MapReleaseWriteEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a pipeline rule mutates
 // every future log's Body/attributes at ingest, not just something read-only.
 memberRoutes.MapPipelineRuleEndpoints();
@@ -569,12 +634,17 @@ memberRoutes.MapPipelineRuleEndpoints();
 memberRoutes.MapMetricAttributeRuleEndpoints();
 // Same Member/Admin-only rationale - a log metric writes a new metric at ingest and every group-by key adds series.
 memberRoutes.MapLogMetricEndpoints();
+memberRoutes.MapRetentionReadEndpoints();
 
 // Ingest API key issuance/revocation is Admin-only - a leaked key lets any caller ingest
 // telemetry as this Flare instance, so this isn't something a Member should be able to
 // self-service.
 var adminRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 adminRoutes.MapIngestApiKeyEndpoints();
+adminRoutes.MapUsageEndpoints();
+// Publishing a status page exposes health data to anyone with the URL (ADR-0158).
+adminRoutes.MapStatusPageAdminEndpoints();
+adminRoutes.MapStatusSubscriberAdminEndpoints();
 adminRoutes.MapAuditLogEndpoints();
 adminRoutes.MapUserEndpoints();
 adminRoutes.MapServiceAccountEndpoints();
@@ -589,9 +659,15 @@ adminRoutes.MapAuthSettingsEndpoints();
 // alongside the rest of the Services tab - any Viewer needs it to render the tab's Apdex
 // column tooltip.
 adminRoutes.MapApdexThresholdEndpoints();
+// Changing retention deletes data - Admin-only; reading it (above) is open to members.
+adminRoutes.MapRetentionWriteEndpoints();
+// Forwarding targets and archive settings hold destination credentials and ship all telemetry out (ADR-0157).
+adminRoutes.MapTelemetryExportAdminEndpoints();
 // Same reasoning for source-repo links - they change where every user's stack-trace links
 // point. Reading stays on authenticatedRoutes (ADR-0095).
 adminRoutes.MapSourceLinkWriteEndpoints();
+// Source-map upload/delete (ADR-0152): changes what every user sees on /errors, and is what CI calls.
+adminRoutes.MapSourceMapWriteEndpoints();
 // Projects (ADR-0123): admin-managed service boundaries + per-project member roles.
 adminRoutes.MapProjectEndpoints();
 // Same reasoning for a metric's unit/description override - it changes what every user sees

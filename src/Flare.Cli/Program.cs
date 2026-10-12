@@ -73,7 +73,31 @@ app.Configure(config =>
     config.AddBranch("apikey", apikey =>
     {
         apikey.AddCommand<ApiKeyCreateCommand>("create")
-            .WithDescription("Create a new ingest API key.");
+            .WithDescription("Create a new ingest API key (optionally restricted to --origin/--service).");
+        apikey.AddCommand<ApiKeyScopeCommand>("scope")
+            .WithDescription("Restrict an ingest key to browser origins and/or services.");
+    });
+    config.AddBranch("sourcemaps", sourcemaps =>
+    {
+        sourcemaps.AddCommand<SourceMapsUploadCommand>("upload")
+            .WithDescription("Upload JavaScript source maps so browser stack traces on /errors show original sources.");
+        sourcemaps.AddCommand<SourceMapsUploadDotnetCommand>("upload-dotnet")
+            .WithDescription("Upload .NET assembly symbols (dll + portable PDB) so trimmed/AOT MAUI stack traces show source lines.");
+        sourcemaps.AddCommand<SourceMapsUploadNativeCommand>("upload-native")
+            .WithDescription("Upload Native AOT debug symbols (.dSYM) so AOT stack traces show source lines.");
+        sourcemaps.AddCommand<SourceMapsListCommand>("list")
+            .WithDescription("List uploaded source maps.");
+        sourcemaps.AddCommand<SourceMapsDeleteCommand>("delete")
+            .WithDescription("Delete a release's source maps (or one bundle's).");
+    });
+    config.AddBranch("releases", releases =>
+    {
+        releases.AddCommand<ReleasesListCommand>("list")
+            .WithDescription("List marked releases (with --service: new error groups each version introduced).");
+        releases.AddCommand<ReleasesMarkCommand>("mark")
+            .WithDescription("Mark a service version as deployed (version, commit, link, deploy time).");
+        releases.AddCommand<ReleasesDeleteCommand>("delete")
+            .WithDescription("Remove a release marker.");
     });
     config.AddBranch("notification-channels", notificationChannels =>
     {
@@ -88,6 +112,17 @@ app.Configure(config =>
         notificationChannels.AddCommand<NotificationChannelsSendTestCommand>("send-test")
             .WithDescription("Send a real test notification through a saved channel.");
     });
+    config.AddBranch("alert-templates", alertTemplates =>
+    {
+        alertTemplates.AddCommand<AlertTemplatesListCommand>("list")
+            .WithDescription("List shared alert notification templates.");
+        alertTemplates.AddCommand<AlertTemplatesCreateCommand>("create")
+            .WithDescription("Create a shared notification template.");
+        alertTemplates.AddCommand<AlertTemplatesUpdateCommand>("update")
+            .WithDescription("Update a template (only the options you pass change).");
+        alertTemplates.AddCommand<AlertTemplatesDeleteCommand>("delete")
+            .WithDescription("Delete a template (refused while rules use it).");
+    });
     config.AddBranch("synthetic-monitors", syntheticMonitors =>
     {
         syntheticMonitors.AddCommand<SyntheticMonitorsListCommand>("list")
@@ -98,6 +133,66 @@ app.Configure(config =>
             .WithDescription("Update a monitor (only the options you pass change).");
         syntheticMonitors.AddCommand<SyntheticMonitorsDeleteCommand>("delete")
             .WithDescription("Delete a monitor.");
+    });
+    config.AddBranch("status-pages", statusPages =>
+    {
+        statusPages.AddCommand<StatusPagesListCommand>("list")
+            .WithDescription("List public status pages.");
+        statusPages.AddCommand<StatusPagesCreateCommand>("create")
+            .WithDescription("Create a status page (unpublished until --enabled true).");
+        statusPages.AddCommand<StatusPagesUpdateCommand>("update")
+            .WithDescription("Update a status page (only the options you pass change).");
+        statusPages.AddCommand<StatusPagesDeleteCommand>("delete")
+            .WithDescription("Delete a status page.");
+        statusPages.AddBranch("incidents", incidents =>
+        {
+            incidents.AddCommand<StatusIncidentsListCommand>("list")
+                .WithDescription("List a status page's incidents.");
+            incidents.AddCommand<StatusIncidentsOpenCommand>("open")
+                .WithDescription("Open an incident with its first update.");
+            incidents.AddCommand<StatusIncidentsUpdateCommand>("update")
+                .WithDescription("Post an update to an incident (Resolved closes it).");
+            incidents.AddCommand<StatusIncidentsDeleteCommand>("delete")
+                .WithDescription("Delete an incident.");
+        });
+        statusPages.AddBranch("subscribers", subscribers =>
+        {
+            subscribers.AddCommand<StatusSubscribersListCommand>("list")
+                .WithDescription("List a status page's visitor email subscribers.");
+            subscribers.AddCommand<StatusSubscribersRemoveCommand>("remove")
+                .WithDescription("Remove a subscriber.");
+        });
+    });
+    config.AddBranch("retention", retention =>
+    {
+        retention.AddCommand<RetentionShowCommand>("show")
+            .WithDescription("Show data retention per signal, as ClickHouse has it now.");
+        retention.AddCommand<RetentionSetCommand>("set")
+            .WithDescription("Set a signal's retention, cold-storage tiering and per-resource rules (admin).");
+    });
+    config.AddBranch("forwarding", forwarding =>
+    {
+        forwarding.AddCommand<ForwardingListCommand>("list")
+            .WithDescription("List managed OTLP forwarding targets (admin).");
+        forwarding.AddCommand<ForwardingCreateCommand>("create")
+            .WithDescription("Create a forwarding target that copies incoming telemetry to another OTLP endpoint.");
+        forwarding.AddCommand<ForwardingUpdateCommand>("update")
+            .WithDescription("Update a forwarding target (only the options you pass change).");
+        forwarding.AddCommand<ForwardingDeleteCommand>("delete")
+            .WithDescription("Delete a forwarding target and its queue.");
+        forwarding.AddCommand<ForwardingStatusCommand>("status")
+            .WithDescription("Show queue depth and delivery counters per forwarding target.");
+    });
+    config.AddBranch("archive", archive =>
+    {
+        archive.AddCommand<ArchiveShowCommand>("show")
+            .WithDescription("Show the saved S3 archive settings (keys masked).");
+        archive.AddCommand<ArchiveSetCommand>("set")
+            .WithDescription("Save S3 archive settings (only the options you pass change after the first save).");
+        archive.AddCommand<ArchiveResetCommand>("reset")
+            .WithDescription("Delete the saved settings so the archive follows configuration again.");
+        archive.AddCommand<ArchiveStatusCommand>("status")
+            .WithDescription("Show the last exported hour and any error per archived table.");
     });
     config.AddBranch("instances", instances =>
     {

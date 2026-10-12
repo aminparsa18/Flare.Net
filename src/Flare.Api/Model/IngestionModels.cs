@@ -14,6 +14,7 @@ public enum IngestionSignal
     Logs,
     Traces,
     Metrics,
+    Profiles,
 }
 
 /// <summary>Mirrors <c>Flare.Ingest.Stats.IngestionProtocol</c> - see <see cref="IngestionSignal"/>'s remarks.</summary>

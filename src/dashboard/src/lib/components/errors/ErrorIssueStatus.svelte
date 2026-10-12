@@ -4,10 +4,11 @@
 	// triaged reads Open.
 	import { Badge } from '$lib/components/ui/badge';
 	import type { ErrorIssue } from '$lib/error-issues-api';
+	import { issueLinkLabel } from '$lib/errors/issue-links';
 	import * as m from '$lib/paraglide/messages';
 	import { formatDateTime } from '$lib/time/format';
 
-	let { issue }: { issue: ErrorIssue | null } = $props();
+	let { issue, owner = null }: { issue: ErrorIssue | null; owner?: { user: string; viaRule: boolean } | null } = $props();
 
 	const status = $derived(issue?.status ?? 'Open');
 	const variant = $derived(status === 'Regressed' ? 'destructive' : status === 'Resolved' ? 'default' : status === 'Ignored' ? 'secondary' : 'outline');
@@ -38,7 +39,20 @@
 	{#if detail}
 		<span class="text-muted-foreground text-[0.625rem]">{detail}</span>
 	{/if}
-	{#if issue?.assignee}
-		<span class="text-muted-foreground text-[0.625rem]">{m.errorIssue_assignedTo({ user: issue.assignee })}</span>
+	{#if owner}
+		<span class="text-muted-foreground text-[0.625rem]">
+			{owner.viaRule ? m.errorIssue_ownedBy({ user: owner.user }) : m.errorIssue_assignedTo({ user: owner.user })}
+		</span>
+	{/if}
+	{#if issue?.issueUrl}
+		<a
+			href={issue.issueUrl}
+			target="_blank"
+			rel="noopener noreferrer"
+			class="text-primary text-[0.625rem] hover:underline"
+			onclick={(e) => e.stopPropagation()}
+		>
+			{m.errorIssue_linkedIssue({ issue: issueLinkLabel(issue.issueUrl) })}
+		</a>
 	{/if}
 </div>

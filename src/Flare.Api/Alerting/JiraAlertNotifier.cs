@@ -61,11 +61,11 @@ public sealed class JiraAlertNotifier(HttpClient httpClient, IOptions<AlertLinkO
     internal static string BuildOpenIssueJql(string projectKey, string label) =>
         $"project = \"{projectKey.Replace("\"", "")}\" AND labels = \"{label}\" AND statusCategory != Done ORDER BY created DESC";
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null, string? owner = null)
     {
         try
         {
-            var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, logSamples: logSamples, ackUrl: ackUrl);
+            var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, logSamples: logSamples, ackUrl: ackUrl, owner: owner);
             var label = isTest ? $"flare-test-{Guid.NewGuid():N}" : RuleLabel(rule);
 
             string? openKey = null;

@@ -1,0 +1,15 @@
+# A screen that takes ~700 ms to build: its screen.load span is long.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- scrollUntilVisible:
+    element:
+        id: "SlowScreenButton"
+- tapOn:
+    id: "SlowScreenButton"
+- assertVisible:
+    id: "SlowLabel"
+- back
+- tapOn:
+    id: "FlushButton"

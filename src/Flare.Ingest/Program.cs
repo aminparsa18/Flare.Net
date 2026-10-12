@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Identity;
 using Flare.Ingest.Auth;
+using Flare.Ingest.Forwarding;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Patterns;
 using Flare.Ingest.Pipeline;
@@ -12,6 +13,7 @@ using Flare.Ingest.Sampling;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Flare.ServiceDefaults.ClickHouseMigrations;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,6 +41,27 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenAnyIP(4318, o => o.Protocols = HttpProtocols.Http1AndHttp2);
 });
 
+// The Collector's otlphttp exporter (and most OTLP/HTTP SDKs) gzip request bodies by
+// default. The built-in providers handle gzip/deflate/br via Content-Encoding and keep
+// enforcing Kestrel's MaxRequestBodySize on the decompressed stream.
+builder.Services.AddRequestDecompression();
+
+// Browser OTLP exporters (OTel-JS, Faro) are cross-origin, so they need a CORS preflight
+// answer. An origin is allowed if it is in Otlp:AllowedOrigins or listed on any active
+// ingest key (ADR-0149); with neither, no CORS headers are sent. The preflight carries no
+// key, so which key may use which origin is enforced on the actual request, in
+// IngestApiKeyValidationMiddleware.
+const string BrowserCorsPolicy = "OtlpBrowser";
+builder.Services.AddCors();
+builder.Services.AddOptions<CorsOptions>().Configure<IngestApiKeyCache>((cors, keyCache) =>
+    cors.AddPolicy(BrowserCorsPolicy, policy =>
+    {
+        var origins = otlpReceiverOptions.AllowedOrigins;
+        policy.SetIsOriginAllowed(origin =>
+            origins.Contains("*") || origins.Contains(origin, StringComparer.OrdinalIgnoreCase) || keyCache.AnyKeyAllowsOrigin(origin));
+        policy.WithMethods("POST").WithHeaders("Content-Type", "Content-Encoding", "Authorization").SetPreflightMaxAge(TimeSpan.FromHours(1));
+    }));
+
 builder.Services.AddGrpc(options => options.MaxReceiveMessageSize = (int)otlpReceiverOptions.MaxRequestSizeBytes);
 
 builder.Services.Configure<LogEventPipelineOptions>(
@@ -47,6 +70,8 @@ builder.Services.Configure<SpanEventPipelineOptions>(
     builder.Configuration.GetSection(SpanEventPipelineOptions.SectionName));
 builder.Services.Configure<MetricEventPipelineOptions>(
     builder.Configuration.GetSection(MetricEventPipelineOptions.SectionName));
+builder.Services.Configure<ProfileEventPipelineOptions>(
+    builder.Configuration.GetSection(ProfileEventPipelineOptions.SectionName));
 
 // Redis: durable buffer the pipeline writes to (RedisStreamLogEventSink) and reads from
 // (ClickHouseFlushWorker). ClickHouse: batched insert destination. Connection names must
@@ -121,6 +146,18 @@ else
 builder.Services.AddSingleton<IClickHouseSpanWriter, ClickHouseSpanWriter>();
 builder.Services.AddHostedService<SpanFlushWorker>();
 
+// Profiles (ADR-0141, OTLP profiles is Alpha) - another parallel pipeline: own Redis stream,
+// own flush worker, own ClickHouse table.
+builder.Services.AddSingleton<IProfileSampleSink, RedisStreamProfileSampleSink>();
+builder.Services.AddSingleton<IClickHouseProfileWriter, ClickHouseProfileWriter>();
+builder.Services.AddHostedService<ProfileFlushWorker>();
+
+// Error screenshots (ADR-0174): a direct best-effort insert, no stream.
+builder.Services.AddSingleton<IClickHouseScreenshotWriter, ClickHouseScreenshotWriter>();
+
+// User feedback (ADR-0193): same direct insert.
+builder.Services.AddSingleton<IClickHouseFeedbackWriter, ClickHouseFeedbackWriter>();
+
 // Metrics - unlike spans, one shared Redis stream/flush worker for all three point
 // types (Gauge/Sum/Histogram); see MetricFlushWorker's remarks for why.
 builder.Services.AddSingleton<IMetricEventSink, RedisStreamMetricEventSink>();
@@ -151,6 +188,20 @@ builder.Services.Configure<PrometheusScrapeOptions>(
     builder.Configuration.GetSection(PrometheusScrapeOptions.SectionName));
 builder.Services.AddHttpClient("PrometheusScrape");
 builder.Services.AddHostedService<PrometheusScrapeWorker>();
+
+// OTLP forwarding (ADR-0155): copies accepted logs/traces/metrics to other OTLP/HTTP endpoints.
+// Off with no Forwarding:Targets configured. One instance serves as both the IOtlpForwarder the
+// receivers call and the hosted service that drains the per-target queues.
+builder.Services.Configure<ForwardingOptions>(builder.Configuration.GetSection(ForwardingOptions.SectionName));
+// The forwarder owns retry, backoff and the per-target timeout; the standard resilience handler's own
+// retries and 30s total timeout would stack under them (a dead destination took ~40s per request).
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental
+builder.Services.AddHttpClient("OtlpForwarding").RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<IForwardingTargetStore, ClickHouseForwardingTargetStore>();
+builder.Services.AddSingleton<OtlpForwarder>();
+builder.Services.AddSingleton<IOtlpForwarder>(sp => sp.GetRequiredService<OtlpForwarder>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<OtlpForwarder>());
 
 // Ingestion-page operational stats (Planning.md v8) - shares the same Redis connection
 // as the sinks above rather than adding new infrastructure.
@@ -207,6 +258,13 @@ await app.Services.GetRequiredService<IngestApiKeyCache>().InitializeAsync(Cance
 
 app.MapDefaultEndpoints();
 
+app.UseRequestDecompression();
+
+// Before the key check: a preflight OPTIONS carries no Authorization header, so it must be
+// answered here rather than rejected with 401. With no origins configured the policy
+// matches nothing, so no CORS headers are emitted.
+app.UseCors(BrowserCorsPolicy);
+
 // Must come after MapDefaultEndpoints() (so /health and /alive stay reachable
 // unconditionally - see the middleware's own remarks for why this is a positive
 // allow-list, not a /health exclusion) and before every OTLP Map* call below.
@@ -220,5 +278,10 @@ app.MapOtlpHttpTraceEndpoint();
 
 app.MapGrpcService<OtlpGrpcMetricsService>();
 app.MapOtlpHttpMetricsEndpoint();
+
+app.MapGrpcService<OtlpGrpcProfilesService>();
+app.MapOtlpHttpProfilesEndpoint();
+app.MapScreenshotEndpoint();
+app.MapFeedbackEndpoint();
 
 app.Run();

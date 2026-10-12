@@ -49,4 +49,9 @@ public interface IUserStore
     /// <summary>Replaces a local account's password hash. Callers enforce strength rules and
     /// session revocation.</summary>
     Task SetPasswordAsync(Guid id, string newPassword, CancellationToken cancellationToken = default);
+
+    /// <summary>Permanently removes a service account and everything keyed to it (tokens, sessions,
+    /// password-set tokens, project memberships, preferences, dashboard pins). Returns false when
+    /// <paramref name="id"/> isn't a service account, so a human account can never be deleted through here.</summary>
+    Task<bool> DeleteServiceAccountAsync(Guid id, CancellationToken cancellationToken = default);
 }

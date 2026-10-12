@@ -10,6 +10,7 @@
 	import IngestionLog from '$lib/components/ingestion/IngestionLog.svelte';
 	import PipelineStreamsTable from '$lib/components/ingestion/PipelineStreamsTable.svelte';
 	import PipelineFlushHealthTable from '$lib/components/ingestion/PipelineFlushHealthTable.svelte';
+	import ArchiveStatusCard from '$lib/components/telemetry-export/ArchiveStatusCard.svelte';
 	import PipelineServiceBreakdown from '$lib/components/ingestion/PipelineServiceBreakdown.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -48,6 +49,7 @@
 			<h1 class="mb-1 px-4 text-sm font-semibold">{m.ingestionPage_pipelineHealthHeading()}</h1>
 			<PipelineStreamsTable />
 			<PipelineFlushHealthTable />
+			<ArchiveStatusCard />
 			<PipelineServiceBreakdown />
 		</div>
 	</div>

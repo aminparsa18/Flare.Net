@@ -11,7 +11,7 @@ isolation: there's no per-user data ownership anywhere, and
 were.
 
 For setting any of this up, see
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+[`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.md).
 For exact config keys and the roles table, see
 [`../reference/authentication-config.md`](../reference/authentication-config.md).
 
@@ -114,7 +114,7 @@ Separate from user accounts on purpose: an ingest API key authenticates a
 row would force every telemetry-emitting app to be linked to someone's
 login, which doesn't match how collectors/exporters are actually operated
 (one or a few shared keys per environment). See
-[the how-to guide](../how-to/configure-authentication.md#ingest-api-keys)
+[the how-to guide](../how-to/admin/configure-authentication.md#ingest-api-keys)
 for creating/using/revoking one.
 
 ## Personal access tokens
@@ -131,7 +131,7 @@ identity. See
 [ADR-0019](../../docs-internal/adr/0019-personal-access-tokens.md) for
 why this reuses the existing session authentication scheme rather than
 registering a second one, and
-[the how-to guide](../how-to/configure-authentication.md#personal-access-tokens)
+[the how-to guide](../how-to/admin/configure-authentication.md#personal-access-tokens)
 for creating/using/revoking one.
 
 Each token is also individually rate-limited — `Auth:PatRateLimitPermitLimit`

@@ -25,7 +25,7 @@
 	<div class="flex items-center justify-between gap-4">
 		<a
 			class="text-muted-foreground text-xs underline"
-			href="https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/connect-ai-assistants.md"
+			href="https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/integrations/connect-ai-assistants.md"
 			target="_blank"
 			rel="noreferrer">{m.mcpConnect_docs()}</a
 		>

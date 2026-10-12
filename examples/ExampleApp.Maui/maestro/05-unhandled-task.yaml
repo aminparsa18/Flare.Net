@@ -1,0 +1,10 @@
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "UnhandledTaskButton"
+- tapOn:
+    id: "FlushButton"
+- waitForAnimationToEnd:
+    timeout: 2000

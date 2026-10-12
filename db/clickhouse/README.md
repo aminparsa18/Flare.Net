@@ -145,6 +145,44 @@ same CRUD-via-tombstone `ReplacingMergeTree` as `pipeline_rules`). `Flare.Ingest
 per flush and writes delta sums to `metrics_sum`. See
 [ADR-0140](../../docs-internal/adr/0140-log-based-metrics.md).
 
+`0066_dashboard_schedules.sql` - `dashboard_schedules` (cron, recipients, relative range and variable
+values per dashboard; config-table shape, read as the latest version per `Id`) and the append-only
+`dashboard_report_runs` history (90-day TTL). See
+[ADR-0142](../../docs-internal/adr/0142-scheduled-dashboard-reports.md).
+
+`0067_retention_operations.sql` - the `retention_operations` table: the pending/success/failed
+history of `PUT /api/retention` changes, one row-version per `(TransactionId, Signal)`. The
+retention TTLs themselves are applied with `ALTER TABLE ... MODIFY TTL` at runtime, not in a
+migration, so a TTL is never baked into a table definition - see
+[ADR-0143](../../docs-internal/adr/0143-retention-ttl.md).
+
+`0068_retention_cold_after.sql` - adds `ColdAfterDays` to `retention_operations`: the age at which a
+signal's parts move to the cold (S3/RustFS) volume. The disk and `flare_tiered` policy themselves are
+not migrations; they are ClickHouse server config in `config/cold-storage.xml`, mounted by
+`docker-compose.cold-storage.yml` - see
+[ADR-0144](../../docs-internal/adr/0144-cold-storage-rustfs.md).
+
+`0069_retention_per_resource.sql` - adds `_retention_days UInt16 DEFAULT 20000` to the seven raw telemetry
+tables and `RulesJson` to `retention_operations`. The column holds each row's own lifetime, computed at
+insert from the retention rules; a table's TTL points at it only once rules are set - see
+[ADR-0145](../../docs-internal/adr/0145-per-resource-retention.md).
+
+`0072_status_pages.sql` - a new `status_pages` table (a public page's slug, title and components, each
+backed by a synthetic monitor or an SLO; same CRUD-via-tombstone `ReplacingMergeTree` as
+`alert_templates`). See [ADR-0158](../../docs-internal/adr/0158-status-pages.md).
+
+`0073_status_incidents.sql` - a new `status_incidents` table (a written incident on a status page with its
+timeline of updates as a JSON array; same CRUD-via-tombstone `ReplacingMergeTree` as `status_pages`). See
+[ADR-0159](../../docs-internal/adr/0159-status-page-incidents.md).
+
+`0074_status_incident_components.sql` - adds `status_incidents.Components Array(UUID)`: the page components (monitor or
+SLO ids) an incident affects. See [ADR-0160](../../docs-internal/adr/0160-status-incident-components.md).
+
+`0070_alert_templates.sql` - a new `alert_templates` table (named, reusable notification title/body
+templates; same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`) and a nullable
+`alert_rules.NotificationTemplateId`. See
+[ADR-0148](../../docs-internal/adr/0148-shared-alert-notification-templates.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).
@@ -263,7 +301,7 @@ Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory i
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
 **"Multi-node scaling"** roadmap item - see
 [`docs/explanation/clustering.md`](../../docs/explanation/clustering.md) for the full
-design and [`docs/how-to/run-cluster-mode.md`](../../docs/how-to/run-cluster-mode.md)
+design and [`docs/how-to/deploy/run-cluster-mode.md`](../../docs/how-to/deploy/run-cluster-mode.md)
 for how to run it. The single-node schema here stays the default;
 nothing about it changes to support that.
 

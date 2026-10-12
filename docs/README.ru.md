@@ -28,38 +28,81 @@
 
 **Учебники**
 - [Начало работы](tutorials/getting-started.ru.md)
+- [Руководство: ваша первая трассировка](tutorials/first-trace.ru.md)
+- [Руководство: ваше первое оповещение](tutorials/first-alert.ru.md)
+- [Руководство: ваш первый дашборд метрик](tutorials/first-dashboard.ru.md)
+- [Руководство: разбор медленного оформления заказа от начала до конца](tutorials/debug-a-slow-request.ru.md)
+- [Руководство: добавьте Flare в приложение .NET Aspire](tutorials/add-flare-to-an-aspire-app.ru.md)
+- [Руководство: мониторинг приложения .NET MAUI](tutorials/monitor-a-maui-app.ru.md)
 
 **Практические руководства**
-- [Запуск автономно](how-to/run-standalone.ru.md)
-- [Запуск с .NET Aspire](how-to/run-with-aspire.ru.md)
-- [Запуск через CLI](how-to/run-with-cli.ru.md)
-- [Настройка аутентификации](how-to/configure-authentication.ru.md)
-- [Запуск в кластерном режиме](how-to/run-cluster-mode.ru.md)
-- [Дать ИИ-ассистенту доступ к Flare](how-to/connect-ai-assistants.ru.md)
-- [Как запрашивать Flare из Grafana или через API Prometheus](how-to/query-with-prometheus-api.ru.md)
-- [Работа по вложенному пути](how-to/serve-under-a-sub-path.ru.md)
-- [Развёртывание с Helm](how-to/deploy-with-helm.ru.md)
-- [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor-hosts.ru.md)
-- [Мониторинг кластеров Kubernetes (узлы, рабочие нагрузки, поды, тома) с OpenTelemetry Collector](how-to/monitor-kubernetes.ru.md)
-- [Мониторинг очередей сообщений](how-to/monitor-message-queues.ru.md)
-- [Мониторинг внешних API](how-to/monitor-external-apis.ru.md)
-- [Отслеживание вызовов LLM](how-to/monitor-llm-calls.ru.md)
-- [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/analyze-trace-funnels.ru.md)
-- [Как найти N+1 запросы](how-to/find-n-plus-one-queries.ru.md)
-- [Как найти проблемы со средой выполнения .NET](how-to/find-runtime-health-problems.ru.md)
-- [Как сравнить два деплоя сервиса](how-to/compare-deploys.ru.md)
-- [Как задать SLO и получать оповещения о расходе бюджета ошибок](how-to/define-slos.ru.md)
-- [Как организовать команды с помощью проектов](how-to/organize-teams-with-projects.ru.md)
-- [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
-- [Связать трассировки стека исключений с исходным кодом](how-to/link-exceptions-to-source-code.ru.md)
-- [Разбор ошибок и поиск регрессий](how-to/triage-errors.ru.md)
-- [Получение сводки ИИ по сработавшему оповещению](how-to/summarize-alerts-with-ai.ru.md)
-- [Подтверждение и откладывание оповещения](how-to/acknowledge-and-snooze-alerts.ru.md)
-- [Как понять, был ли спан медленным для своего типа](how-to/compare-span-duration.ru.md)
-- [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
-- [Как сократить атрибуты метрики при приёме](how-to/reduce-metric-attributes.ru.md)
-- [Как превратить поиск по логам в метрику](how-to/log-based-metrics.ru.md)
-- [Ускорить фильтры по часто используемому атрибуту лога или спана](how-to/promote-attribute-columns.ru.md)
+
+*Развёртывание и эксплуатация*
+
+- [Запуск автономно](how-to/deploy/run-standalone.ru.md)
+- [Запуск с .NET Aspire](how-to/deploy/run-with-aspire.ru.md)
+- [Запуск через CLI](how-to/deploy/run-with-cli.ru.md)
+- [Запуск в кластерном режиме](how-to/deploy/run-cluster-mode.ru.md)
+- [Работа по вложенному пути](how-to/deploy/serve-under-a-sub-path.ru.md)
+- [Развёртывание с Helm](how-to/deploy/deploy-with-helm.ru.md)
+
+*Администрирование*
+
+- [Настройка аутентификации](how-to/admin/configure-authentication.ru.md)
+- [Как организовать команды с помощью проектов](how-to/admin/organize-teams-with-projects.ru.md)
+
+*Инструментирование приложений (браузер, .NET MAUI)*
+
+- [Отправить телеметрию браузера во Flare](how-to/instrument/send-browser-telemetry.ru.md)
+- [Отправить телеметрию из приложения .NET MAUI во Flare](how-to/instrument/send-maui-telemetry.ru.md)
+
+*Мониторинг инфраструктуры и сервисов*
+
+- [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor/monitor-hosts.ru.md)
+- [Мониторинг кластеров Kubernetes (узлы, рабочие нагрузки, поды, тома) с OpenTelemetry Collector](how-to/monitor/monitor-kubernetes.ru.md)
+- [Мониторинг очередей сообщений](how-to/monitor/monitor-message-queues.ru.md)
+- [Мониторинг внешних API](how-to/monitor/monitor-external-apis.ru.md)
+- [Отслеживание вызовов LLM](how-to/monitor/monitor-llm-calls.ru.md)
+- [Как опубликовать страницу статуса](how-to/monitor/publish-a-status-page.ru.md)
+
+*Анализ трассировок, ошибок и релизов*
+
+- [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/investigate/analyze-trace-funnels.ru.md)
+- [Как найти N+1 запросы](how-to/investigate/find-n-plus-one-queries.ru.md)
+- [Как изучать непрерывные профили](how-to/investigate/profile-with-continuous-profiling.ru.md)
+- [Как найти проблемы со средой выполнения .NET](how-to/investigate/find-runtime-health-problems.ru.md)
+- [Как сравнить два деплоя сервиса](how-to/investigate/compare-deploys.ru.md)
+- [Отслеживать релизы и внесённые ими ошибки](how-to/investigate/track-releases.ru.md)
+- [Поиск трассировок по связям между спанами](how-to/investigate/find-traces-by-structure.ru.md)
+- [Связать трассировки стека исключений с исходным кодом](how-to/investigate/link-exceptions-to-source-code.ru.md)
+- [Разбор ошибок и поиск регрессий](how-to/investigate/triage-errors.ru.md)
+- [Как понять, был ли спан медленным для своего типа](how-to/investigate/compare-span-duration.ru.md)
+
+*Алерты и SLO*
+
+- [Как задать SLO и получать оповещения о расходе бюджета ошибок](how-to/alerting/define-slos.ru.md)
+- [Получение сводки ИИ по сработавшему оповещению](how-to/alerting/summarize-alerts-with-ai.ru.md)
+- [Подтверждение и откладывание оповещения](how-to/alerting/acknowledge-and-snooze-alerts.ru.md)
+- [Общие формулировки уведомлений в правилах](how-to/alerting/share-alert-notification-templates.ru.md)
+
+*Дашборды*
+
+
+*Управление данными, хранением и затратами*
+
+- [Как найти метрики с высокой кардинальностью](how-to/data/find-high-cardinality-metrics.ru.md)
+- [Как сократить атрибуты метрики при приёме](how-to/data/reduce-metric-attributes.ru.md)
+- [Как превратить поиск по логам в метрику](how-to/data/log-based-metrics.ru.md)
+- [Как задать срок хранения данных и перенести старые данные в холодное хранилище](how-to/data/set-data-retention.ru.md)
+- [Как увидеть, что занимает место](how-to/data/see-what-drives-storage.ru.md)
+- [Как пересылать телеметрию на другой OTLP-эндпоинт](how-to/data/forward-telemetry-to-another-otlp-endpoint.ru.md)
+- [Как архивировать телеметрию в S3-совместимое хранилище](how-to/data/archive-telemetry-to-s3.ru.md)
+- [Ускорить фильтры по часто используемому атрибуту лога или спана](how-to/data/promote-attribute-columns.ru.md)
+
+*Интеграции*
+
+- [Дать ИИ-ассистенту доступ к Flare](how-to/integrations/connect-ai-assistants.ru.md)
+- [Как запрашивать Flare из Grafana или через API Prometheus](how-to/integrations/query-with-prometheus-api.ru.md)
 
 **Справочник**
 - [Команды CLI](reference/cli-commands.ru.md)
@@ -72,6 +115,12 @@
 - [Архитектура](explanation/architecture.ru.md)
 - [Кластеризация](explanation/clustering.ru.md)
 - [Модель аутентификации](explanation/authentication-model.ru.md)
+- [Как работают алерты](explanation/how-alerting-works.ru.md)
+- [Как Flare хранит телеметрию и выполняет запросы](explanation/how-flare-stores-and-queries-telemetry.ru.md)
+- [Надёжность приёма и гарантии доставки](explanation/ingest-reliability-and-delivery-guarantees.ru.md)
+- [Сэмплирование, кластеризация и стоимость](explanation/sampling-clustering-and-cost.ru.md)
+- [Проекты и разграничение доступа](explanation/projects-and-access-scoping.ru.md)
+- [Хранение данных и многоуровневое хранилище](explanation/retention-and-tiering.ru.md)
 
 ## Документация для контрибьюторов
 

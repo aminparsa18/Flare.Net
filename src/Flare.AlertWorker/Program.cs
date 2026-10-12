@@ -4,6 +4,9 @@ using Flare.Api.Query;
 using Microsoft.AspNetCore.DataProtection;
 using Flare.AlertWorker.Alerting;
 using Flare.AlertWorker.Synthetic;
+using Flare.AlertWorker.Reports;
+using Flare.AlertWorker.Archive;
+using Flare.Identity.Auth;
 using Flare.Api.Synthetic;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,9 +32,13 @@ builder.Services.AddHostedService<PromotedAttributeRefreshWorker>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
+builder.Services.AddSingleton<IAlertTemplateQueryService, AlertTemplateQueryService>();
 builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
+builder.Services.AddSingleton<IReleaseQueryService, ReleaseQueryService>();
+builder.Services.AddSingleton<IAppSessionQueryService, AppSessionQueryService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
+builder.Services.AddSingleton<IErrorOwnershipQueryService, ErrorOwnershipQueryService>();
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
@@ -48,6 +55,7 @@ builder.Services.AddDataProtection()
         () => StackExchange.Redis.ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!).GetDatabase(),
         "Flare-DataProtection-Keys");
 builder.Services.AddSingleton<IAlertAckLinkSigner, AlertAckLinkSigner>();
+builder.Services.AddSingleton<IDashboardRenderTokenSigner, DashboardRenderTokenSigner>();
 // Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
 // discovery) for free - same registration Flare.Api's own Program.cs makes for its
@@ -95,6 +103,21 @@ builder.Services.AddHttpClient(SyntheticProber.HttpClientName).RemoveAllResilien
 builder.Services.AddSingleton<SyntheticProber>();
 builder.Services.AddSingleton<SyntheticResultWriter>();
 builder.Services.AddHostedService<SyntheticProbeWorker>();
+
+// Scheduled dashboard reports (ADR-0142). Off unless Reports:Enabled; renders need a Chromium (see the how-to).
+builder.Services.Configure<ReportsOptions>(builder.Configuration.GetSection(ReportsOptions.SectionName));
+builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+builder.Services.AddSingleton<IDashboardScheduleQueryService, DashboardScheduleQueryService>();
+builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
+builder.Services.AddSingleton<IDashboardRenderer, PlaywrightDashboardRenderer>();
+builder.Services.AddSingleton<IDashboardReportMailer, DashboardReportMailer>();
+builder.Services.AddHostedService<DashboardReportWorker>();
+
+// Telemetry archive to S3-compatible storage (ADR-0156). Off unless Archive:Enabled.
+builder.Services.Configure<ArchiveOptions>(builder.Configuration.GetSection(ArchiveOptions.SectionName));
+builder.Services.AddSingleton<Flare.Api.Query.ITelemetryExportQueryService, Flare.Api.Query.TelemetryExportQueryService>();
+builder.Services.AddSingleton<Flare.Api.Export.IExportStatusStore, Flare.Api.Export.RedisExportStatusStore>();
+builder.Services.AddHostedService<ArchiveWorker>();
 
 var app = builder.Build();
 

@@ -6,7 +6,7 @@ about five minutes.
 
 This tutorial uses the standalone Docker Compose path — the one with the
 fewest prerequisites. If your app already has a .NET Aspire AppHost,
-[`how-to/run-with-aspire.md`](../how-to/run-with-aspire.md) is the more
+[`how-to/deploy/run-with-aspire.md`](../how-to/deploy/run-with-aspire.md) is the more
 natural fit once you've finished here and want to see how that path
 differs.
 
@@ -35,7 +35,7 @@ there's nothing to sign in to yet.
 > https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh
 > | bash` installs Docker if it's missing and starts the same stack from
 > the published images instead — see
-> [`../how-to/run-standalone.md#zero-prerequisite-quick-install`](../how-to/run-standalone.md#zero-prerequisite-quick-install).
+> [`../how-to/deploy/run-standalone.md#zero-prerequisite-quick-install`](../how-to/deploy/run-standalone.md#zero-prerequisite-quick-install).
 > You'll still need the .NET SDK for step 2 below either way, since that's
 > where this tutorial's own throwaway console app comes from.
 
@@ -108,15 +108,17 @@ errors, and confirm `docker compose ps` shows every service healthy.
 
 ## Next steps
 
+- Continue with [Tutorial: your first trace](first-trace.md), then
+  [Tutorial: your first alert](first-alert.md).
 - Using Serilog, NLog, or ZLogger instead of `Microsoft.Extensions.Logging`?
-  See [`../how-to/run-standalone.md`](../how-to/run-standalone.md) for a
+  See [`../how-to/deploy/run-standalone.md`](../how-to/deploy/run-standalone.md) for a
   snippet per logger.
 - Already have a .NET Aspire AppHost? See
-  [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md) — Flare
+  [`../how-to/deploy/run-with-aspire.md`](../how-to/deploy/run-with-aspire.md) — Flare
   joins your resource graph instead of running as a separate `docker
   compose` stack.
 - Want a standing instance shared across several projects instead of a
-  repo-local checkout? See [`../how-to/run-with-cli.md`](../how-to/run-with-cli.md).
+  repo-local checkout? See [`../how-to/deploy/run-with-cli.md`](../how-to/deploy/run-with-cli.md).
 - Turn on sign-in, and read the rest of what's on the dashboard: see
   [`../explanation/architecture.md`](../explanation/architecture.md) and
-  [`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+  [`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.md).

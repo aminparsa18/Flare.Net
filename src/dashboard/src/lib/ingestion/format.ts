@@ -49,6 +49,8 @@ export function signalLabel(signal: IngestionSignal | string): string {
 			return m.ingestionSignal_traces();
 		case 'Metrics':
 			return m.ingestionSignal_metrics();
+		case 'Profiles':
+			return m.ingestionSignal_profiles();
 		default:
 			return signal;
 	}

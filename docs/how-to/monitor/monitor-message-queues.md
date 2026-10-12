@@ -1,0 +1,345 @@
+# How to monitor message queues
+
+See how your Kafka topics, RabbitMQ queues, and Azure Service Bus entities
+behave on Flare's **Messaging** page: publish and consume rates, error rates,
+latency, and (for Kafka) consumer lag, per topic or queue.
+
+The page uses spans your applications already send. Flare doesn't need a
+separate agent or ingest change, and it works on spans stored before you
+opened the page.
+
+## Prerequisites
+
+- A running Flare instance receiving traces from your applications.
+- Producers and consumers instrumented with an OpenTelemetry messaging
+  instrumentation, for example
+  [`OpenTelemetry.Instrumentation.ConfluentKafka`](https://www.nuget.org/packages/OpenTelemetry.Instrumentation.ConfluentKafka),
+  RabbitMQ.Client 7+, Azure.Messaging.ServiceBus, or MassTransit. Their spans
+  must carry the `messaging.system` and `messaging.destination.name`
+  attributes.
+
+## Send messaging spans
+
+Register the instrumentation's activity source with your tracer. For example,
+with Confluent.Kafka:
+
+```csharp
+var producerBuilder = new InstrumentedProducerBuilder<string, string>(
+    new ProducerConfig { BootstrapServers = "localhost:9092" });
+var consumerBuilder = new InstrumentedConsumerBuilder<string, string>(
+    new ConsumerConfig { BootstrapServers = "localhost:9092", GroupId = "orders-worker" });
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddKafkaProducerInstrumentation(producerBuilder)
+        .AddKafkaConsumerInstrumentation(consumerBuilder)
+        .AddOtlpExporter());
+
+// After the host starts:
+using var producer = producerBuilder.Build();
+using var consumer = consumerBuilder.Build();
+```
+
+Build your producers and consumers with the package's
+`InstrumentedProducerBuilder` and `InstrumentedConsumerBuilder`, as its README
+describes. Clients built with the plain Confluent builders don't emit spans.
+
+For RabbitMQ.Client 7+, add its activity sources instead:
+`tracing.AddSource("RabbitMQ.Client.*")`.
+
+For MassTransit 8 (Apache licensed), add its activity source:
+`tracing.AddSource("MassTransit")`. Nothing else is needed, even though
+MassTransit sets `messaging.system` only on its send spans: Flare takes the
+system and the destination from MassTransit's endpoint address. Each message
+type gets one row, named after the exchange MassTransit publishes it to
+(for example `Orders.Contracts:SubmitOrder`), with producers and consumers
+together. Consumer faults are published to a `MassTransit:Fault--...` row.
+The Backlog column stays empty, because the queue's name differs from the
+row's. MassTransit 9 is commercial and needs a license key; it was not tested.
+
+For NATS, add NATS.Net's activity source: `tracing.AddSource("NATS.Net")`.
+Flare leaves out the client's own traffic (JetStream API calls, per-message
+acks and temporary reply inboxes), so rows are your application's subjects.
+Verified on NATS.Net 3.3 against nats-server 2.x.
+
+For Azure Service Bus, add the Azure SDK's activity sources:
+`tracing.AddSource("Azure.Messaging.ServiceBus.*")`. The SDK keeps its tracing
+behind an experimental switch, so set
+`AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)` at
+startup, or the environment variable
+`AZURE_EXPERIMENTAL_ENABLE_ACTIVITY_SOURCE=true`. Without it the SDK emits no
+spans. Each queue, or topic, is one row. The SDK's per-message `Message` span
+and its `send` span describe the same publish, so Flare counts only the `send`
+spans; a batched send therefore counts once per call, not once per message.
+The SDK doesn't mark a span as failed when your handler throws, so the consume
+error count stays at 0; retries show up as extra consumes. Verified on
+Azure.Messaging.ServiceBus 7.21 against Microsoft's Service Bus emulator.
+
+## Read the Messaging page
+
+![Messaging page: Kafka topics and RabbitMQ queues with publish and consume rates, error rate, p99 and backlog](../../screenshots/monitor-message-queues-en.webp)
+
+Open **Messaging** in the top nav. Each row is one topic or queue:
+
+| Column | Meaning |
+|---|---|
+| Publish rate / Consume rate | Publish and consume spans per second over the window |
+| Error rate | Share of publish and consume spans with an error status |
+| Publish p99 / Consume p99 | 99th-percentile span duration |
+| Producers / consumers | How many services published to and consumed from it |
+| Backlog | Messages waiting: Kafka consumer lag, RabbitMQ queue depth, NATS JetStream pending messages or Service Bus active messages or Amazon SQS visible messages, see [Kafka](#see-kafka-consumer-lag), [RabbitMQ](#see-rabbitmq-queue-depth), [NATS](#see-nats-jetstream-backlog) [Service Bus](#see-service-bus-backlog) and [SQS](#see-amazon-sqs-backlog) |
+
+Consume latency is the consume span's own duration: the handling time for a
+`process` span, or the fetch time for a consumer that only emits `receive`
+spans. It is not the time a
+message spent waiting in the queue.
+
+- **Filter** by messaging system or by service.
+- **Sort** by clicking a column header.
+- **Change the window** with the time selector (5 minutes to 24 hours).
+- **Drill down** by clicking a topic or queue name. The panel lists the
+  producer services, the consumer services with their consumer groups, the
+  traffic per partition, and consumer lag per group and partition. Click a
+  service name to open its traces.
+
+The page doesn't refresh on its own. Click **Refresh** to reload it.
+
+![payments.completed drill-down: producer, consumers with their consumer groups, and traffic per partition](../../screenshots/monitor-message-queues-2-en.webp)
+
+### How spans are classified
+
+A span counts as a publish when its operation (`messaging.operation.type`, or
+the older `messaging.operation`) is `publish`, `create`, or `send`, and as a
+consume when it is `receive`, `process`, or `deliver`. If a span sets neither
+attribute, a `PRODUCER` span counts as a publish and a `CONSUMER` span as a
+consume. Other spans, such as `settle`, are ignored.
+
+Some instrumentations, including the Confluent.Kafka one, emit both a
+`receive` span and a `process` span for each message. When a consumer emits
+`process` spans, Flare counts only those, so each message counts once. Its
+`receive` spans count only for consumers that emit no `process` spans.
+
+The partition and consumer group come from `messaging.destination.partition.id`
+and `messaging.consumer.group.name`, or from the older
+`messaging.kafka.destination.partition` and `messaging.kafka.consumer.group`
+attributes.
+
+## See Kafka consumer lag
+
+Consumer lag doesn't come from spans. Flare reads it from the
+`kafka.consumer_group.lag` metric, which the OpenTelemetry Collector's
+`kafkametrics` receiver exports. Add the receiver to a collector that can
+reach your brokers:
+
+```yaml
+receivers:
+  kafkametrics:
+    brokers: [kafka:9092]
+    protocol_version: 2.0.0
+    scrapers: [consumers]
+    collection_interval: 30s
+
+exporters:
+  otlp:
+    endpoint: flare.example.internal:4317   # your Flare.Ingest host
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [kafkametrics]
+      exporters: [otlp]
+```
+
+Collector releases from 0.161 on name the receiver `kafka_metrics`. The old
+`kafkametrics` name still works but logs a deprecation warning.
+
+For a Kafka topic, the **Backlog** column shows the latest lag in the window,
+summed over all consumer groups and partitions. A **—** means the metric isn't
+being collected for that topic. It is never shown as 0.
+
+![Consumer lag for payments.completed per consumer group and partition, 658 in total](../../screenshots/monitor-message-queues-3-en.webp)
+
+## See RabbitMQ queue depth
+
+RabbitMQ.Client names each row after the exchange it published to, not
+the queue. Messages sent through the default exchange are the exception:
+Flare shows each of them under its routing key, which is the queue name.
+
+Queue depth comes from the `rabbitmq.message.current` metric, which the
+OpenTelemetry Collector's `rabbitmq` receiver exports. It reads RabbitMQ's
+management API, so enable the `rabbitmq_management` plugin and give the
+receiver a user with the `monitoring` tag:
+
+```yaml
+receivers:
+  rabbitmq:
+    endpoint: http://rabbitmq:15672
+    username: otel
+    password: ${env:RABBITMQ_PASSWORD}
+    collection_interval: 30s
+
+exporters:
+  otlp:
+    endpoint: flare.example.internal:4317   # your Flare.Ingest host
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [rabbitmq]
+      exporters: [otlp]
+```
+
+Flare matches queues to a row by name. It uses the row's own name and every
+routing key its spans carried. That covers queues published to directly,
+exchanges named after their queue, and direct
+exchanges whose routing key is the queue name. The **Backlog** column is
+the latest ready + unacknowledged count of the matched queues. Open the
+row to see each queue's ready and unacked counts. A topic or fanout exchange
+whose routing keys don't name a queue shows **—**.
+
+## See NATS JetStream backlog
+
+A JetStream consumer's backlog isn't in spans. The `prometheus-nats-exporter`
+publishes it as `jetstream_consumer_num_pending` and
+`jetstream_consumer_num_ack_pending`, and the OpenTelemetry Collector's
+`prometheus` receiver can scrape the exporter and send the metrics to Flare.
+Run the exporter next to the server, with `-jsz=all` so it reports consumers:
+
+```bash
+prometheus-nats-exporter -jsz=all -varz http://nats:8222
+```
+
+```yaml
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: nats
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['natsexp:7777']
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlp_grpc/flare]
+```
+
+Flare finds a subject's consumers from its receive spans: NATS.Net puts the
+ack subject, which names the stream and consumer, on every JetStream message.
+The **Backlog** column is the consumer's pending plus ack-pending messages.
+Open the row to see each stream and consumer; the table's "Ready" is pending
+(not yet delivered) and "Unacked" is delivered but not acknowledged. A consumer
+that serves several subjects shows its one backlog on each of them. Core NATS
+subscriptions have no backlog, so those rows show **—**.
+
+## See Service Bus backlog
+
+A queue's or subscription's backlog isn't in spans. Azure publishes it as the
+`ActiveMessages` metric, and the OpenTelemetry Collector's `azuremonitor`
+receiver (contrib distribution) reads Azure Monitor and sends it to Flare.
+Configure the metric with the `EntityName` dimension, so each queue and
+subscription is its own series:
+
+```yaml
+receivers:
+  azuremonitor:
+    subscription_ids: ["${env:AZURE_SUBSCRIPTION_ID}"]
+    auth: service_principal
+    tenant_id: ${env:AZURE_TENANT_ID}
+    client_id: ${env:AZURE_CLIENT_ID}
+    client_secret: ${env:AZURE_CLIENT_SECRET}
+    services:
+      - Microsoft.ServiceBus/namespaces
+    metrics:
+      "microsoft.servicebus/namespaces":
+        ActiveMessages: [Average]
+    dimensions:
+      enabled: true
+      overrides:
+        "Microsoft.ServiceBus/namespaces":
+          ActiveMessages: [EntityName]
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [azuremonitor]
+      exporters: [otlp_grpc/flare]
+```
+
+The service principal needs the **Monitoring Reader** role on the namespace.
+Flare reads `azure_activemessages_average`, so keep the Average aggregation.
+The **Backlog** column is the latest active-message count of the queue, or of
+the subscription for a `topic/Subscriptions/name` receive row. Dead-lettered
+messages aren't counted. Azure Monitor reports once a minute, so the backlog
+lags by about that. Entities the receiver doesn't report show **—**.
+
+## See Amazon SQS backlog
+
+A queue's backlog isn't in spans. CloudWatch publishes it as
+`ApproximateNumberOfMessagesVisible`. The OpenTelemetry Collector's
+`awscloudwatch` receiver reads CloudWatch *Logs*, so the route for metrics is a
+CloudWatch Metric Stream into Kinesis Data Firehose, with the Collector's
+`awsfirehose` receiver (contrib distribution) as the Firehose HTTP endpoint.
+Create the metric stream in the **JSON** output format, filtered to the
+`AWS/SQS` namespace, and point its Firehose at the Collector. Firehose needs an
+HTTPS endpoint, so put the Collector behind a load balancer or proxy that
+terminates TLS, and set the same access key on both sides.
+
+The receiver turns each record into a summary, which Flare doesn't store. The
+`transform` processor converts it to a gauge named
+`ApproximateNumberOfMessagesVisible_avg`:
+
+```yaml
+receivers:
+  awsfirehose:
+    endpoint: 0.0.0.0:4433
+    record_type: cwmetrics
+    access_key: ${env:FIREHOSE_ACCESS_KEY}
+processors:
+  transform/sqs:
+    metric_statements:
+      - context: metric
+        statements:
+          - extract_avg_metric() where name == "ApproximateNumberOfMessagesVisible"
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [awsfirehose]
+      processors: [transform/sqs]
+      exporters: [otlp_grpc/flare]
+```
+
+The **Backlog** column is the latest visible-message count of the queue named
+by the row's destination (or, if your instrumentation reports the queue URL,
+by the URL's last segment). In-flight and delayed messages aren't counted.
+Metric Streams add a couple of minutes on top of SQS's one-minute reporting.
+Queues CloudWatch doesn't report show **—**. Verified against the receivers'
+source only, not a live AWS account.
+
+## Troubleshooting
+
+**A topic or queue doesn't appear.** Open one of its traces and check the
+producer or consumer span's attributes. It needs `messaging.system`, and
+either an operation attribute or a `PRODUCER`/`CONSUMER` span kind.
+
+**The topic or queue name is "(unnamed)".** The instrumentation didn't set
+`messaging.destination.name`.

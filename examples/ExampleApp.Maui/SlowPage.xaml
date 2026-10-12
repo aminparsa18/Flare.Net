@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ExampleApp.Maui.SlowPage"
+             Title="Slow">
+    <VerticalStackLayout Padding="20" Spacing="10">
+        <Label AutomationId="SlowLabel" Text="This screen takes about 700 ms to build, so its screen.load span is long." />
+    </VerticalStackLayout>
+</ContentPage>

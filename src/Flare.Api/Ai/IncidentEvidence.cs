@@ -7,7 +7,8 @@ namespace Flare.Api.Ai;
 public sealed record IncidentLogPattern(string Template, string Service, byte SeverityNumber, ulong Count, string TraceId);
 
 /// <summary>An exception type/message seen in the alert window and how often.</summary>
-public sealed record IncidentExceptionGroup(string Type, string Message, ulong Count, string Service, string TraceId);
+/// <param name="Owner">The group's assignee, else the first matching ownership rule's owner (ADR-0197); empty when unowned.</param>
+public sealed record IncidentExceptionGroup(string Type, string Message, ulong Count, string Service, string TraceId, string Owner = "");
 
 /// <summary>An error span of the representative trace.</summary>
 public sealed record IncidentErrorSpan(string Service, string Name, string StatusMessage, double DurationMs);

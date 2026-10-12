@@ -57,6 +57,7 @@ export class AlertRuleRequest {
 	escalationRotationId: string | null;
 	secondEscalateAfterMinutes: number | null;
 	secondEscalationChannelIds: (string | null)[] | null;
+	notificationTemplateId: string | null;
 
 	constructor() {
 		this.name = null;
@@ -93,6 +94,7 @@ export class AlertRuleRequest {
 		this.escalationRotationId = null;
 		this.secondEscalateAfterMinutes = null;
 		this.secondEscalationChannelIds = null;
+		this.notificationTemplateId = null;
 	}
 
 	static serialize(value: AlertRuleRequest | null): Uint8Array {
@@ -107,7 +109,7 @@ export class AlertRuleRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(34);
+		writer.writeObjectHeader(35);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeNullableBoolean(value.enabled);
@@ -142,6 +144,7 @@ export class AlertRuleRequest {
 		writer.writeNullableGuid(value.escalationRotationId);
 		writer.writeNullableInt32(value.secondEscalateAfterMinutes);
 		writer.writeArray(value.secondEscalationChannelIds, (writer, x) => writer.writeGuid(x!));
+		writer.writeNullableGuid(value.notificationTemplateId);
 	}
 
 	static deserialize(buffer: ArrayBuffer): AlertRuleRequest | null {
@@ -190,7 +193,8 @@ export class AlertRuleRequest {
 			value.escalationRotationId = reader.readNullableGuid();
 			value.secondEscalateAfterMinutes = reader.readNullableInt32();
 			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
-		} else if (count > 34) {
+			value.notificationTemplateId = reader.readNullableGuid();
+		} else if (count > 35) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -262,6 +266,8 @@ export class AlertRuleRequest {
 			if (count == 33) return value;
 			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
 			if (count == 34) return value;
+			value.notificationTemplateId = reader.readNullableGuid();
+			if (count == 35) return value;
 		}
 		return value;
 	}

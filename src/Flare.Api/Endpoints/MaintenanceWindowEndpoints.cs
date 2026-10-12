@@ -32,6 +32,11 @@ public static class MaintenanceWindowEndpoints
             return problem;
         }
 
+        if (NameUniqueness.Conflict((await windows.ListAsync(cancellationToken)).Select(w => (w.Id, w.Name)), "maintenance window", request!.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var window = await windows.CreateAsync(request!, cancellationToken);
         AuditContext.SetResourceId(http, window.Id);
         return ApiSerialization.Write(http, window, MaintenanceWindowsJsonContext.Default.MaintenanceWindow, statusCode: StatusCodes.Status201Created);
@@ -64,6 +69,11 @@ public static class MaintenanceWindowEndpoints
         }
 
         var before = await windows.GetAsync(id, cancellationToken);
+        if (NameUniqueness.Conflict((await windows.ListAsync(cancellationToken)).Select(w => (w.Id, w.Name)), "maintenance window", request!.Name, id, before?.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var window = await windows.UpdateAsync(id, request!, cancellationToken);
         if (window is not null)
         {

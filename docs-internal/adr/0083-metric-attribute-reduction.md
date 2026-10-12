@@ -79,4 +79,4 @@ already shows each metric's series count, which is how candidates are found.
 - The catalog's Reduce attributes section gets a Preview button, and the catalog
   page shows an unmatched-rules warning to Members. Both endpoints are
   Member/Admin like the rest of the rule API.
-- The how-to is `docs/how-to/reduce-metric-attributes.md` (with translations).
+- The how-to is `docs/how-to/data/reduce-metric-attributes.md` (with translations).

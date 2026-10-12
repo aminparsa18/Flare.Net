@@ -6,7 +6,7 @@ there's no ClickHouse redundancy or sharding. **Cluster mode** is the opt-in
 alternative — a real 4-node ClickHouse cluster with `ReplicatedMergeTree`/
 `Distributed` tables, coordinated by a 3-node ClickHouse Keeper quorum
 instead of ZooKeeper. This page explains the model; see
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md) to turn it
+[`../how-to/deploy/run-cluster-mode.md`](../how-to/deploy/run-cluster-mode.md) to turn it
 on, and [`../reference/clustering-config.md`](../reference/clustering-config.md)
 for the exact config keys involved.
 

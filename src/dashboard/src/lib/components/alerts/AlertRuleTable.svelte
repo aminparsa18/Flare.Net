@@ -72,7 +72,9 @@
 			MetricThreshold: m.alertRuleForm_conditionKindMetricThreshold(),
 			ExceptionCount: m.alertRuleForm_conditionKindExceptionCount(),
 			Anomaly: m.alertRuleForm_conditionKindAnomaly(),
-			SloBurnRate: m.alertRuleForm_conditionKindSloBurnRate()
+			SloBurnRate: m.alertRuleForm_conditionKindSloBurnRate(),
+			ReleaseErrors: m.alertRuleForm_conditionKindReleaseErrors(),
+			CrashFreeRate: m.alertRuleForm_conditionKindCrashFreeRate()
 		}[kind];
 	}
 
@@ -82,6 +84,10 @@
 		const kind = rule.conditionKind === 'Anomaly' ? (rule.anomalyCondition?.source ?? 'LogCount') : rule.conditionKind;
 		if (kind === 'MetricThreshold') {
 			return rule.metricCondition ? `${rule.metricCondition.metricName} (${rule.metricCondition.aggregation})` : m.alertRuleTable_allLogs();
+		}
+
+		if (kind === 'ReleaseErrors' || kind === 'CrashFreeRate') {
+			return rule.exceptionCondition?.filter?.services?.join(', ') || m.alertRuleTable_releaseAllServices();
 		}
 
 		if (kind === 'ExceptionCount') {

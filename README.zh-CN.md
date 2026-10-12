@@ -64,34 +64,36 @@
   var flare = builder.AddFlare("flare");
   builder.AddProject<Projects.MyApi>("myapi").WithReference(flare).WaitForFlare(flare);
   ```
-  `dotnet add package Flare.Hosting.Aspire` — Flare 作为资源加入您的 AppHost，因此它启动、停止并被其他资源发现，就像图表中其他所有内容一样。详细信息：[docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.zh-CN.md)。
+  `dotnet add package Flare.Hosting.Aspire` — Flare 作为资源加入您的 AppHost，因此它启动、停止并被其他资源发现，就像图表中其他所有内容一样。详细信息：[docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.zh-CN.md)。
 
 - **不使用 Aspire，想要它独立运行吗？**
   ```sh
   docker compose up
   ```
-  在存储库根目录中，每个端口和凭据都有工作默认值（将 [.env.example](.env.example) 复制到 `.env` 以进行更改）。详细信息：[docs/how-to/run-standalone.md](docs/how-to/run-standalone.zh-CN.md)。
+  在存储库根目录中，每个端口和凭据都有工作默认值（将 [.env.example](.env.example) 复制到 `.env` 以进行更改）。详细信息：[docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.zh-CN.md)。
 
 - **只是想评估一下 — 没有克隆仓库，也没有安装 .NET SDK？**
   ```sh
   curl -fsSL https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh | bash
   ```
-  如果缺少 Docker 会自动安装，然后从已发布的镜像拉取并启动相同的独立堆栈。详细信息：[docs/how-to/run-standalone.md](docs/how-to/run-standalone.zh-CN.md#零前提快速安装)。
+  如果缺少 Docker 会自动安装，然后从已发布的镜像拉取并启动相同的独立堆栈。详细信息：[docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.zh-CN.md#零前提快速安装)。
 
 - **想要在多个不相关的本地项目之间共享一个常设实例吗？**
   ```sh
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  全局 CLI，可以从任何地方管理相同的 Docker 堆栈，无需回购检查。详细信息：[docs/how-to/run-with-cli.md](docs/how-to/run-with-cli.zh-CN.md)。
+  全局 CLI，可以从任何地方管理相同的 Docker 堆栈，无需回购检查。详细信息：[docs/how-to/deploy/run-with-cli.md](docs/how-to/deploy/run-with-cli.zh-CN.md)。
 
-无论您选择哪条路径，仪表板都会出现在 [http://localhost:7777](http://localhost:7777) 处。身份验证**默认关闭** - 日志页面在启动时即打开。准备好后，即可从 `/auth` 页面打开登录（本地帐户、Microsoft Entra ID、Active Directory、OpenID Connect 或反向代理可信标头）；参见[docs/how-to/configure-authentication.md](docs/how-to/configure-authentication.zh-CN.md)。
+无论您选择哪条路径，仪表板都会出现在 [http://localhost:7777](http://localhost:7777) 处。身份验证**默认关闭** - 日志页面在启动时即打开。准备好后，即可从 `/auth` 页面打开登录（本地帐户、Microsoft Entra ID、Active Directory、OpenID Connect 或反向代理可信标头）；参见[docs/how-to/admin/configure-authentication.md](docs/how-to/admin/configure-authentication.zh-CN.md)。
 
-然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [docs/how-to/run-standalone.md](docs/how-to/run-standalone.zh-CN.md#将记录器指向它)（或 Aspire 上的 [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.zh-CN.md#2-将记录器指向它)）中。对于其他情况 — Python、Node.js、Java、Go、Kubernetes、DevOps 流水线、日志转发工具或 Prometheus 抓取 — 仪表板自带的**数据源**页面（导航栏下拉菜单，或日志页面的空状态）有同类的复制粘贴片段；预览见[架构之旅](docs/explanation/architecture.zh-CN.md#数据源)。
+然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.zh-CN.md#将记录器指向它)（或 Aspire 上的 [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.zh-CN.md#2-将记录器指向它)）中。对于其他情况 — Python、Node.js、Java、Go、Kubernetes、DevOps 流水线、日志转发工具或 Prometheus 抓取 — 仪表板自带的**数据源**页面（导航栏下拉菜单，或日志页面的空状态）有同类的复制粘贴片段；预览见[架构之旅](docs/explanation/architecture.zh-CN.md#数据源)。
 
-单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.zh-CN.md)。
+单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [docs/how-to/deploy/run-cluster-mode.md](docs/how-to/deploy/run-cluster-mode.zh-CN.md)。
 
-想让 AI 助手读取你的遥测数据？`flare mcp` 是一个只读的 [MCP](https://modelcontextprotocol.io) 服务器，参见 [docs/how-to/connect-ai-assistants.zh-CN.md](docs/how-to/connect-ai-assistants.zh-CN.md)。
+想让 AI 助手读取你的遥测数据？`flare mcp` 是一个只读的 [MCP](https://modelcontextprotocol.io) 服务器，参见 [docs/how-to/integrations/connect-ai-assistants.zh-CN.md](docs/how-to/integrations/connect-ai-assistants.zh-CN.md)。
+
+正在开发移动应用？[`Flare.Maui`](src/Flare.Maui)（预览版，尚未发布到 NuGet）为 .NET MAUI 应用添加 `builder.UseFlare(...)`：带离线队列的 OTLP/HTTP 导出、设备和会话属性、`HttpClient` 和 Shell 导航 span，以及未处理异常捕获——参见 [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.zh-CN.md)。
 
 ## 本地开发
 

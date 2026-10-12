@@ -27,39 +27,82 @@
 ## 所有页面
 
 **教程**
--[Getting started](tutorials/getting-started.zh-CN.md)
+- [Getting started](tutorials/getting-started.zh-CN.md)
+- [教程：你的第一条追踪](tutorials/first-trace.zh-CN.md)
+- [教程：你的第一个警报](tutorials/first-alert.zh-CN.md)
+- [教程：你的第一个指标仪表板](tutorials/first-dashboard.zh-CN.md)
+- [教程：端到端排查缓慢的结账请求](tutorials/debug-a-slow-request.zh-CN.md)
+- [教程：把 Flare 添加到 .NET Aspire 应用](tutorials/add-flare-to-an-aspire-app.zh-CN.md)
+- [教程：监控 .NET MAUI 应用](tutorials/monitor-a-maui-app.zh-CN.md)
 
 **操作指南**
--[Run standalone](how-to/run-standalone.zh-CN.md)
--[Run with .NET Aspire](how-to/run-with-aspire.zh-CN.md)
--[Run with the CLI](how-to/run-with-cli.zh-CN.md)
--[Configure authentication](how-to/configure-authentication.zh-CN.md)
--[Run in cluster mode](how-to/run-cluster-mode.zh-CN.md)
-- [让 AI 助手查询 Flare](how-to/connect-ai-assistants.zh-CN.md)
-- [用 Grafana 或 Prometheus API 查询 Flare](how-to/query-with-prometheus-api.zh-CN.md)
--[在子路径下提供服务](how-to/serve-under-a-sub-path.zh-CN.md)
-- [使用 Helm 部署](how-to/deploy-with-helm.zh-CN.md)
--[使用 OpenTelemetry Collector 监控主机](how-to/monitor-hosts.zh-CN.md)
-- [使用 OpenTelemetry Collector 监控 Kubernetes 集群（节点、工作负载、Pod、卷）](how-to/monitor-kubernetes.zh-CN.md)
-- [监控消息队列](how-to/monitor-message-queues.zh-CN.md)
-- [监控外部 API](how-to/monitor-external-apis.zh-CN.md)
-- [监控 LLM 调用](how-to/monitor-llm-calls.zh-CN.md)
-- [使用追踪漏斗找出请求流失的环节](how-to/analyze-trace-funnels.zh-CN.md)
-- [查找 N+1 查询](how-to/find-n-plus-one-queries.zh-CN.md)
-- [查找 .NET 运行时健康问题](how-to/find-runtime-health-problems.zh-CN.md)
-- [对比服务的两次部署](how-to/compare-deploys.zh-CN.md)
-- [定义 SLO 并在错误预算被快速消耗时收到告警](how-to/define-slos.zh-CN.md)
-- [使用项目组织团队](how-to/organize-teams-with-projects.zh-CN.md)
-- [按 span 之间的关系查找追踪](how-to/find-traces-by-structure.zh-CN.md)
-- [将异常堆栈跟踪链接到源代码](how-to/link-exceptions-to-source-code.zh-CN.md)
-- [分诊错误并发现回归](how-to/triage-errors.zh-CN.md)
-- [获取已触发告警的 AI 摘要](how-to/summarize-alerts-with-ai.zh-CN.md)
-- [确认或暂缓正在触发的告警](how-to/acknowledge-and-snooze-alerts.zh-CN.md)
-- [判断 span 相对同类是否偏慢](how-to/compare-span-duration.zh-CN.md)
-- [找出高基数指标](how-to/find-high-cardinality-metrics.zh-CN.md)
-- [在摄取时精简指标的属性](how-to/reduce-metric-attributes.zh-CN.md)
-- [把日志搜索变成指标](how-to/log-based-metrics.zh-CN.md)
-- [加速对常用日志或 Span 属性的过滤](how-to/promote-attribute-columns.zh-CN.md)
+
+*部署与运维*
+
+- [Run standalone](how-to/deploy/run-standalone.zh-CN.md)
+- [Run with .NET Aspire](how-to/deploy/run-with-aspire.zh-CN.md)
+- [Run with the CLI](how-to/deploy/run-with-cli.zh-CN.md)
+- [Run in cluster mode](how-to/deploy/run-cluster-mode.zh-CN.md)
+- [在子路径下提供服务](how-to/deploy/serve-under-a-sub-path.zh-CN.md)
+- [使用 Helm 部署](how-to/deploy/deploy-with-helm.zh-CN.md)
+
+*管理*
+
+- [Configure authentication](how-to/admin/configure-authentication.zh-CN.md)
+- [使用项目组织团队](how-to/admin/organize-teams-with-projects.zh-CN.md)
+
+*为应用接入遥测（浏览器、.NET MAUI）*
+
+- [将浏览器遥测发送到 Flare](how-to/instrument/send-browser-telemetry.zh-CN.md)
+- [将 .NET MAUI 应用的遥测数据发送到 Flare](how-to/instrument/send-maui-telemetry.zh-CN.md)
+
+*监控基础设施与服务*
+
+- [使用 OpenTelemetry Collector 监控主机](how-to/monitor/monitor-hosts.zh-CN.md)
+- [使用 OpenTelemetry Collector 监控 Kubernetes 集群（节点、工作负载、Pod、卷）](how-to/monitor/monitor-kubernetes.zh-CN.md)
+- [监控消息队列](how-to/monitor/monitor-message-queues.zh-CN.md)
+- [监控外部 API](how-to/monitor/monitor-external-apis.zh-CN.md)
+- [监控 LLM 调用](how-to/monitor/monitor-llm-calls.zh-CN.md)
+- [发布状态页](how-to/monitor/publish-a-status-page.zh-CN.md)
+
+*排查追踪、错误与发布*
+
+- [使用追踪漏斗找出请求流失的环节](how-to/investigate/analyze-trace-funnels.zh-CN.md)
+- [查找 N+1 查询](how-to/investigate/find-n-plus-one-queries.zh-CN.md)
+- [使用持续性能剖析](how-to/investigate/profile-with-continuous-profiling.zh-CN.md)
+- [查找 .NET 运行时健康问题](how-to/investigate/find-runtime-health-problems.zh-CN.md)
+- [对比服务的两次部署](how-to/investigate/compare-deploys.zh-CN.md)
+- [跟踪发布及其引入的错误](how-to/investigate/track-releases.zh-CN.md)
+- [按 span 之间的关系查找追踪](how-to/investigate/find-traces-by-structure.zh-CN.md)
+- [将异常堆栈跟踪链接到源代码](how-to/investigate/link-exceptions-to-source-code.zh-CN.md)
+- [分诊错误并发现回归](how-to/investigate/triage-errors.zh-CN.md)
+- [判断 span 相对同类是否偏慢](how-to/investigate/compare-span-duration.zh-CN.md)
+
+*告警与 SLO*
+
+- [定义 SLO 并在错误预算被快速消耗时收到告警](how-to/alerting/define-slos.zh-CN.md)
+- [获取已触发告警的 AI 摘要](how-to/alerting/summarize-alerts-with-ai.zh-CN.md)
+- [确认或暂缓正在触发的告警](how-to/alerting/acknowledge-and-snooze-alerts.zh-CN.md)
+- [在多条告警规则间共享通知措辞](how-to/alerting/share-alert-notification-templates.zh-CN.md)
+
+*仪表板*
+
+
+*管理数据、保留与成本*
+
+- [找出高基数指标](how-to/data/find-high-cardinality-metrics.zh-CN.md)
+- [在摄取时精简指标的属性](how-to/data/reduce-metric-attributes.zh-CN.md)
+- [把日志搜索变成指标](how-to/data/log-based-metrics.zh-CN.md)
+- [设置数据保留时长并将旧数据迁移到冷存储](how-to/data/set-data-retention.zh-CN.md)
+- [查看存储的主要来源](how-to/data/see-what-drives-storage.zh-CN.md)
+- [将遥测数据转发到另一个 OTLP 端点](how-to/data/forward-telemetry-to-another-otlp-endpoint.zh-CN.md)
+- [将遥测数据归档到 S3 兼容存储](how-to/data/archive-telemetry-to-s3.zh-CN.md)
+- [加速对常用日志或 Span 属性的过滤](how-to/data/promote-attribute-columns.zh-CN.md)
+
+*集成*
+
+- [让 AI 助手查询 Flare](how-to/integrations/connect-ai-assistants.zh-CN.md)
+- [用 Grafana 或 Prometheus API 查询 Flare](how-to/integrations/query-with-prometheus-api.zh-CN.md)
 
 **参考**
 -[CLI commands](reference/cli-commands.zh-CN.md)
@@ -72,6 +115,12 @@
 -[Architecture](explanation/architecture.zh-CN.md)
 -[Clustering](explanation/clustering.zh-CN.md)
 -[Authentication model](explanation/authentication-model.zh-CN.md)
+-[告警的工作原理](explanation/how-alerting-works.zh-CN.md)
+-[Flare 如何存储和查询遥测数据](explanation/how-flare-stores-and-queries-telemetry.zh-CN.md)
+-[摄取可靠性与投递保证](explanation/ingest-reliability-and-delivery-guarantees.zh-CN.md)
+-[采样、聚类与成本](explanation/sampling-clustering-and-cost.zh-CN.md)
+-[项目与访问范围](explanation/projects-and-access-scoping.zh-CN.md)
+-[保留策略与分层存储](explanation/retention-and-tiering.zh-CN.md)
 
 ## 贡献文档
 

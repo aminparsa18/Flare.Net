@@ -90,11 +90,23 @@ public static class DashboardEndpoints
         // owner; null (not a 401) when auth is disabled entirely - TryGetCurrentUserId
         // returning false there is expected, not an error, same as PersonalAccessTokenEndpoints'
         // own TryGetCurrentUserId remarks explain.
+        if (await NameConflictAsync(dashboards, request.Name, ProjectGuard.Normalize(request.ProjectId), null, null, cancellationToken) is { } taken)
+        {
+            return taken;
+        }
+
         var ownerUserId = TryGetCurrentUserId(principal, out var userId) ? userId : (Guid?)null;
         var dashboard = await dashboards.CreateAsync(request, ownerUserId, cancellationToken);
         AuditContext.SetResourceId(http, dashboard.Id);
         return ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard, statusCode: StatusCodes.Status201Created);
     }
+
+    /// <summary>Dashboard names are unique (case-insensitive) within a project, with instance-wide dashboards sharing one namespace (ADR-0147).</summary>
+    private static async Task<IResult?> NameConflictAsync(
+        IDashboardQueryService dashboards, string name, Guid? projectId, Guid? exceptId, string? currentName, CancellationToken cancellationToken) =>
+        NameUniqueness.Conflict(
+            (await dashboards.ListAsync(cancellationToken)).Where(d => d.ProjectId == projectId).Select(d => (d.Id, d.Name)),
+            "dashboard", name, exceptId, currentName);
 
     internal static async Task<IResult> HandleListAsync(HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
@@ -145,6 +157,13 @@ public static class DashboardEndpoints
         if (await ProjectGuard.CheckTargetAsync(http, projects, existing.ProjectId, target, cancellationToken) is { } projectProblem)
         {
             return projectProblem;
+        }
+
+        // A move into another project is checked as a fresh name there, so an unchanged name doesn't slip a duplicate in.
+        var currentName = Equals(target, existing.ProjectId) ? existing.Name : null;
+        if (await NameConflictAsync(dashboards, request.Name, target, id, currentName, cancellationToken) is { } taken)
+        {
+            return taken;
         }
 
         var dashboard = await dashboards.UpdateAsync(id, request, cancellationToken);

@@ -7,7 +7,9 @@ import {
 	createIngestApiKey,
 	listIngestApiKeys,
 	revokeIngestApiKey,
+	setIngestApiKeyOrigins,
 	setIngestApiKeyProject,
+	setIngestApiKeyServices,
 	updateIngestApiKeyLimits,
 	type IngestApiKeyDto,
 	type IngestApiKeyLimits
@@ -27,6 +29,9 @@ export class IngestKeysState {
 
 	/** The key whose limits dialog is open, or null when closed. */
 	limitsTarget = $state<IngestApiKeyDto | null>(null);
+
+	/** The key whose browser-access (origins + services) dialog is open, or null when closed. */
+	accessTarget = $state<IngestApiKeyDto | null>(null);
 
 	/** The key whose project dialog is open, or null when closed. */
 	moveTarget = $state<IngestApiKeyDto | null>(null);
@@ -119,6 +124,33 @@ export class IngestKeysState {
 		try {
 			await updateIngestApiKeyLimits(this.limitsTarget.id, limits);
 			this.limitsTarget = null;
+			await this.load(true);
+		} catch (err) {
+			this.saveError = err instanceof Error ? err.message : String(err);
+		} finally {
+			this.saving = false;
+		}
+	}
+
+	openAccess(key: IngestApiKeyDto): void {
+		this.saveError = null;
+		this.accessTarget = key;
+	}
+
+	closeAccess(): void {
+		this.accessTarget = null;
+	}
+
+	/** Writes both allowlists (ADR-0149/0150); an empty list lifts that restriction. */
+	async saveAccess(origins: string[], services: string[]): Promise<void> {
+		if (!this.accessTarget) return;
+		const { id, allowedOrigins, allowedServices } = this.accessTarget;
+		this.saving = true;
+		this.saveError = null;
+		try {
+			if (origins.join('\n') !== allowedOrigins.join('\n')) await setIngestApiKeyOrigins(id, origins);
+			if (services.join('\n') !== allowedServices.join('\n')) await setIngestApiKeyServices(id, services);
+			this.accessTarget = null;
 			await this.load(true);
 		} catch (err) {
 			this.saveError = err instanceof Error ? err.message : String(err);

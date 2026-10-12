@@ -57,7 +57,7 @@ public static class AlertMessageFormatter
     /// breach; <paramref name="firedAt"/> is then when the recovery was observed. Ignored when
     /// <paramref name="isTest"/>.
     /// </param>
-    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
+    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null, string? owner = null)
     {
         var text = isTest
             ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
@@ -79,6 +79,11 @@ public static class AlertMessageFormatter
         if (!isTest && !noData && !resolved && logSamples is { Length: > 0 } samples)
         {
             text = $"{text}\nRecent logs:\n{samples}";
+        }
+
+        if (!isTest && !noData && !resolved && !string.IsNullOrEmpty(owner))
+        {
+            text = $"{text}\nOwner: {owner}";
         }
 
         if (!noData && firedAt is { } at && BuildFiredDataUrl(rule, publicUrl, at) is { } dataUrl)
@@ -117,17 +122,17 @@ public static class AlertMessageFormatter
     /// link lines (it has <c>client_url</c>/<c>links</c> for those). Only affects the built-in
     /// text - the <c>{{rule_url}}</c>/<c>{{logs_url}}</c> placeholders resolve either way.
     /// </param>
-    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true, bool resolved = false, AlertMarkupFormat format = AlertMarkupFormat.Plain, string? logSamples = null, string? ackUrl = null)
+    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true, bool resolved = false, AlertMarkupFormat format = AlertMarkupFormat.Plain, string? logSamples = null, string? ackUrl = null, string? owner = null)
     {
         resolved = resolved && !isTest;
         var titleTemplate = rule.NotificationTitleTemplate;
         var bodyTemplate = rule.NotificationBodyTemplate;
         if (string.IsNullOrEmpty(titleTemplate) && string.IsNullOrEmpty(bodyTemplate))
         {
-            return new AlertMessage(null, BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved, logSamples: appendLinks ? logSamples : null, ackUrl: appendLinks ? ackUrl : null), IsCustom: false);
+            return new AlertMessage(null, BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved, logSamples: appendLinks ? logSamples : null, ackUrl: appendLinks ? ackUrl : null, owner: appendLinks ? owner : null), IsCustom: false);
         }
 
-        var values = BuildTemplateValues(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, resolved, logSamples, ackUrl);
+        var values = BuildTemplateValues(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, resolved, logSamples, ackUrl, owner);
         var labels = BuildTemplateLabels(rule);
         var prefix = isTest ? TestPrefix : resolved ? ResolvedPrefix : "";
 
@@ -135,7 +140,7 @@ public static class AlertMessageFormatter
         // Only one of the two carries the prefix - with a title it's already the first thing
         // every channel shows, and a second "[Test]" on the body line would just be noise.
         var text = string.IsNullOrEmpty(bodyTemplate)
-            ? BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved, logSamples: appendLinks ? logSamples : null, ackUrl: appendLinks ? ackUrl : null)
+            ? BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved, logSamples: appendLinks ? logSamples : null, ackUrl: appendLinks ? ackUrl : null, owner: appendLinks ? owner : null)
             : (title is null ? prefix : "") + RenderTemplate(bodyTemplate, values, labels, format);
         return new AlertMessage(title, text, IsCustom: true);
     }
@@ -172,7 +177,7 @@ public static class AlertMessageFormatter
     /// public URL) is "". <c>{{data_url}}</c> is the kind-appropriate <see cref="BuildFiredDataUrl"/>
     /// link; <c>{{logs_url}}</c> stays logs-only, as it was before metric/exception links existed.
     /// </summary>
-    internal static IReadOnlyDictionary<string, string> BuildTemplateValues(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool resolved = false, string? logSamples = null, string? ackUrl = null)
+    internal static IReadOnlyDictionary<string, string> BuildTemplateValues(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool resolved = false, string? logSamples = null, string? ackUrl = null, string? owner = null)
     {
         var seriesKind = RuleSeriesKind(rule);
         var isAnomaly = rule.ConditionKind == AlertConditionKind.Anomaly;
@@ -188,6 +193,11 @@ public static class AlertMessageFormatter
             {
                 threshold = MetricUnitFormatter.Format(tv, scale);
             }
+        }
+        else if (rule.ConditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            value = FormatPercent(observedValue);
+            threshold = rule.MetricThresholdValue is { } crashFreeThreshold ? FormatPercent(crashFreeThreshold) : "";
         }
         else if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
         {
@@ -242,6 +252,8 @@ public static class AlertMessageFormatter
             // Newest matching log lines of a LogCount fire (empty for every other kind, a test, or a no-data/resolved send).
             // Signed one-click acknowledge link (ADR-0127): only a real firing send carries one.
             ["ack_url"] = isTest || resolved ? "" : ackUrl ?? "",
+            // Who owns the top error groups of an exception-count fire (ADR-0197); empty for every other kind.
+            ["owner"] = noData || resolved || isTest ? "" : owner ?? "",
             ["log_samples"] = noData || resolved || isTest ? "" : logSamples ?? "",
             // The built-in wording without its link lines - lets a template wrap rather than
             // replace it ("{{message}} - runbook: https://...").
@@ -288,7 +300,7 @@ public static class AlertMessageFormatter
                 }
 
                 break;
-            case AlertConditionKind.ExceptionCount when rule.ExceptionCondition is { } exception:
+            case AlertConditionKind.ExceptionCount or AlertConditionKind.ReleaseErrors or AlertConditionKind.CrashFreeRate when rule.ExceptionCondition is { } exception:
                 foreach (var service in exception.Filter.Services ?? [])
                 {
                     Add("service.name", service);
@@ -392,14 +404,25 @@ public static class AlertMessageFormatter
                    $"(threshold {comparatorSymbol} {thresholdText}) over the last {rule.WindowSeconds}s";
         }
 
-        var what = rule.ConditionKind == AlertConditionKind.ExceptionCount
-            ? $"{rule.ExceptionCondition?.ExceptionType ?? "?"} occurred {(ulong)observedValue} times"
-            : $"{(ulong)observedValue} events";
+        if (rule.ConditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            return $"{head}: crash-free sessions back to {FormatPercent(observedValue)} (threshold {comparatorSymbol} {FormatPercent(rule.MetricThresholdValue ?? 0)}) over the last {rule.WindowSeconds}s";
+        }
+
+        var what = rule.ConditionKind switch
+        {
+            AlertConditionKind.ExceptionCount => $"{rule.ExceptionCondition?.ExceptionType ?? "?"} occurred {(ulong)observedValue} times",
+            AlertConditionKind.ReleaseErrors => $"{(ulong)observedValue} new error groups from a release",
+            _ => $"{(ulong)observedValue} events",
+        };
         return $"{head}: {what} (threshold {comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";
     }
 
     /// <summary>Burn rates read as "14.4", "6" or "0.5" - at most one decimal, no trailing zero.</summary>
     internal static string FormatBurnRate(double burnRate) => burnRate.ToString("0.#", CultureInfo.InvariantCulture);
+
+    /// <summary>Crash-free rates read as "99.2%" - at most two decimals, no trailing zero.</summary>
+    internal static string FormatPercent(double percent) => percent.ToString("0.##", CultureInfo.InvariantCulture) + "%";
 
     private static string SloThresholdSuffix(AlertRule rule) =>
         rule.SloCondition is { } slo ? $" (threshold >= {FormatBurnRate(slo.BurnRateThreshold)}x, also over {slo.ShortWindowSeconds}s)" : "";
@@ -417,6 +440,16 @@ public static class AlertMessageFormatter
         AlertConditionKind.SloBurnRate => rule.SloCondition?.BurnRateThreshold,
         _ => rule.MetricThresholdValue,
     };
+
+    /// <summary>Label the worker sets on the in-memory rule of a <see cref="AlertConditionKind.ReleaseErrors"/> fire to name the release.</summary>
+    public const string ReleaseLabel = "flare.release";
+
+    private static string ReleaseServiceScope(AlertRule rule) =>
+        rule.ExceptionCondition?.Filter.Services is { Count: > 0 } services ? $" in {string.Join(", ", services)}" : "";
+
+    private static string ReleaseServiceSuffix(AlertRule rule) =>
+        rule.Labels.TryGetValue(ReleaseLabel, out var release) ? $": {release}"
+        : rule.ExceptionCondition?.Filter.Services is { Count: > 0 } services ? $" in {string.Join(", ", services)}" : "";
 
     private static string BuildFiredText(AlertRule rule, double observedValue, string? metricUnit)
     {
@@ -436,6 +469,19 @@ public static class AlertMessageFormatter
             var thresholdText = thresholdValue is { } tv ? MetricUnitFormatter.Format(tv, scale) : "";
             return $":rotating_light: Alert \"{rule.Name}\" fired: {metricName} = {MetricUnitFormatter.Format(observedValue, scale)} " +
                    $"({comparatorSymbol} {thresholdText}) over the last {rule.WindowSeconds}s";
+        }
+
+        if (rule.ConditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            var version = rule.Labels.TryGetValue(ReleaseLabel, out var worst) ? $" (version {worst})" : "";
+            return $":rotating_light: Alert \"{rule.Name}\" fired: {FormatPercent(observedValue)} of sessions were crash-free ({comparatorSymbol} {FormatPercent(rule.MetricThresholdValue ?? 0)}) " +
+                   $"over the last {rule.WindowSeconds}s{version}{ReleaseServiceScope(rule)}";
+        }
+
+        if (rule.ConditionKind == AlertConditionKind.ReleaseErrors)
+        {
+            return $":rotating_light: Alert \"{rule.Name}\" fired: a release deployed in the last {rule.WindowSeconds}s introduced {(ulong)observedValue} new error groups " +
+                   $"({comparatorSymbol} {rule.Threshold.Count}){ReleaseServiceSuffix(rule)}";
         }
 
         if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
@@ -530,6 +576,8 @@ public static class AlertMessageFormatter
             AlertConditionKind.MetricThreshold => BuildMetricChartUrl(rule, publicUrl, firedAt),
             AlertConditionKind.ExceptionCount => BuildMatchingExceptionsUrl(rule, publicUrl, firedAt),
             AlertConditionKind.SloBurnRate => BuildSloUrl(rule, publicUrl),
+            AlertConditionKind.ReleaseErrors => string.IsNullOrWhiteSpace(publicUrl) ? null : $"{publicUrl.TrimEnd('/')}/releases",
+            AlertConditionKind.CrashFreeRate => string.IsNullOrWhiteSpace(publicUrl) ? null : $"{publicUrl.TrimEnd('/')}/sessions",
             _ => BuildMatchingLogsUrl(rule, publicUrl, firedAt),
         };
 
@@ -546,6 +594,8 @@ public static class AlertMessageFormatter
             AlertConditionKind.MetricThreshold => "Metric chart",
             AlertConditionKind.ExceptionCount => "Matching exceptions",
             AlertConditionKind.SloBurnRate => "SLO",
+            AlertConditionKind.ReleaseErrors => "Releases",
+            AlertConditionKind.CrashFreeRate => "Sessions",
             _ => "Matching logs",
         };
 

@@ -25,6 +25,9 @@ public static class IngestApiKeyEndpoints
         endpoints.MapDelete("/api/ingest-keys/{id:guid}", HandleRevokeAsync);
         endpoints.MapPut("/api/ingest-keys/{id:guid}/limits", HandleUpdateLimitsAsync);
         endpoints.MapPut("/api/ingest-keys/{id:guid}/project", HandleSetProjectAsync);
+        endpoints.MapPut("/api/ingest-keys/{id:guid}/name", HandleRenameAsync);
+        endpoints.MapPut("/api/ingest-keys/{id:guid}/origins", HandleSetOriginsAsync);
+        endpoints.MapPut("/api/ingest-keys/{id:guid}/services", HandleSetServicesAsync);
         return endpoints;
     }
 
@@ -49,6 +52,12 @@ public static class IngestApiKeyEndpoints
         if (await ProjectGuard.CheckTargetAsync(http, projects, null, projectId, cancellationToken) is { } projectProblem)
         {
             return projectProblem;
+        }
+
+        request = request with { Name = request.Name.Trim() };
+        if (await NameInUseAsync(keys, request.Name, exceptId: null, cancellationToken))
+        {
+            return Results.Problem($"An active ingest key named '{request.Name}' already exists.", statusCode: StatusCodes.Status409Conflict);
         }
 
         var (key, rawKey) = await keys.CreateAsync(request.Name, projectId, cancellationToken);
@@ -113,6 +122,112 @@ public static class IngestApiKeyEndpoints
         }
 
         AuditContext.SetChange(http, before, limits);
+        return Results.NoContent();
+    }
+
+    /// <summary>Names are the stable handle declarative tooling addresses a key by (ADR-0146), so they're unique among
+    /// active keys, case-insensitively. Revoked keys keep their name and don't count, so a rotated key can reuse it.
+    /// Checked on write rather than by a constraint so existing duplicates don't block a migration.</summary>
+    private static async Task<bool> NameInUseAsync(IIngestApiKeyStore keys, string name, Guid? exceptId, CancellationToken cancellationToken) =>
+        (await keys.ListAsync(cancellationToken)).Any(k =>
+            k.IsActive && k.Id != exceptId && string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase));
+
+    private static async Task<IResult> HandleRenameAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, CancellationToken cancellationToken)
+    {
+        RenameIngestApiKeyRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, IngestApiKeysJsonContext.Default.RenameIngestApiKeyRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var name = request?.Name?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            return Results.Problem("Name is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var before = (await keys.ListAsync(cancellationToken)).FirstOrDefault(k => k.Id == id);
+        if (before is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (await NameInUseAsync(keys, name, id, cancellationToken))
+        {
+            return Results.Problem($"An active ingest key named '{name}' already exists.", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        await keys.RenameAsync(id, name, cancellationToken);
+        AuditContext.SetChange(http, new { before.Name }, new { Name = name });
+        return Results.NoContent();
+    }
+
+    /// <summary>Restricts a key to browser origins (ADR-0149); an empty list lifts the restriction. Takes effect
+    /// within the Ingest key cache's refresh interval, like limits.</summary>
+    private static async Task<IResult> HandleSetOriginsAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, CancellationToken cancellationToken)
+    {
+        SetIngestApiKeyOriginsRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, IngestApiKeysJsonContext.Default.SetIngestApiKeyOriginsRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var (origins, error) = IngestKeyOrigins.Normalize(request.Origins);
+        if (origins is null)
+        {
+            return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var before = (await keys.ListAsync(cancellationToken)).FirstOrDefault(k => k.Id == id);
+        if (before is null || !await keys.SetAllowedOriginsAsync(id, origins, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        AuditContext.SetChange(http, new { before.AllowedOrigins }, new { AllowedOrigins = origins });
+        return Results.NoContent();
+    }
+
+    /// <summary>Restricts a key to a set of service names (ADR-0150): an export with any other (or no) service.name
+    /// is refused. An empty list lifts the restriction. Takes effect within the Ingest key cache's refresh interval.</summary>
+    private static async Task<IResult> HandleSetServicesAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, CancellationToken cancellationToken)
+    {
+        SetIngestApiKeyServicesRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, IngestApiKeysJsonContext.Default.SetIngestApiKeyServicesRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var services = IngestKeyServices.Normalize(request.Services);
+        var before = (await keys.ListAsync(cancellationToken)).FirstOrDefault(k => k.Id == id);
+        if (before is null || !await keys.SetAllowedServicesAsync(id, services, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        AuditContext.SetChange(http, new { before.AllowedServices }, new { AllowedServices = services });
         return Results.NoContent();
     }
 
@@ -198,5 +313,7 @@ public static class IngestApiKeyEndpoints
         EventsToday = usage.EventsToday,
         BytesToday = usage.BytesToday,
         ProjectId = key.ProjectId,
+        AllowedOrigins = key.AllowedOrigins,
+        AllowedServices = key.AllowedServices,
     };
 }

@@ -16,13 +16,18 @@
 	import KeyIcon from '@lucide/svelte/icons/key';
 	import UserIcon from '@lucide/svelte/icons/user';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
+	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
 	import PhoneCallIcon from '@lucide/svelte/icons/phone-call';
 	import RadarIcon from '@lucide/svelte/icons/radar';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import LayersIcon from '@lucide/svelte/icons/layers';
+	import SendIcon from '@lucide/svelte/icons/send';
+	import ChartColumnIcon from '@lucide/svelte/icons/chart-column';
+	import HourglassIcon from '@lucide/svelte/icons/hourglass';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import SigmaIcon from '@lucide/svelte/icons/sigma';
+	import FileCodeIcon from '@lucide/svelte/icons/file-code';
 	import { authContext } from '$lib/auth/context';
 	import { settingsManagementLinks, workspaceLinks } from '$lib/components/nav/nav-links';
 	import { searchSettings } from '$lib/settings/search-index';
@@ -43,12 +48,18 @@
 	const WORKSPACE_ICONS = {
 		'/settings/channels': BellIcon,
 		'/settings/maintenance-windows': WrenchIcon,
+		'/settings/alert-templates': FileTextIcon,
 		'/settings/oncall-rotations': PhoneCallIcon,
 		'/settings/synthetic-monitors': RadarIcon,
+		'/settings/status-pages': GlobeIcon,
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': LayersIcon,
+		'/settings/usage': ChartColumnIcon,
+		'/settings/retention': HourglassIcon,
+		'/settings/telemetry-export': SendIcon,
 		'/settings/projects': FolderIcon,
-		'/settings/ingest-keys': KeyIcon
+		'/settings/ingest-keys': KeyIcon,
+		'/settings/source-maps': FileCodeIcon
 	} as const;
 
 	const sections = $derived([

@@ -16,9 +16,9 @@ README with build/run/test instructions:
 [dashboard](src/dashboard/README.md),
 [Flare.Cli](src/Flare.Cli/README.md). The whole stack together is
 orchestrated locally via [Flare.AppHost](src/Flare.AppHost) (.NET
-Aspire) — see [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.md)
+Aspire) — see [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.md)
 for the general pattern, or `docker compose up` at the repo root for a
-standalone stack (see [docs/how-to/run-standalone.md](docs/how-to/run-standalone.md)).
+standalone stack (see [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.md)).
 
 ## Where things live
 

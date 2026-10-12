@@ -1,4 +1,5 @@
 using Flare.Ingest.Auth;
+using Flare.Ingest.Forwarding;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Google.Protobuf;
@@ -27,6 +28,7 @@ public static class OtlpHttpMetricsEndpoints
         IMetricEventSink sink,
         IIngestionStatsTracker stats,
         TimeProvider timeProvider,
+        IOtlpForwarder forwarder,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -82,6 +84,12 @@ public static class OtlpHttpMetricsEndpoints
             return Results.BadRequest();
         }
 
+        if (IngestKeyScope.RejectsServices(http, request.ResourceMetrics.Select(r => r.Resource)))
+        {
+            await stats.RecordRejectedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, "service-not-allowed", cancellationToken);
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
         // Captured once per request, not per data point - see LogEvent.IngestedAt's
         // remarks and ADR-0014.
         var ingestedAt = timeProvider.GetUtcNow();
@@ -94,6 +102,7 @@ public static class OtlpHttpMetricsEndpoints
 
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, result.Points.Count, byteCount, cancellationToken);
         IngestKeyUsageFeature.Add(http, result.Points.Count, byteCount);
+        forwarder.Forward(http, request);
         await stats.RecordServiceBreakdownAsync(
             IngestionSignal.Metrics,
             ServiceBreakdown.Build(result.Points.Select(p => (p.ServiceName, ClockSkew.Nanos(ingestedAt, p.Time))), byteCount),

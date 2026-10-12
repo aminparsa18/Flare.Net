@@ -57,8 +57,10 @@
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
+	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import PhoneCallIcon from '@lucide/svelte/icons/phone-call';
 	import RadarIcon from '@lucide/svelte/icons/radar';
+	import GlobeIcon from '@lucide/svelte/icons/globe';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -83,8 +85,10 @@
 		'/settings/ingest-keys': KeyIcon,
 		'/settings/channels': BellIcon,
 		'/settings/maintenance-windows': WrenchIcon,
+		'/settings/alert-templates': FileTextIcon,
 		'/settings/oncall-rotations': PhoneCallIcon,
 		'/settings/synthetic-monitors': RadarIcon,
+		'/settings/status-pages': GlobeIcon,
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': RefreshCwIcon,
 		'/settings/access-tokens': KeyRoundIcon

@@ -8,7 +8,7 @@ Flare 的默认部署 (`docker-compose.yml`) 运行单个 ClickHouse
 替代方案 — 具有 `ReplicatedMergeTree`/ 的真正 4 节点 ClickHouse 集群
 `Distributed` 表，由 3 节点 ClickHouse Keeper 仲裁协调
 而不是动物园管理员。本页解释了模型；看
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.zh-CN.md) 转动它
+[`../how-to/deploy/run-cluster-mode.md`](../how-to/deploy/run-cluster-mode.zh-CN.md) 转动它
 开，和 [`../reference/clustering-config.md`](../reference/clustering-config.zh-CN.md)
 有关所涉及的确切配置键。
 

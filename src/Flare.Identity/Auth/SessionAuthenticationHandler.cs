@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using Flare.Identity.PersonalAccessTokens;
 using Flare.Identity.Users;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -41,7 +42,8 @@ public sealed class SessionAuthenticationHandler(
     ISessionStore sessionStore,
     IUserStore userStore,
     IPersonalAccessTokenStore personalAccessTokenStore,
-    IOptions<AuthOptions> authOptions)
+    IOptions<AuthOptions> authOptions,
+    IServiceProvider services)
     : AuthenticationHandler<SessionAuthenticationSchemeOptions>(schemeOptions, loggerFactory, encoder)
 {
     // Only bump Sessions.LastSeenAt/PersonalAccessTokens.LastUsedAt this often per
@@ -62,6 +64,11 @@ public sealed class SessionAuthenticationHandler(
             return AuthenticateResult.NoResult();
         }
 
+        if (token.StartsWith(DashboardRenderTokenSigner.Prefix, StringComparison.Ordinal))
+        {
+            return await AuthenticateRenderTokenAsync(token);
+        }
+
         var session = await sessionStore.FindAsync(token, Context.RequestAborted);
         if (session is null)
         {
@@ -80,6 +87,29 @@ public sealed class SessionAuthenticationHandler(
         }
 
         return AuthenticateResult.Success(BuildTicket(user));
+    }
+
+    /// <summary>
+    /// A scheduled-report render (ADR-0142): the user the schedule belongs to, but always as a Viewer so the
+    /// headless browser can read and query but never change anything, whatever that user's own role.
+    /// </summary>
+    private async Task<AuthenticateResult> AuthenticateRenderTokenAsync(string token)
+    {
+        var claims = services.GetService<IDashboardRenderTokenSigner>()?.Validate(token);
+        if (claims is null)
+        {
+            return AuthenticateResult.Fail("Render token invalid or expired.");
+        }
+
+        var user = await userStore.FindByIdAsync(claims.Value.UserId, Context.RequestAborted);
+        if (user is null || user.IsDisabled)
+        {
+            return AuthenticateResult.Fail("User not found or disabled.");
+        }
+
+        var ticket = BuildTicket(user with { Role = UserRole.Viewer });
+        ((ClaimsIdentity)ticket.Principal.Identity!).AddClaim(new Claim(FlareClaimTypes.RenderDashboardId, claims.Value.DashboardId.ToString()));
+        return AuthenticateResult.Success(ticket);
     }
 
     /// <summary>Only a token that looks like ours (<see cref="PersonalAccessTokenHasher.Prefix"/>)

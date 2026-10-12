@@ -105,9 +105,9 @@
          pipeline-execution CLI - the ephemeral-storage warning is affected regardless of this
          bump). Bumped 0.4.0 to 0.4.1: AddFlare's default imageTag moved 0.5.0 -> 0.5.1 -
          0.4.0 defaulted to 0.5.0 while already pulling apardev/*, which only exists from
-         0.5.1, so a plain AddFlare() failed to pull. Tag on release: aspire-hosting-flare-v{Version} (see
+         0.5.1, so a plain AddFlare() failed to pull. Bumped 0.4.1 to 0.5.0: added WithColdStorage (RustFS + bucket job + flare_tiered policy, ADR-0144), new API surface. Tag on release: aspire-hosting-flare-v{Version} (see
          .github/workflows/nuget-publish.yml). -->
-    <Version>0.4.1</Version>
+    <Version>0.5.0</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
     <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>
@@ -151,6 +151,10 @@
          of parsing generated names. -->
     <EmbeddedResource Include="..\..\db\clickhouse\*.sql">
       <LogicalName>Aspire.Hosting.Flare.ClickHouseInit.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <!-- Opt-in cold-tier ClickHouse config, baked into the generated image by WithColdStorage(). -->
+    <EmbeddedResource Include="..\..\db\clickhouse\config\cold-storage.xml">
+      <LogicalName>Aspire.Hosting.Flare.ColdStorage.cold-storage.xml</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

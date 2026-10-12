@@ -259,8 +259,10 @@ internal sealed class SyntheticMonitorsUpdateCommand : AsyncCommand<SyntheticMon
         [Description("The monitor's id (see `flare synthetic-monitors list`).")]
         public required Guid Id { get; init; }
 
+        // Not --name: that is InstanceSettings' -n|--name (target instance), and Spectre rejects the whole
+        // command tree when two options on one command share a name.
         [CommandOption("--rename <NAME>")]
-        [Description("New name (--rename, not --name: that is the instance-targeting flag every command shares).")]
+        [Description("A new label for the monitor.")]
         public string? Name { get; init; }
 
         [CommandOption("--target <TARGET>")]

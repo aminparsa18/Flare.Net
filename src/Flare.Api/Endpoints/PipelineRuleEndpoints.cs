@@ -50,6 +50,11 @@ public static class PipelineRuleEndpoints
             return Results.Problem(validationError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (NameUniqueness.Conflict((await rules.ListAsync(cancellationToken)).Select(r => (r.Id, r.Name)), "pipeline rule", request.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var rule = await rules.CreateAsync(request, cancellationToken);
         AuditContext.SetResourceId(http, rule.Id);
         return ApiSerialization.Write(http, rule, PipelineRulesJsonContext.Default.PipelineRule, statusCode: StatusCodes.Status201Created);
@@ -81,6 +86,11 @@ public static class PipelineRuleEndpoints
         }
 
         var before = await rules.GetAsync(id, cancellationToken);
+        if (NameUniqueness.Conflict((await rules.ListAsync(cancellationToken)).Select(r => (r.Id, r.Name)), "pipeline rule", request.Name, id, before?.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var rule = await rules.UpdateAsync(id, request, cancellationToken);
         if (rule is not null)
         {

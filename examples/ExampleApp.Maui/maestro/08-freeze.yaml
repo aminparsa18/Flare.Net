@@ -1,0 +1,20 @@
+# Freeze the UI thread for 15 s. Maestro's own taps block until the app recovers, so run.sh taps the screen during the
+# freeze over adb and dismisses the ANR dialog with "Wait" (see freeze_helper). This flow only starts the freeze and
+# waits for the app to come back.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- scrollUntilVisible:
+    element:
+        id: "FreezeButton"
+- tapOn:
+    id: "FreezeButton"
+    waitToSettleTimeoutMs: 0
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+        id: "FlushButton"
+    timeout: 30000
+- tapOn:
+    id: "FlushButton"

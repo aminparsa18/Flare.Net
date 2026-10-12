@@ -12,6 +12,7 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { Badge } from '$lib/components/ui/badge';
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
 	import SourceLinkPopover from './SourceLinkPopover.svelte';
 	import SourceSnippet from './SourceSnippet.svelte';
@@ -126,7 +127,12 @@
 									<Table.Cell colspan={4} class="bg-muted/30 p-0">
 										<div class="flex items-start gap-1 px-3 py-2">
 											<details class="min-w-0 flex-1">
-												<summary class="text-muted-foreground cursor-pointer text-xs">{m.exceptionOccurrenceDialog_showStacktrace()}</summary>
+												<summary class="text-muted-foreground cursor-pointer text-xs">
+													{m.exceptionOccurrenceDialog_showStacktrace()}
+													{#if occurrence.symbolicated}
+														<Badge variant="secondary" class="ml-2">{m.exceptionOccurrenceDialog_symbolicated()}</Badge>
+													{/if}
+												</summary>
 												<StackTraceViewer
 													trace={occurrence.stacktrace}
 													maxHeight="16rem"

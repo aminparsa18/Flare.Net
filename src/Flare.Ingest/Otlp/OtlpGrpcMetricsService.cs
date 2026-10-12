@@ -1,4 +1,5 @@
 using Flare.Ingest.Auth;
+using Flare.Ingest.Forwarding;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Grpc.Core;
@@ -15,6 +16,7 @@ public sealed class OtlpGrpcMetricsService(
     IMetricEventSink sink,
     IIngestionStatsTracker stats,
     TimeProvider timeProvider,
+    IOtlpForwarder forwarder,
     ILogger<OtlpGrpcMetricsService> logger) : MetricsService.MetricsServiceBase
 {
     public override async Task<ExportMetricsServiceResponse> Export(
@@ -22,6 +24,12 @@ public sealed class OtlpGrpcMetricsService(
         ServerCallContext context)
     {
         var byteCount = request.CalculateSize();
+
+        if (IngestKeyScope.RejectsServices(context.GetHttpContext(), request.ResourceMetrics.Select(r => r.Resource)))
+        {
+            await stats.RecordRejectedAsync(IngestionSignal.Metrics, IngestionProtocol.Grpc, "service-not-allowed", context.CancellationToken);
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Service not allowed for this ingest key"));
+        }
 
         // Captured once per request, not per data point - see LogEvent.IngestedAt's
         // remarks and ADR-0014.
@@ -45,6 +53,7 @@ public sealed class OtlpGrpcMetricsService(
 
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Grpc, result.Points.Count, byteCount, context.CancellationToken);
         IngestKeyUsageFeature.Add(context.GetHttpContext(), result.Points.Count, byteCount);
+        forwarder.Forward(context.GetHttpContext(), request);
         await stats.RecordServiceBreakdownAsync(
             IngestionSignal.Metrics,
             ServiceBreakdown.Build(result.Points.Select(p => (p.ServiceName, ClockSkew.Nanos(ingestedAt, p.Time))), byteCount),

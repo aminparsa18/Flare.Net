@@ -1,0 +1,186 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.Runtime.InteropServices;
+using Flare.Maui;
+using Microsoft.Extensions.Logging;
+
+namespace ExampleApp.Maui;
+
+public partial class MainPage : ContentPage
+{
+    /// <summary>Registered through <c>AdditionalSources</c>/<c>AdditionalMeters</c> in <see cref="MauiProgram"/>.</summary>
+    public const string SourceName = "ExampleApp.Maui";
+
+    static readonly ActivitySource Source = new(SourceName);
+    static readonly Meter AppMeter = new(SourceName);
+    static readonly Counter<long> Taps = AppMeter.CreateCounter<long>("example.taps");
+
+    readonly ILogger<MainPage> _logger;
+    static readonly HttpClient Http = new();
+
+    public MainPage(ILogger<MainPage> logger)
+    {
+        InitializeComponent();
+        _logger = logger;
+        EndpointEntry.Text = Preferences.Default.Get(MauiProgram.EndpointKey, MauiProgram.DefaultEndpoint);
+        KeyEntry.Text = Preferences.Default.Get(MauiProgram.IngestKeyKey, "");
+        VersionEntry.Text = Preferences.Default.Get(MauiProgram.VersionKey, "");
+        SessionLabel.Text = $"session.id: {FlareMaui.SessionId}";
+    }
+
+    void Say(string text) => StatusLabel.Text = $"{DateTime.Now:HH:mm:ss} {text}";
+
+    void OnSaveClicked(object? sender, EventArgs e)
+    {
+        Preferences.Default.Set(MauiProgram.EndpointKey, EndpointEntry.Text?.Trim() ?? "");
+        Preferences.Default.Set(MauiProgram.IngestKeyKey, KeyEntry.Text?.Trim() ?? "");
+        Preferences.Default.Set(MauiProgram.VersionKey, VersionEntry.Text?.Trim() ?? "");
+        Say("Saved. Force-quit and relaunch to apply.");
+    }
+
+    async void OnHttpClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            // Hits Flare's own ingest health endpoint: a real HttpClient call that needs no extra backend.
+            var url = new Uri(new Uri(EndpointEntry.Text!.Trim()), "/health");
+            using var response = await Http.GetAsync(url);
+            Say($"GET {url} -> {(int)response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            Say($"GET failed: {ex.Message}");
+        }
+    }
+
+    async void OnOfflineClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            // 10.255.255.1 is not routable, so this fails whether or not the device is online; with airplane mode on,
+            // the span is tagged network.offline and the breadcrumb says "failed: offline".
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var response = await Http.GetAsync("http://10.255.255.1/ping", cts.Token);
+            Say($"GET unreachable -> {(int)response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            Say($"GET unreachable failed: {ex.GetType().Name}");
+        }
+    }
+
+    async void OnNavigateClicked(object? sender, EventArgs e) =>
+        await Shell.Current.GoToAsync(nameof(DetailPage));
+
+    void OnCustomClicked(object? sender, EventArgs e)
+    {
+        using var span = Source.StartActivity("example.custom_work");
+        span?.SetTag("example.kind", "button");
+        Taps.Add(1);
+        _logger.LogInformation("Custom work ran with tap count source {Source}", SourceName);
+        _logger.LogWarning("Something looked odd on {Platform}", DeviceInfo.Platform);
+        Say("Emitted a span, two logs and a counter.");
+    }
+
+    void OnRecordClicked(object? sender, EventArgs e)
+    {
+        try { throw new InvalidOperationException("Handled example exception"); }
+        catch (Exception ex) { FlareMaui.RecordException(ex); }
+        Say("RecordException called.");
+    }
+
+    // The built-in "report a problem" prompt (ADR-0193): message, then an optional e-mail; lands in Sessions > Feedback.
+    async void OnFeedbackClicked(object? sender, EventArgs e)
+    {
+        var sent = await FlareFeedback.PromptAsync(this, askForEmail: true);
+        Say(sent ? "Feedback sent." : "Feedback not sent.");
+    }
+
+    // The message carries the version, so each version introduces its own exception group: mark the versions as
+    // releases (flare releases mark) and the Releases page lists this one as new under the version that threw it.
+    void OnReleaseErrorClicked(object? sender, EventArgs e)
+    {
+        var version = Preferences.Default.Get(MauiProgram.VersionKey, "");
+        if (version.Length == 0) version = AppInfo.Current.VersionString;
+        try { throw new InvalidOperationException($"Release demo error {version}"); }
+        catch (Exception ex) { FlareMaui.RecordException(ex); }
+        Say($"Recorded a version-specific exception for {version}.");
+    }
+
+    void OnUnhandledTaskClicked(object? sender, EventArgs e)
+    {
+        // Faults an unobserved task; it is reported when the finalizer observes it, so force a collection.
+        _ = Task.Run(() => throw new InvalidOperationException("Unobserved task exception"));
+        _ = Task.Delay(300).ContinueWith(_ =>
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        });
+        Say("Faulted a task; look for app.unhandled_exception.");
+    }
+
+    void OnScrubClicked(object? sender, EventArgs e)
+    {
+        // ScrubAttribute (MauiProgram) redacts example.email; BeforeSend drops the span named example.noisy.
+        using (var kept = Source.StartActivity("example.scrubbed")) kept?.SetTag("example.email", "jane@example.com");
+        using (var dropped = Source.StartActivity("example.noisy")) dropped?.SetTag("example.note", "should never be exported");
+        Say("Emitted example.scrubbed (email shows [redacted]); example.noisy is dropped.");
+    }
+
+    void OnFlushClicked(object? sender, EventArgs e)
+    {
+        FlareMaui.Flush();
+        Say("Flushed.");
+    }
+
+    void OnCrashClicked(object? sender, EventArgs e) =>
+        throw new InvalidOperationException("Deliberate crash from ExampleApp.Maui");
+
+    void OnUserToggled(object? sender, ToggledEventArgs e)
+    {
+        // Release health counts users from user.id; the e-mail is sent only because SendDefaultPii is on in MauiProgram.
+        FlareMaui.SetUser(e.Value ? "demo-user-1" : null, "Demo User", "demo@example.com");
+        FlareMaui.SetTag("plan", e.Value ? "pro" : null);
+        FlareMaui.SetContext("cart", e.Value ? new Dictionary<string, string> { ["items"] = "3", ["currency"] = "EUR" } : null);
+        Say(e.Value ? "User, tag and cart context set on every span and log." : "User cleared.");
+    }
+
+    async void OnSlowScreenClicked(object? sender, EventArgs e) =>
+        await Shell.Current.GoToAsync(nameof(SlowPage));
+
+    // Produces frames that take 40 ms each (slow) by changing the page and blocking the UI thread between yields, then
+    // one 800 ms block (frozen). The frame counts are reported as a screen.frames span when the screen changes or the
+    // app is flushed.
+    async void OnJankClicked(object? sender, EventArgs e)
+    {
+        for (var i = 0; i < 75; i++)
+        {
+            StatusLabel.Text = $"Jank {i}";
+            Thread.Sleep(40);
+            await Task.Delay(1);
+        }
+        StatusLabel.Text = "Jank frozen frame";
+        Thread.Sleep(800);
+        await Task.Delay(1);
+        Say("Jank done");
+    }
+
+    // Blocks the main thread. On Android, tapping meanwhile past ~5 s makes the system record an ANR, which is
+    // reported on the next launch (kill the app while frozen); the hang watchdog reports app.hang on both platforms.
+    void OnFreezeClicked(object? sender, EventArgs e)
+    {
+        Say("Freezing...");
+        Thread.Sleep(TimeSpan.FromSeconds(15));
+    }
+
+    // SIGABRT from native code never reaches a managed handler. Relaunch to see it reported from
+    // ApplicationExitInfo (Android) or, up to a day later, MetricKit (iOS).
+    void OnNativeCrashClicked(object? sender, EventArgs e)
+    {
+        FlareMaui.Flush();
+        abort();
+    }
+
+    [DllImport("libc")]
+    static extern void abort();
+}

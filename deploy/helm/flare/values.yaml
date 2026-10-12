@@ -2,7 +2,7 @@
 #   helm install flare ./deploy/helm/flare
 # brings up the whole stack (bundled ClickHouse + Redis, embedded-SQLite identity).
 # Reach it with the `kubectl port-forward` commands printed by NOTES.txt, or turn on
-# `ingress` for a real hostname. See docs/how-to/deploy-with-helm.md.
+# `ingress` for a real hostname. See docs/how-to/deploy/deploy-with-helm.md.
 
 image:
   registry: docker.io
@@ -16,7 +16,7 @@ imagePullSecrets: []
 # the API's CORS allow-list and the deep links in alert notifications. Leave empty to use
 # `kubectl port-forward` defaults (dashboard http://localhost:7777, api http://localhost:8080).
 publicUrl: ""
-# Sub-path hosting (ADR-0078, docs/how-to/serve-under-a-sub-path.md), e.g. /flare. Empty = root.
+# Sub-path hosting (ADR-0078, docs/how-to/deploy/serve-under-a-sub-path.md), e.g. /flare. Empty = root.
 basePath: ""
 
 ingress:
@@ -82,7 +82,7 @@ clickhouse:
   # false = use an existing server (single node, or a cluster behind a load balancer/Service).
   # Use this for cluster mode, e.g. one managed by the Altinity ClickHouse operator.
   enabled: true
-  image: clickhouse/clickhouse-server:latest
+  image: clickhouse/clickhouse-server:26.8
   resources: {}
   persistence:
     size: 50Gi

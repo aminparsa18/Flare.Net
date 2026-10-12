@@ -71,11 +71,11 @@ public sealed class TeamsAlertNotifier(HttpClient httpClient, IOptions<AlertLink
         };
     }
 
-    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
+    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null, string? owner = null)
     {
         var publicUrl = linkOptions.Value.PublicUrl;
         // The buttons carry the links, so the built-in text doesn't repeat them (appendLinks: false).
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false, resolved: resolved, logSamples: logSamples, ackUrl: ackUrl);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false, resolved: resolved, logSamples: logSamples, ackUrl: ackUrl, owner: owner);
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, publicUrl);
         // No fired-data link for a no-data fire - by definition there is no matching data to show.
         var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, publicUrl, firedAt);

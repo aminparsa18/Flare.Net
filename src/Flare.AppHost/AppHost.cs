@@ -24,6 +24,44 @@ var clickhouse = builder.AddClickHouse("clickhouse", password: clickhousePasswor
     .WithBindMount("../../db/clickhouse", "/docker-entrypoint-initdb.d", isReadOnly: true);
 var logsDb = clickhouse.AddDatabase("clickhousedb");
 
+// Opt-in cold tier for retention (docs-internal/adr/0144-cold-storage-rustfs.md): run with
+// `Flare:ColdStorage=true` (e.g. `dotnet run --project src/Flare.AppHost -- --Flare:ColdStorage=true`)
+// to add RustFS, a one-shot job that creates its bucket, and mount cold-storage.xml into ClickHouse.
+// Off by default - most dev runs don't need an object store. Same wiring as
+// docker-compose.cold-storage.yml; the credentials are fixed and shell-safe, like the ClickHouse one.
+if (bool.TryParse(builder.Configuration["Flare:ColdStorage"], out var coldStorage) && coldStorage)
+{
+    const string coldBucket = "flare-cold";
+    var coldAccessKey = builder.AddParameter("cold-access-key", "flarecold", secret: true);
+    var coldSecretKey = builder.AddParameter("cold-secret-key", "flarecold-secret", secret: true);
+
+    var rustfs = builder.AddContainer("rustfs", "rustfs/rustfs:latest")
+        .WithHttpEndpoint(port: 9000, targetPort: 9000, name: "s3")
+        .WithHttpEndpoint(port: 9001, targetPort: 9001, name: "console")
+        .WithEnvironment("RUSTFS_ACCESS_KEY", coldAccessKey)
+        .WithEnvironment("RUSTFS_SECRET_KEY", coldSecretKey)
+        .WithVolume("flare-rustfs-data", "/data")
+        .WithHttpHealthCheck("/health", 200, "s3");
+
+    // RustFS doesn't create buckets on demand and ClickHouse's S3 disk won't either.
+    var rustfsInit = builder.AddContainer("rustfs-init", "minio/mc:latest")
+        .WithEntrypoint("/bin/sh")
+        .WithArgs(
+            "-c",
+            $"until mc alias set rustfs \"$RUSTFS_ENDPOINT\" \"$RUSTFS_ACCESS_KEY\" \"$RUSTFS_SECRET_KEY\" >/dev/null 2>&1; do sleep 2; done; mc mb --ignore-existing rustfs/{coldBucket}")
+        .WithEnvironment("RUSTFS_ENDPOINT", rustfs.GetEndpoint("s3"))
+        .WithEnvironment("RUSTFS_ACCESS_KEY", coldAccessKey)
+        .WithEnvironment("RUSTFS_SECRET_KEY", coldSecretKey)
+        .WaitFor(rustfs);
+
+    clickhouse
+        .WithBindMount("../../db/clickhouse/config/cold-storage.xml", "/etc/clickhouse-server/config.d/cold-storage.xml", isReadOnly: true)
+        .WithEnvironment("FLARE_COLD_ENDPOINT", ReferenceExpression.Create($"{rustfs.GetEndpoint("s3")}/{coldBucket}/"))
+        .WithEnvironment("FLARE_COLD_ACCESS_KEY", coldAccessKey)
+        .WithEnvironment("FLARE_COLD_SECRET_KEY", coldSecretKey)
+        .WaitForCompletion(rustfsInit);
+}
+
 // Redis: durable buffer for the batched ClickHouse insert pipeline (Planning.md's
 // "Buffering layer" decision, 2026-08-07 - Redis Streams over an in-memory ring buffer,
 // specifically so events survive Flare.Ingest restarting mid-buffer). WithPersistence

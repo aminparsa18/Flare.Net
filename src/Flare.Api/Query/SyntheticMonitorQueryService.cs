@@ -17,6 +17,9 @@ public interface ISyntheticMonitorQueryService
     /// <summary>Each monitor's latest probe result per location, keyed by monitor name (the <c>monitor</c> metric attribute). Monitors with no recent result are absent.</summary>
     Task<IReadOnlyDictionary<string, IReadOnlyList<SyntheticLocationStatus>>> LatestStatusesAsync(CancellationToken cancellationToken);
 
+    /// <summary>Per monitor name, the percent of probes that were up on each UTC day since <paramref name="since"/>. Days with no probes are absent.</summary>
+    Task<IReadOnlyDictionary<string, IReadOnlyDictionary<DateOnly, double>>> DailyUptimeAsync(IReadOnlyCollection<string> monitorNames, DateTimeOffset since, CancellationToken cancellationToken);
+
     Task<SyntheticMonitor?> GetAsync(Guid id, CancellationToken cancellationToken);
 
     Task<SyntheticMonitor?> UpdateAsync(Guid id, SyntheticMonitorRequest request, CancellationToken cancellationToken);
@@ -128,6 +131,43 @@ public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOpti
         return statuses.ToDictionary(
             kv => kv.Key,
             kv => (IReadOnlyList<SyntheticLocationStatus>)kv.Value.OrderBy(l => l.Location, StringComparer.Ordinal).ToList());
+    }
+
+    public async Task<IReadOnlyDictionary<string, IReadOnlyDictionary<DateOnly, double>>> DailyUptimeAsync(IReadOnlyCollection<string> monitorNames, DateTimeOffset since, CancellationToken cancellationToken)
+    {
+        if (monitorNames.Count == 0)
+        {
+            return new Dictionary<string, IReadOnlyDictionary<DateOnly, double>>();
+        }
+
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("service", SyntheticMetrics.ServiceName);
+        parameters.AddParameter("since", since.UtcDateTime);
+        parameters.AddParameter("names", monitorNames.ToArray());
+        const string sql = """
+            SELECT DataPointAttributes['monitor'] AS Monitor, toDate(Time, 'UTC') AS Day, avg(Value) * 100 AS UptimePercent
+            FROM metrics_gauge
+            WHERE ServiceName = {service:String}
+              AND MetricName = 'synthetic.up'
+              AND Time >= {since:DateTime64(3)}
+              AND DataPointAttributes['monitor'] IN {names:Array(String)}
+            GROUP BY Monitor, Day
+            """;
+
+        await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
+        var result = new Dictionary<string, Dictionary<DateOnly, double>>();
+        while (reader.Read())
+        {
+            var monitor = reader.GetString(0);
+            if (!result.TryGetValue(monitor, out var days))
+            {
+                result[monitor] = days = [];
+            }
+
+            days[DateOnly.FromDateTime(reader.GetDateTime(1))] = reader.GetDouble(2);
+        }
+
+        return result.ToDictionary(kv => kv.Key, kv => (IReadOnlyDictionary<DateOnly, double>)kv.Value);
     }
 
     public async Task<SyntheticMonitor?> GetAsync(Guid id, CancellationToken cancellationToken)

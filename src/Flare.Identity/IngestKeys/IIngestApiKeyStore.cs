@@ -12,11 +12,22 @@ public interface IIngestApiKeyStore
     /// <summary>Moves a key to another project, or to instance-wide with null. False if no key has that id.</summary>
     Task<bool> SetProjectAsync(Guid id, Guid? projectId, CancellationToken cancellationToken = default);
 
+    /// <summary>Renames a key. False when it doesn't exist.</summary>
+    Task<bool> RenameAsync(Guid id, string name, CancellationToken cancellationToken = default);
+
     Task RevokeAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>Replaces a key's ingestion limits (ADR-0051). Returns false if no key has
     /// that id. Allowed on a revoked key too - harmless, and it keeps this a plain update.</summary>
     Task<bool> UpdateLimitsAsync(Guid id, IngestApiKeyLimits limits, CancellationToken cancellationToken = default);
+
+    /// <summary>Replaces a key's browser-origin allowlist with already-normalized origins
+    /// (<see cref="IngestKeyOrigins.Normalize"/>); empty = unrestricted (ADR-0149). False if no key has that id.</summary>
+    Task<bool> SetAllowedOriginsAsync(Guid id, IReadOnlyList<string> origins, CancellationToken cancellationToken = default);
+
+    /// <summary>Replaces a key's service allowlist (<see cref="IngestKeyServices.Normalize"/>); empty = any service
+    /// (ADR-0150). False if no key has that id.</summary>
+    Task<bool> SetAllowedServicesAsync(Guid id, IReadOnlyList<string> services, CancellationToken cancellationToken = default);
 
     /// <summary>Every currently-active key's hash, id, name and limits. <c>Flare.Ingest</c>
     /// polls this on a timer (see docs/auth.md) to build its in-memory validation cache,

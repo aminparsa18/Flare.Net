@@ -9,7 +9,7 @@ Le **mode cluster** est l'alternative optionnelle — un vrai cluster
 ClickHouse à 4 nœuds avec des tables `ReplicatedMergeTree`/`Distributed`,
 coordonné par un quorum ClickHouse Keeper à 3 nœuds au lieu de ZooKeeper.
 Cette page explique le modèle ; voir
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.fr.md) pour
+[`../how-to/deploy/run-cluster-mode.md`](../how-to/deploy/run-cluster-mode.fr.md) pour
 l'activer, et [`../reference/clustering-config.md`](../reference/clustering-config.fr.md)
 pour les clés de configuration exactes concernées.
 

@@ -34,6 +34,7 @@
 	import type { Component } from 'svelte';
 	import EarthIcon from '@lucide/svelte/icons/earth';
 	import ServerIcon from '@lucide/svelte/icons/server';
+	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import ContainerIcon from '@lucide/svelte/icons/container';
 
 	const auth = authContext.get();
@@ -42,6 +43,7 @@
 
 	const MENU_LINK_ICONS: Record<string, Component> = {
 		'/external-apis': EarthIcon,
+		'/sessions': SmartphoneIcon,
 		'/hosts': ServerIcon,
 		'/kubernetes': ContainerIcon
 	};

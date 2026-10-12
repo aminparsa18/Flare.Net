@@ -250,6 +250,57 @@ public class IngestApiKeyValidationMiddlewareTests
         Assert.True(nextCalled);
     }
 
+    [Theory]
+    [InlineData("https://app.example.com", true)]
+    [InlineData("HTTPS://APP.EXAMPLE.COM", true)]
+    [InlineData("https://evil.example.com", false)]
+    [InlineData(null, false)]
+    public async Task InvokeAsync_OriginRestrictedKey_OnlyAcceptsListedOrigins(string? origin, bool allowed)
+    {
+        var fixture = await CreateAsync(new IngestAuthOptions { IngestKeyRequired = true });
+        var (keyId, rawKey) = await fixture.AddKeyAsync("browser", IngestApiKeyLimits.None);
+        await fixture.SetOriginsAsync(keyId, ["https://app.example.com"]);
+        var context = CreateHttpContext(path: "/v1/traces", bearerToken: rawKey);
+        if (origin is not null)
+        {
+            context.Request.Headers.Origin = origin;
+        }
+
+        var nextCalled = false;
+        await fixture.Middleware.InvokeAsync(context, _ => { nextCalled = true; return Task.CompletedTask; });
+
+        Assert.Equal(allowed, nextCalled);
+        if (!allowed)
+        {
+            Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task InvokeAsync_UnrestrictedKey_IgnoresOrigin()
+    {
+        var fixture = await CreateAsync(new IngestAuthOptions { IngestKeyRequired = true });
+        var (_, rawKey) = await fixture.AddKeyAsync("server", IngestApiKeyLimits.None);
+        var context = CreateHttpContext(path: "/v1/traces", bearerToken: rawKey);
+        context.Request.Headers.Origin = "https://anything.example.com";
+
+        var nextCalled = false;
+        await fixture.Middleware.InvokeAsync(context, _ => { nextCalled = true; return Task.CompletedTask; });
+
+        Assert.True(nextCalled);
+    }
+
+    [Fact]
+    public async Task Cache_AnyKeyAllowsOrigin_ReflectsActiveKeysOnly()
+    {
+        var fixture = await CreateAsync(new IngestAuthOptions { IngestKeyRequired = true });
+        var (keyId, _) = await fixture.AddKeyAsync("browser", IngestApiKeyLimits.None);
+        await fixture.SetOriginsAsync(keyId, ["https://app.example.com"]);
+
+        Assert.True(fixture.Cache.AnyKeyAllowsOrigin("https://APP.example.com"));
+        Assert.False(fixture.Cache.AnyKeyAllowsOrigin("https://other.example.com"));
+    }
+
     private static async Task<Fixture> CreateAsync(IngestAuthOptions options)
     {
         var fixture = new Fixture(options, new FakeIngestApiKeyStore(), new FakeIngestKeyUsageStore(), new FakeIngestionStatsTracker());
@@ -266,6 +317,12 @@ public class IngestApiKeyValidationMiddlewareTests
         public FakeIngestionStatsTracker Stats => stats;
 
         public TestMiddleware Middleware => new(Options.Create(options), Cache, usage, stats);
+
+        public async Task SetOriginsAsync(Guid keyId, IReadOnlyList<string> origins)
+        {
+            await store.SetAllowedOriginsAsync(keyId, origins);
+            await Cache.InitializeAsync(CancellationToken.None);
+        }
 
         /// <summary>Creates a SQLite-style key with <paramref name="limits"/> and refreshes
         /// the cache so the middleware sees it.</summary>

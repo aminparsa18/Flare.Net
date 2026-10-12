@@ -110,6 +110,6 @@ dependency table, no explicit graph object anywhere in memory.**
 
 - `docs-internal/adr/0025-dashboard-variables.md` - the variable system
   this ADR adds chaining to, without changing anything else about it.
-- `docs/how-to/build-custom-dashboards.md` - user-facing how-to, "Variable
+- `docs/how-to/dashboards/build-custom-dashboards.md` - user-facing how-to, "Variable
   chaining" section, updated in the same PR as this ADR per this repo's
   documentation convention.

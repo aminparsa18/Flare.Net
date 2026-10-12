@@ -1,0 +1,28 @@
+# Session replay-lite: stay on a few screens long enough for scheduled frames (5 s interval), type into a masked
+# field, then record an error. The session's replay player should show Main and Detail with the balance and the
+# notes text blanked.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- waitForAnimationToEnd:
+    timeout: 6000
+- tapOn:
+    id: "NavigateButton"
+- tapOn:
+    id: "NotesEntry"
+- inputText: "secret note"
+- waitForAnimationToEnd:
+    timeout: 6000
+- waitForAnimationToEnd:
+    timeout: 6000
+- hideKeyboard
+- back
+- waitForAnimationToEnd:
+    timeout: 6000
+- tapOn:
+    id: "RecordButton"
+- tapOn:
+    id: "FlushButton"
+- waitForAnimationToEnd:
+    timeout: 2000

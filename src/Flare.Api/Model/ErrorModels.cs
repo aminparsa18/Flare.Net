@@ -70,6 +70,9 @@ public sealed partial record ExceptionGroup
 
     /// <summary>Every distinct <c>ServiceName</c> that recorded this (type, message) pair in the window, unordered.</summary>
     public required IReadOnlyList<string> AffectedServices { get; init; }
+
+    /// <summary>Source-file paths from one sample occurrence's stack trace (<see cref="Errors.StackFramePaths"/>), top frame first; empty when the group has no stack trace with file info. What <c>Path</c> ownership rules match (ADR-0196).</summary>
+    public IReadOnlyList<string> SamplePaths { get; init; } = [];
 }
 
 /// <summary>Response body for <c>POST /api/errors/groups</c>.</summary>
@@ -122,6 +125,12 @@ public sealed partial record ExceptionOccurrence
 
     /// <summary>The emitting app's build revision, for linking stack frames to source: the span's <c>vcs.ref.head.revision</c> / <c>vcs.revision</c> resource attribute, else <c>service.version</c> (SourceLink-stamped .NET versions look like <c>1.2.3+abc1234</c>). Empty when none is set. Last member on purpose - MemoryPack tolerates trailing additions.</summary>
     public string Revision { get; init; } = "";
+
+    /// <summary>The span's <c>service.version</c> resource attribute, which an uploaded source map's version is matched against (ADR-0152). Empty when none is set.</summary>
+    public string ServiceVersion { get; init; } = "";
+
+    /// <summary>True when <see cref="Stacktrace"/> was rewritten from an uploaded source map (browser frames mapped back to original sources).</summary>
+    public bool Symbolicated { get; init; }
 }
 
 /// <summary>

@@ -1,0 +1,49 @@
+# Release tracking demo (ADR-0182): 1.0.0 throws the shared handled error, 2.0.0 throws it again plus an error of its own.
+# run.sh then marks both versions as releases and checks that only the 2.0.0 error is new in 2.0.0.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "VersionEntry"
+- eraseText: 30
+- inputText: "1.0.0"
+- hideKeyboard
+- tapOn:
+    id: "SaveButton"
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "RecordButton"
+- tapOn:
+    id: "ReleaseErrorButton"
+- tapOn:
+    id: "FlushButton"
+- waitForAnimationToEnd:
+    timeout: 2000
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "VersionEntry"
+- eraseText: 30
+- inputText: "2.0.0"
+- hideKeyboard
+- tapOn:
+    id: "SaveButton"
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "RecordButton"
+- tapOn:
+    id: "ReleaseErrorButton"
+- tapOn:
+    id: "FlushButton"
+- waitForAnimationToEnd:
+    timeout: 2000
+# Restore: clear the override so later runs use the default version.
+- tapOn:
+    id: "VersionEntry"
+- eraseText: 30
+- hideKeyboard
+- tapOn:
+    id: "SaveButton"

@@ -1,0 +1,364 @@
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Instrumentation.Http;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+namespace Flare.Maui;
+
+/// <summary>
+/// Owns the telemetry providers. MAUI has no generic host, so nothing starts the usual hosted
+/// OpenTelemetry service: the providers are built here and kept for the life of the process.
+/// </summary>
+public static class FlareMaui
+{
+    /// <summary>Name of the <see cref="ActivitySource"/> the package's own spans use.</summary>
+    public const string SourceName = "Flare.Maui";
+
+    internal static readonly ActivitySource Source = new(SourceName);
+
+    private static UnhandledExceptionReporter? _reporter;
+    private static BaseProcessor<LogRecord>? _logProcessor;
+    private static volatile bool _breadcrumbs;
+    private static AppHangWatchdog? _hangs;
+    private static Timer? _queueTrim;
+    private static HttpClient? _screenshotHttp;
+    private static ReplayScheduler? _replay;
+    private static RunTracker? _runs;
+    private static NativeCrashEmitter? _crashEmitter;
+    private static PerformanceTracker? _perf;
+    private static HttpClient? _feedbackHttp;
+    private static string? _appVersion;
+
+    /// <summary>Reads the UI thread's stack, or null where the platform cannot. Set by the platform glue before init.</summary>
+    internal static Func<string?>? MainThreadStackCapture { get; set; }
+
+    /// <summary>Set by the platform glue: whether the device has internet access. Null where it cannot tell.</summary>
+    internal static Func<bool>? IsOnline { get; set; }
+    private static readonly DateTimeOffset SdkStart = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Set by the platform glue: captures the current page as JPEG bytes no larger than the limit, or null.
+    /// Unset on the plain net10.0 core, where there is nothing to capture.
+    /// </summary>
+    internal static Func<int, CancellationToken, Task<byte[]?>>? ScreenshotCapture { get; set; }
+    private static FlareMauiOptions? _options;
+    private static FlareEnrichment _enrichment = new(sendDefaultPii: false);
+
+    /// <summary>The tracer provider, or null before <c>UseFlare</c>.</summary>
+    public static TracerProvider? Tracing { get; private set; }
+
+    /// <summary>The meter provider, or null before <c>UseFlare</c> or when metrics are off.</summary>
+    public static MeterProvider? Metering { get; private set; }
+
+    /// <summary>This process's <c>session.id</c>.</summary>
+    public static string? SessionId { get; private set; }
+
+    /// <summary>Flush buffered spans and metrics, e.g. before the app is suspended.</summary>
+    public static void Flush(int timeoutMilliseconds = 2000)
+    {
+        _perf?.FlushFrames();
+        Tracing?.ForceFlush(timeoutMilliseconds);
+        Metering?.ForceFlush(timeoutMilliseconds);
+        _logProcessor?.ForceFlush(timeoutMilliseconds);
+    }
+
+    /// <summary>Record a breadcrumb for the session timeline. No-op when breadcrumbs are off or before <c>UseFlare</c>.</summary>
+    public static void AddBreadcrumb(string category, string message)
+    {
+        if (_breadcrumbs) Breadcrumbs.Add(Source, category, message);
+    }
+
+    /// <summary>
+    /// Attach a user to every span and log record from now on, as <c>user.id</c>. <paramref name="name"/> and
+    /// <paramref name="email"/> are sent only when <see cref="FlareMauiOptions.SendDefaultPii"/> is on. Pass a null
+    /// id (on sign-out) to clear the user. Release health counts users from <c>user.id</c>.
+    /// </summary>
+    public static void SetUser(string? id, string? name = null, string? email = null) => _enrichment.SetUser(id, name, email);
+
+    /// <summary>Stamp <paramref name="key"/> = <paramref name="value"/> on every span and log record. A null or empty value removes it.</summary>
+    public static void SetTag(string key, string? value) => _enrichment.SetTag(key, value);
+
+    /// <summary>
+    /// Stamp a group of related values as <c>name.key</c> attributes, e.g. <c>SetContext("cart", ...)</c> gives
+    /// <c>cart.items</c>. Replaces the previous values of the same name; null clears them.
+    /// </summary>
+    public static void SetContext(string name, IReadOnlyDictionary<string, string>? values) => _enrichment.SetContext(name, values);
+
+    /// <summary>
+    /// Send a "report a problem" message to Flare, tied to this session and to the user set with <see cref="SetUser"/>
+    /// (ADR-0193). It shows in the dashboard's feedback inbox with a link to the session timeline. <paramref name="email"/>
+    /// and <paramref name="name"/> are what the user typed for this report, so they are sent as given. The message is not
+    /// scrubbed. Returns false when nothing was stored (not initialized, empty message, offline or rejected).
+    /// </summary>
+    public static Task<bool> SendFeedbackAsync(string message, string? email = null, string? name = null, CancellationToken cancellationToken = default)
+    {
+        if (_options is not { } options || SessionId is not { } session) return Task.FromResult(false);
+        _feedbackHttp ??= new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        var sender = new FeedbackSender(options, session, _feedbackHttp, () => _enrichment.Get("user.id"), () => _appVersion);
+        AddBreadcrumb("feedback", "report a problem");
+        return sender.SendAsync(message, email, name, cancellationToken);
+    }
+
+    /// <summary>Record an exception the app handled itself, so it shows on the Errors page.</summary>
+    public static void RecordException(Exception exception) => _reporter?.Report(exception, fatal: false);
+
+    internal static ResourceBuilder BuildResource(FlareMauiOptions options, FlareDeviceInfo device, string? serviceVersion = null)
+    {
+        var resource = ResourceBuilder.CreateEmpty()
+            .AddService(options.ServiceName!, serviceVersion: serviceVersion ?? options.ServiceVersion ?? device.AppVersion)
+            .AddTelemetrySdk()
+            .AddAttributes(device.ToResourceAttributes());
+        return options.ScrubAttribute is { } scrub ? ScrubResource(resource, scrub) : resource;
+    }
+
+    /// <summary>
+    /// Runs the scrubber over every resource attribute. <c>service.name</c> keeps its value if the scrubber removes it,
+    /// since a resource without one cannot be told apart on the server; a throwing scrubber leaves the attribute alone.
+    /// </summary>
+    internal static ResourceBuilder ScrubResource(ResourceBuilder resource, Func<string, object?, object?> scrub)
+    {
+        var scrubbed = new List<KeyValuePair<string, object>>();
+        foreach (var attribute in resource.Build().Attributes)
+        {
+            object? value;
+            try { value = scrub(attribute.Key, attribute.Value); }
+            catch { value = attribute.Value; }
+            if (value is null && attribute.Key == "service.name") value = attribute.Value;
+            if (value is not null) scrubbed.Add(new(attribute.Key, value));
+        }
+        return ResourceBuilder.CreateEmpty().AddAttributes(scrubbed);
+    }
+
+    internal static void ConfigureExporter(OtlpExporterOptions o, FlareMauiOptions options, string signal)
+    {
+        o.Endpoint = options.SignalUri(signal);
+        o.Protocol = OtlpExportProtocol.HttpProtobuf;
+        if (!string.IsNullOrEmpty(options.IngestKey))
+            o.Headers = $"Authorization=Bearer {options.IngestKey}";
+    }
+
+    /// <summary>
+    /// The OpenTelemetry exporter reads its disk-retry switch from the environment when it is created,
+    /// so this must run before any provider is built.
+    /// </summary>
+    internal static void EnableDiskRetry(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        Environment.SetEnvironmentVariable("OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY", "disk");
+        Environment.SetEnvironmentVariable("OTEL_DOTNET_EXPERIMENTAL_OTLP_DISK_RETRY_DIRECTORY_PATH", directory);
+    }
+
+    internal static string NewSessionId() => Guid.NewGuid().ToString("N");
+
+    /// <summary>Build the providers. Called once from <c>UseFlare</c>; a second call is ignored.</summary>
+    internal static void Initialize(FlareMauiOptions options, FlareDeviceInfo device, string queueDirectory, string? stateDirectory = null)
+    {
+        options.Validate();
+        if (Tracing is not null) return;
+
+        if (options.EnableOfflineQueue)
+        {
+            OfflineQueue.Prune(queueDirectory, options.OfflineQueueMaxBytes, options.OfflineQueueMaxAge, DateTime.UtcNow);
+            EnableDiskRetry(queueDirectory);
+            _queueTrim = OfflineQueue.StartTrimming(queueDirectory, options.OfflineQueueMaxBytes, options.OfflineQueueMaxAge, options.OfflineQueueTrimInterval);
+        }
+
+        var resource = BuildResource(options, device);
+        SessionId = NewSessionId();
+        _breadcrumbs = options.Breadcrumbs;
+        _options = options;
+        _appVersion = options.ServiceVersion ?? device.AppVersion;
+        _enrichment = new FlareEnrichment(options.SendDefaultPii);
+
+        var tracing = Sdk.CreateTracerProviderBuilder()
+            .SetResourceBuilder(resource)
+            .AddSource(SourceName)
+            .AddProcessor(new SessionProcessor(SessionId))
+            .AddProcessor(new EnrichmentProcessor(_enrichment));
+        foreach (var s in options.AdditionalSources) tracing.AddSource(s);
+        if (options.InstrumentHttpClient) tracing.AddHttpClientInstrumentation(h => ConfigureHttp(h, options));
+        if (options.ScrubAttribute is not null || options.BeforeSend is not null)
+            tracing.AddProcessor(new ScrubProcessor(options.ScrubAttribute, options.BeforeSend));
+        tracing.AddOtlpExporter(o => ConfigureExporter(o, options, "traces"));
+        Tracing = tracing.Build();
+
+        if (options.ExportMetrics)
+        {
+            var metrics = Sdk.CreateMeterProviderBuilder().SetResourceBuilder(resource);
+            foreach (var m in options.AdditionalMeters) metrics.AddMeter(m);
+            if (options.InstrumentHttpClient) metrics.AddHttpClientInstrumentation();
+            metrics.AddOtlpExporter(o => ConfigureExporter(o, options, "metrics"));
+            Metering = metrics.Build();
+        }
+
+        if (options.TracePerformance)
+        {
+            // The platform glue sets MainThreadStackCapture; only Android can read the UI thread's stack.
+            var sampler = options.ProfileSlowLoads && MainThreadStackCapture is { } capture
+                ? new StackSampler(capture, options.ProfileSampleInterval)
+                : null;
+            _perf = new PerformanceTracker(Source, options.SlowFrameThreshold, options.FrozenFrameThreshold,
+                sampler: sampler, slowLoad: options.ProfileSlowLoadThreshold);
+        }
+
+        if (options.CaptureNativeCrashes && stateDirectory is not null)
+        {
+            _runs = new RunTracker(Path.Combine(stateDirectory, "runs.json"));
+            _runs.Begin(SessionId, options.ServiceVersion ?? device.AppVersion, device.AppBuild);
+            _crashEmitter = new NativeCrashEmitter(
+                run => BuildResource(options, device with { AppVersion = run.Version, AppBuild = run.Build }, run.Version),
+                b =>
+                {
+                    if (options.ScrubAttribute is not null || options.BeforeSend is not null)
+                        b.AddProcessor(new ScrubProcessor(options.ScrubAttribute, options.BeforeSend));
+                    b.AddOtlpExporter(o => ConfigureExporter(o, options, "traces"));
+                },
+                options.ScrubAttribute);
+        }
+
+        StartReplay(options);
+
+        if (options.CaptureUnhandledExceptions)
+        {
+            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options), options.ScrubAttribute, () =>
+            {
+                // The crash flush blocks the UI thread past the hang threshold, which the watchdog would report as a hang.
+                _hangs?.Pause();
+                _runs?.MarkFatal();
+            });
+            _reporter.Attach();
+        }
+    }
+
+    internal static void ConfigureHttp(HttpClientTraceInstrumentationOptions h, FlareMauiOptions options)
+    {
+        h.FilterHttpRequestMessage = r => !options.IsExporterRequest(r.RequestUri);
+        var crumbs = options.Breadcrumbs ? Source : null;
+        var online = IsOnline;
+        h.EnrichWithHttpRequestMessage = NetworkTracing.OnRequest;
+        h.EnrichWithHttpResponseMessage = (a, r) => NetworkTracing.OnResponse(a, r, crumbs);
+        h.EnrichWithException = (a, e) => NetworkTracing.OnException(a, e, crumbs, online);
+    }
+
+    /// <summary>Starts (first call) or unpauses the UI-thread watchdog. A no-op when hang detection is off.</summary>
+    internal static void ResumeHangDetection(Action<Action> postToMainThread, Func<string?>? captureMainThreadStack = null)
+    {
+        if (_options is not { DetectAppHangs: true } o) return;
+        _hangs ??= new AppHangWatchdog(Source, postToMainThread, o.AppHangThreshold, Flush, captureStack: captureMainThreadStack);
+        _hangs.Resume();
+    }
+
+    /// <summary>The app went to the foreground or background; the run journal needs it to tell a crash from a clean exit.</summary>
+    internal static void NoteLifecycle(bool foreground) => _runs?.Touch(foreground);
+
+    /// <summary>
+    /// Report crashes the operating system recorded about earlier launches (found by the platform glue at startup).
+    /// Safe to call on any thread; never throws.
+    /// </summary>
+    internal static void ReportNativeCrashes(IReadOnlyList<NativeCrash> crashes)
+    {
+        try
+        {
+            if (_runs is null || _crashEmitter is null || crashes.Count == 0) return;
+            _crashEmitter.Emit(_runs.Claim(crashes));
+        }
+        catch { }
+    }
+
+    /// <summary>The app is returning from the background; the next <see cref="NoteAppResumed"/> is a warm start.</summary>
+    internal static void NoteForegroundBegin() => _perf?.NoteForegroundBegin();
+
+    /// <summary>
+    /// The app is interactive in the foreground. <paramref name="processStart"/> is the OS process start when the
+    /// platform can tell (otherwise null, and the cold start is measured from <c>UseFlare</c>).
+    /// </summary>
+    internal static void NoteAppResumed(DateTimeOffset? processStart) =>
+        _perf?.NoteResumed(processStart ?? SdkStart, processStart is null ? "sdk" : "process");
+
+    internal static void BeginScreenLoad() => _perf?.BeginScreenLoad();
+
+    internal static void ScreenShown(string? screen) => _perf?.ScreenShown(screen);
+
+    /// <summary>One frame took <paramref name="duration"/> to render. Any thread.</summary>
+    internal static void RecordFrame(TimeSpan duration) => _perf?.RecordFrame(duration);
+
+    /// <summary>Pauses the watchdog while the app is backgrounded.</summary>
+    internal static void PauseHangDetection() => _hangs?.Pause();
+
+    /// <summary>The app is in the foreground: scheduled session-replay frames (ADR-0192) start, if enabled.</summary>
+    internal static void ResumeReplay() => _replay?.Start();
+
+    /// <summary>The app went to the background: no frames until it returns.</summary>
+    internal static void PauseReplay() => _replay?.Stop();
+
+    private static void StartReplay(FlareMauiOptions options)
+    {
+        if (options.ScreenshotInterval is not { } interval || ScreenshotCapture is not { } capture) return;
+        _screenshotHttp ??= new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        // Spacing is half the interval so a late tick is not dropped; the cap is what bounds the upload volume.
+        var reporter = new ScreenshotReporter(options, SessionId!, ct => capture(options.ScreenshotMaxBytes, ct), _screenshotHttp,
+            periodic: true, maxPerSession: options.MaxReplayScreenshots, minInterval: interval / 2);
+        _replay = new ReplayScheduler(interval, reporter.ReportFrame);
+    }
+
+    private static Action<string, string, bool>? ScreenshotAfterReport(FlareMauiOptions options)
+    {
+        if (!options.CaptureScreenshotOnError || ScreenshotCapture is not { } capture) return null;
+        _screenshotHttp ??= new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        var reporter = new ScreenshotReporter(options, SessionId!, ct => capture(options.ScreenshotMaxBytes, ct), _screenshotHttp);
+        return (traceId, spanId, fatal) => reporter.Report(traceId, spanId, fatal ? TimeSpan.FromSeconds(3) : null);
+    }
+
+    /// <summary>Stops exporting and releases the providers. For tests; apps leave telemetry on until exit.</summary>
+    internal static void Shutdown()
+    {
+        _replay?.Dispose();
+        _replay = null;
+        _screenshotHttp?.Dispose();
+        _screenshotHttp = null;
+        _feedbackHttp?.Dispose();
+        _feedbackHttp = null;
+        _hangs?.Dispose();
+        _hangs = null;
+        _queueTrim?.Dispose();
+        _queueTrim = null;
+        _options = null;
+        _reporter?.Detach();
+        _reporter = null;
+        _runs = null;
+        _crashEmitter = null;
+        _perf = null;
+        Tracing?.Dispose();
+        Metering?.Dispose();
+        Tracing = null;
+        Metering = null;
+        SessionId = null;
+        _enrichment = new FlareEnrichment(sendDefaultPii: false);
+        _logProcessor = null;
+        _breadcrumbs = false;
+    }
+
+    internal static void ConfigureLogging(OpenTelemetryLoggerOptions o, FlareMauiOptions options, FlareDeviceInfo device)
+    {
+        o.SetResourceBuilder(BuildResource(options, device));
+        o.IncludeFormattedMessage = true;
+        if (SessionId is not null) o.AddProcessor(new SessionLogProcessor(SessionId));
+
+        o.AddProcessor(new EnrichmentLogProcessor(_enrichment));
+        if (options.ScrubAttribute is { } scrub) o.AddProcessor(new ScrubLogProcessor(scrub));
+
+        if (options.Breadcrumbs && options.BreadcrumbLogLevel != LogLevel.None)
+            o.AddProcessor(new BreadcrumbLogProcessor(Source, options.BreadcrumbLogLevel));
+
+        var exporterOptions = new OtlpExporterOptions();
+        ConfigureExporter(exporterOptions, options, "logs");
+        // Built here rather than through AddOtlpExporter so Flush can reach it when the app is backgrounded.
+        _logProcessor = new BatchLogRecordExportProcessor(new OtlpLogExporter(exporterOptions));
+        o.AddProcessor(options.BeforeSendLog is { } beforeSend ? new BeforeSendLogProcessor(_logProcessor, beforeSend) : _logProcessor);
+    }
+}

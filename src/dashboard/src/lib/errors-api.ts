@@ -62,6 +62,8 @@ export interface ExceptionGroup {
 	firstSeen: string;
 	lastSeen: string;
 	affectedServices: string[];
+	/** Source-file paths from one sample stack trace, top frame first (ownership `Path` rules, ADR-0196). */
+	samplePaths: string[];
 }
 
 function toExceptionGroup(dto: GeneratedExceptionGroup): ExceptionGroup {
@@ -71,7 +73,8 @@ function toExceptionGroup(dto: GeneratedExceptionGroup): ExceptionGroup {
 		occurrenceCount: Number(dto.occurrenceCount),
 		firstSeen: dto.firstSeen.toISOString(),
 		lastSeen: dto.lastSeen.toISOString(),
-		affectedServices: (dto.affectedServices ?? []).filter((s): s is string => s != null)
+		affectedServices: (dto.affectedServices ?? []).filter((s): s is string => s != null),
+		samplePaths: (dto.samplePaths ?? []).filter((s): s is string => s != null)
 	};
 }
 
@@ -116,6 +119,8 @@ export interface ExceptionOccurrence {
 	stacktrace: string;
 	/** Build revision (commit SHA / `service.version`) - see `ExceptionOccurrence.Revision`; '' when unset. */
 	revision: string;
+	/** True when the stack trace was rewritten from an uploaded source map (ADR-0152). */
+	symbolicated: boolean;
 }
 
 function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccurrence {
@@ -126,7 +131,8 @@ function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccu
 		spanName: dto.spanName ?? '',
 		timestamp: dto.timestamp.toISOString(),
 		stacktrace: dto.stacktrace ?? '',
-		revision: dto.revision ?? ''
+		revision: dto.revision ?? '',
+		symbolicated: dto.symbolicated
 	};
 }
 

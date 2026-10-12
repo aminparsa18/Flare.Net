@@ -6,45 +6,6 @@ to enforce (a completed item is deleted here the same PR that ships it,
 not checked off and kept); `git log` and the `adr`/`investigations`
 folders are where "what happened and why" actually lives.
 
-- **Retention policies + cold storage to S3-compatible object storage
-  (RustFS).** A separate item from multi-node scaling (which shipped —
-  see [`../adr/0003-distributed-tables-plain-names-and-sharding.md`](../adr/0003-distributed-tables-plain-names-and-sharding.md)
-  and [`../../docs/explanation/clustering.md`](../../docs/explanation/clustering.md)):
-  this one is retention/cold storage, not horizontal availability/
-  throughput. Not started. Prior-art design worth reusing, from SigNoz's
-  TTL/cold-storage implementation ([signoz#1173](https://github.com/SigNoz/signoz/commit/5d080f5564c7839d0908db48bc8fff47d0e55648)):
-  cold storage isn't app-level archival, it's ClickHouse's own tiered
-  storage — an S3-backed disk/volume defined in ClickHouse's own config,
-  with `ALTER TABLE ... MODIFY TTL ... DELETE, ... TO VOLUME 'x'` moving
-  aged parts onto it, so a table's storage policy just needs assigning
-  once (idempotent) rather than anything bespoke on Flare's side; a
-  `GetDisks`-style read of `system.disks` lets the retention UI offer a
-  dropdown of volumes actually configured instead of free text. Because
-  that `MODIFY TTL` is a long-running ClickHouse mutation, the set-TTL
-  API should be async and status-tracked (a small table keyed by a
-  transaction id, `pending`/`success`/`failed`, one row per underlying
-  table) rather than blocking the request — reject a second set-TTL call
-  while one's still `pending` instead of queuing another mutation, and
-  have the GET endpoint return both the *actual* TTL (parsed live from
-  ClickHouse) and the *expected* one (what was last requested) plus
-  status, so the UI can show "applying…" instead of a stale value. One
-  more ClickHouse config gotcha to get right when this is built: set
-  `perform_ttl_move_on_insert: 0` on the S3 volume in ClickHouse's
-  storage config - without it, ClickHouse evaluates the TTL-move rule
-  synchronously on every insert once cold storage is configured, adding
-  latency to the ingest path; the flag defers it to ClickHouse's
-  background merge process instead
-  ([signoz#1448](https://github.com/SigNoz/signoz/commit/f8f903848e914d529617c6e10c69b3644f8d4c30)).
-  Worth designing in from the start: per-resource retention (e.g. keep
-  `deployment.environment=dev` for 7 days, everything else 30) via a
-  `_retention_days` column computed from ordered resource-attribute rules
-  (`multiIf(...)`) and a TTL of `Timestamp + toIntervalDay(_retention_days)`,
-  with a default when no rule matches
-  ([signoz#8513](https://github.com/SigNoz/signoz/commit/4daec45d987ab07a095f1c225db63193fef93f65)).
-  Run every `MODIFY TTL` with `SETTINGS materialize_ttl_after_modify=0`,
-  or each retention change rewrites every existing part up front instead
-  of letting merges apply it
-  ([signoz#9189](https://github.com/SigNoz/signoz/commit/7ddaa84387748a7ee36a1e19199078f86518eee3)).
 - **Research: a real "skip-index effectiveness" signal for the Indexing
   page.** Deliberately not shipped — ClickHouse doesn't expose this as
   reliable production telemetry today. Full findings, including upstream
@@ -68,19 +29,13 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Continuous profiling (later).** Ingest the OTLP profiles signal once it
-  stabilizes, store per-service profiles, and link spans to flame graphs of
-  what the code was doing during that span. Placeholder for when the spec
-  and .NET support settle. Not started.
-- **Scheduled dashboard reports.** There's no way to email a dashboard on a
-  schedule (weekly SLO/latency report to a team). Add per-dashboard
-  schedules (cron, recipients, relative time range, variable values), a
-  runner in `Flare.AlertWorker` that renders the dashboard to PDF/PNG via
-  headless Chromium (Playwright) using a short-lived service token, sent
-  through the existing SMTP config, and run history with errors. Needs an
-  ADR (rendering dependency, auth). Not started. Prior art:
-  [signoz PR #10809](https://github.com/SigNoz/signoz/pull/10809) /
-  [#10810](https://github.com/SigNoz/signoz/pull/10810) (open, unmerged).
+- **Continuous profiling: a real sender.** Ingest, the Profiles page and the how-to are done
+  ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)), verified with hand-written OTLP/JSON.
+  The Collector's `pprof` receiver (v0.162) emits samples without a stack table, so it can't
+  feed a flame graph yet; re-check on each Collector bump, and try an eBPF profiler as the
+  practical source. `profile_samples` has no TTL, same as spans, so retention rides on the
+  "Retention policies" item above. OTLP profiles is still Alpha, so re-check the vendored
+  proto on each tag bump.
 - **User settings page (`/settings`), starting with Appearance & layout.**
   The dashboard has outgrown the user-menu dropdown as the home for
   preferences: theme, language and display time zone live in
@@ -93,80 +48,104 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Terraform / OpenTofu provider.** Manage Flare declaratively next to the
-  infrastructure it observes. The API is already close to provider-shaped:
-  alerts, SLOs and notification channels have full CRUD by GUID id, and service
-  accounts with access tokens (ADR-0082) give a non-interactive credential, so
-  the provider authenticates with a token and needs no session flow. Ship as a
-  separate repo (Go, `terraform-plugin-framework`) published to the Terraform
-  and OpenTofu registries, v1 resources: `flare_notification_channel`,
-  `flare_alert_rule`, `flare_slo`, `flare_dashboard`, `flare_pipeline_rule`,
-  `flare_maintenance_window`, `flare_ingest_key`, `flare_service_account`.
-  Open questions to settle in the ADR: (1) the OpenAPI document is only mapped
-  in Development (`MapOpenApi` in `Flare.Api/Program.cs`), so decide whether to
-  publish it as a build artifact and generate resource schemas from it
-  (`terraform-plugin-codegen-openapi`) or hand-write them; (2) references are
-  by id in the API but by name in the alert export, so the provider should
-  expose names as the stable key and resolve ids itself, otherwise plans churn
-  on recreated channels; (3) credentials (webhook URLs, SMTP, ingest-key
-  secrets) are write-only and never returned, so they need `sensitive`,
-  write-only attributes and a drift story; (4) API version compatibility,
-  since the provider and the server release separately (use `/api/version`,
-  ADR-0068). Depends on the config-as-code item for the by-name conventions
-  and for any resource that has no CRUD endpoint yet (maintenance windows,
-  metric attribute rules). Also ship `flare_*` data sources for channels and
-  services so alert rules can reference them. Not started.
-- **OTLP forwarding and archive export.** No way to copy ingested telemetry
-  elsewhere. Add per-ingest-key or per-service forwarding of logs, traces and
-  metrics to another OTLP endpoint (migration and dual-write) and an optional
-  Parquet/NDJSON archive to S3-compatible storage; coordinate with the cold
-  storage item so the two don't both claim the S3 config surface.
-- **Browser RUM and source maps (later).** No browser signal exists. Start with
-  accepting OTel-JS / Faro browser telemetry through the existing OTLP path
-  (page loads, web vitals, JS errors), a source-map upload API for symbolicating
-  stack traces on `/errors`, and a Frontend page. Only worth it if Flare targets
-  full-stack teams, not just .NET backends.
-- **.NET MAUI / mobile SDK (later).** No client-app signal exists beyond what a
-  hand-wired OTel exporter sends. Phase 1 is a docs how-to ("Send telemetry
-  from a MAUI app to Flare") using stock `OpenTelemetry` packages, since OTLP
-  already works and it will surface the real gaps. Phase 2 ships a
-  `Flare.Maui` NuGet package (`UseFlare()` on `MauiAppBuilder`): OTLP/HTTP
-  export (gRPC is unreliable on iOS/Android) with an on-disk retry queue for
-  offline use, batching and compression, device/OS/app-version resource
-  attributes, a stable `session.id`, automatic spans for navigation and
-  `HttpClient`, and unhandled-exception capture (including
-  `TaskScheduler.UnobservedTaskException` and native crash reports delivered on
-  next launch). Phase 3 is server side: scoped public ingest keys (allowed
-  services, rate cap, write-only; builds on ADR-0051, since a key shipped in an
-  app binary is effectively public), a Sessions/Devices view grouping traces by
-  `session.id`, and app-version breakdowns on `/errors`. Phase 4 is
-  symbolication of trimmed/AOT stack traces, sharing the upload API from the
-  Browser RUM item above. Design points for the ADR: wrap `OpenTelemetry` or
-  stay a thin configuration package; trimming/AOT compatibility; privacy
-  defaults (no PII in attributes, opt-in device id). First check how ingest keys
-  behave for a public-client scenario (CORS, per-key service allowlists).
-- **Usage and cost view (later).** Roll up per-service and per-ingest-key
-  volume (events/day, bytes on disk, largest attributes) from data the
-  Ingestion, Indexing and cardinality pages already read, so users can see
-  what's driving storage before choosing sampling or retention rules.
-- **Status page (later).** A public read-only page of service health and SLO
-  status. Depends on synthetic monitoring and SLOs (ADR-0108) shipping first.
-- **Shared alert notification templates.** ADR-0052 templates are per rule
-  (`NotificationTitleTemplate` / `NotificationBodyTemplate` on `AlertRule`,
-  edited in the rule form), so the same wording on many rules is pasted and
-  maintained once per rule. Add named, reusable templates managed on a
-  Settings page next to notification channels: a rule picks a template by
-  reference (its own inline text stays as an override), editing a template
-  updates every rule that uses it, and an instance-wide default template
-  applies to rules that pick none (the built-in wording in
-  `AlertMessageFormatter` stays the fallback, so existing rules are
-  unchanged). Same `{{placeholder}}` set and save-time validation as
-  ADR-0052 (`AlertTemplateRenderer`), same live preview. Design points for
-  the ADR: separate fired / resolved bodies (today `{{status}}` is the only
-  difference); an optional per-channel-type body (short for Telegram, long for
-  email, since the title already maps onto each channel's own subject field);
-  deleting a template that rules still use should be refused or list the rules;
-  `flare alerts export`/`import` and the Terraform provider reference templates
-  by name; audit-log entries (ADR-0079). Needs a ClickHouse or Identity-store
-  migration decision (config tables follow ADR-0009 / ADR-0074 conventions) and
-  an ADR that supersedes or extends ADR-0052. Not started.
+- **Terraform / OpenTofu provider.** Design settled in ADR-0146 (separate Go repo,
+  hand-written schemas, names as the stable key, write-only secrets, `/api/version`
+  compatibility). Server prerequisites (phases 1 and 3 name uniqueness) are done and
+  the provider repo has `flare_notification_channel`, `flare_alert_rule`, `flare_slo`,
+  `flare_maintenance_window`, `flare_pipeline_rule`, `flare_ingest_key`,
+  `flare_service_account`, `flare_dashboard` (layout JSON passed through as-is,
+  ADR-0147 makes names unique per project), `flare_metric_attribute_rule`,
+  `flare_forwarding_target` and `flare_archive_settings` (ADR-0157), verified
+  with OpenTofu acceptance tests against a live stack. `minServerVersion` is 0.6.0, the
+  first Flare release with the server-side prerequisites. Provider v0.1.0 is published on
+  the Terraform Registry as `aminparsa18/flare` (GPG-signed releases via GoReleaser).
+  Remaining: list it on the OpenTofu Registry (a PR to `opentofu/registry` with the same
+  public key).
+- **.NET MAUI / mobile SDK (later).** `Flare.Maui` (ADR-0166, `src/Flare.Maui`) ships the
+  `UseFlare()` core: OTLP/HTTP export, disk retry, device/session attributes, `HttpClient`
+  and Shell navigation spans, unhandled-exception capture. Remaining for it: Windows,
+  and verifying on a device or emulator. Native crashes found on the next launch (Android `ApplicationExitInfo`, iOS MetricKit,
+  ADR-0178) are done apart from the follow-ups below. The macOS CI job (`maui-ci.yml`) and the NuGet
+  publish path (`flare-maui-v*` tag in `nuget-publish.yml`) exist but have not run yet: the
+  first release also needs a nuget.org trusted-publishing policy for `Flare.Maui`. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
+  Sessions page, and app-version facets on `/errors`. Release health (crash-free sessions and users per version, ADR-0175) is done too, with users counted from `user.id`
+  (`SetUser`, ADR-0176; scrubbing, `BeforeSend` and queue limits, ADR-0177). Remaining there: a rollup table if long
+  windows prove slow. The per-session timeline is done (ADR-0170). Trimmed/Mono
+  stack traces are symbolicated from uploaded dll+PDB symbols (ADR-0168); Native AOT frames on
+  iOS/macOS are covered from the `.dSYM`; remaining there: ELF/PDB
+  symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
+  The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
+    Next for `Flare.Maui`, from the gap against Sentry's MAUI SDK (what a team would miss moving over), roughly in
+  priority order:
+  - Device verification: `ExampleApp.Maui` is verified on a real Android device (arm64, Debug build): export, the disk
+    queue and its replay, breadcrumbs, `app.hang` with a stack, ANR and native-crash reporting on relaunch, a managed
+    crash, scrubbing and a screenshot row. Remaining: an Android emulator, an iOS simulator and an iOS device; a Release
+    build to prove the `Platform/` glue's trimming; and the Sessions page's release comparison. Known gap: a managed
+    crash also emits a spurious `app.hang`, because the crash handler's flush blocks the UI thread for over 2 s.
+  - Native crash follow-ups (ADR-0178): server-side symbolication of the raw iOS offsets against a dSYM; verify the
+    MetricKit renderer on an iOS device (the tombstone one is verified on Android); Android before 11
+    and iOS jetsam out-of-memory kills, which have no report to read; an exact iOS crash time (it is estimated from
+    the last lifecycle event).
+  - Mobile performance follow-ups (ADR-0180; verified on a real Android device, arm64 Debug, by Maestro flows 12-14):
+    an iOS device, an Android emulator and a Release build; a trend over time and an alert rule on a start/load
+    regression; iOS process start time; time-to-first-frame rather than first resume (a warm start is only the
+    `OnRestart` to `OnResume` gap, about 12 ms).
+  - Profiling follow-ups (ADR-0181): iOS, `app.start` profiles, managed frames, and a flame graph in the dashboard.
+  - Windows support.
+  - Scrub exception events recorded by other instrumentation (ADR-0191): an `ActivityEvent` is immutable once added, so
+    this needs a different mechanism than a processor.
+  - Other client SDKs on the same server pieces (sessions, release health, scoped keys): Android native, iOS native,
+    React Native and Flutter, each thin over OTLP.
+- **Issue workflow, alert integrations and hosted-service parity.** Platform-wide, not specific to any one app or SDK.
+  - Issue workflow follow-ups (ADR-0195, ADR-0196, ADR-0197): prefilled new-issue links and issue creation for Jira and
+    GitLab, and the owner in MCP `list_exceptions` once the groups API returns it.
+  - Alert integrations beyond webhook/Slack/Telegram/email/PagerDuty: Teams, Opsgenie, Discord, and a Jira ticket on
+    first occurrence.
+  - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested
+    rollback.
+- **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
+  redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
+  - **Data-subject erasure and export (GDPR Art. 15/17).** Telemetry can only leave through TTL; there is no delete or
+    export by predicate. Add an admin endpoint, CLI command and page that deletes (`ALTER ... DELETE`, single + cluster)
+    or exports every log, span, metric, exception and session row matching a `user.id`, email or IP, with a dry-run
+    count, a confirmation step, mutation-progress tracking (mutations are async, see `src/Flare.Api/README.md`) and an
+    audit-log entry. Needs an ADR; sits next to [ADR-0143](../adr/0143-retention-ttl.md).
+  - **Managed PII detection at ingest.** Redaction today means hand-written regex pipeline rules. Ship a built-in rule
+    set (emails, Luhn-checked card numbers, IBANs, JWTs, bearer tokens, private keys) reusing the patterns in
+    `AiRedactor`, one toggle, previewable with the [ADR-0034](../adr/0034-pipeline-rules-preview.md) simulator. A
+    report-only scan that lists attributes that look like PII, without changing data, is a smaller first step.
+  - **Security response headers.** No HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors` or CSP is set
+    by Flare.Api or the dashboard's Node server. Add them with a configurable CSP and document the reverse-proxy
+    interaction.
+  - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
+    recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
+  - **Webhook SSRF guard.** Alert webhooks, status-page subscriptions and forwarding targets post to user-supplied URLs
+    with no private-range check (`WebhookPost`). Add an opt-out block on loopback, link-local (`169.254.169.254`) and
+    RFC1918 targets, with an allowlist, enforced at connect time so redirects and DNS rebinding can't bypass it.
+  - **Audit export, streaming and read auditing.** CSV/JSON export, optional forwarding to a syslog/webhook sink, and
+    hash-chaining so tampering is detectable ([ADR-0079](../adr/0079-audit-log.md) covers config changes only). An
+    opt-in record of who queried telemetry is the other half compliance reviewers ask for.
+  - **Encrypt stored channel secrets.** Webhook URLs, bot tokens and routing keys come back masked, but nothing in
+    `src/Flare.Api` calls Data Protection on them, so they look plaintext at rest. Verify first; if so, wrap them with
+    `IDataProtector` (the key ring is already shared via Redis) and add key rotation, otherwise document it.
+  - **Session and credential hygiene.** Sessions have an absolute 14-day lifetime and no idle timeout. Add an idle
+    timeout, "sign out everywhere" per user, a configurable password policy (only `MinPasswordLength = 8` in
+    `AdminProvisioner` today), and expiry/rotation warnings for ingest keys and personal access tokens.
+  - **Data-residency, DPA and sub-processor docs** (replaces the data-residency mention in the hosted-parity line above):
+    a `docs/explanation` page on where each store lives, what can leave the box (AI providers, notification channels,
+    update check), and a no-phone-home statement.
+- **Map-aware text index for attribute filters, once ClickHouse 26.9+ is pinned.** The `keyValuePairs` text index serves
+  `attr['k'] = 'v'` only and 4 to 7x speeds up broad equality filters, at about 15x the bloom filters' size and with the
+  bloom filters still needed for `mapContains`/`IN`/regex; it does not exist on the pinned 26.8 LTS. Re-benchmark on a real
+  corpus after the bump (see [ADR-0184](../adr/0184-defer-keyvaluepairs-attribute-index.md) and
+  [the investigation](../investigations/map-attribute-text-index.md)). Body search on a `text` index (26.9 `LIKE`/`ILIKE`,
+  vs ADR-0073's `ngrambf_v1`) is a separate benchmark.
+- **Force-merge closed partitions.** Logs and spans are partitioned monthly, so a
+  closed month keeps whatever part fragmentation it had when it closed.
+  ClickHouse 26.9 adds the `min_partition_age_to_force_merge_seconds` MergeTree
+  setting, which compacts a partition once every part is older than the
+  threshold. Benchmark on a month of data (parts per query, compression, merge
+  I/O, TTL rewrite cost), then set it per table in an additive migration
+  (single + cluster) alongside the retention TTL work. Flare sets no
+  force-merge or `ttl_only_drop_parts` settings today. Prior art: [ClickHouse
+  26.9 changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).

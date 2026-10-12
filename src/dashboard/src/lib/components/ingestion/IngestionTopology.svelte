@@ -45,7 +45,7 @@
 
 	const ingestion = ingestionContext.get();
 
-	const SIGNALS: IngestionSignal[] = ['Logs', 'Traces', 'Metrics'];
+	const SIGNALS: IngestionSignal[] = ['Logs', 'Traces', 'Metrics', 'Profiles'];
 	const nodeTypes = { 'ingestion-topology': TopologyNode };
 
 	let nodes = $state.raw<IngestionTopologyNode[]>([]);

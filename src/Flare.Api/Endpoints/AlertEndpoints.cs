@@ -54,7 +54,7 @@ public static class AlertEndpoints
     }
 
     // `ids` (optional, repeatable): export just those rules; omitted means every rule.
-    private static async Task<IResult> HandleExportAsync(Guid[]? ids, HttpContext http, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleExportAsync(Guid[]? ids, HttpContext http, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, IAlertTemplateQueryService templates, CancellationToken cancellationToken)
     {
         var access = http.GetProjectAccess();
         var rules = access.Filter(await alerts.ListAsync(cancellationToken), r => r.ProjectId);
@@ -66,13 +66,14 @@ public static class AlertEndpoints
 
         var channelNames = (await channels.ListAsync(cancellationToken)).ToDictionary(c => c.Id, c => c.Name);
         var sloNames = access.Filter(await slos.ListAsync(cancellationToken), s => s.ProjectId).ToDictionary(s => s.Id, s => s.Name);
-        return Results.Json(AlertRuleTransfer.Export(rules, channelNames, sloNames), AlertsJsonContext.Default.AlertRulesExport);
+        var templateNames = (await templates.ListAsync(cancellationToken)).ToDictionary(t => t.Id, t => t.Name);
+        return Results.Json(AlertRuleTransfer.Export(rules, channelNames, sloNames, templateNames), AlertsJsonContext.Default.AlertRulesExport);
     }
 
     // `dryRun=true` reports what would happen without writing anything. A rule whose name
     // already exists is skipped, unless `update=true` (`flare config apply`), which replaces it
     // in place. A name repeated earlier in the same file is always skipped.
-    private static async Task<IResult> HandleImportAsync(HttpContext http, bool? dryRun, bool? update, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleImportAsync(HttpContext http, bool? dryRun, bool? update, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, IAlertTemplateQueryService templates, CancellationToken cancellationToken)
     {
         AlertRulesExport? document;
         try
@@ -97,6 +98,7 @@ public static class AlertEndpoints
         var channelIds = AlertRuleTransfer.ByName((await channels.ListAsync(cancellationToken)).Select(c => (c.Id, c.Name)));
         var access = http.GetProjectAccess();
         var sloIds = AlertRuleTransfer.ByName(access.Filter(await slos.ListAsync(cancellationToken), s => s.ProjectId).Select(s => (s.Id, s.Name)));
+        var templateIds = AlertRuleTransfer.ByName((await templates.ListAsync(cancellationToken)).Select(t => (t.Id, t.Name)));
         var existing = await alerts.ListAsync(cancellationToken);
         var taken = new HashSet<string>(existing.Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
         var updatable = update == true
@@ -108,7 +110,7 @@ public static class AlertEndpoints
         foreach (var item in document.Rules)
         {
             var name = item.Rule?.Name ?? "";
-            var (request, error) = AlertRuleTransfer.Resolve(item, channelIds, sloIds);
+            var (request, error) = AlertRuleTransfer.Resolve(item, channelIds, sloIds, templateIds);
             if (error is not null)
             {
                 results.Add(new AlertImportItemResult(name, AlertImportOutcome.Error, error));
@@ -151,7 +153,7 @@ public static class AlertEndpoints
         return Results.Json(new AlertRulesImportResult { DryRun = dryRun == true, Items = results }, AlertsJsonContext.Default.AlertRulesImportResult);
     }
 
-    private static async Task<IResult> HandleCreateAsync(HttpContext http, IAlertQueryService alerts, IProjectStore projects, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleCreateAsync(HttpContext http, IAlertQueryService alerts, IProjectStore projects, IAlertTemplateQueryService templates, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -178,9 +180,19 @@ public static class AlertEndpoints
             return Results.Problem(conditionError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (await CheckTemplateExistsAsync(request, templates, cancellationToken) is { } templateProblem)
+        {
+            return templateProblem;
+        }
+
         if (await ProjectGuard.CheckTargetAsync(http, projects, null, ProjectGuard.Normalize(request.ProjectId), cancellationToken) is { } projectProblem)
         {
             return projectProblem;
+        }
+
+        if (NameUniqueness.Conflict((await alerts.ListAsync(cancellationToken)).Select(r => (r.Id, r.Name)), "alert rule", request.Name) is { } taken)
+        {
+            return taken;
         }
 
         var rule = await alerts.CreateAsync(request, cancellationToken);
@@ -215,7 +227,7 @@ public static class AlertEndpoints
         return rule is null || !http.GetProjectAccess().CanRead(rule.ProjectId) ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule);
     }
 
-    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IAlertQueryService alerts, IProjectStore projects, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IAlertQueryService alerts, IProjectStore projects, IAlertTemplateQueryService templates, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -249,6 +261,19 @@ public static class AlertEndpoints
         }
 
         request = NotificationSecrets.Restore(request, before);
+
+        // An unchanged reference is left alone even if its template has since been deleted, so an
+        // old rule stays editable - send time falls back to the default template.
+        if (request.NotificationTemplateId != before?.NotificationTemplateId
+            && await CheckTemplateExistsAsync(request, templates, cancellationToken) is { } templateProblem)
+        {
+            return templateProblem;
+        }
+
+        if (NameUniqueness.Conflict((await alerts.ListAsync(cancellationToken)).Select(r => (r.Id, r.Name)), "alert rule", request.Name, id, before?.Name) is { } taken)
+        {
+            return taken;
+        }
 
         if (request.ValidateChannel() is { } channelError)
         {
@@ -348,7 +373,7 @@ public static class AlertEndpoints
         return ApiSerialization.Write(http, new AlertHistoryResponse { Events = events }, AlertsJsonContext.Default.AlertHistoryResponse);
     }
 
-    private static async Task<IResult> HandleTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, ISloQueryService slos, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, ISloQueryService slos, IReleaseQueryService releases, IAppSessionQueryService sessions, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
         if (rule is null || !http.GetProjectAccess().CanRead(rule.ProjectId))
@@ -356,11 +381,11 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, slos, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ThresholdUnit, rule.ExceptionCondition, rule.AnomalyCondition, rule.SloCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
+        var result = await EvaluateAsync(alerts, slos, releases, sessions, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ThresholdUnit, rule.ExceptionCondition, rule.AnomalyCondition, rule.SloCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
-    private static async Task<IResult> HandleTestDraftAsync(HttpContext http, IAlertQueryService alerts, ISloQueryService slos, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleTestDraftAsync(HttpContext http, IAlertQueryService alerts, ISloQueryService slos, IReleaseQueryService releases, IAppSessionQueryService sessions, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -377,7 +402,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, slos, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ThresholdUnit, request.ExceptionCondition, request.AnomalyCondition, request.SloCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
+        var result = await EvaluateAsync(alerts, slos, releases, sessions, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ThresholdUnit, request.ExceptionCondition, request.AnomalyCondition, request.SloCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -476,10 +501,17 @@ public static class AlertEndpoints
             ThresholdUnit = defaults.ThresholdUnit,
             Labels = defaults.Labels,
             SloCondition = request.SloCondition,
+            NotificationTemplateId = request.NotificationTemplateId,
         };
     }
 
-    private static async Task<IResult> HandleNotificationPreviewAsync(Guid? ruleId, HttpContext http, IOptions<AlertLinkOptions> linkOptions, TimeProvider timeProvider, CancellationToken cancellationToken)
+    /// <summary>A 400 when the request references a shared notification template that doesn't exist.</summary>
+    private static async Task<IResult?> CheckTemplateExistsAsync(AlertRuleRequest request, IAlertTemplateQueryService templates, CancellationToken cancellationToken) =>
+        request.NotificationTemplateId is { } templateId && await templates.GetAsync(templateId, cancellationToken) is null
+            ? Results.Problem($"notificationTemplateId {templateId} does not exist.", statusCode: StatusCodes.Status400BadRequest)
+            : null;
+
+    private static async Task<IResult> HandleNotificationPreviewAsync(Guid? ruleId, HttpContext http, IOptions<AlertLinkOptions> linkOptions, IAlertTemplateQueryService templates, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -501,7 +533,11 @@ public static class AlertEndpoints
         // form can show it next to the preview rather than as a failed request.
         // ?ruleId= (the form sends it when editing a saved rule) only makes {{rule_id}}/
         // {{rule_url}} show the real rule rather than the empty draft GUID.
-        var rule = ToDraftRule(request, timeProvider.GetUtcNow()) with { Id = ruleId ?? Guid.Empty };
+        var rule = AlertTemplateResolver.Apply(
+            ToDraftRule(request, timeProvider.GetUtcNow()) with { Id = ruleId ?? Guid.Empty },
+            await templates.ListAsync(cancellationToken),
+            channelType: null,
+            resolved: false);
         var (observedValue, anomaly) = PreviewSample(rule);
         var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest: false, linkOptions.Value.PublicUrl, metricUnit: string.IsNullOrEmpty(rule.ThresholdUnit) ? null : rule.ThresholdUnit, rule.UpdatedAt, noData: false, anomaly);
         string ForFormat(AlertMarkupFormat format) => AlertMessageFormatter.BuildMessage(rule, observedValue, isTest: false, linkOptions.Value.PublicUrl, metricUnit: string.IsNullOrEmpty(rule.ThresholdUnit) ? null : rule.ThresholdUnit, rule.UpdatedAt, noData: false, anomaly, format: format).Combined;
@@ -539,7 +575,7 @@ public static class AlertEndpoints
         }
 
         var breaches = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual;
-        return rule.ConditionKind == AlertConditionKind.MetricThreshold
+        return rule.ConditionKind is AlertConditionKind.MetricThreshold or AlertConditionKind.CrashFreeRate
             ? (rule.MetricThresholdValue ?? 0, null)
             : (breaches ? rule.Threshold.Count : 0, null);
     }
@@ -598,6 +634,8 @@ public static class AlertEndpoints
     private static async Task<AlertTestResult> EvaluateAsync(
         IAlertQueryService alerts,
         ISloQueryService slos,
+        IReleaseQueryService releases,
+        IAppSessionQueryService sessions,
         TimeProvider timeProvider,
         AlertConditionKind conditionKind,
         LogFilter condition,
@@ -679,6 +717,42 @@ public static class AlertEndpoints
                 WindowSeconds = windowSeconds,
                 ConditionKind = conditionKind,
                 ObservedValue = burn?.LongBurnRate,
+            };
+        }
+
+        if (conditionKind == AlertConditionKind.CrashFreeRate)
+        {
+            // A draft with no condition or threshold reports "wouldn't fire", same leniency as the other kinds.
+            if (exceptionCondition is null || metricThresholdValue is not { } crashFreeThreshold)
+            {
+                return new AlertTestResult { ObservedCount = 0, WouldFire = false, EvaluatedAt = now, WindowSeconds = windowSeconds, ConditionKind = conditionKind, ObservedValue = null };
+            }
+
+            var crashFree = await CrashFreeRateEvaluator.EvaluateAsync(sessions, exceptionCondition.Filter.Services ?? [], windowSeconds, minDataPoints, cancellationToken);
+            return new AlertTestResult
+            {
+                ObservedCount = 0,
+                WouldFire = crashFree is not null && threshold.IsBreachedValue(crashFree.Rate, crashFreeThreshold),
+                EvaluatedAt = now,
+                WindowSeconds = windowSeconds,
+                ConditionKind = conditionKind,
+                ObservedValue = crashFree?.Rate,
+            };
+        }
+
+        if (conditionKind == AlertConditionKind.ReleaseErrors)
+        {
+            // A draft with no condition reports "wouldn't fire", same leniency as the other kinds.
+            var tally = exceptionCondition is null ? null : await ReleaseErrorsEvaluator.EvaluateAsync(releases, exceptionCondition, windowSeconds, cancellationToken);
+            var newErrors = (ulong)(tally?.NewErrorCount ?? 0);
+            return new AlertTestResult
+            {
+                ObservedCount = newErrors,
+                WouldFire = exceptionCondition is not null && threshold.IsBreached(newErrors),
+                EvaluatedAt = now,
+                WindowSeconds = windowSeconds,
+                ConditionKind = conditionKind,
+                ObservedValue = null,
             };
         }
 

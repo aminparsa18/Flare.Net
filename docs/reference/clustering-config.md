@@ -1,7 +1,7 @@
 # Cluster-mode configuration keys
 
 Exact configuration keys for running Flare against a multi-node ClickHouse
-cluster. See [`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md)
+cluster. See [`../how-to/deploy/run-cluster-mode.md`](../how-to/deploy/run-cluster-mode.md)
 for how to turn this on and [`../explanation/clustering.md`](../explanation/clustering.md)
 for what each of these actually does.
 

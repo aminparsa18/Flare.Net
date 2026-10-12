@@ -15,4 +15,4 @@ annotations:
   artifacthub.io/category: monitoring-logging
   artifacthub.io/links: |
     - name: Documentation
-      url: https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/deploy-with-helm.md
+      url: https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/deploy/deploy-with-helm.md

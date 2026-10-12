@@ -1,0 +1,18 @@
+# Managed crash, then relaunch so the queued crash span is replayed.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- scrollUntilVisible:
+    element:
+        id: "CrashButton"
+- tapOn:
+    id: "CrashButton"
+- waitForAnimationToEnd:
+    timeout: 3000
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "FlushButton"
+- tapOn:
+    id: "FlushButton"

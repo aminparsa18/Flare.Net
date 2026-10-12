@@ -109,6 +109,49 @@ public class AlertConditionValidationTests
         Assert.NotNull((request with { MinDataPoints = 5 }).ValidateCondition());
     }
 
+    [Fact]
+    public void ReleaseErrors_WithServiceScope_IsValid() =>
+        Assert.Null((Build(AlertConditionKind.ReleaseErrors, windowSeconds: 3600) with { ExceptionCondition = new ExceptionCountCondition { ExceptionType = "", Filter = new ExceptionFilter { Services = ["web"] } } }).ValidateCondition());
+
+    [Fact]
+    public void ReleaseErrors_MissingCondition_IsInvalid() =>
+        Assert.NotNull(Build(AlertConditionKind.ReleaseErrors, windowSeconds: 3600).ValidateCondition());
+
+    [Fact]
+    public void ReleaseErrors_RejectsNoData() =>
+        Assert.NotNull((Build(AlertConditionKind.ReleaseErrors, windowSeconds: 3600) with { ExceptionCondition = MakeExceptionCondition(), NoDataWindowSeconds = 600 }).ValidateCondition());
+
+    [Fact]
+    public void CrashFreeRate_WithScopeAndPercentThreshold_IsValid() =>
+        Assert.Null(Build(AlertConditionKind.CrashFreeRate, metricThresholdValue: 99.5, exceptionCondition: MakeExceptionCondition(), minDataPoints: 50).ValidateCondition());
+
+    [Fact]
+    public void CrashFreeRate_MissingScopeOrThreshold_IsInvalid()
+    {
+        Assert.NotNull(Build(AlertConditionKind.CrashFreeRate, metricThresholdValue: 99.5).ValidateCondition());
+        Assert.NotNull(Build(AlertConditionKind.CrashFreeRate, exceptionCondition: MakeExceptionCondition()).ValidateCondition());
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(100.5)]
+    [InlineData(double.NaN)]
+    public void CrashFreeRate_ThresholdOutsideAPercentage_IsInvalid(double percent) =>
+        Assert.NotNull(Build(AlertConditionKind.CrashFreeRate, metricThresholdValue: percent, exceptionCondition: MakeExceptionCondition()).ValidateCondition());
+
+    [Fact]
+    public void CrashFreeRate_RejectsNoData() =>
+        Assert.NotNull(Build(AlertConditionKind.CrashFreeRate, metricThresholdValue: 99, exceptionCondition: MakeExceptionCondition(), noDataWindowSeconds: 600).ValidateCondition());
+
+    [Fact]
+    public void CrashFreeRate_RecoveryThreshold_MustBeOnTheRecoveringSideOfThePercentThreshold()
+    {
+        var request = Build(AlertConditionKind.CrashFreeRate, metricThresholdValue: 99, exceptionCondition: MakeExceptionCondition()) with { Threshold = new AlertThreshold { Count = 1, Comparator = ThresholdComparator.LessThan } };
+
+        Assert.Null((request with { RecoveryThreshold = 99.5 }).ValidateCondition());
+        Assert.NotNull((request with { RecoveryThreshold = 98 }).ValidateCondition());
+    }
+
     private static MetricAlertCondition MakeCondition() => new() { MetricName = "process.threads", Type = MetricPointType.Gauge };
 
     private static ExceptionCountCondition MakeExceptionCondition() => new() { ExceptionType = "System.NullReferenceException" };

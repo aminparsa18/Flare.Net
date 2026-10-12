@@ -50,6 +50,11 @@ public static class NotificationChannelEndpoints
             return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (NameUniqueness.Conflict((await channels.ListAsync(cancellationToken)).Select(c => (c.Id, c.Name)), "notification channel", request.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var channel = await channels.CreateAsync(request, cancellationToken);
         AuditContext.SetResourceId(http, channel.Id);
         return ApiSerialization.Write(http, NotificationSecrets.Redact(channel), NotificationChannelsJsonContext.Default.NotificationChannel, statusCode: StatusCodes.Status201Created);
@@ -93,6 +98,11 @@ public static class NotificationChannelEndpoints
         if (request.ValidateDestination() is { } error)
         {
             return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (NameUniqueness.Conflict((await channels.ListAsync(cancellationToken)).Select(c => (c.Id, c.Name)), "notification channel", request.Name, id, before?.Name) is { } taken)
+        {
+            return taken;
         }
 
         var channel = await channels.UpdateAsync(id, request, cancellationToken);

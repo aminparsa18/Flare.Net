@@ -1,4 +1,5 @@
 using Flare.Ingest.Auth;
+using Flare.Ingest.Forwarding;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Grpc.Core;
@@ -15,6 +16,7 @@ public sealed class OtlpGrpcTraceService(
     ISpanEventSink sink,
     IIngestionStatsTracker stats,
     TimeProvider timeProvider,
+    IOtlpForwarder forwarder,
     ILogger<OtlpGrpcTraceService> logger) : TraceService.TraceServiceBase
 {
     public override async Task<ExportTraceServiceResponse> Export(
@@ -22,6 +24,12 @@ public sealed class OtlpGrpcTraceService(
         ServerCallContext context)
     {
         var byteCount = request.CalculateSize();
+
+        if (IngestKeyScope.RejectsServices(context.GetHttpContext(), request.ResourceSpans.Select(r => r.Resource)))
+        {
+            await stats.RecordRejectedAsync(IngestionSignal.Traces, IngestionProtocol.Grpc, "service-not-allowed", context.CancellationToken);
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Service not allowed for this ingest key"));
+        }
 
         // Captured once per request, not per span - see LogEvent.IngestedAt's remarks
         // and ADR-0014 (SpanRecord.IngestedAt follows the same convention).
@@ -48,6 +56,7 @@ public sealed class OtlpGrpcTraceService(
 
         await stats.RecordAcceptedAsync(IngestionSignal.Traces, IngestionProtocol.Grpc, count, byteCount, context.CancellationToken);
         IngestKeyUsageFeature.Add(context.GetHttpContext(), count, byteCount);
+        forwarder.Forward(context.GetHttpContext(), request);
         await stats.RecordServiceBreakdownAsync(IngestionSignal.Traces, ServiceBreakdown.Build(records, byteCount), context.CancellationToken);
 
         logger.LogDebug("Ingested {Count} span(s) via gRPC", count);

@@ -214,6 +214,8 @@ export interface AlertRule {
 	/** Minutes after the first escalation before a still-unacknowledged incident takes a second step to `secondEscalationChannelIds` (ADR-0136); 0 = no second step. */
 	secondEscalateAfterMinutes: number;
 	secondEscalationChannelIds: string[];
+	/** Shared notification template (ADR-0148) this rule uses; `null` = none, so the instance default template (if any) applies. */
+	notificationTemplateId: string | null;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -270,6 +272,8 @@ export interface AlertRuleRequest {
 	secondEscalateAfterMinutes?: number;
 	/** See `AlertRule.secondEscalationChannelIds`. */
 	secondEscalationChannelIds?: string[];
+	/** See `AlertRule.notificationTemplateId`. Omitted/null means none. */
+	notificationTemplateId?: string | null;
 }
 
 export interface AlertRuleListResponse {
@@ -384,7 +388,7 @@ export const NOTIFICATION_TEMPLATE_PLACEHOLDERS = [
 	'rule_name', 'rule_id', 'description', 'severity', 'status', 'condition_kind',
 	'value', 'threshold', 'comparator', 'window', 'window_seconds',
 	'metric', 'exception_type', 'baseline_mean', 'z_score',
-	'fired_at', 'rule_url', 'logs_url', 'data_url', 'ack_url', 'log_samples', 'message'
+	'fired_at', 'rule_url', 'logs_url', 'data_url', 'ack_url', 'log_samples', 'owner', 'message'
 ] as const;
 
 function toAlertThreshold(dto: GeneratedAlertThreshold): AlertThreshold {
@@ -516,7 +520,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		escalationChannelIds: (dto.escalationChannelIds ?? []).filter((id): id is string => id != null),
 		escalationRotationId: dto.escalationRotationId,
 		secondEscalateAfterMinutes: dto.secondEscalateAfterMinutes,
-		secondEscalationChannelIds: (dto.secondEscalationChannelIds ?? []).filter((id): id is string => id != null)
+		secondEscalationChannelIds: (dto.secondEscalationChannelIds ?? []).filter((id): id is string => id != null),
+		notificationTemplateId: dto.notificationTemplateId
 	};
 }
 
@@ -564,6 +569,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.escalationRotationId = request.escalationRotationId ?? null;
 	dto.secondEscalateAfterMinutes = request.secondEscalateAfterMinutes ?? null;
 	dto.secondEscalationChannelIds = request.secondEscalationChannelIds ?? null;
+	dto.notificationTemplateId = request.notificationTemplateId ?? null;
 	return dto;
 }
 

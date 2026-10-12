@@ -15,7 +15,7 @@ nulle part de propriété des données par utilisateur, et
 qu'ils l'ont toujours été.
 
 Pour configurer tout cela, voir
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.fr.md).
+[`../how-to/admin/configure-authentication.md`](../how-to/admin/configure-authentication.fr.md).
 Pour les clés de configuration exactes et le tableau des rôles, voir
 [`../reference/authentication-config.md`](../reference/authentication-config.fr.md).
 
@@ -131,7 +131,7 @@ authentifie une *machine* (l'exportateur OTLP d'une application), pas une
 émettant de la télémétrie à être liée à la connexion de quelqu'un, ce qui
 ne correspond pas à la façon dont les collecteurs/exportateurs sont
 réellement exploités (une ou quelques clés partagées par environnement).
-Voir [le guide pratique](../how-to/configure-authentication.fr.md#clés-api-dingestion)
+Voir [le guide pratique](../how-to/admin/configure-authentication.fr.md#clés-api-dingestion)
 pour en créer, utiliser ou révoquer une.
 
 ## Jetons d'accès personnels
@@ -150,7 +150,7 @@ distincte. Voir
 [ADR-0019](../../docs-internal/adr/0019-personal-access-tokens.md) pour
 savoir pourquoi ceci réutilise le schéma d'authentification de session
 existant plutôt que d'en enregistrer un second, et
-[le guide pratique](../how-to/configure-authentication.fr.md#jetons-daccès-personnels)
+[le guide pratique](../how-to/admin/configure-authentication.fr.md#jetons-daccès-personnels)
 pour en créer, utiliser ou révoquer un.
 
 Chaque jeton est aussi limité individuellement en fréquence de requêtes —

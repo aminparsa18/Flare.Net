@@ -1,0 +1,48 @@
+<clickhouse>
+    <!--
+        Cold tier for retention (docs-internal/adr/0144-cold-storage-rustfs.md): an S3-compatible
+        bucket (RustFS) as a second ClickHouse disk, and a `flare_tiered` storage policy that keeps
+        new parts on the default disk (volume `default`) and lets a TTL move rule push aged parts to `cold`.
+        Mounted by docker-compose.cold-storage.yml only - without it the policy doesn't exist and
+        Flare.Api reports cold storage as unavailable.
+
+        Credentials come from the container's environment, never from this file.
+    -->
+    <storage_configuration>
+        <disks>
+            <cold>
+                <type>s3</type>
+                <endpoint from_env="FLARE_COLD_ENDPOINT"/>
+                <access_key_id from_env="FLARE_COLD_ACCESS_KEY"/>
+                <secret_access_key from_env="FLARE_COLD_SECRET_KEY"/>
+                <!-- RustFS (like MinIO) is path-style addressed and has no regions. -->
+                <region>us-east-1</region>
+                <metadata_path>/var/lib/clickhouse/disks/cold/</metadata_path>
+            </cold>
+        </disks>
+        <policies>
+            <flare_tiered>
+                <volumes>
+                    <!--
+                        Must be named `default`: ALTER TABLE ... MODIFY SETTING storage_policy only
+                        accepts a policy containing every volume of the table's current one, and
+                        the implicit policy's single volume is called `default`.
+                    -->
+                    <default>
+                        <disk>default</disk>
+                    </default>
+                    <cold>
+                        <disk>cold</disk>
+                        <!--
+                            0: don't evaluate the TTL-move rule synchronously on every insert. With
+                            cold storage configured, the default makes ClickHouse check each inserted
+                            part against the move rule on the ingest path (signoz#1448); 0 leaves it
+                            to the background merge/move process.
+                        -->
+                        <perform_ttl_move_on_insert>0</perform_ttl_move_on_insert>
+                    </cold>
+                </volumes>
+            </flare_tiered>
+        </policies>
+    </storage_configuration>
+</clickhouse>

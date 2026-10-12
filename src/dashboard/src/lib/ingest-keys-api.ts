@@ -15,6 +15,8 @@ import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memory
 import { CreateIngestApiKeyRequest as GeneratedCreateIngestApiKeyRequest } from '$lib/generated/memorypack/CreateIngestApiKeyRequest.js';
 import { SetIngestApiKeyProjectRequest as GeneratedSetIngestApiKeyProjectRequest } from '$lib/generated/memorypack/SetIngestApiKeyProjectRequest.js';
 import { NO_PROJECT } from './projects-api';
+import { SetIngestApiKeyOriginsRequest as GeneratedSetIngestApiKeyOriginsRequest } from '$lib/generated/memorypack/SetIngestApiKeyOriginsRequest.js';
+import { SetIngestApiKeyServicesRequest as GeneratedSetIngestApiKeyServicesRequest } from '$lib/generated/memorypack/SetIngestApiKeyServicesRequest.js';
 import { UpdateIngestApiKeyLimitsRequest as GeneratedUpdateIngestApiKeyLimitsRequest } from '$lib/generated/memorypack/UpdateIngestApiKeyLimitsRequest.js';
 import { CreateIngestApiKeyResponse as GeneratedCreateIngestApiKeyResponse } from '$lib/memorypack/CreateIngestApiKeyResponse';
 import { IngestApiKeyListResponse as GeneratedIngestApiKeyListResponse } from '$lib/memorypack/IngestApiKeyListResponse';
@@ -45,6 +47,10 @@ export interface IngestApiKeyDto extends IngestApiKeyLimits, IngestApiKeyUsage {
 	isActive: boolean;
 	/** Owning project (ADR-0123); `null` = instance-wide. */
 	projectId: string | null;
+	/** Browser origins the key is restricted to (ADR-0149); empty = unrestricted. */
+	allowedOrigins: string[];
+	/** service.name values the key may write for (ADR-0150); empty = any. */
+	allowedServices: string[];
 }
 
 export interface CreateIngestApiKeyRequest {
@@ -71,6 +77,8 @@ function toIngestApiKey(dto: GeneratedIngestApiKeyDto): IngestApiKeyDto {
 		revokedAt: dto.revokedAt?.toISOString() ?? null,
 		isActive: dto.isActive,
 		projectId: dto.projectId,
+		allowedOrigins: dto.allowedOrigins,
+		allowedServices: dto.allowedServices,
 		limitsEnabled: dto.limitsEnabled,
 		maxEventsPerMinute: toNumber(dto.maxEventsPerMinute),
 		maxBytesPerMinute: toNumber(dto.maxBytesPerMinute),
@@ -149,4 +157,39 @@ export async function updateIngestApiKeyLimits(id: string, limits: IngestApiKeyL
 	if (!res.ok) {
 		throw new Error(`PUT /api/ingest-keys/${id}/limits failed: ${res.status} ${res.statusText}`);
 	}
+}
+
+/** Surfaces the API's problem-details message (e.g. which origin was malformed) over a bare status line. */
+async function allowlistError(res: Response, what: string): Promise<Error> {
+	let detail = '';
+	try {
+		detail = ((await res.json()) as { detail?: string }).detail ?? '';
+	} catch {
+		// non-JSON body: fall back to the status line
+	}
+	return new Error(detail || `PUT ${what} failed: ${res.status} ${res.statusText}`);
+}
+
+/** 204 No Content on success. An empty list lifts the restriction (ADR-0149). */
+export async function setIngestApiKeyOrigins(id: string, origins: string[]): Promise<void> {
+	const dto = new GeneratedSetIngestApiKeyOriginsRequest();
+	dto.origins = origins;
+	const res = await apiFetch(`${API_BASE_URL}/api/ingest-keys/${id}/origins`, {
+		method: 'PUT',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSetIngestApiKeyOriginsRequest.serialize(dto))
+	});
+	if (!res.ok) throw await allowlistError(res, `/api/ingest-keys/${id}/origins`);
+}
+
+/** 204 No Content on success. An empty list lifts the restriction (ADR-0150). */
+export async function setIngestApiKeyServices(id: string, services: string[]): Promise<void> {
+	const dto = new GeneratedSetIngestApiKeyServicesRequest();
+	dto.services = services;
+	const res = await apiFetch(`${API_BASE_URL}/api/ingest-keys/${id}/services`, {
+		method: 'PUT',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSetIngestApiKeyServicesRequest.serialize(dto))
+	});
+	if (!res.ok) throw await allowlistError(res, `/api/ingest-keys/${id}/services`);
 }

@@ -49,6 +49,13 @@ internal static partial class ConfigSync
 
     public const string WindowsSection = "maintenanceWindows";
 
+    public const string ForwardingSection = "forwardingTargets";
+
+    /// <summary>The archive is one settings object per instance, not a named list, so it has its own section shape.</summary>
+    public const string ArchiveSection = "archive";
+
+    private static readonly string[] ArchiveSecretFields = ["accessKey", "secretKey"];
+
     /// <summary>Apply order: later kinds reference earlier ones by name (alerts name channels and SLOs; windows name alerts).</summary>
     public static readonly IReadOnlyList<ConfigKind> RestKinds =
     [
@@ -57,6 +64,7 @@ internal static partial class ConfigSync
         new("slos", "SLO", "/api/slos", "slos", []),
         new("pipelineRules", "pipeline rule", "/api/pipeline-rules", "rules", []),
         new("metricAttributeRules", "metric attribute rule", "/api/metric-attribute-rules", "rules", []),
+        new(ForwardingSection, "forwarding target", "/api/forwarding/targets", "targets", []),
     ];
 
     /// <summary>Planning-only: alert rules are read and written through <c>/api/alerts/export</c> and <c>/import</c>, not per-item REST.</summary>
@@ -81,6 +89,10 @@ internal static partial class ConfigSync
         return $"FLARE_{Clean(section)}_{Clean(itemName)}_{Clean(field)}";
     }
 
+    /// <summary>Placeholder variable for a field of a single-instance section such as the archive, e.g. <c>FLARE_ARCHIVE_ACCESSKEY</c>.</summary>
+    public static string SecretVariable(string section, string field) =>
+        $"FLARE_{Regex.Replace(section.ToUpperInvariant(), "[^A-Z0-9]+", "_").Trim('_')}_{Regex.Replace(field.ToUpperInvariant(), "[^A-Z0-9]+", "_").Trim('_')}";
+
     public static string NameOf(JsonObject item, string section) =>
         (section == AlertsSection ? item["rule"]?["name"]?.GetValue<string>() : item["name"]?.GetValue<string>()) ?? "";
 
@@ -88,7 +100,11 @@ internal static partial class ConfigSync
     /// Portable form of an API response item: server-managed fields dropped, credentials replaced by
     /// <c>${ENV_VAR}</c> placeholders, and (windows) alert ids replaced by alert names.
     /// </summary>
-    public static JsonObject ToExportItem(ConfigKind kind, JsonObject item, IReadOnlyDictionary<string, string> alertNamesById)
+    public static JsonObject ToExportItem(
+        ConfigKind kind,
+        JsonObject item,
+        IReadOnlyDictionary<string, string> alertNamesById,
+        IReadOnlyDictionary<string, string>? ingestKeyNamesById = null)
     {
         var result = (JsonObject)item.DeepClone();
         foreach (var field in ServerFields)
@@ -115,7 +131,147 @@ internal static partial class ConfigSync
             }
         }
 
+        if (kind.Section == ForwardingSection)
+        {
+            // Header values are credentials the API only returns masked: every one becomes a placeholder.
+            if (result["headers"] is JsonObject headers)
+            {
+                var placeholders = new JsonObject();
+                foreach (var (header, _) in headers)
+                {
+                    placeholders[header] = $"${{{SecretVariable(kind.Section, name, "headers." + header)}}}";
+                }
+
+                result["headers"] = placeholders;
+            }
+
+            var keyIds = (result["ingestKeyIds"] as JsonArray)?.Select(n => n?.GetValue<string>() ?? "").ToList() ?? [];
+            result.Remove("ingestKeyIds");
+            if (keyIds.Count > 0)
+            {
+                result["ingestKeyNames"] = new JsonArray([.. keyIds.Select(id => (JsonNode?)(ingestKeyNamesById is not null && ingestKeyNamesById.TryGetValue(id, out var n) ? n : id))]);
+            }
+        }
+
         return Prune(result) as JsonObject ?? new JsonObject();
+    }
+
+    /// <summary>Portable form of the archive settings: server fields dropped and both keys replaced by placeholders. Null when nothing is saved.</summary>
+    public static JsonObject? ToExportArchive(JsonObject settings)
+    {
+        if (settings["saved"] is not JsonValue saved || !saved.TryGetValue<bool>(out var isSaved) || !isSaved)
+        {
+            return null;
+        }
+
+        var result = (JsonObject)settings.DeepClone();
+        result.Remove("saved");
+        result.Remove("updatedAt");
+        foreach (var field in ArchiveSecretFields)
+        {
+            if (result[field] is JsonValue v && v.TryGetValue<string>(out var value) && value.Length > 0)
+            {
+                result[field] = $"${{{SecretVariable(ArchiveSection, field)}}}";
+            }
+        }
+
+        return Prune(result) as JsonObject;
+    }
+
+    /// <summary>
+    /// Request body for <c>PUT /api/archive/settings</c>. As for other credentials, an unset variable
+    /// keeps the stored key on an update (the masked value is sent back) and is an error on a first save.
+    /// </summary>
+    public static (JsonObject? Body, bool SecretsSent, string? Error) BuildArchiveBody(JsonObject desired, JsonObject? existing, Func<string, string?> env)
+    {
+        var body = (JsonObject)desired.DeepClone();
+        var (sent, error) = ResolveSecrets(body, ArchiveSecretFields, field => existing?[field], env);
+        if (error is not null)
+        {
+            return (null, false, error);
+        }
+
+        var unset = new List<string>();
+        body = (JsonObject)Expand(body, env, unset)!;
+        return unset.Count > 0 ? (null, false, $"Environment variable(s) not set: {string.Join(", ", unset.Distinct())}.") : (body, sent, null);
+    }
+
+    /// <summary>Whether the archive in the file differs from what is saved; keys can't be compared, so supplying one always counts.</summary>
+    public static ConfigOutcome PlanArchive(JsonObject desired, JsonObject? existingExport, Func<string, string?> env)
+    {
+        if (existingExport is null)
+        {
+            return ConfigOutcome.Create;
+        }
+
+        return SuppliesSecret(desired, ArchiveSecretFields, env) || Canonical(WithoutSecrets(desired, ArchiveSecretFields)) != Canonical(WithoutSecrets(existingExport, ArchiveSecretFields))
+            ? ConfigOutcome.Update
+            : ConfigOutcome.Unchanged;
+    }
+
+    /// <summary>True when any of <paramref name="fields"/> carries a literal value or a placeholder the environment can fill.</summary>
+    private static bool SuppliesSecret(JsonObject item, IEnumerable<string> fields, Func<string, string?> env) =>
+        fields.Any(field =>
+        {
+            if (item[field] is not JsonValue v || !v.TryGetValue<string>(out var value) || value.Length == 0)
+            {
+                return false;
+            }
+
+            var whole = PlaceholderPattern().Match(value);
+            return !whole.Success || whole.Length != value.Length || env(whole.Groups[1].Value) is not null;
+        });
+
+    private static JsonObject WithoutSecrets(JsonObject item, string[] fields)
+    {
+        var copy = (JsonObject)item.DeepClone();
+        foreach (var field in fields)
+        {
+            copy.Remove(field);
+        }
+
+        return copy;
+    }
+
+    /// <summary>
+    /// Resolves each whole-value <c>${VAR}</c> in <paramref name="fields"/> of <paramref name="body"/>: from the
+    /// environment, else the stored (masked) value, else an error. Returns whether any real secret was sent.
+    /// </summary>
+    private static (bool SecretsSent, string? Error) ResolveSecrets(JsonObject body, IEnumerable<string> fields, Func<string, JsonNode?> stored, Func<string, string?> env)
+    {
+        var secretsSent = false;
+        foreach (var field in fields)
+        {
+            if (body[field] is not JsonValue v || !v.TryGetValue<string>(out var value))
+            {
+                continue;
+            }
+
+            var whole = PlaceholderPattern().Match(value);
+            if (whole.Success && whole.Length == value.Length)
+            {
+                var resolved = env(whole.Groups[1].Value);
+                if (resolved is not null)
+                {
+                    body[field] = resolved;
+                    secretsSent = true;
+                }
+                else if (stored(field) is JsonValue prior && prior.TryGetValue<string>(out var masked) && masked.Length > 0)
+                {
+                    body[field] = masked;
+                }
+                else
+                {
+                    return (false, $"{field}: environment variable {whole.Groups[1].Value} is not set.");
+                }
+            }
+            else
+            {
+                secretsSent = true;
+            }
+        }
+
+        return (secretsSent, null);
     }
 
     /// <summary>An ingest key's versionable part: its name and rate limits (the key itself is a credential and is never exported).</summary>
@@ -150,7 +306,8 @@ internal static partial class ConfigSync
         ConfigExisting? existing,
         Func<string, string?> env,
         IReadOnlyDictionary<string, string> alertIdsByName,
-        bool allowPendingRules)
+        bool allowPendingRules,
+        IReadOnlyDictionary<string, string>? ingestKeyIdsByName = null)
     {
         var body = (JsonObject)desired.DeepClone();
         foreach (var field in ServerFields)
@@ -158,36 +315,21 @@ internal static partial class ConfigSync
             body.Remove(field);
         }
 
-        var secretsSent = false;
-        foreach (var field in kind.SecretFields)
+        var (secretsSent, secretError) = ResolveSecrets(body, kind.SecretFields, field => existing?.Raw[field], env);
+        if (secretError is not null)
         {
-            if (body[field] is not JsonValue v || !v.TryGetValue<string>(out var value))
+            return (null, false, secretError);
+        }
+
+        if (kind.Section == ForwardingSection && body["headers"] is JsonObject headers)
+        {
+            var headerSecrets = ResolveSecrets(headers, headers.Select(h => h.Key).ToList(), header => (existing?.Raw["headers"] as JsonObject)?[header], env);
+            if (headerSecrets.Error is not null)
             {
-                continue;
+                return (null, false, "headers." + headerSecrets.Error);
             }
 
-            var whole = PlaceholderPattern().Match(value);
-            if (whole.Success && whole.Length == value.Length)
-            {
-                var resolved = env(whole.Groups[1].Value);
-                if (resolved is not null)
-                {
-                    body[field] = resolved;
-                    secretsSent = true;
-                }
-                else if (existing?.Raw[field] is JsonValue stored && stored.TryGetValue<string>(out var masked) && masked.Length > 0)
-                {
-                    body[field] = masked;
-                }
-                else
-                {
-                    return (null, false, $"{field}: environment variable {whole.Groups[1].Value} is not set.");
-                }
-            }
-            else
-            {
-                secretsSent = true;
-            }
+            secretsSent |= headerSecrets.SecretsSent;
         }
 
         var unset = new List<string>();
@@ -221,6 +363,32 @@ internal static partial class ConfigSync
 
             body.Remove("ruleNames");
             body["ruleIds"] = ids;
+        }
+
+        if (kind.Section == ForwardingSection && body["ingestKeyNames"] is JsonArray keyNames)
+        {
+            var ids = new JsonArray();
+            var missing = new List<string>();
+            foreach (var n in keyNames)
+            {
+                var keyName = n?.GetValue<string>() ?? "";
+                if (ingestKeyIdsByName is not null && ingestKeyIdsByName.TryGetValue(keyName, out var id))
+                {
+                    ids.Add(id);
+                }
+                else
+                {
+                    missing.Add(keyName);
+                }
+            }
+
+            if (missing.Count > 0 && !allowPendingRules)
+            {
+                return (null, false, $"Unknown active ingest key(s): {string.Join(", ", missing)}.");
+            }
+
+            body.Remove("ingestKeyNames");
+            body["ingestKeyIds"] = ids;
         }
 
         return (body, secretsSent, null);
@@ -326,6 +494,21 @@ internal static partial class ConfigSync
         foreach (var field in kind.SecretFields)
         {
             copy.Remove(field);
+        }
+
+        if (copy["headers"] is JsonObject headers)
+        {
+            // Values are masked or placeholders on one side; only which headers exist is comparable.
+            copy["headerNames"] = new JsonArray([.. headers.Select(h => h.Key).Order(StringComparer.OrdinalIgnoreCase).Select(n => (JsonNode?)n)]);
+            copy.Remove("headers");
+        }
+
+        foreach (var field in new[] { "signals", "services", "ingestKeyNames" })
+        {
+            if (copy[field] is JsonArray list)
+            {
+                copy[field] = new JsonArray([.. list.Select(n => n?.GetValue<string>() ?? "").Order(StringComparer.OrdinalIgnoreCase).Select(n => (JsonNode?)n)]);
+            }
         }
 
         if (copy["ruleNames"] is JsonArray names)

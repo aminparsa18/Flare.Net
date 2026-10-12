@@ -1,0 +1,18 @@
+# SIGABRT from native code; the crash is reported from ApplicationExitInfo on the next launch.
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- scrollUntilVisible:
+    element:
+        id: "NativeCrashButton"
+- tapOn:
+    id: "NativeCrashButton"
+- waitForAnimationToEnd:
+    timeout: 3000
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "FlushButton"
+- tapOn:
+    id: "FlushButton"

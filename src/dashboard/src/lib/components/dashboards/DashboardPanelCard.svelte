@@ -17,6 +17,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { inViewport } from '$lib/actions/in-viewport';
+	import { isReportMode } from '$lib/dashboards/report-mode';
 	import DashboardLogsPanelBody from './panels/DashboardLogsPanelBody.svelte';
 	import DashboardMetricsPanelBody from './panels/DashboardMetricsPanelBody.svelte';
 	import DashboardTracesPanelBody from './panels/DashboardTracesPanelBody.svelte';
@@ -139,7 +140,7 @@
 	 *  viewport, via the `use:inViewport` below, instead of every panel firing its query on
 	 *  page load regardless of whether it's ever seen. Once true, stays true - see
 	 *  in-viewport.ts's own remarks on why this isn't a continuous show/hide. */
-	let visible = $state(false);
+	let visible = $state(isReportMode());
 
 	/** `panel.title` with its `$variable` references filled in from the current selection -
 	 *  what's shown, and what a drafted alert / Table CSV download are named after. Not

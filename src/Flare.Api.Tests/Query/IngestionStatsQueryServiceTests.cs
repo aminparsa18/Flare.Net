@@ -23,7 +23,7 @@ public class IngestionStatsQueryServiceTests
     {
         var buckets = IngestionStatsQueryService.BuildBuckets(startMinute: 1000, minutes: 3, new Dictionary<long, HashEntry[]>());
 
-        Assert.Equal(3 * 3 * 3, buckets.Count); // 3 minutes x 3 signals x 3 protocols
+        Assert.Equal(3 * 4 * 3, buckets.Count); // 3 minutes x 4 signals x 3 protocols
         Assert.All(buckets, b => Assert.Equal(0, b.Requests + b.Records + b.Bytes + b.Rejected));
     }
 

@@ -1,7 +1,7 @@
 # Known-good OTLP logger package versions
 
 Pinned to what was actually run against a live Flare instance while
-writing [`../how-to/run-standalone.md`](../how-to/run-standalone.md)
+writing [`../how-to/deploy/run-standalone.md`](../how-to/deploy/run-standalone.md)
 (2026-08-07). OTLP-for-logs support is a fairly new corner of each of
 these ecosystems and some of it tracks pre-release OpenTelemetry SDK
 versions — if something doesn't compile against a newer version you pick

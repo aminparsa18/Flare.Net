@@ -21,6 +21,7 @@
 	import { goto } from '$app/navigation';
 	import { pinnedSpanAttributes } from '$lib/logs/pinned-attributes.svelte';
 	import { severityVariant } from '$lib/logs/severity';
+	import FlameIcon from '@lucide/svelte/icons/flame';
 	import * as m from '$lib/paraglide/messages';
 	import { formatTimestamp } from '$lib/time/format';
 	import LinkIcon from '@lucide/svelte/icons/link';
@@ -208,6 +209,10 @@
 					<Button variant="outline" size="sm" href={buildTracesAroundHref(new Date(span.startTime).getTime(), AROUND_DEFAULT_MS)}>
 						<ClockIcon data-icon="inline-start" />
 						{m.spanDetail_aroundThis()}
+					</Button>
+					<Button variant="outline" size="sm" href={withBase(`/profiles?service=${encodeURIComponent(span.serviceName)}&traceId=${span.traceId}&spanId=${span.spanId}`)}>
+						<FlameIcon data-icon="inline-start" />
+						{m.spanDetail_viewProfile()}
 					</Button>
 					<Button variant="outline" size="sm" onclick={() => copySpanLink(span.traceId, span.spanId)}>
 						{#if linkCopied}

@@ -31,6 +31,13 @@ A `SloBurnRate` rule evaluates one SLO's error-budget burn rate over its long an
 (`Alerting/SloBurnRateEvaluator`, reading the `span_sli_minute` pre-aggregate) and breaches only
 when both are at or above the threshold - see
 [`docs-internal/adr/0108-slo-error-budgets.md`](../../docs-internal/adr/0108-slo-error-budgets.md).
+A `ReleaseErrors` rule counts the exception groups the worst release deployed in the last `WindowSeconds` introduced
+(`Alerting/ReleaseErrorsEvaluator`, reading `releases` and `spans`), scoped by the services in its exception condition's
+filter - see [`docs-internal/adr/0186-release-error-alerting.md`](../../docs-internal/adr/0186-release-error-alerting.md).
+A `CrashFreeRate` rule compares the lowest per-version crash-free session percentage over `WindowSeconds` with
+`MetricThresholdValue` (`Alerting/CrashFreeRateEvaluator`, reading `spans`), over versions with at least `MinDataPoints`
+sessions and scoped by the services in its exception condition's filter - see
+[`docs-internal/adr/0189-release-health-trends.md`](../../docs-internal/adr/0189-release-health-trends.md).
 A rule with `EvaluationIntervalSeconds > 0` is evaluated only on ticks where it's due
 (its last-evaluated marker, a per-rule Redis key `flare:alerts:last-eval:{id}`, is at least
 that old minus half a poll interval), so slow/expensive rules can run every 5m/15m instead
@@ -70,6 +77,12 @@ than one process" shape `Flare.Identity` already is for `Flare.Ingest`/`Flare.Ap
 Alerting/   AlertEvaluationWorker (the poll-loop BackgroundService), AlertingOptions,
             IncidentSummaryService (optional AI summary after a fire, ADR-0104) -
             the only types that live here rather than in Flare.Api.
+Reports/    DashboardReportWorker (claims due dashboard schedules, renders, emails, records the
+            run), PlaywrightDashboardRenderer, DashboardReportMailer, ReportsOptions -
+            scheduled dashboard reports (ADR-0142). Off unless Reports__Enabled.
+Archive/    ArchiveWorker (exports finished ingest hours to S3-compatible storage with INSERT INTO
+            FUNCTION s3), ArchiveSql, ArchiveOptions - telemetry archive (ADR-0156). Off unless
+            Archive__Enabled.
 Program.cs  Minimal host: ClickHouse/Redis client wiring, the same alert-notifier DI
             registrations Flare.Api's own Program.cs makes, /health + /alive only (no
             other HTTP surface - AddServiceDefaults()/MapDefaultEndpoints() are pulled in
@@ -95,6 +108,13 @@ same `Ai__*` section `Flare.Api` binds (`Ai__Enabled`, `Ai__IncidentSummaries`,
 `Ai__Endpoint`, `Ai__Model`, ...), so those keys must be set on this service too. Off by
 default; a fire's plain notification is always sent first.
 
+Scheduled dashboard reports (`docs-internal/adr/0142-scheduled-dashboard-reports.md`) are
+configured by `Reports__*` (`Enabled`, `DashboardUrl`, `ApiUrl`, `ChromiumPath`,
+`BrowserWsEndpoint`, `ChromiumArgs`, `PollInterval`, `RenderTimeout`, `SettleDelay`,
+`TokenLifetime`, `MaxAttachmentBytes`; see `Reports/ReportsOptions.cs`). They need a Chromium, which
+the default image does not carry: build it with `--build-arg INSTALL_CHROMIUM=true`. The worker
+signs its render token with the same Data Protection key ring `Flare.Api` reads (Redis).
+
 ## Tests
 
 `AlertEvaluationWorker` is deliberately **not** unit-tested against a fake — same
@@ -102,7 +122,10 @@ reasoning `Flare.Api/README.md` documents for `AlertQueryService`/`LogTailBroadc
 and `Flare.Ingest.Tests` documents for its own ClickHouse/Redis-touching classes: real
 `IClickHouseClient`/`IConnectionMultiplexer`/`HttpClient` I/O, covered by real
 end-to-end runs instead. `AlertingOptions` is a plain options POCO with no logic of its
-own. Every other type this process depends on (`AlertQueryService`, the notifiers,
+own. The same goes for `DashboardReportWorker`, `PlaywrightDashboardRenderer` and
+`DashboardReportMailer` (a real browser and a real SMTP server); the pure parts - cron/next-run
+maths, request validation, the render URL - live in `Flare.Api` and are tested in
+`../Flare.Api.Tests/Reports`, and the render token in `../Flare.Identity.Tests/Auth`. Every other type this process depends on (`AlertQueryService`, the notifiers,
 `AlertThreshold.IsBreached`, etc.) is unit-tested in `../Flare.Api.Tests` where it's
 actually defined — see that project's own README.
 

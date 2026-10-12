@@ -1,0 +1,191 @@
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry.Logs;
+
+namespace Flare.Maui;
+
+/// <summary>Settings for <c>MauiAppBuilder.UseFlare</c>.</summary>
+public sealed class FlareMauiOptions
+{
+    /// <summary>Base URL of Flare.Ingest's OTLP/HTTP receiver (port 4318), without a signal path.</summary>
+    public Uri? Endpoint { get; set; }
+
+    /// <summary>The <c>service.name</c> resource attribute. Pin the ingest key to this name.</summary>
+    public string? ServiceName { get; set; }
+
+    /// <summary>Overrides <c>service.version</c>. Defaults to the app's version string.</summary>
+    public string? ServiceVersion { get; set; }
+
+    /// <summary>Optional ingest key, sent as a bearer token. It ships in the app binary, so treat it as public.</summary>
+    public string? IngestKey { get; set; }
+
+    /// <summary>Retry failed exports from disk after a restart, using the OpenTelemetry exporter's disk retry (experimental in the SDK).</summary>
+    public bool EnableOfflineQueue { get; set; } = true;
+
+    /// <summary>Record AppDomain and unobserved-task exceptions as <c>app.unhandled_exception</c> spans.</summary>
+    public bool CaptureUnhandledExceptions { get; set; } = true;
+
+    /// <summary>
+    /// Report crashes the operating system recorded about the previous launch, once the app starts again: Android
+    /// <c>ApplicationExitInfo</c> (native crashes, ANRs, out-of-memory and initialization failures) and iOS MetricKit
+    /// crash diagnostics. Each becomes an <c>app.unhandled_exception</c> span in the earlier session, so release health
+    /// counts it. Needs Android 11+ or iOS 14+; keeps a small journal of recent launches in the app's data directory.
+    /// </summary>
+    public bool CaptureNativeCrashes { get; set; } = true;
+
+    /// <summary>
+    /// Attach a screenshot of the current page to exceptions (unhandled and <see cref="FlareMaui.RecordException"/>).
+    /// Off by default: a screenshot can show anything the user typed or saw, so enable it only if that is acceptable.
+    /// Uploaded to <c>/v1/screenshots</c>; at most 5 per launch, one per 10 seconds.
+    /// </summary>
+    public bool CaptureScreenshotOnError { get; set; }
+
+    /// <summary>
+    /// Session replay-lite: take a screenshot of the foreground page every this often and upload it as a frame of the
+    /// session, so the Sessions page can show what the user saw around an error, not only at it. Null (the default) is
+    /// off; at least 5 seconds. Frames stop while the app is in the background. Off by default for the same reason as
+    /// <see cref="CaptureScreenshotOnError"/>; see <see cref="MaskTextInputs"/> and <c>FlareMask.IsMasked</c> for hiding views.
+    /// </summary>
+    public TimeSpan? ScreenshotInterval { get; set; }
+
+    /// <summary>Most scheduled frames uploaded per launch. At the 5 second minimum interval the default is 10 minutes of replay.</summary>
+    public int MaxReplayScreenshots { get; set; } = 120;
+
+    /// <summary>
+    /// Hide text inputs (<c>Entry</c>, <c>Editor</c>, <c>SearchBar</c>) in every screenshot, error and scheduled. A
+    /// password <c>Entry</c> and any view marked with <c>FlareMask.IsMasked</c> are hidden regardless of this
+    /// setting. On by default.
+    /// </summary>
+    public bool MaskTextInputs { get; set; } = true;
+
+    /// <summary>Largest screenshot uploaded, in bytes (the server accepts up to 512 KB). The capture lowers JPEG quality to fit.</summary>
+    public int ScreenshotMaxBytes { get; set; } = 300 * 1024;
+
+    /// <summary>Report an <c>app.hang</c> span when the UI thread is blocked for <see cref="AppHangThreshold"/>.</summary>
+    public bool DetectAppHangs { get; set; } = true;
+
+    /// <summary>How long the UI thread must be blocked to count as a hang. At least 500 ms.</summary>
+    public TimeSpan AppHangThreshold { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Allow <see cref="FlareMaui.SetUser"/>'s name and e-mail to be sent. Off by default, so only the user id is
+    /// sent. No device identifier is sent either way.
+    /// </summary>
+    public bool SendDefaultPii { get; set; }
+
+    /// <summary>
+    /// Called for every span tag and log attribute before export with its key and value. Return the value to send,
+    /// a changed one to redact it, or <c>null</c> to remove the attribute. Resource attributes go through it too
+    /// (<c>service.name</c> is never removed). Span names (key <c>span.name</c>), span status messages (<c>status.message</c>) and, for exceptions Flare
+    /// reports itself, <c>exception.type</c>/<c>exception.message</c>/<c>exception.stacktrace</c> go through it too.
+    /// Exception events recorded by other instrumentation are not scrubbed: an event cannot be changed once added.
+    /// </summary>
+    public Func<string, object?, object?>? ScrubAttribute { get; set; }
+
+    /// <summary>
+    /// Called with each finished span before export; return <c>false</c> to drop it. It runs after the enrichment
+    /// processors, so it sees <c>user.id</c> and tags. Does not apply to logs; see <see cref="BeforeSendLog"/>.
+    /// </summary>
+    public Func<Activity, bool>? BeforeSend { get; set; }
+
+    /// <summary>
+    /// Called with each log record before export; return <c>false</c> to drop it. It runs after the enrichment and
+    /// <see cref="ScrubAttribute"/> processors, so it sees the final attributes. Breadcrumbs are taken before it.
+    /// </summary>
+    public Func<LogRecord, bool>? BeforeSendLog { get; set; }
+
+    /// <summary>Delete queued export files older than this, at startup and then every <see cref="OfflineQueueTrimInterval"/>. The exporter's own retention is not configurable.</summary>
+    public TimeSpan OfflineQueueMaxAge { get; set; } = TimeSpan.FromDays(2);
+
+    /// <summary>Delete the oldest queued export files, at startup and then every <see cref="OfflineQueueTrimInterval"/>, until the queue is under this size, in bytes.</summary>
+    public long OfflineQueueMaxBytes { get; set; } = 25L * 1024 * 1024;
+
+    /// <summary>How often the running app re-applies <see cref="OfflineQueueMaxAge"/> and <see cref="OfflineQueueMaxBytes"/>. Between runs the queue can briefly exceed the size.</summary>
+    public TimeSpan OfflineQueueTrimInterval { get; set; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>Trace <c>HttpClient</c> calls and propagate <c>traceparent</c>.</summary>
+    public bool InstrumentHttpClient { get; set; } = true;
+
+    /// <summary>Record a <c>navigation</c> span for each Shell navigation.</summary>
+    public bool TraceNavigation { get; set; } = true;
+
+    /// <summary>
+    /// Record <c>app.start</c> (cold and warm), <c>screen.load</c> and per-screen <c>screen.frames</c> spans for the
+    /// Performance view. Frame timing is a few counter increments per frame, with one span per screen visit.
+    /// </summary>
+    public bool TracePerformance { get; set; } = true;
+
+    /// <summary>A frame at least this long counts as slow. 20 ms is about 50 fps; lower it on 90/120 Hz-only apps.</summary>
+    public TimeSpan SlowFrameThreshold { get; set; } = TimeSpan.FromMilliseconds(20);
+
+    /// <summary>A frame at least this long counts as frozen (and as slow).</summary>
+    public TimeSpan FrozenFrameThreshold { get; set; } = TimeSpan.FromMilliseconds(700);
+
+    /// <summary>
+    /// Sample the UI thread's stack while a screen loads and attach it (<c>profile.stacks</c>) to a <c>screen.load</c>
+    /// span that takes at least <see cref="ProfileSlowLoadThreshold"/>. Android only; needs <see cref="TracePerformance"/>.
+    /// </summary>
+    public bool ProfileSlowLoads { get; set; } = true;
+
+    /// <summary>A screen load at least this long keeps its stack samples.</summary>
+    public TimeSpan ProfileSlowLoadThreshold { get; set; } = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>How often the UI thread's stack is sampled during a screen load. Each sample is one JNI call.</summary>
+    public TimeSpan ProfileSampleInterval { get; set; } = TimeSpan.FromMilliseconds(50);
+
+    /// <summary>Record lifecycle, tap, page and log breadcrumbs, shown on the session timeline.</summary>
+    public bool Breadcrumbs { get; set; } = true;
+
+    /// <summary>Put a tapped element's text and a page's title in breadcrumbs. Off by default: they can contain PII.</summary>
+    public bool IncludeTextInBreadcrumbs { get; set; }
+
+    /// <summary>Put the window or page title in breadcrumbs. Off by default: titles can contain PII.</summary>
+    public bool IncludeTitleInBreadcrumbs { get; set; }
+
+    /// <summary>Log records at or above this level also become breadcrumbs. <c>None</c> turns log breadcrumbs off.</summary>
+    public LogLevel BreadcrumbLogLevel { get; set; } = LogLevel.Information;
+
+    /// <summary>Export <c>ILogger</c> output.</summary>
+    public bool ExportLogs { get; set; } = true;
+
+    /// <summary>Export metrics (HttpClient metrics and any meter named in <see cref="AdditionalMeters"/>).</summary>
+    public bool ExportMetrics { get; set; } = true;
+
+    /// <summary>Extra <c>ActivitySource</c> names to export, for the app's own spans.</summary>
+    public IList<string> AdditionalSources { get; } = new List<string>();
+
+    /// <summary>Extra <c>Meter</c> names to export.</summary>
+    public IList<string> AdditionalMeters { get; } = new List<string>();
+
+    internal static readonly TimeSpan MinScreenshotInterval = TimeSpan.FromSeconds(5);
+
+    internal void Validate()
+    {
+        if (Endpoint is null || !Endpoint.IsAbsoluteUri || Endpoint.Scheme is not ("http" or "https"))
+            throw new InvalidOperationException("UseFlare: Endpoint must be an absolute http(s) URL of the OTLP/HTTP receiver.");
+        if (DetectAppHangs && AppHangThreshold < TimeSpan.FromMilliseconds(500))
+            throw new InvalidOperationException("UseFlare: AppHangThreshold must be at least 500 ms.");
+        if (TracePerformance && (SlowFrameThreshold <= TimeSpan.Zero || FrozenFrameThreshold <= SlowFrameThreshold))
+            throw new InvalidOperationException("UseFlare: SlowFrameThreshold must be positive and less than FrozenFrameThreshold.");
+        if (TracePerformance && ProfileSlowLoads && (ProfileSlowLoadThreshold <= TimeSpan.Zero || ProfileSampleInterval < TimeSpan.FromMilliseconds(10)))
+            throw new InvalidOperationException("UseFlare: ProfileSlowLoadThreshold must be positive and ProfileSampleInterval at least 10 ms.");
+        if (ScreenshotInterval is { } interval && interval < MinScreenshotInterval)
+            throw new InvalidOperationException("UseFlare: ScreenshotInterval must be at least 5 seconds.");
+        if (ScreenshotInterval is not null && MaxReplayScreenshots < 1)
+            throw new InvalidOperationException("UseFlare: MaxReplayScreenshots must be at least 1.");
+        if ((CaptureScreenshotOnError || ScreenshotInterval is not null) && ScreenshotMaxBytes is < 10_000 or > 512 * 1024)
+            throw new InvalidOperationException("UseFlare: ScreenshotMaxBytes must be between 10 KB and 512 KB.");
+        if (EnableOfflineQueue && (OfflineQueueMaxAge <= TimeSpan.Zero || OfflineQueueMaxBytes < 0 || OfflineQueueTrimInterval <= TimeSpan.Zero))
+            throw new InvalidOperationException("UseFlare: OfflineQueueMaxAge and OfflineQueueTrimInterval must be positive and OfflineQueueMaxBytes not negative.");
+        if (string.IsNullOrWhiteSpace(ServiceName))
+            throw new InvalidOperationException("UseFlare: ServiceName is required.");
+    }
+
+    internal Uri SignalUri(string signal) =>
+        new(Endpoint!.AbsoluteUri.TrimEnd('/') + "/v1/" + signal);
+
+    /// <summary>True for a request to Flare's own OTLP endpoint, which HttpClient tracing must not record or every export would produce a span about itself.</summary>
+    internal bool IsExporterRequest(Uri? requestUri) =>
+        requestUri is not null && Endpoint is not null
+        && requestUri.AbsoluteUri.StartsWith(Endpoint.AbsoluteUri.TrimEnd('/') + "/v1/", StringComparison.OrdinalIgnoreCase);
+}

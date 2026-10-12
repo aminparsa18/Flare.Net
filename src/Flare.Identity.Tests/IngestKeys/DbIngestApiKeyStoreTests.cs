@@ -30,6 +30,37 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SetAllowedOriginsAsync_RoundTripsThroughListAndActiveKeys_AndClears()
+    {
+        var (key, _) = await _store.CreateAsync("browser");
+        Assert.Empty((await _store.ListAsync()).Single().AllowedOrigins);
+
+        Assert.True(await _store.SetAllowedOriginsAsync(key.Id, ["https://a.example.com", "http://localhost:5173"]));
+
+        Assert.Equal(["https://a.example.com", "http://localhost:5173"], (await _store.ListAsync()).Single().AllowedOrigins);
+        Assert.Equal(["https://a.example.com", "http://localhost:5173"], (await _store.ListActiveKeysAsync()).Single().AllowedOrigins);
+
+        await _store.SetAllowedOriginsAsync(key.Id, []);
+        Assert.Empty((await _store.ListAsync()).Single().AllowedOrigins);
+        Assert.False(await _store.SetAllowedOriginsAsync(Guid.NewGuid(), []));
+    }
+
+    [Fact]
+    public async Task SetAllowedServicesAsync_RoundTripsThroughListAndActiveKeys_AndClears()
+    {
+        var (key, _) = await _store.CreateAsync("browser");
+
+        Assert.True(await _store.SetAllowedServicesAsync(key.Id, ["web", "checkout"]));
+
+        Assert.Equal(["web", "checkout"], (await _store.ListAsync()).Single().AllowedServices);
+        Assert.Equal(["web", "checkout"], (await _store.ListActiveKeysAsync()).Single().AllowedServices);
+
+        await _store.SetAllowedServicesAsync(key.Id, []);
+        Assert.Empty((await _store.ListAsync()).Single().AllowedServices);
+        Assert.False(await _store.SetAllowedServicesAsync(Guid.NewGuid(), []));
+    }
+
+    [Fact]
     public async Task CreateAsync_GeneratesADifferentRawKeyEachTime()
     {
         var (_, rawA) = await _store.CreateAsync("key-a");
@@ -119,5 +150,15 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
         Assert.Equal(project, keys.Single(k => k.Id == untagged.Id).ProjectId);
         Assert.Null(keys.Single(k => k.Id == tagged.Id).ProjectId);
         Assert.False(await _store.SetProjectAsync(Guid.NewGuid(), project));
+    }
+
+    [Fact]
+    public async Task RenameAsync_ChangesTheName_AndReportsMissingKeys()
+    {
+        var (key, _) = await _store.CreateAsync("old-name");
+
+        Assert.True(await _store.RenameAsync(key.Id, "new-name"));
+        Assert.Equal("new-name", Assert.Single(await _store.ListAsync()).Name);
+        Assert.False(await _store.RenameAsync(Guid.NewGuid(), "x"));
     }
 }

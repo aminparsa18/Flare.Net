@@ -1,0 +1,8 @@
+appId: com.flare.exampleapp
+---
+- launchApp:
+    stopApp: true
+- tapOn:
+    id: "CustomButton"
+- tapOn:
+    id: "FlushButton"
