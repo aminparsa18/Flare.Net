@@ -805,6 +805,7 @@
 	"tracesToolbar_goToTracePlaceholder": "Go to trace ID…",
 	"errorsToolbar_serviceLabel": "Service",
 	"errorsToolbar_refresh": "Refresh",
+	"errorsToolbar_mine": "My errors",
 	"errorsToolbar_clearFilters": "Clear filters",
 	"errorsToolbar_exceptionTypeChip": "Type: {type}",
 	"errorsToolbar_removeExceptionType": "Remove exception type filter",

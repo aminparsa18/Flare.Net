@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
 using Flare.Api.Ai;
+using Flare.Api.Errors;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
 
@@ -21,7 +22,7 @@ public interface IAlertEvidenceQueryService
     Task<IReadOnlyList<IncidentErrorSpan>> GetErrorSpansAsync(string traceId, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
 }
 
-public sealed class AlertEvidenceQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues) : IAlertEvidenceQueryService
+public sealed class AlertEvidenceQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues, IErrorOwnershipQueryService ownership) : IAlertEvidenceQueryService
 {
     public async Task<IReadOnlyList<IncidentLogPattern>> GetLogPatternsAsync(LogFilter filter, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)
     {
@@ -52,13 +53,42 @@ public sealed class AlertEvidenceQueryService(IClickHouseClient client, IOptions
         var ignored = await errorIssues.ListIgnoredKeysAsync(cancellationToken);
         var built = ExceptionCountConditionQueryBuilder.BuildTopGroups(condition, from, to, limit, ignored);
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.AlertEvaluation(queryLimits.Value), cancellationToken);
-        var rows = new List<IncidentExceptionGroup>();
+        var raw = new List<(IncidentExceptionGroup Group, string[] Services, IReadOnlyList<string> Paths)>();
         while (reader.Read())
         {
-            rows.Add(new IncidentExceptionGroup(reader.GetString(0), reader.GetString(1), reader.GetFieldValue<ulong>(2), reader.GetString(3), reader.GetString(4)));
+            raw.Add((
+                new IncidentExceptionGroup(reader.GetString(0), reader.GetString(1), reader.GetFieldValue<ulong>(2), reader.GetString(3), reader.GetString(4)),
+                reader.GetFieldValue<string[]>(5),
+                StackFramePaths.Extract(reader.GetString(6))));
         }
 
-        return rows;
+        if (raw.Count == 0)
+        {
+            return [];
+        }
+
+        // Owner = explicit assignee, else the first matching rule (ADR-0197). Best-effort: a failed
+        // lookup leaves the groups unowned rather than losing the evidence.
+        IReadOnlyDictionary<string, string> assignees = new Dictionary<string, string>();
+        IReadOnlyList<ErrorOwnershipRule> rules = [];
+        try
+        {
+            assignees = await errorIssues.ListAssigneesAsync(cancellationToken);
+            rules = await ownership.ListAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Unowned.
+        }
+
+        return raw
+            .Select(r =>
+            {
+                assignees.TryGetValue(ErrorIssueFingerprint.Key(r.Group.Type, r.Group.Message), out var assignee);
+                var owner = ErrorOwnership.Resolve(assignee, rules, r.Group.Type, r.Services, r.Paths);
+                return owner is null ? r.Group : r.Group with { Owner = owner.Owner };
+            })
+            .ToList();
     }
 
     public async Task<IReadOnlyList<IncidentErrorSpan>> GetErrorSpansAsync(string traceId, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)

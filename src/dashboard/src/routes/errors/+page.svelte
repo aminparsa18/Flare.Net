@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { parseErrorsStateDeepLinkParam } from '$lib/deep-links';
 	import { ErrorsExplorerState } from '$lib/errors/state.svelte';
+	import { authContext } from '$lib/auth/context';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import ErrorsToolbar from '$lib/components/errors/ErrorsToolbar.svelte';
 	import ResourceAttributeFiltersRow from '$lib/components/services/ResourceAttributeFiltersRow.svelte';
@@ -14,6 +15,12 @@
 	import * as m from '$lib/paraglide/messages';
 
 	const errors = errorsExplorerContext.set(new ErrorsExplorerState());
+
+	const auth = authContext.get();
+	// With auth off there is no current user: '' hides the "My errors" control and disables the filter.
+	$effect(() => {
+		errors.currentUsername = auth.authEnabled ? (auth.currentUser?.username ?? '') : '';
+	});
 
 	const facetPrefs = new FacetSidebarPrefs('flare.errors.facetSidebar', DEFAULT_ERROR_ATTRIBUTE_FACETS, ERROR_FACET_BAGS);
 	const facets = $derived(errorFacetDefinitions(errors, facetPrefs));

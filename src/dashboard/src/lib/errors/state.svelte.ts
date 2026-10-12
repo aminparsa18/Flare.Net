@@ -18,6 +18,7 @@ import { ownerFromRules, type OwnershipRule } from '$lib/errors/ownership';
 import type { SourceLinkConfig } from '$lib/errors/source-links';
 import { issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '$lib/error-issues-api';
 import type { ResourceAttributeFilter } from '$lib/services-api';
+import { browser } from '$app/environment';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { buildErrorsDeepLinkHref, type ErrorsDeepLinkState } from '$lib/deep-links';
 
@@ -44,6 +45,8 @@ const MAX_GROUPS = 1_000;
 /** The status filter: 'active' (the default) hides Ignored groups, 'all' shows everything. */
 export type ErrorsStatusFilter = 'active' | 'all' | ErrorIssueStatus;
 
+const MINE_STORAGE_KEY = 'flare.errors.mineOnly';
+
 export type ErrorsSortColumn = 'exceptionType' | 'exceptionMessage' | 'occurrenceCount' | 'affectedServices' | 'firstSeen' | 'lastSeen';
 
 export class ErrorsExplorerState {
@@ -56,6 +59,17 @@ export class ErrorsExplorerState {
 		exceptionMessage: ''
 	});
 
+	constructor() {
+		if (!browser) return;
+		try {
+			// An explicit ?mine=0/1 beats the stored choice, so a shared link behaves the same for everyone.
+			const param = new URL(location.href).searchParams.get('mine');
+			this.mineOnly = param !== null ? param === '1' : localStorage.getItem(MINE_STORAGE_KEY) === '1';
+		} catch {
+			// Storage blocked: the filter just starts off.
+		}
+	}
+
 	// Never mutated in place, always a wholesale reassignment on each search - same
 	// $state.raw rationale TracesExplorerState.traces documents for its own field.
 	groups = $state.raw<ExceptionGroup[]>([]);
@@ -66,6 +80,10 @@ export class ErrorsExplorerState {
 	/** Triage state (ADR-0121) by `issueKey(type, message)`; a group with no entry is Open. Reassigned wholesale, like `groups`. */
 	issues = $state.raw<Map<string, ErrorIssue>>(new Map());
 	statusFilter = $state<ErrorsStatusFilter>('active');
+	/** "My errors": show only groups whose owner (assignee, else rule) is the signed-in user. Persisted per browser and settable with `?mine=1`; ignored while there is no `currentUsername`. */
+	mineOnly = $state(false);
+	/** The signed-in user's name, set by the page from the auth context; '' with auth off, which hides the control and disables the filter. */
+	currentUsername = $state('');
 	/** Last failed triage write (e.g. a Viewer's 403), shown above the table. */
 	issueError = $state<string | null>(null);
 
@@ -169,8 +187,9 @@ export class ErrorsExplorerState {
 	 * one message; the table otherwise lists every message of that type).
 	 */
 	async applyDeepLinkState(state: ErrorsDeepLinkState): Promise<void> {
-		// A linked group must show even when it is currently ignored.
+		// A linked group must show even when it is currently ignored or owned by someone else.
 		this.statusFilter = 'all';
+		this.mineOnly = false;
 		this.filter = {
 			timeRangePreset: 'custom',
 			customRange: state.customRange,
@@ -229,6 +248,25 @@ export class ErrorsExplorerState {
 		this.statusFilter = filter;
 	}
 
+	/** Whether the "my errors" filter applies at all - needs a signed-in user to compare owners with. */
+	get canFilterMine(): boolean {
+		return this.currentUsername !== '';
+	}
+
+	setMineOnly(on: boolean): void {
+		this.mineOnly = on;
+		if (!browser) return;
+		try {
+			localStorage.setItem(MINE_STORAGE_KEY, on ? '1' : '0');
+			const url = new URL(location.href);
+			if (on) url.searchParams.set('mine', '1');
+			else url.searchParams.delete('mine');
+			history.replaceState(history.state, '', url);
+		} catch {
+			// Storage or history unavailable: the filter still applies for this session.
+		}
+	}
+
 	/** Applies one triage change (resolve / ignore / reopen / assign) and folds the answer into `issues`. */
 	async updateIssue(group: ExceptionGroup, change: Omit<ErrorIssueRequest, 'exceptionType' | 'exceptionMessage'>): Promise<void> {
 		this.issueError = null;
@@ -249,6 +287,7 @@ export class ErrorsExplorerState {
 		const { exceptionType, exceptionMessage } = this.filter;
 		return this.groups.filter((g) => {
 			if (exceptionType && (g.exceptionType !== exceptionType || (exceptionMessage && g.exceptionMessage !== exceptionMessage))) return false;
+			if (this.mineOnly && this.canFilterMine && this.ownerOf(g)?.user.toLowerCase() !== this.currentUsername.toLowerCase()) return false;
 			const status = this.statusOf(g);
 			return this.statusFilter === 'all' || (this.statusFilter === 'active' ? status !== 'Ignored' : status === this.statusFilter);
 		});
@@ -266,7 +305,7 @@ export class ErrorsExplorerState {
 
 	/** Whether the toolbar's "Clear filters" button has anything to do. */
 	hasActiveFilters(): boolean {
-		return this.filter.services.length > 0 || this.filter.resourceAttributes.length > 0 || this.filter.exceptionType !== '' || this.statusFilter !== 'active';
+		return this.filter.services.length > 0 || this.filter.resourceAttributes.length > 0 || this.filter.exceptionType !== '' || this.statusFilter !== 'active' || (this.mineOnly && this.canFilterMine);
 	}
 
 	/** Toolbar's "Clear filters" button - same "leave the time range alone" scope LogsExplorerState.resetFilters documents for itself. */
@@ -275,6 +314,7 @@ export class ErrorsExplorerState {
 		this.filter.resourceAttributes = [];
 		this.clearExceptionType();
 		this.statusFilter = 'active';
+		if (this.mineOnly) this.setMineOnly(false);
 		void this.runSearch();
 	}
 

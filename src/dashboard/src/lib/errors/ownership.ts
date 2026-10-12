@@ -1,6 +1,7 @@
 // Pure helpers behind /errors ownership rules (ADR-0195, ADR-0196): a rule maps a service name,
 // an exception type or a source-file path to the user who owns errors like it. The first matching
 // rule wins; an explicit assignee always beats a rule. No I/O, no Svelte.
+// Server-side twin: src/Flare.Api/Errors/ErrorOwnership.cs (alert messages). Keep the two in sync.
 
 export type OwnershipKind = 'Service' | 'ExceptionType' | 'Path';
 

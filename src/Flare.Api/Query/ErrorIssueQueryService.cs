@@ -18,6 +18,9 @@ public interface IErrorIssueQueryService
 
     /// <summary><see cref="ErrorIssueFingerprint.Key"/> of every group that is effectively Ignored right now - what exception-count alert rules skip.</summary>
     Task<IReadOnlyList<string>> ListIgnoredKeysAsync(CancellationToken cancellationToken);
+
+    /// <summary>Explicit assignee per group, keyed by <see cref="ErrorIssueFingerprint.Key"/>; unassigned groups are absent.</summary>
+    Task<IReadOnlyDictionary<string, string>> ListAssigneesAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -47,6 +50,11 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
         var evaluated = await EvaluateAsync(stored, cancellationToken);
         return evaluated.Where(ErrorIssueEvaluator.IsMuted).Select(i => ErrorIssueFingerprint.Key(i.ExceptionType, i.ExceptionMessage)).ToList();
     }
+
+    public async Task<IReadOnlyDictionary<string, string>> ListAssigneesAsync(CancellationToken cancellationToken) =>
+        (await ReadStoredAsync(cancellationToken))
+            .Where(i => !string.IsNullOrWhiteSpace(i.Assignee))
+            .ToDictionary(i => ErrorIssueFingerprint.Key(i.ExceptionType, i.ExceptionMessage), i => i.Assignee);
 
     public async Task<ErrorIssue?> UpsertAsync(ErrorIssueRequest request, string changedBy, CancellationToken cancellationToken)
     {

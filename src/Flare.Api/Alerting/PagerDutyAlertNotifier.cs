@@ -42,7 +42,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
     public static Guid? RuleIdFromDedupKey(string? key) =>
         key is not null && key.StartsWith("flare-alert-", StringComparison.Ordinal) && Guid.TryParseExact(key["flare-alert-".Length..], "N", out var id) ? id : null;
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null, string? owner = null)
     {
         if (resolved && !isTest)
         {
@@ -67,7 +67,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         // A burn-rate rule's observed value is a rate (e.g. 14.4), not a count - same non-count handling as a metric.
         var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold || rule.ConditionKind == AlertConditionKind.SloBurnRate;
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false, logSamples: logSamples, ackUrl: ackUrl);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false, logSamples: logSamples, ackUrl: ackUrl, owner: owner);
         var payload = new
         {
             routing_key = channel.PagerDutyRoutingKey,
