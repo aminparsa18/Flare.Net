@@ -99,17 +99,19 @@ public class ReplayTests
     {
         var clock = new ManualClock();
         var uploads = 0;
-        var reporter = new ScreenshotReporter(Options(), "sess1234", _ => { uploads++; return Task.FromResult<byte[]?>(null); },
+        var reporter = new ScreenshotReporter(Options(), "sess1234", _ => { Interlocked.Increment(ref uploads); return Task.FromResult<byte[]?>(null); },
             new HttpClient(new RecordingHandler()), clock, periodic: true, maxPerSession: 3, minInterval: TimeSpan.FromSeconds(5));
 
         for (var i = 0; i < 6; i++)
         {
             reporter.ReportFrame();
-            Thread.Sleep(20);                     // let the fire-and-forget capture run
             clock.Now += TimeSpan.FromSeconds(9); // a tick slightly early still passes the half-interval spacing
         }
 
-        Assert.Equal(3, uploads);
+        // The cap is reserved synchronously; only the fire-and-forget capture lags, so poll rather than sleep a fixed time.
+        SpinWait.SpinUntil(() => Volatile.Read(ref uploads) >= 3, TimeSpan.FromSeconds(10));
+        Thread.Sleep(100); // grace for any (wrongly) uncapped extra capture to land
+        Assert.Equal(3, Volatile.Read(ref uploads));
     }
 
     [Fact]
