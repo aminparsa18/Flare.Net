@@ -103,6 +103,23 @@ folders are where "what happened and why" actually lives.
     first occurrence.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested
     rollback.
+- **Grafana interoperability.** Today there is OTLP forwarding to a Grafana endpoint
+  ([ADR-0155](../adr/0155-otlp-forwarding.md)) and a read-only Prometheus API a Grafana data source can query
+  ([ADR-0109](../adr/0109-prometheus-query-api.md)). Remaining, roughly in priority order:
+  - A Tempo-compatible trace API (trace by ID and search), so Grafana's Tempo data source reads Flare traces directly.
+  - A Loki-compatible log API (a LogQL subset), the same idea for logs.
+  - A fuller Prometheus API: operators between series (`a / b`), `offset`, `topk`, `quantile` and more functions, which
+    error ratios and "top N hosts by CPU" panels need. Exemplars, so a latency chart links to a sample trace.
+  - Deep links both ways: an "Open in Grafana" action on a TraceId from a configurable URL template, and Grafana data
+    links that open the trace or session in Flare.
+  - A Grafana Cloud preset for forwarding targets (region, instance id and token instead of a hand-built URL and Basic
+    auth header) and a test-connection button.
+  - Expose release health (crash-free sessions and users per version) as Prometheus metrics, for Grafana panels and alerts.
+  - Flare alerts and app releases as Grafana annotations.
+  - Export a Flare dashboard as Grafana JSON (import of a Grafana export already exists, structure only).
+  - A Grafana data source plugin for what the standard APIs cannot express: sessions, errors, release health.
+  - A how-to for sending Flare data to Grafana (Grafana Cloud and self-hosted through Alloy or a collector), verified
+    against a real instance first.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
   - **Threat-model findings to fix first** (from [the threat model](../threat-model.md); each was confirmed in code):
@@ -112,7 +129,9 @@ folders are where "what happened and why" actually lives.
         `Endpoints/WebSocketOriginGuard.cs`):
         - Document the new `LiveTail__*` options (connection caps, `MaxClientMessageBytes`, filter size limits, regex
           pattern count, length and `RegexMatchTimeout`) and the `Cors:AllowedOrigins` requirement for WebSockets, in
-          `docs/` with the ru, fr and zh-CN translations. Say that live-tail regexes are now linear-time, so lookarounds
+          `docs/` with the ru, fr and zh-CN translations. Include `LiveTail__MaxSocketLifetime` (default 5 minutes; sockets are closed and the
+          dashboard reconnects, so session revocation, user disable, PAT expiry and project changes apply within that window).
+          Say that live-tail regexes are now linear-time, so lookarounds
           and backreferences are rejected, which can break an existing saved view.
         - `LiveTailFilterGuard.TryCompile` calls `pattern.Length` on `attribute.Value` and `bodyFilter.Value`; a client
           sending `"value": null` (System.Text.Json can leave non-nullable strings null) throws and ends that client's
@@ -123,11 +142,10 @@ folders are where "what happened and why" actually lives.
           inbound frames are discarded, so only the socket count matters). Anonymous callers share one bucket, so with
           auth off the per-user cap is a second global cap. The 10 per user, 200 total and filter limits are untuned
           defaults.
-      - **Authorization is checked only at upgrade (Low, P3).** Session revocation, sign-out everywhere, user disable, idle
-        timeout ([ADR-0206](../adr/0206-session-idle-timeout-password-policy.md)) and PAT expiry do not close an open
-        socket, and a tail keeps the `AllowedServices` it was created with after a user is removed from a project (the
-        resource-graph watch now captures its scope the same way). Add a
-        maximum socket lifetime (the client reconnects) or re-validate session and scope every 1 to 5 minutes.
+      - **Socket lifetime cap needs a live e2e run.** `LiveTail:MaxSocketLifetime` (default 5 minutes) is shipped and
+        unit-tested but was not exercised against a running stack. Verify with a short lifetime that live tail, the
+        resource-graph watch and host stats close and the dashboard reconnects, that a revoked session or PAT is refused
+        on the reconnect, and that a tail picks up a changed `AllowedServices` scope.
     - **Hash session tokens at rest.** `Sessions.Id` holds the raw cookie token, while PATs and ingest keys are stored
       as SHA-256 hashes. Store the digest and look up by digest (Sqlite and Postgres migrations; existing sessions can
       simply be invalidated at upgrade).

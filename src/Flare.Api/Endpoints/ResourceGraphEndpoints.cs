@@ -1,7 +1,9 @@
 using System.Net.WebSockets;
 using System.Text.Json;
 using Flare.Api.Json;
+using Flare.Api.LiveTail;
 using Flare.Api.ResourceGraph;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Endpoints;
 
@@ -31,7 +33,7 @@ public static class ResourceGraphEndpoints
     internal static IResult HandleSnapshot(HttpContext http, ResourceGraphSourceRegistry registry) =>
         ApiSerialization.Write(http, ResourceGraphScopeFilter.Apply(registry.CurrentSnapshot, Query.ServiceScope.Current), ResourceGraphJsonContext.Default.ResourceGraphSnapshot);
 
-    private static async Task HandleWatchAsync(HttpContext http, ResourceGraphSourceRegistry registry)
+    private static async Task HandleWatchAsync(HttpContext http, ResourceGraphSourceRegistry registry, IOptions<LiveTailOptions> options)
     {
         if (!http.WebSockets.IsWebSocketRequest)
         {
@@ -47,6 +49,8 @@ public static class ResourceGraphEndpoints
         using var socket = await http.WebSockets.AcceptWebSocketAsync();
         var subscription = registry.Subscribe();
 
+        using var lifetimeCts = WebSocketLifetime.Link(http, options.Value);
+
         try
         {
             // Push-only: no receive loop needed since there's no client->server message
@@ -55,8 +59,8 @@ public static class ResourceGraphEndpoints
             // has to run alongside the send loop, though - otherwise this handler would
             // never observe the client disconnecting and would leak the WebSocket/subscription
             // until the whole HTTP request pipeline eventually tears it down.
-            var closeTask = WaitForCloseAsync(socket, http.RequestAborted);
-            var sendTask = SendSnapshotsAsync(socket, subscription, http.RequestAborted);
+            var closeTask = WaitForCloseAsync(socket, lifetimeCts.Token);
+            var sendTask = SendSnapshotsAsync(socket, subscription, lifetimeCts.Token);
 
             await Task.WhenAny(closeTask, sendTask);
         }

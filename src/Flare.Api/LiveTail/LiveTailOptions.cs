@@ -47,6 +47,14 @@ public sealed class LiveTailOptions
     /// <summary>Max concurrent live-tail sockets across all users. Past it the upgrade is refused with 429.</summary>
     public int MaxConnections { get; set; } = 200;
 
+    /// <summary>
+    /// Longest a live-tail, resource-graph or host-stats socket stays open before the server closes it
+    /// and the client reconnects. Authorization is only checked at upgrade, so this bounds how long a
+    /// revoked session, disabled user, expired PAT or removed project membership keeps streaming.
+    /// Zero or negative disables the cap.
+    /// </summary>
+    public TimeSpan MaxSocketLifetime { get; set; } = TimeSpan.FromMinutes(5);
+
     /// <summary>Max entries in one subscription's filter: services, severities, scope names, attribute and body-JSON filters, and their in/not-in values combined.</summary>
     public int MaxFilterItems { get; set; } = 100;
 
