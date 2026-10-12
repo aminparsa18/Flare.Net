@@ -16,6 +16,7 @@ using Flare.Api.Pipeline;
 using Flare.Api.Prometheus;
 using Flare.Api.Query;
 using Flare.Api.Status;
+using Flare.Api.Erasure;
 using Flare.Api.Retention;
 using Flare.Api.ResourceGraph;
 using Flare.Api.Updates;
@@ -268,6 +269,15 @@ builder.Services.AddSingleton(sp => new RetentionService(
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 builder.Services.AddSingleton<IRetentionService>(sp => sp.GetRequiredService<RetentionService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RetentionService>());
+// Data-subject erasure and export (ADR-0198): same ClickHouse:ClusterMode factory registration as retention above.
+builder.Services.AddSingleton(sp => new ErasureService(
+    sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
+    sp.GetRequiredService<TimeProvider>(),
+    sp.GetRequiredService<ILogger<ErasureService>>(),
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
+builder.Services.AddSingleton<IErasureService>(sp => sp.GetRequiredService<ErasureService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ErasureService>());
 builder.Services.AddSingleton<IMetricAttributeRuleCoverageService, MetricAttributeRuleCoverageService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
@@ -661,6 +671,8 @@ adminRoutes.MapAuthSettingsEndpoints();
 adminRoutes.MapApdexThresholdEndpoints();
 // Changing retention deletes data - Admin-only; reading it (above) is open to members.
 adminRoutes.MapRetentionWriteEndpoints();
+// Data-subject export reads, and erasure deletes, personal data across every service (ADR-0198).
+adminRoutes.MapErasureEndpoints();
 // Forwarding targets and archive settings hold destination credentials and ship all telemetry out (ADR-0157).
 adminRoutes.MapTelemetryExportAdminEndpoints();
 // Same reasoning for source-repo links - they change where every user's stack-trace links

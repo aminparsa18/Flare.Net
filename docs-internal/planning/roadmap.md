@@ -105,11 +105,9 @@ folders are where "what happened and why" actually lives.
     rollback.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
-  - **Data-subject erasure and export (GDPR Art. 15/17).** Telemetry can only leave through TTL; there is no delete or
-    export by predicate. Add an admin endpoint, CLI command and page that deletes (`ALTER ... DELETE`, single + cluster)
-    or exports every log, span, metric, exception and session row matching a `user.id`, email or IP, with a dry-run
-    count, a confirmation step, mutation-progress tracking (mutations are async, see `src/Flare.Api/README.md`) and an
-    audit-log entry. Needs an ADR; sits next to [ADR-0143](../adr/0143-retention-ttl.md).
+  - **Data-subject erasure and export follow-ups** ([ADR-0198](../adr/0198-data-subject-erasure-export.md)). Russian,
+    French and Chinese translations of the how-to (`erase-or-export-a-data-subjects-telemetry`), following
+    sessions through metrics, and a live end-to-end run in cluster mode.
   - **Managed PII detection at ingest.** Redaction today means hand-written regex pipeline rules. Ship a built-in rule
     set (emails, Luhn-checked card numbers, IBANs, JWTs, bearer tokens, private keys) reusing the patterns in
     `AiRedactor`, one toggle, previewable with the [ADR-0034](../adr/0034-pipeline-rules-preview.md) simulator. A

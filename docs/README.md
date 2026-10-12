@@ -96,6 +96,7 @@ the full rule set on what goes where.
 - [Reduce a metric's attributes at ingest](how-to/data/reduce-metric-attributes.md)
 - [Turn a log search into a metric](how-to/data/log-based-metrics.md)
 - [Set data retention and move old data to cold storage](how-to/data/set-data-retention.md)
+- [Erase or export one person's telemetry](how-to/data/erase-or-export-a-data-subjects-telemetry.md)
 - [See what is driving storage](how-to/data/see-what-drives-storage.md)
 - [Forward telemetry to another OTLP endpoint](how-to/data/forward-telemetry-to-another-otlp-endpoint.md)
 - [Archive telemetry to S3-compatible storage](how-to/data/archive-telemetry-to-s3.md)
