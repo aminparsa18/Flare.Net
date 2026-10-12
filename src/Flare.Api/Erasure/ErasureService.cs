@@ -253,9 +253,10 @@ public sealed class ErasureService(
         {
             var name = reader.GetString(0);
             result[clusterMode && name.EndsWith("_local", StringComparison.Ordinal) ? name[..^"_local".Length] : name] = new MutationState(
-                (long)reader.GetFieldValue<ulong>(1),
-                (long)reader.GetFieldValue<ulong>(2),
-                (long)reader.GetFieldValue<ulong>(3),
+                // count() is UInt64 but sum(parts_to_do) is Int64; Convert reads either.
+                Convert.ToInt64(reader.GetValue(1)),
+                Convert.ToInt64(reader.GetValue(2)),
+                Convert.ToInt64(reader.GetValue(3)),
                 reader.GetString(4));
         }
 
