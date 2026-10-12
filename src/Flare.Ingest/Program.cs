@@ -15,6 +15,7 @@ using Flare.Ingest.Stats;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Flare.ServiceDefaults.Outbound;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -196,7 +197,7 @@ builder.Services.Configure<ForwardingOptions>(builder.Configuration.GetSection(F
 // The forwarder owns retry, backoff and the per-target timeout; the standard resilience handler's own
 // retries and 30s total timeout would stack under them (a dead destination took ~40s per request).
 #pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental
-builder.Services.AddHttpClient("OtlpForwarding").RemoveAllResilienceHandlers();
+builder.Services.AddHttpClient("OtlpForwarding").RemoveAllResilienceHandlers().AddOutboundGuard();
 #pragma warning restore EXTEXP0001
 builder.Services.AddSingleton<IForwardingTargetStore, ClickHouseForwardingTargetStore>();
 builder.Services.AddSingleton<OtlpForwarder>();

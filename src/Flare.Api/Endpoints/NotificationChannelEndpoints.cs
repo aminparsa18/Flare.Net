@@ -1,3 +1,5 @@
+using Flare.ServiceDefaults.Outbound;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 using Flare.Api.Alerting;
 using Flare.Api.Auditing;
@@ -28,7 +30,21 @@ public static class NotificationChannelEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> HandleCreateAsync(HttpContext http, INotificationChannelQueryService channels, CancellationToken cancellationToken)
+    /// <summary>Saves still succeed, but the response carries <c>X-Flare-Warning</c> and the log a warning when sends to this destination would be refused by the outbound guard (ADR-0201).</summary>
+    private static async Task WarnIfBlockedAsync(HttpContext http, OutboundGuardOptions options, ILogger logger, NotificationChannelRequest request, CancellationToken cancellationToken)
+    {
+        foreach (var url in new[] { request.WebhookUrl, request.JiraBaseUrl })
+        {
+            if (await new OutboundAddressPolicy(options).CheckUrlAsync(url, cancellationToken) is { } reason)
+            {
+                logger.LogWarning("Notification channel {Name} will not be able to send: {Reason}", request.Name, reason);
+                http.Response.Headers["X-Flare-Warning"] = reason;
+                return;
+            }
+        }
+    }
+
+    private static async Task<IResult> HandleCreateAsync(HttpContext http, INotificationChannelQueryService channels, IOptions<OutboundGuardOptions> outbound, ILogger<OutboundAddressPolicy> logger, CancellationToken cancellationToken)
     {
         NotificationChannelRequest? request;
         try
@@ -56,6 +72,7 @@ public static class NotificationChannelEndpoints
         }
 
         var channel = await channels.CreateAsync(request, cancellationToken);
+        await WarnIfBlockedAsync(http, outbound.Value, logger, request, cancellationToken);
         AuditContext.SetResourceId(http, channel.Id);
         return ApiSerialization.Write(http, NotificationSecrets.Redact(channel), NotificationChannelsJsonContext.Default.NotificationChannel, statusCode: StatusCodes.Status201Created);
     }
@@ -73,7 +90,7 @@ public static class NotificationChannelEndpoints
         return channel is null ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(channel), NotificationChannelsJsonContext.Default.NotificationChannel);
     }
 
-    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, INotificationChannelQueryService channels, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, INotificationChannelQueryService channels, IOptions<OutboundGuardOptions> outbound, ILogger<OutboundAddressPolicy> logger, CancellationToken cancellationToken)
     {
         NotificationChannelRequest? request;
         try
@@ -106,6 +123,7 @@ public static class NotificationChannelEndpoints
         }
 
         var channel = await channels.UpdateAsync(id, request, cancellationToken);
+        await WarnIfBlockedAsync(http, outbound.Value, logger, request, cancellationToken);
         if (channel is not null)
         {
             AuditContext.SetChange(http, NotificationChannelsJsonContext.Default.NotificationChannel, NotificationSecrets.RedactOrNull(before), NotificationSecrets.Redact(channel));

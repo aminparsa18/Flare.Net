@@ -8,6 +8,7 @@ using Flare.AlertWorker.Reports;
 using Flare.AlertWorker.Archive;
 using Flare.Identity.Auth;
 using Flare.Api.Synthetic;
+using Flare.ServiceDefaults.Outbound;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -63,14 +64,14 @@ builder.Services.AddSingleton<IDashboardRenderTokenSigner, DashboardRenderTokenS
 // CompositeAlertNotifier (the one actually registered as IAlertNotifier below) holds all
 // four and picks per-rule which one to delegate to. EmailAlertNotifier gets no typed
 // HttpClient - MailKit's SmtpClient is its own socket-based client, not HTTP.
-builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
+builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook").AddOutboundGuard();
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
-builder.Services.AddHttpClient<TeamsAlertNotifier>("alert-teams");
-builder.Services.AddHttpClient<JiraAlertNotifier>("alert-jira");
-builder.Services.AddHttpClient<IncidentIoAlertNotifier>("alert-incidentio");
+builder.Services.AddHttpClient<TeamsAlertNotifier>("alert-teams").AddOutboundGuard();
+builder.Services.AddHttpClient<JiraAlertNotifier>("alert-jira").AddOutboundGuard();
+builder.Services.AddHttpClient<IncidentIoAlertNotifier>("alert-incidentio").AddOutboundGuard();
 builder.Services.AddHttpClient<JsmOpsAlertNotifier>("alert-jsmops");
-builder.Services.AddHttpClient<DiscordAlertNotifier>("alert-discord");
+builder.Services.AddHttpClient<DiscordAlertNotifier>("alert-discord").AddOutboundGuard();
 builder.Services.AddSingleton<EmailAlertNotifier>();
 // Registered as its own concrete type (not just IAlertNotifier) so AlertEvaluationWorker
 // can inject it directly for SendAllAsync, the fan-out entrypoint that isn't part of the
