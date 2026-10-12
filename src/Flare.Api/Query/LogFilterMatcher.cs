@@ -27,7 +27,11 @@ namespace Flare.Api.Query;
 /// </remarks>
 public static class LogFilterMatcher
 {
-    public static bool Matches(LogEventDto logEvent, LogFilter filter, IReadOnlyList<string>? allowedServices = null)
+    public static bool Matches(
+        LogEventDto logEvent,
+        LogFilter filter,
+        IReadOnlyList<string>? allowedServices = null,
+        IReadOnlyDictionary<string, Regex>? compiledPatterns = null)
     {
         if (allowedServices is not null && !Identity.Projects.ProjectServicePattern.MatchesAny(allowedServices, logEvent.ServiceName))
         {
@@ -73,8 +77,8 @@ public static class LogFilterMatcher
                     // value! - RegexMatches only runs once exists is true (short-circuited by &&),
                     // at which point TryGetValue guarantees value is non-null; the compiler can't
                     // see that guarantee here since exists was captured into its own variable.
-                    AttributeFilterOperator.Regex => exists && RegexMatches(value!, attribute.Value),
-                    AttributeFilterOperator.NotRegex => !(exists && RegexMatches(value!, attribute.Value)),
+                    AttributeFilterOperator.Regex => exists && RegexMatches(value!, attribute.Value, compiledPatterns),
+                    AttributeFilterOperator.NotRegex => !(exists && RegexMatches(value!, attribute.Value, compiledPatterns)),
                     AttributeFilterOperator.In => exists && InValues(value!, attribute.Values),
                     AttributeFilterOperator.NotIn => !(exists && InValues(value!, attribute.Values)),
                     AttributeFilterOperator.GreaterThan => NumericAttributeComparison.Matches(value, attribute.Value, c => c > 0),
@@ -111,8 +115,8 @@ public static class LogFilterMatcher
                     BodyJsonFilterOperator.Exists => exists,
                     BodyJsonFilterOperator.Absent => !exists,
                     BodyJsonFilterOperator.NotEquals => !(exists && string.Equals(value, bodyJsonFilter.Value, StringComparison.Ordinal)),
-                    BodyJsonFilterOperator.Regex => exists && RegexMatches(value!, bodyJsonFilter.Value),
-                    BodyJsonFilterOperator.NotRegex => !(exists && RegexMatches(value!, bodyJsonFilter.Value)),
+                    BodyJsonFilterOperator.Regex => exists && RegexMatches(value!, bodyJsonFilter.Value, compiledPatterns),
+                    BodyJsonFilterOperator.NotRegex => !(exists && RegexMatches(value!, bodyJsonFilter.Value, compiledPatterns)),
                     BodyJsonFilterOperator.In => exists && InValues(value!, bodyJsonFilter.Values),
                     BodyJsonFilterOperator.NotIn => !(exists && InValues(value!, bodyJsonFilter.Values)),
                     _ => exists && string.Equals(value, bodyJsonFilter.Value, StringComparison.Ordinal),
@@ -274,17 +278,23 @@ public static class LogFilterMatcher
     /// uncaught exception here would take down live tail for every other subscriber too,
     /// not just the one whose filter has the bad pattern.
     /// </summary>
-    private static bool RegexMatches(string value, string pattern)
+    private static bool RegexMatches(string value, string pattern, IReadOnlyDictionary<string, Regex>? compiledPatterns)
     {
         try
         {
-            return Regex.IsMatch(value, pattern);
+            // Live tail precompiles each subscription's patterns (LiveTailFilterGuard); any other
+            // caller still gets linear-time matching with a timeout rather than a backtracking engine.
+            return compiledPatterns is not null && compiledPatterns.TryGetValue(pattern, out var compiled)
+                ? compiled.IsMatch(value)
+                : Regex.IsMatch(value, pattern, RegexOptions.NonBacktracking, FallbackTimeout);
         }
-        catch (ArgumentException)
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or RegexMatchTimeoutException)
         {
             return false;
         }
     }
+
+    private static readonly TimeSpan FallbackTimeout = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
     /// <see cref="AttributeFilterOperator.In"/>/<see cref="AttributeFilterOperator.NotIn"/>'s

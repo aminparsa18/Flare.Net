@@ -38,16 +38,49 @@ public sealed class LogTailBroadcaster(
 
     private readonly ConcurrentDictionary<LogTailSubscription, byte> _subscriptions = new();
 
-    public LogTailSubscription Subscribe()
+    private readonly object _capLock = new();
+    private readonly Dictionary<string, int> _perUser = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Registers a subscription for <paramref name="userKey"/>, or returns null when the global
+    /// (<see cref="LiveTailOptions.MaxConnections"/>) or per-user (<see cref="LiveTailOptions.MaxConnectionsPerUser"/>) cap is reached.
+    /// </summary>
+    public LogTailSubscription? TrySubscribe(string userKey)
     {
-        var subscription = new LogTailSubscription(options.Value.SubscriberChannelCapacity);
-        _subscriptions[subscription] = 0;
-        return subscription;
+        var opts = options.Value;
+        lock (_capLock)
+        {
+            _perUser.TryGetValue(userKey, out var forUser);
+            if (_subscriptions.Count >= opts.MaxConnections || forUser >= opts.MaxConnectionsPerUser)
+            {
+                return null;
+            }
+
+            _perUser[userKey] = forUser + 1;
+            var subscription = new LogTailSubscription(opts.SubscriberChannelCapacity, userKey);
+            _subscriptions[subscription] = 0;
+            return subscription;
+        }
     }
 
     public void Unsubscribe(LogTailSubscription subscription)
     {
-        _subscriptions.TryRemove(subscription, out _);
+        lock (_capLock)
+        {
+            if (_subscriptions.TryRemove(subscription, out _))
+            {
+                var remaining = _perUser.GetValueOrDefault(subscription.UserKey) - 1;
+                if (remaining <= 0)
+                {
+                    _perUser.Remove(subscription.UserKey);
+                }
+                else
+                {
+                    _perUser[subscription.UserKey] = remaining;
+                }
+            }
+        }
+
         subscription.Complete();
     }
 
@@ -118,7 +151,7 @@ public sealed class LogTailBroadcaster(
 
         foreach (var subscription in _subscriptions.Keys)
         {
-            if (LogFilterMatcher.Matches(dto, subscription.Filter, subscription.AllowedServices))
+            if (LogFilterMatcher.Matches(dto, subscription.Filter, subscription.AllowedServices, subscription.CompiledPatterns))
             {
                 subscription.TryPublishEvent(dto);
             }
