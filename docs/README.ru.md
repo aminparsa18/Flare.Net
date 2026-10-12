@@ -123,6 +123,7 @@
 - [Сэмплирование, кластеризация и стоимость](explanation/sampling-clustering-and-cost.ru.md)
 - [Проекты и разграничение доступа](explanation/projects-and-access-scoping.ru.md)
 - [Хранение данных и многоуровневое хранилище](explanation/retention-and-tiering.ru.md)
+- [Размещение данных и конфиденциальность](explanation/data-residency-and-privacy.ru.md)
 
 ## Документация для контрибьюторов
 

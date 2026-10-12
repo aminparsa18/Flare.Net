@@ -123,6 +123,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Échantillonnage, clustering et coût](explanation/sampling-clustering-and-cost.fr.md)
 - [Projets et cloisonnement des accès](explanation/projects-and-access-scoping.fr.md)
 - [Rétention et stockage à froid](explanation/retention-and-tiering.fr.md)
+- [Résidence des données et confidentialité](explanation/data-residency-and-privacy.fr.md)
 
 ## Contribuer à la documentation
 

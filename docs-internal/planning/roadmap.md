@@ -172,9 +172,6 @@ folders are where "what happened and why" actually lives.
     `flare apikey create --expires-in-days` and `expiresAt` in `flare config` export/apply shipped with unit tests only. Still
     to run against a real stack: a warning delivered to a channel for a key and a token close to expiry, no repeat on the next
     check, and a config export/apply round trip of an expiry.
-  - **Data-residency, DPA and sub-processor docs** (replaces the data-residency mention in the hosted-parity line above):
-    a `docs/explanation` page on where each store lives, what can leave the box (AI providers, notification channels,
-    update check), and a no-phone-home statement.
 - **Map-aware text index for attribute filters, once ClickHouse 26.9+ is pinned.** The `keyValuePairs` text index serves
   `attr['k'] = 'v'` only and 4 to 7x speeds up broad equality filters, at about 15x the bloom filters' size and with the
   bloom filters still needed for `mapContains`/`IN`/regex; it does not exist on the pinned 26.8 LTS. Re-benchmark on a real

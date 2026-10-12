@@ -125,6 +125,7 @@ the full rule set on what goes where.
 - [Sampling, clustering and cost](explanation/sampling-clustering-and-cost.md)
 - [Projects and access scoping](explanation/projects-and-access-scoping.md)
 - [Retention and tiering](explanation/retention-and-tiering.md)
+- [Data residency and privacy](explanation/data-residency-and-privacy.md)
 
 ## Contributing documentation
 
