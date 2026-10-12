@@ -108,9 +108,6 @@ folders are where "what happened and why" actually lives.
   - **Managed PII redaction dashboard toggle.** Enabling it is `PipelineRules__Pii__*` Ingest config today (restart
     required). A settings page toggle needs a runtime-settings mechanism Ingest does not have: a settings table with
     single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
-  - **Security response headers.** No HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors` or CSP is set
-    by Flare.Api or the dashboard's Node server. Add them with a configurable CSP and document the reverse-proxy
-    interaction.
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
   - **Webhook SSRF guard.** Alert webhooks, status-page subscriptions and forwarding targets post to user-supplied URLs
