@@ -805,6 +805,7 @@
 	"tracesToolbar_goToTracePlaceholder": "Перейти к трассировке по ID…",
 	"errorsToolbar_serviceLabel": "Сервис",
 	"errorsToolbar_refresh": "Обновить",
+	"errorsToolbar_mine": "Мои ошибки",
 	"errorsToolbar_clearFilters": "Очистить фильтры",
 	"errorsToolbar_exceptionTypeChip": "Тип: {type}",
 	"errorsToolbar_removeExceptionType": "Убрать фильтр по типу исключения",

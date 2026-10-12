@@ -7,6 +7,7 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import XIcon from '@lucide/svelte/icons/x';
+	import UserIcon from '@lucide/svelte/icons/user';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import OwnershipRulesDialog from './OwnershipRulesDialog.svelte';
 	import { authContext } from '$lib/auth/context';
@@ -82,6 +83,13 @@
 			{/each}
 		</Select.Content>
 	</Select.Root>
+
+	{#if errors.canFilterMine}
+		<Button variant={errors.mineOnly ? 'secondary' : 'outline'} size="sm" aria-pressed={errors.mineOnly} onclick={() => errors.setMineOnly(!errors.mineOnly)}>
+			<UserIcon data-icon="inline-start" />
+			{m.errorsToolbar_mine()}
+		</Button>
+	{/if}
 
 	{#if errors.filter.exceptionType}
 		<!-- Set only by a fired exception alert's link - no other control removes it, so it

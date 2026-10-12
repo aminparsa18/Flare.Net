@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Ai;
 using Flare.Api.Alerting;
 using Flare.Api.Model;
 using Xunit;
@@ -62,6 +63,33 @@ public class AlertMessageFormatterTests
         var rule = MakeRule() with { NotificationBodyTemplate = "{{value}} errors:\n{{log_samples}}" };
         var message = AlertMessageFormatter.BuildMessage(rule, 3, isTest: false, publicUrl: null, metricUnit: null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null, logSamples: "line one\nline two");
         Assert.Equal("3 errors:\nline one\nline two", message.Text);
+    }
+
+    [Fact]
+    public void BuildText_appends_owner_for_a_real_fire_only()
+    {
+        Assert.Contains("\nOwner: alice, bob", AlertMessageFormatter.BuildText(MakeRule(), 12, owner: "alice, bob"));
+        Assert.DoesNotContain("Owner:", AlertMessageFormatter.BuildText(MakeRule(), 12, isTest: true, owner: "alice"));
+        Assert.DoesNotContain("Owner:", AlertMessageFormatter.BuildText(MakeRule(), 12, noData: true, owner: "alice"));
+        Assert.DoesNotContain("Owner:", AlertMessageFormatter.BuildText(MakeRule(), 12, resolved: true, owner: "alice"));
+        Assert.DoesNotContain("Owner:", AlertMessageFormatter.BuildText(MakeRule(), 12));
+    }
+
+    [Fact]
+    public void BuildMessage_renders_owner_placeholder()
+    {
+        var rule = MakeRule() with { NotificationBodyTemplate = "page {{owner}}" };
+        var message = AlertMessageFormatter.BuildMessage(rule, 3, isTest: false, publicUrl: null, metricUnit: null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null, owner: "alice");
+        Assert.Equal("page alice", message.Text);
+        Assert.Null(AlertTemplateRenderer.Validate("{{owner}}", "body", 500));
+    }
+
+    [Fact]
+    public void AlertOwners_joins_distinct_owners_in_rank_order()
+    {
+        IncidentExceptionGroup Group(string owner) => new("T", "m", 1, "svc", "", owner);
+        Assert.Equal("alice, bob", AlertOwners.Join([Group("alice"), Group(""), Group("Alice"), Group("bob")]));
+        Assert.Equal("", AlertOwners.Join([Group("")]));
     }
 
     [Fact]

@@ -37,9 +37,13 @@ Un groupe résolu qui se reproduit dans une `service.version` où il n'avait pas
 
 Le filtre de statut, à côté du filtre de service, vaut **Active** par défaut, ce qui masque les groupes ignorés. Choisissez **All statuses**, ou un seul statut, pour voir le reste.
 
+**Mes erreurs**, à côté, n'affiche que les groupes dont vous êtes responsable : ceux qui vous sont assignés ou, sans assigné, ceux qu'une règle de propriété vous attribue. Le bouton est masqué quand l'authentification est désactivée, faute d'utilisateur courant. Le choix est mémorisé dans ce navigateur, et `/errors?mine=1` ouvre la page avec le filtre actif.
+
 ## Alertes
 
 Les règles d'alerte sur le nombre d'exceptions ne comptent pas les groupes ignorés, et le résumé d'incident les omet. Le changement s'applique à la prochaine évaluation de la règle. Quand un ignorement expire, le groupe est de nouveau compté.
+
+Une notification d'alerte sur le nombre d'exceptions indique aussi qui est responsable de l'erreur. Elle examine les trois groupes les plus fréquents de la fenêtre et ajoute une ligne `Owner:` avec l'assigné de chaque groupe ou, à défaut, la première règle de propriété qui correspond (service, type d'exception ou chemin de la trace de pile), sans répéter un nom. La même valeur est disponible sous la forme `{{owner}}` dans les [modèles de notification](../alerting/share-alert-notification-templates.fr.md), vide si personne ne possède les groupes, et le résumé d'incident par IA la reçoit aussi.
 
 ## Limites
 

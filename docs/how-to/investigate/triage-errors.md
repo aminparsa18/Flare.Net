@@ -37,9 +37,17 @@ A resolved group that occurs again in a `service.version` it had not been seen i
 
 The status filter next to the service filter defaults to **Active**, which hides ignored groups. Pick **All statuses**, or a single status, to see the rest.
 
+**My errors** next to it shows only the groups you own: assigned to you, or, with no assignee, matched to you by an ownership rule. The button is hidden when sign-in is off, because there is no current user. The choice is remembered in this browser, and `/errors?mine=1` opens the page with it on.
+
+**My errors** next to it shows only the groups you own: assigned to you, or, with no assignee, matched to you by an ownership rule. The button is hidden when sign-in is off, because there is no current user. The choice is remembered in this browser, and `/errors?mine=1` opens the page with it on.
+
 ## Alerts
 
 Exception-count alert rules don't count ignored groups, and the incident summary leaves them out. The change applies from the rule's next evaluation. When an ignore lapses, the group counts again.
+
+An exception-count notification also names who owns the error. It looks at the rule's three most frequent groups in the window and adds an `Owner:` line with each group's assignee or, failing that, the first ownership rule that matches (service, exception type or stack-trace path), without repeating a name. The same value is available as `{{owner}}` in [notification templates](../alerting/share-alert-notification-templates.md), empty when nobody owns the groups, and the AI incident summary gets it too.
+
+An exception-count notification also names who owns the error. It looks at the rule's three most frequent groups in the window and adds an `Owner:` line with each group's assignee or, failing that, the first ownership rule that matches (service, exception type or stack-trace path), without repeating a name. The same value is available as `{{owner}}` in [notification templates](../alerting/share-alert-notification-templates.md), empty when nobody owns the groups, and the AI incident summary gets it too.
 
 ## Limits
 

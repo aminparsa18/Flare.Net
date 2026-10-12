@@ -805,6 +805,7 @@
 	"tracesToolbar_goToTracePlaceholder": "跳转到追踪 ID…",
 	"errorsToolbar_serviceLabel": "服务",
 	"errorsToolbar_refresh": "刷新",
+	"errorsToolbar_mine": "我的错误",
 	"errorsToolbar_clearFilters": "清除筛选条件",
 	"errorsToolbar_exceptionTypeChip": "类型：{type}",
 	"errorsToolbar_removeExceptionType": "移除异常类型筛选",

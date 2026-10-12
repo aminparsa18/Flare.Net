@@ -69,6 +69,7 @@ public sealed class AlertEvaluationWorker(
     ISloQueryService slos,
     IReleaseQueryService releases,
     IAppSessionQueryService appSessions,
+    IAlertEvidenceQueryService evidenceQueries,
     CompositeAlertNotifier notifier,
     IAlertAckLinkSigner ackLinks,
     IIncidentSummaryService incidentSummaries,
@@ -472,7 +473,8 @@ public sealed class AlertEvaluationWorker(
         }
 
         var logSamples = await TryGetLogSamplesAsync(rule, from, now, noData, cancellationToken);
-        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, logSamples: logSamples, ackUrl: ackLinks.CreateUrl(rule.Id, now));
+        var owner = await TryGetOwnerAsync(rule, from, now, noData, anomaly, cancellationToken);
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, logSamples: logSamples, ackUrl: ackLinks.CreateUrl(rule.Id, now), owner: owner);
         var firedEntry = WithNotificationOutcome(BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly), rule, ruleChannels, results, "fired");
         await alerts.InsertEventAsync(firedEntry, cancellationToken);
 
@@ -543,6 +545,30 @@ public sealed class AlertEvaluationWorker(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Could not fetch sample log lines for alert rule {RuleId} ({RuleName}); notifying without them.", rule.Id, rule.Name);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Who owns the top error groups behind an <see cref="AlertConditionKind.ExceptionCount"/> fire,
+    /// for the <c>{{owner}}</c> placeholder (ADR-0197). Best-effort like <see cref="TryGetLogSamplesAsync"/>:
+    /// the lookup is a bounded top-N query, and any failure yields null.
+    /// </summary>
+    private async Task<string?> TryGetOwnerAsync(AlertRule rule, DateTimeOffset from, DateTimeOffset now, bool noData, AnomalyScore? anomaly, CancellationToken cancellationToken)
+    {
+        if (noData || anomaly is not null || rule.ConditionKind != AlertConditionKind.ExceptionCount || rule.ExceptionCondition is not { } condition)
+        {
+            return null;
+        }
+
+        try
+        {
+            var owners = AlertOwners.Join(await evidenceQueries.GetExceptionGroupsAsync(condition, from, now, AlertOwners.GroupCount, cancellationToken));
+            return owners.Length > 0 ? owners : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not look up the owner for alert rule {RuleId} ({RuleName}); notifying without it.", rule.Id, rule.Name);
             return null;
         }
     }

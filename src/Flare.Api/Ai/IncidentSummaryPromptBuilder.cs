@@ -33,7 +33,7 @@ public static class IncidentSummaryPromptBuilder
         if (evidence.Exceptions.Count > 0)
         {
             sections.Add("Exceptions in the window (most frequent first):\n" + string.Join("\n", evidence.Exceptions.Select(e =>
-                $"- {e.Count}x {Clip(e.Type)}: {Clip(e.Message)} (service {Clip(e.Service)})")));
+                $"- {e.Count}x {Clip(e.Type)}: {Clip(e.Message)} (service {Clip(e.Service)}{(e.Owner.Length > 0 ? $", owner {Clip(e.Owner)}" : "")})")));
         }
 
         if (evidence.LogPatterns.Count > 0)
