@@ -364,6 +364,14 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
                 {
                     var desired = keys.First(k => string.Equals(ConfigSync.NameOf(k, ConfigSync.IngestKeysSection), item.Name, StringComparison.OrdinalIgnoreCase));
                     var (_, error) = await api.SendAsync(HttpMethod.Put, $"/api/ingest-keys/{item.ExistingId}/limits", ConfigSync.KeyLimitsBody(desired));
+                    var current = existing.First(e => e.Id == item.ExistingId).Raw;
+                    if (error is null && ConfigSync.KeyExpiryDiffers(desired, current))
+                    {
+                        error = ConfigSync.KeyExpiryBody(desired) is { } expiry
+                            ? (await api.SendAsync(HttpMethod.Put, $"/api/ingest-keys/{item.ExistingId}/expiry", expiry)).Error
+                            : "expiresAt must be an ISO-8601 timestamp.";
+                    }
+
                     result = error is null ? item : item with { Outcome = ConfigOutcome.Error, Detail = error };
                 }
 

@@ -76,6 +76,8 @@ internal static partial class ConfigSync
 
     private static readonly string[] KeyLimitFields = ["limitsEnabled", "maxEventsPerMinute", "maxBytesPerMinute", "maxEventsPerDay", "maxBytesPerDay"];
 
+    private const string ExpiresAtField = "expiresAt";
+
     [GeneratedRegex(@"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")]
     private static partial Regex PlaceholderPattern();
 
@@ -274,7 +276,7 @@ internal static partial class ConfigSync
         return (secretsSent, null);
     }
 
-    /// <summary>An ingest key's versionable part: its name and rate limits (the key itself is a credential and is never exported).</summary>
+    /// <summary>An ingest key's versionable part: its name, rate limits and expiry (the key itself is a credential and is never exported).</summary>
     public static JsonObject? ToExportKey(JsonObject key)
     {
         if (key["isActive"] is JsonValue active && active.TryGetValue<bool>(out var isActive) && !isActive)
@@ -289,6 +291,11 @@ internal static partial class ConfigSync
             {
                 result[field] = value.DeepClone();
             }
+        }
+
+        if (key[ExpiresAtField] is { } expiresAt)
+        {
+            result[ExpiresAtField] = expiresAt.DeepClone();
         }
 
         return Prune(result) as JsonObject;
@@ -453,13 +460,38 @@ internal static partial class ConfigSync
                 continue;
             }
 
-            plan.Add(Canonical(item) == Canonical(current.Export)
+            plan.Add(Canonical(KeyComparable(item, item)) == Canonical(KeyComparable(current.Export, item))
                 ? new ConfigPlanItem(IngestKeysSection, name, ConfigOutcome.Unchanged, ExistingId: current.Id)
                 : new ConfigPlanItem(IngestKeysSection, name, ConfigOutcome.Update, ExistingId: current.Id));
         }
 
         return plan;
     }
+
+    /// <summary>A file without <c>expiresAt</c> leaves the key's expiry alone (files written before expiry existed must not
+    /// clear it), so the field is left out of the comparison in that case.</summary>
+    private static JsonObject KeyComparable(JsonObject key, JsonObject desired)
+    {
+        var copy = (JsonObject)key.DeepClone();
+        if (desired[ExpiresAtField] is null)
+        {
+            copy.Remove(ExpiresAtField);
+        }
+
+        return copy;
+    }
+
+    /// <summary>True when <paramref name="desired"/> names an expiry that differs from the key's current one.</summary>
+    public static bool KeyExpiryDiffers(JsonObject desired, JsonObject current) =>
+        desired[ExpiresAtField] is not null && Canonical(new JsonObject { [ExpiresAtField] = desired[ExpiresAtField]!.DeepClone() })
+            != Canonical(new JsonObject { [ExpiresAtField] = current[ExpiresAtField]?.DeepClone() });
+
+    /// <summary>The body for <c>PUT /api/ingest-keys/{id}/expiry</c> (Unix milliseconds), or null when the file has no valid <c>expiresAt</c>.</summary>
+    public static JsonObject? KeyExpiryBody(JsonObject desired) =>
+        desired[ExpiresAtField] is JsonValue v && v.TryGetValue<string>(out var text)
+            && DateTimeOffset.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var at)
+            ? new JsonObject { ["expiresAtUnixMs"] = at.ToUnixTimeMilliseconds() }
+            : null;
 
     /// <summary>The body for <c>PUT /api/ingest-keys/{id}/limits</c>; a key with no limits fields turns limits off.</summary>
     public static JsonObject KeyLimitsBody(JsonObject desired)

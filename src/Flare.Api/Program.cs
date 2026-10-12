@@ -485,6 +485,9 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IStatusPageQueryService, StatusPageQueryService>();
 builder.Services.AddSingleton<IStatusIncidentQueryService, StatusIncidentQueryService>();
 builder.Services.AddSingleton<IStatusIncidentNotifier, StatusIncidentNotifier>();
+// Warns notification channels before an ingest key / personal access token expires (ADR-0208). Off until CredentialExpiry:ChannelIds is set.
+builder.Services.Configure<CredentialExpiryOptions>(builder.Configuration.GetSection(CredentialExpiryOptions.SectionName));
+builder.Services.AddHostedService<CredentialExpiryWorker>();
 builder.Services.AddSingleton<IStatusSubscriberQueryService, StatusSubscriberQueryService>();
 builder.Services.AddSingleton<IStatusSubscriberMailer, StatusSubscriberMailer>();
 builder.Services.AddSingleton<IStatusSubscriptionLinkSigner, StatusSubscriptionLinkSigner>();

@@ -50,6 +50,25 @@ public sealed class DbPersonalAccessTokenStore(IdentityDbConnectionFactory conne
         return tokens;
     }
 
+    public async Task<IReadOnlyList<PersonalAccessToken>> ListWithExpiryAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT Id, UserId, Name, CreatedAt, ExpiresAt, LastUsedAt, RevokedAt
+            FROM PersonalAccessTokens WHERE ExpiresAt IS NOT NULL AND RevokedAt IS NULL
+            """;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var tokens = new List<PersonalAccessToken>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            tokens.Add(ReadToken(reader));
+        }
+        return tokens;
+    }
+
     public async Task<PersonalAccessToken?> FindAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);

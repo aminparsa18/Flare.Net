@@ -105,16 +105,73 @@ folders are where "what happened and why" actually lives.
     rollback.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
+  - **Threat-model findings to fix first** (from [the threat model](../threat-model.md); each was confirmed in code):
+    - **WebSocket hardening** (triaged in this order; live-tail, host stats and resource graph, in
+      [`Flare.Api/Endpoints`](../../src/Flare.Api/Endpoints)):
+      - **Follow-ups to the shipped live-tail limits, Origin check and regex guard** (code in `LiveTail/` and
+        `Endpoints/WebSocketOriginGuard.cs`):
+        - Document the new `LiveTail__*` options (connection caps, `MaxClientMessageBytes`, filter size limits, regex
+          pattern count, length and `RegexMatchTimeout`) and the `Cors:AllowedOrigins` requirement for WebSockets, in
+          `docs/` with the ru, fr and zh-CN translations. Say that live-tail regexes are now linear-time, so lookarounds
+          and backreferences are rejected, which can break an existing saved view.
+        - `LiveTailFilterGuard.TryCompile` calls `pattern.Length` on `attribute.Value` and `bodyFilter.Value`; a client
+          sending `"value": null` (System.Text.Json can leave non-nullable strings null) throws and ends that client's
+          receive loop. Coalesce to `""`.
+        - Run the new `LiveTailHardeningTests` against the old code once to confirm the Origin, 1009 and cap tests fail
+          without the fix; they were only seen passing.
+        - Host stats and the resource graph got the Origin check but not connection caps or a message-size limit (their
+          inbound frames are discarded, so only the socket count matters). Anonymous callers share one bucket, so with
+          auth off the per-user cap is a second global cap. The 10 per user, 200 total and filter limits are untuned
+          defaults.
+      - **Authorization is checked only at upgrade (Low, P3).** Session revocation, sign-out everywhere, user disable, idle
+        timeout ([ADR-0206](../adr/0206-session-idle-timeout-password-policy.md)) and PAT expiry do not close an open
+        socket, and a tail keeps the `AllowedServices` it was created with after a user is removed from a project (the
+        resource-graph watch now captures its scope the same way). Add a
+        maximum socket lifetime (the client reconnects) or re-validate session and scope every 1 to 5 minutes.
+    - **Hash session tokens at rest.** `Sessions.Id` holds the raw cookie token, while PATs and ingest keys are stored
+      as SHA-256 hashes. Store the digest and look up by digest (Sqlite and Postgres migrations; existing sessions can
+      simply be invalidated at upgrade).
+    - **ClickHouse published with a default password.** `docker-compose.yml` publishes `8123` with the default password
+      `flare`. Bind to `127.0.0.1` by default (opt in to wider exposure) and have the installer generate a random
+      password.
+    - **SSRF guard coverage.** [ADR-0201](../adr/0201-outbound-ssrf-guard.md) covers alert notifiers and OTLP forwarding
+      only. Source-repo fetch (which sends a stored access token), S3 archive and the LLM endpoint are unguarded; apply
+      `AddOutboundGuard()` there with the same `Outbound__Allow__N` opt-out. Synthetic probes stay exempt on purpose.
+    - **Secrets at rest beyond notification channels.** [ADR-0205](../adr/0205-encrypt-notification-secrets-at-rest.md)
+      stops at notification channels. Audit and extend it to telemetry-export config, source-link tokens and the
+      SSO/LDAP/OIDC client secrets and bind passwords (first confirm whether those are already encrypted).
+    - **Dashboard defense-in-depth guards (low risk; the 2026 XSS review found no exploitable telemetry-driven XSS).**
+      The only attacker-reachable `{@html}` is the sanitized Markdown panel, and the CSP (nonce scripts, no
+      `unsafe-inline`) backstops the rest, so these only matter if the CSP is off (`FLARE_CSP=off`) or stripped by a proxy:
+      - Run `safeHttpUrl` over three `href`s that come from internal sources not traced to a server-side validator:
+        `release.url` (`UpdateNotice.svelte`, `releases/+page.svelte`) and `node.urls` (`ResourceNode.svelte`).
+      - Allow-list the session-replay screenshot `contentType` to `image/png`, `image/jpeg` and `image/webp` before it
+        is placed in a `data:` URL (`timeline.svelte.ts`); it comes from the ingest client.
+      - Validate the submitted email before building `mailto:` in `feedback/+page.svelte`, since a crafted address can add
+        `?cc=` or `?body=`.
+      - Consider narrowing `img-src` (it allows any `https:`), so telemetry-derived images cannot load from arbitrary
+        hosts and leak the viewer's IP.
+      - Not reviewed: `/status/[slug]` and the server routes (`+server.ts`, form actions), CodeMirror and Lottie
+        dependency CVEs, `npm audit`, and a check on the built output that the CSP and nonce apply to every response.
+    - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
+      off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
+      and ingest keys.
+    - **Smaller items:** pin `tecnativa/docker-socket-proxy` to a digest or version in `docker-compose.yml` and
+      `docker-compose.install.yml`; document the trusted-proxy range for Kubernetes deployments; the docs say
+      passwords use bcrypt but the threat-model pass found PBKDF2 via ASP.NET `PasswordHasher` (verify, then correct the
+      docs and their translations); correct the `SessionAuthenticationHandler` comment and threat-model S9, which say a
+      PAT cannot be used on the WebSocket (a PAT `Authorization` header works on the upgrade for non-browser clients, so
+      the PAT rate limit covers only the upgrade).
   - **Managed PII redaction dashboard toggle.** Enabling it is `PipelineRules__Pii__*` Ingest config today (restart
     required). A settings page toggle needs a runtime-settings mechanism Ingest does not have: a settings table with
     single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
-  - **Pre-expiry notifications and CLI/config coverage for expiry.** Session idle timeout, admin sign-out and the password
-    policy ([ADR-0206](../adr/0206-session-idle-timeout-password-policy.md)) and ingest key expiry with a dashboard badge
-    ([ADR-0207](../adr/0207-ingest-key-expiry.md)) shipped. Still missing: a notification before an ingest key or personal
-    access token expires, an expiry badge on the personal access tokens page, and `--expires-in-days` for
-    `flare apikey create` plus expiry in `flare config` export/apply.
+  - **Live end-to-end test of credential expiry warnings.** Pre-expiry notifications
+    ([ADR-0208](../adr/0208-credential-expiry-warnings.md)), the personal access token expiry badge,
+    `flare apikey create --expires-in-days` and `expiresAt` in `flare config` export/apply shipped with unit tests only. Still
+    to run against a real stack: a warning delivered to a channel for a key and a token close to expiry, no repeat on the next
+    check, and a config export/apply round trip of an expiry.
   - **Data-residency, DPA and sub-processor docs** (replaces the data-residency mention in the hosted-parity line above):
     a `docs/explanation` page on where each store lives, what can leave the box (AI providers, notification channels,
     update check), and a no-phone-home statement.

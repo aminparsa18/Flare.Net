@@ -15,6 +15,9 @@ public interface IPersonalAccessTokenStore
     /// admin oversight view isn't in scope yet).</summary>
     Task<IReadOnlyList<PersonalAccessToken>> ListForUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    /// <summary>Every non-revoked token that has an expiry, across all users - what the expiry warning scans (expired ones included; the caller filters by time).</summary>
+    Task<IReadOnlyList<PersonalAccessToken>> ListWithExpiryAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Looks up a single token by id regardless of owner, so the endpoint layer
     /// can check ownership itself before calling <see cref="RevokeAsync"/> (the same
     /// separation of "storage" from "who's allowed to do this" used throughout

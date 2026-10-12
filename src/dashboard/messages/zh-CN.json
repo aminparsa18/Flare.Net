@@ -1762,6 +1762,7 @@
 	"accessTokenTable_confirmRevoke": "吊销访问令牌“{name}”？此操作无法撤销。",
 	"accessTokenTable_statusActive": "有效",
 	"accessTokenTable_statusExpired": "已过期",
+	"accessTokenTable_expiresSoon": "{days} 天后过期",
 	"accessTokenTable_statusRevoked": "已吊销",
 	"accessTokenTable_neverExpires": "永不过期",
 	"accessTokenTable_neverUsed": "从未使用",

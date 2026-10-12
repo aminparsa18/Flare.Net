@@ -33,6 +33,13 @@ internal sealed class ApiKeyCreateCommand : AsyncCommand<ApiKeyCreateCommand.Set
         [CommandOption("--service <NAME>")]
         [Description("Restrict the key to this service.name. Repeatable.")]
         public string[] Services { get; init; } = [];
+
+        [CommandOption("--expires-in-days <DAYS>")]
+        [Description("Make the key stop working after this many days (ADR-0207). Default: never expires.")]
+        public int? ExpiresInDays { get; init; }
+
+        public override ValidationResult Validate() =>
+            ExpiresInDays is <= 0 ? ValidationResult.Error("--expires-in-days must be a positive number of days.") : ValidationResult.Success();
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
@@ -59,7 +66,11 @@ internal sealed class ApiKeyCreateCommand : AsyncCommand<ApiKeyCreateCommand.Set
         {
             using var httpResponse = await http.PostAsJsonAsync(
                 "/api/ingest-keys",
-                new CreateIngestApiKeyRequestWire { Name = settings.Name },
+                new CreateIngestApiKeyRequestWire
+                {
+                    Name = settings.Name,
+                    ExpiresAtUnixMs = settings.ExpiresInDays is { } days ? DateTimeOffset.UtcNow.AddDays(days).ToUnixTimeMilliseconds() : null,
+                },
                 WireJsonOptions.Instance,
                 cancellationToken);
 
@@ -84,6 +95,11 @@ internal sealed class ApiKeyCreateCommand : AsyncCommand<ApiKeyCreateCommand.Set
         }
 
         AnsiConsole.MarkupLine($"[green]✓[/] Created ingest key [bold]{Markup.Escape(response.Key.Name)}[/] (id: {response.Key.Id}, created: {response.Key.CreatedAt.ToLocalTime():yyyy-MM-dd HH:mm:ss}).");
+        if (response.Key.ExpiresAt is { } expiresAt)
+        {
+            AnsiConsole.MarkupLine($"[grey]Expires {expiresAt.ToLocalTime():yyyy-MM-dd HH:mm}; extend it later with PUT /api/ingest-keys/{{id}}/expiry or in the dashboard.[/]");
+        }
+
         if (settings.Origins.Length > 0 || settings.Services.Length > 0)
         {
             if (await ApiKeyScope.ApplyAsync(http, response.Key.Id, settings.Origins, settings.Services, cancellationToken) is { } scopeError)
@@ -227,6 +243,8 @@ internal static class ApiKeyScope
 internal sealed class CreateIngestApiKeyRequestWire
 {
     public required string Name { get; init; }
+
+    public long? ExpiresAtUnixMs { get; init; }
 }
 
 internal sealed class IngestApiKeyDtoWire
@@ -244,6 +262,8 @@ internal sealed class IngestApiKeyDtoWire
     public string[] AllowedOrigins { get; init; } = [];
 
     public string[] AllowedServices { get; init; } = [];
+
+    public DateTimeOffset? ExpiresAt { get; init; }
 }
 
 internal sealed class IngestApiKeyListResponseWire
