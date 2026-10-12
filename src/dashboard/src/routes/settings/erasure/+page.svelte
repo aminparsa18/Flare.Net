@@ -205,7 +205,7 @@
 					<div class="flex flex-wrap items-center gap-2 text-sm">
 						<Badge variant={statusVariant(op.status)}>{statusLabel(op.status)}</Badge>
 						<span class="font-mono">{op.identifierKeys.join(', ')}</span>
-						<span class="text-muted-foreground">· {op.subjectHash} · {m.erasure_requestedBy({ user: op.requestedBy, time: new Date(op.requestedAt).toLocaleString() })}</span>
+						<span class="text-muted-foreground">· {op.subjectHash} · {op.requestedBy ? m.erasure_requestedBy({ user: op.requestedBy, time: new Date(op.requestedAt).toLocaleString() }) : new Date(op.requestedAt).toLocaleString()}</span>
 					</div>
 					{#if op.error}<p class="text-destructive text-sm">{op.error}</p>{/if}
 					{#if op.tables.length}
