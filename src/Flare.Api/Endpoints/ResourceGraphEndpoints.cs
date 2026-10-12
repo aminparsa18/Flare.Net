@@ -15,8 +15,9 @@ namespace Flare.Api.Endpoints;
 /// <see cref="ResourceGraphSourceRegistry"/> for how the two are reconciled into this one
 /// stream). Same REST-snapshot/WebSocket-stream pairing as
 /// <c>LogsEndpoints</c>/<c>LogTailEndpoints</c>, simplified: there's no client-sent control
-/// protocol to receive here (the graph isn't filtered), so the watch connection is
-/// push-only.
+/// protocol to receive here, so the watch connection is push-only. The producer overlay is
+/// narrowed to the caller's projects (<see cref="ResourceGraphScopeFilter"/>, ADR-0123): per
+/// request for the snapshot, and at subscribe time for the watch stream.
 /// </summary>
 public static class ResourceGraphEndpoints
 {
@@ -27,8 +28,8 @@ public static class ResourceGraphEndpoints
         return endpoints;
     }
 
-    private static IResult HandleSnapshot(HttpContext http, ResourceGraphSourceRegistry registry) =>
-        ApiSerialization.Write(http, registry.CurrentSnapshot, ResourceGraphJsonContext.Default.ResourceGraphSnapshot);
+    internal static IResult HandleSnapshot(HttpContext http, ResourceGraphSourceRegistry registry) =>
+        ApiSerialization.Write(http, ResourceGraphScopeFilter.Apply(registry.CurrentSnapshot, Query.ServiceScope.Current), ResourceGraphJsonContext.Default.ResourceGraphSnapshot);
 
     private static async Task HandleWatchAsync(HttpContext http, ResourceGraphSourceRegistry registry)
     {

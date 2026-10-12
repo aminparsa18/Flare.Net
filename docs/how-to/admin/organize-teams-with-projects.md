@@ -14,6 +14,8 @@ Overlapping patterns across projects are allowed; a user sees the union of their
 
 Once at least one project exists, a non-admin user sees only the services their projects allow, across logs, traces, metrics, errors, dashboards panels, SLOs and live tail. A service that matches no project is visible to global Admins only. A non-admin who belongs to no project sees nothing. Global Admins always see everything. Narrowing a project's patterns takes effect immediately.
 
+The Resources page's producer services (and their edges into ingest) follow the same rule; its container, pod and host nodes describe Flare's own stack and are shown to every signed-in user.
+
 Not scoped: infrastructure pages that are not keyed by service (Hosts, Kubernetes, ingestion health) and broker-level backlog gauges (Kafka lag, queue depth).
 
 ## Assign dashboards, alerts, SLOs, views and ingest keys

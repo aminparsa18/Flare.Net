@@ -27,9 +27,16 @@ public sealed class ResourceGraphSubscription
         SingleWriter = true, // only ResourceGraphSourceRegistry ever publishes into this.
     });
 
+    /// <summary>
+    /// The project allow-list of whoever opened this connection, captured at construction (ADR-0123) because
+    /// <see cref="Query.ServiceScope.Current"/> is not set on the poller thread that calls <see cref="Publish"/>. Null = unrestricted.
+    /// </summary>
+    public IReadOnlyList<string>? AllowedServices { get; } = Query.ServiceScope.Current;
+
     public ChannelReader<ResourceGraphSnapshot> Reader => _channel.Reader;
 
-    public void Publish(ResourceGraphSnapshot snapshot) => _channel.Writer.TryWrite(snapshot);
+    public void Publish(ResourceGraphSnapshot snapshot) =>
+        _channel.Writer.TryWrite(ResourceGraphScopeFilter.Apply(snapshot, AllowedServices));
 
     public void Complete() => _channel.Writer.TryComplete();
 }
