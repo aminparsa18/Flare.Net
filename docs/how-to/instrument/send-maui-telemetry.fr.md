@@ -254,7 +254,33 @@ Elle apparaît sous la forme d'un bouton **Screenshot** sur la ligne de la page 
 car une capture montre tout ce qui est à l'écran, y compris le texte saisi. Les images sont des JPEG, maintenues sous
 `ScreenshotMaxBytes` (300 Ko par défaut, 512 Ko au plus) en baissant la qualité, et limitées à 5 par lancement et une
 par 10 secondes. L'envoi va vers `POST /v1/screenshots`, sur le même point d'accès et avec la même clé d'ingestion, et
-suit le réglage de rétention des traces. Masquez les vues sensibles dans votre application avant qu'elles puissent être capturées.
+suit le réglage de rétention des traces. Les champs de saisie sont masqués dans chaque capture, ainsi que toute vue que vous marquez ; voir [Rejouer une session](#rejouer-une-session).
+
+## Rejouer une session
+
+Définissez `ScreenshotInterval = TimeSpan.FromSeconds(10)` (au moins 5 secondes) pour envoyer aussi une capture de la
+page au premier plan selon ce rythme. La page de session affiche alors un lecteur **Session replay** au-dessus de la
+chronologie : un curseur et un bouton de lecture sur les images, avec le span dans lequel se trouvait l'application à
+chaque instant, pour voir ce que l'utilisateur voyait avant une erreur et pas seulement au moment de celle-ci. C'est
+désactivé par défaut, aucune image n'est prise quand l'application est en arrière-plan, et la capture s'arrête après
+`MaxReplayScreenshots` images par lancement (120 par défaut ; le lecteur en affiche jusqu'à 720 par session). Les images
+sont les mêmes JPEG que les captures d'erreur (`ScreenshotMaxBytes`), suivent le réglage de rétention des traces et
+nécessitent la [migration 0081](../../../db/clickhouse/0081_app_screenshots_kind.sql) sur un ClickHouse existant.
+
+Le masquage s'applique aux captures d'erreur comme aux images de relecture. Avant chaque capture, les vues `Entry`,
+`Editor` et `SearchBar` sont rendues transparentes un instant puis restaurées ; `MaskTextInputs = false` les conserve
+(un `Entry` de mot de passe est toujours masqué). Masquez le reste en le marquant, en XAML ou en code :
+
+```xml
+<Label Text="{Binding AccountBalance}" flare:FlareMask.IsMasked="True" />
+```
+
+```csharp
+FlareMask.SetIsMasked(balanceLabel, true);
+```
+
+Un conteneur masqué cache ses enfants. Le masquage ne couvre que ce que MAUI affiche sur la page principale : une boîte
+de dialogue native ou le clavier système ne font pas partie de la capture.
 
 ## Signaler les exceptions non gérées
 

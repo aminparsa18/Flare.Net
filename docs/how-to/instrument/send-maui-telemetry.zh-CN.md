@@ -199,7 +199,23 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 ## 为错误附加截图
 
-设置 `CaptureScreenshotOnError = true` 后，每次上报异常时都会上传当前页面的截图，并在会话页面对应行显示 **Screenshot** 按钮。该功能默认关闭，因为截图会包含屏幕上的一切内容，包括用户输入的文字。图片为 JPEG，通过降低质量保持在 `ScreenshotMaxBytes` 以内（默认 300 KB，最大 512 KB），每次启动最多 5 张、每 10 秒最多 1 张。上传发往同一端点的 `POST /v1/screenshots`，使用相同的摄取密钥，并遵循链路的保留设置。请在应用中隐藏敏感视图，避免被截取。
+设置 `CaptureScreenshotOnError = true` 后，每次上报异常时都会上传当前页面的截图，并在会话页面对应行显示 **Screenshot** 按钮。该功能默认关闭，因为截图会包含屏幕上的一切内容，包括用户输入的文字。图片为 JPEG，通过降低质量保持在 `ScreenshotMaxBytes` 以内（默认 300 KB，最大 512 KB），每次启动最多 5 张、每 10 秒最多 1 张。上传发往同一端点的 `POST /v1/screenshots`，使用相同的摄取密钥，并遵循链路的保留设置。所有截图都会隐藏文本输入框，你标记的视图同样会被隐藏；参见[回放会话](#回放会话)。
+
+## 回放会话
+
+设置 `ScreenshotInterval = TimeSpan.FromSeconds(10)`（不少于 5 秒），即可按该间隔额外上传前台页面的截图。会话页面的时间线上方随即出现 **Session replay** 播放器：在各帧上拖动滑块或点击播放，并显示每一刻应用所处的 span，让你看到用户在错误之前看到了什么，而不只是错误发生那一刻。该功能默认关闭，应用在后台时不截图，每次启动达到 `MaxReplayScreenshots` 帧（默认 120；播放器每个会话最多显示 720 帧）后停止。帧与错误截图是同样的 JPEG（受 `ScreenshotMaxBytes` 限制），遵循链路的保留设置，已有的 ClickHouse 需要先执行[迁移 0081](../../../db/clickhouse/0081_app_screenshots_kind.sql)。
+
+遮罩同时作用于错误截图和回放帧。每次截图前，`Entry`、`Editor` 和 `SearchBar` 会瞬间变为透明并随即恢复；设置 `MaskTextInputs = false` 可保留它们（密码 `Entry` 始终隐藏）。其他内容请在 XAML 或代码中标记：
+
+```xml
+<Label Text="{Binding AccountBalance}" flare:FlareMask.IsMasked="True" />
+```
+
+```csharp
+FlareMask.SetIsMasked(balanceLabel, true);
+```
+
+被遮罩的容器会连同其子元素一起隐藏。遮罩只覆盖 MAUI 在主页面上渲染的内容：原生对话框和系统键盘不在截图之内。
 
 ## 报告未处理的异常
 

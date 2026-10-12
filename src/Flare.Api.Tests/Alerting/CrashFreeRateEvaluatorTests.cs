@@ -80,5 +80,9 @@ public class CrashFreeRateEvaluatorTests
         public Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<AppSessionScreenshotResponse?> GetScreenshotAsync(string sessionId, string spanId, AppSessionTimelineRequest window, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<AppSessionReplayResponse> GetReplayAsync(string sessionId, AppSessionTimelineRequest window, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<AppSessionScreenshotResponse?> GetReplayFrameAsync(string sessionId, long timeUnixMs, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

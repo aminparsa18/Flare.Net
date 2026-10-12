@@ -32,7 +32,8 @@ public static class FlareMauiAppBuilderExtensions
             AppInfo.VersionString,
             AppInfo.BuildString);
 
-        if (options.CaptureScreenshotOnError) FlareMaui.ScreenshotCapture = ScreenshotCapture.CaptureAsync;
+        if (options.CaptureScreenshotOnError || options.ScreenshotInterval is not null)
+            FlareMaui.ScreenshotCapture = (max, ct) => ScreenshotCapture.CaptureAsync(max, options.MaskTextInputs, ct);
 #if ANDROID
         FlareMaui.MainThreadStackCapture = MainThreadStack.Capture;
 #endif
@@ -55,6 +56,7 @@ public static class FlareMauiAppBuilderExtensions
                 FlareMaui.NoteLifecycle(foreground: true);
                 FlareMaui.AddBreadcrumb("lifecycle", "foreground");
                 FlareMaui.ResumeHangDetection(MainThread.BeginInvokeOnMainThread, MainThreadStack.Capture);
+                FlareMaui.ResumeReplay();
                 if (options.TracePerformance) FlareMaui.NoteAppResumed(ProcessStart.Get());
             }
 
@@ -63,6 +65,7 @@ public static class FlareMauiAppBuilderExtensions
                 FlareMaui.NoteLifecycle(foreground: false);
                 FlareMaui.AddBreadcrumb("lifecycle", "background");
                 FlareMaui.PauseHangDetection();
+                FlareMaui.PauseReplay();
                 FlareMaui.Flush();
             }
 

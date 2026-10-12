@@ -289,15 +289,34 @@ public static class AppSessionQueryBuilder
         return new AppSessionSql(sql, parameters);
     }
 
-    /// <summary>Span ids in the window that have a screenshot for the session (for the timeline's flag). One column: SpanId.</summary>
+    /// <summary>Most scheduled frames one replay response carries (an hour at the 5-second minimum interval).</summary>
+    public const int MaxReplayFrames = 720;
+
+    /// <summary>
+    /// Span ids in the window that have an error screenshot for the session (for the timeline's flag). One column:
+    /// SpanId. Scheduled frames have an empty span id (ADR-0192) and are left out.
+    /// </summary>
     public static AppSessionSql BuildScreenshotSpans(string sessionId, DateTimeOffset from, DateTimeOffset to) =>
-        BuildScreenshotQuery("SELECT DISTINCT SpanId", sessionId, null, from, to, "");
+        BuildScreenshotQuery("SELECT DISTINCT SpanId", sessionId, null, from, to, "", "SpanId != ''");
+
+    /// <summary>The session's scheduled screenshot times, oldest first, one extra row to detect truncation. One column: StartUnixMs.</summary>
+    public static AppSessionSql BuildReplayFrames(string sessionId, DateTimeOffset from, DateTimeOffset to) =>
+        BuildScreenshotQuery("SELECT toUnixTimestamp64Milli(StartTime) AS StartUnixMs", sessionId, null, from, to,
+            $"ORDER BY StartTime\nLIMIT {MaxReplayFrames + 1}", "Kind = 'periodic'");
+
+    /// <summary>The scheduled screenshot taken at <paramref name="timeUnixMs"/>. Columns: ContentType, ImageBase64.</summary>
+    public static AppSessionSql BuildReplayFrame(string sessionId, long timeUnixMs)
+    {
+        var at = DateTimeOffset.FromUnixTimeMilliseconds(timeUnixMs);
+        return BuildScreenshotQuery("SELECT ContentType, ImageBase64", sessionId, null, at, at.AddMilliseconds(1),
+            "ORDER BY StartTime DESC\nLIMIT 1", "Kind = 'periodic'");
+    }
 
     /// <summary>The newest screenshot of one span. Columns: ContentType, ImageBase64.</summary>
     public static AppSessionSql BuildScreenshot(string sessionId, string spanId, DateTimeOffset from, DateTimeOffset to) =>
         BuildScreenshotQuery("SELECT ContentType, ImageBase64", sessionId, spanId, from, to, "ORDER BY StartTime DESC\nLIMIT 1");
 
-    private static AppSessionSql BuildScreenshotQuery(string select, string sessionId, string? spanId, DateTimeOffset from, DateTimeOffset to, string tail)
+    private static AppSessionSql BuildScreenshotQuery(string select, string sessionId, string? spanId, DateTimeOffset from, DateTimeOffset to, string tail, string? extraClause = null)
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("from", from.UtcDateTime);
@@ -314,6 +333,7 @@ public static class AppSessionQueryBuilder
             parameters.AddParameter("spanId", spanId);
             clauses.Add("SpanId = {spanId:String}");
         }
+        if (extraClause is not null) clauses.Add(extraClause);
         ServiceScope.Append(clauses, parameters);
         return new AppSessionSql($"{select}\nFROM app_screenshots\nWHERE {string.Join(" AND ", clauses)}\n{tail}".TrimEnd(), parameters);
     }

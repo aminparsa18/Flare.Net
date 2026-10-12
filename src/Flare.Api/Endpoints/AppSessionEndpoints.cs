@@ -21,6 +21,8 @@ public static class AppSessionEndpoints
         endpoints.MapPost("/api/app-sessions/performance", HandlePerformanceAsync);
         endpoints.MapPost("/api/app-sessions/timeline", HandleTimelineAsync);
         endpoints.MapPost("/api/app-sessions/screenshot", HandleScreenshotAsync);
+        endpoints.MapPost("/api/app-sessions/replay", HandleReplayAsync);
+        endpoints.MapPost("/api/app-sessions/replay/frame", HandleReplayFrameAsync);
         return endpoints;
     }
 
@@ -126,6 +128,52 @@ public static class AppSessionEndpoints
         return shot is null
             ? Results.NotFound()
             : ApiSerialization.Write(http, shot, AppSessionJsonContext.Default.AppSessionScreenshotResponse);
+    }
+
+    private static async Task<IResult> HandleReplayAsync(
+        HttpContext http,
+        IAppSessionQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        AppSessionTimelineRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AppSessionJsonContext.Default.AppSessionTimelineRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(request?.SessionId))
+            return Results.Problem("sessionId is required.", statusCode: StatusCodes.Status400BadRequest);
+
+        var response = await queryService.GetReplayAsync(request.SessionId, request, cancellationToken);
+        return ApiSerialization.Write(http, response, AppSessionJsonContext.Default.AppSessionReplayResponse);
+    }
+
+    private static async Task<IResult> HandleReplayFrameAsync(
+        HttpContext http,
+        IAppSessionQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        AppSessionReplayFrameRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AppSessionJsonContext.Default.AppSessionReplayFrameRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(request?.SessionId) || request.TimeUnixMs is not > 0)
+            return Results.Problem("sessionId and timeUnixMs are required.", statusCode: StatusCodes.Status400BadRequest);
+
+        var frame = await queryService.GetReplayFrameAsync(request.SessionId, request.TimeUnixMs.Value, cancellationToken);
+        return frame is null
+            ? Results.NotFound()
+            : ApiSerialization.Write(http, frame, AppSessionJsonContext.Default.AppSessionScreenshotResponse);
     }
 
     private static async Task<IResult> HandleListAsync(

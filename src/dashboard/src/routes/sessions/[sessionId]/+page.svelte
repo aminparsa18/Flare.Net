@@ -10,6 +10,8 @@
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import { AppSessionTimelineState, formatOffset, barGeometry } from '$lib/app-sessions/timeline.svelte';
+	import { AppSessionReplayState } from '$lib/app-sessions/replay.svelte';
+	import ReplayPlayer from '$lib/components/sessions/ReplayPlayer.svelte';
 	import { buildSessionTracesHref } from '$lib/deep-links';
 	import { withBase } from '$lib/paths';
 	import { formatDateTime } from '$lib/time/format';
@@ -17,6 +19,7 @@
 	import * as m from '$lib/paraglide/messages';
 
 	const state = new AppSessionTimelineState();
+	const replay = new AppSessionReplayState();
 
 	// page.params.sessionId is fixed for this component's lifetime - SvelteKit remounts per route param.
 	const sessionId = page.params.sessionId!;
@@ -28,8 +31,14 @@
 	const from = num('from');
 	const to = num('to');
 
-	onMount(() => state.load(sessionId, from, to));
-	onDestroy(() => state.dispose());
+	onMount(() => {
+		void replay.load(sessionId, from, to);
+		return state.load(sessionId, from, to);
+	});
+	onDestroy(() => {
+		state.dispose();
+		replay.dispose();
+	});
 
 	const events = $derived(state.timeline?.events ?? []);
 	const origin = $derived(events[0]?.startUnixMs ?? 0);
@@ -85,6 +94,8 @@
 				</div>
 				<div class="flex gap-1"><dt>{m.sessionsPage_detail_duration()}:</dt><dd class="tabular-nums">{formatDurationNano(total * 1_000_000)}</dd></div>
 			</dl>
+
+			<ReplayPlayer {replay} {events} {origin} />
 
 			<ol class="divide-y rounded-md border">
 				{#each events as e (e.traceId + e.spanId)}

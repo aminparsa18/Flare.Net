@@ -40,6 +40,24 @@ public sealed class FlareMauiOptions
     /// </summary>
     public bool CaptureScreenshotOnError { get; set; }
 
+    /// <summary>
+    /// Session replay-lite: take a screenshot of the foreground page every this often and upload it as a frame of the
+    /// session, so the Sessions page can show what the user saw around an error, not only at it. Null (the default) is
+    /// off; at least 5 seconds. Frames stop while the app is in the background. Off by default for the same reason as
+    /// <see cref="CaptureScreenshotOnError"/>; see <see cref="MaskTextInputs"/> and <c>FlareMask.IsMasked</c> for hiding views.
+    /// </summary>
+    public TimeSpan? ScreenshotInterval { get; set; }
+
+    /// <summary>Most scheduled frames uploaded per launch. At the 5 second minimum interval the default is 10 minutes of replay.</summary>
+    public int MaxReplayScreenshots { get; set; } = 120;
+
+    /// <summary>
+    /// Hide text inputs (<c>Entry</c>, <c>Editor</c>, <c>SearchBar</c>) in every screenshot, error and scheduled. A
+    /// password <c>Entry</c> and any view marked with <c>FlareMask.IsMasked</c> are hidden regardless of this
+    /// setting. On by default.
+    /// </summary>
+    public bool MaskTextInputs { get; set; } = true;
+
     /// <summary>Largest screenshot uploaded, in bytes (the server accepts up to 512 KB). The capture lowers JPEG quality to fit.</summary>
     public int ScreenshotMaxBytes { get; set; } = 300 * 1024;
 
@@ -136,6 +154,8 @@ public sealed class FlareMauiOptions
     /// <summary>Extra <c>Meter</c> names to export.</summary>
     public IList<string> AdditionalMeters { get; } = new List<string>();
 
+    internal static readonly TimeSpan MinScreenshotInterval = TimeSpan.FromSeconds(5);
+
     internal void Validate()
     {
         if (Endpoint is null || !Endpoint.IsAbsoluteUri || Endpoint.Scheme is not ("http" or "https"))
@@ -146,7 +166,11 @@ public sealed class FlareMauiOptions
             throw new InvalidOperationException("UseFlare: SlowFrameThreshold must be positive and less than FrozenFrameThreshold.");
         if (TracePerformance && ProfileSlowLoads && (ProfileSlowLoadThreshold <= TimeSpan.Zero || ProfileSampleInterval < TimeSpan.FromMilliseconds(10)))
             throw new InvalidOperationException("UseFlare: ProfileSlowLoadThreshold must be positive and ProfileSampleInterval at least 10 ms.");
-        if (CaptureScreenshotOnError && ScreenshotMaxBytes is < 10_000 or > 512 * 1024)
+        if (ScreenshotInterval is { } interval && interval < MinScreenshotInterval)
+            throw new InvalidOperationException("UseFlare: ScreenshotInterval must be at least 5 seconds.");
+        if (ScreenshotInterval is not null && MaxReplayScreenshots < 1)
+            throw new InvalidOperationException("UseFlare: MaxReplayScreenshots must be at least 1.");
+        if ((CaptureScreenshotOnError || ScreenshotInterval is not null) && ScreenshotMaxBytes is < 10_000 or > 512 * 1024)
             throw new InvalidOperationException("UseFlare: ScreenshotMaxBytes must be between 10 KB and 512 KB.");
         if (EnableOfflineQueue && (OfflineQueueMaxAge <= TimeSpan.Zero || OfflineQueueMaxBytes < 0))
             throw new InvalidOperationException("UseFlare: OfflineQueueMaxAge must be positive and OfflineQueueMaxBytes not negative.");

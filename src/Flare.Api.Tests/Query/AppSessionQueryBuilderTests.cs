@@ -160,6 +160,37 @@ public class AppSessionQueryBuilderTests
     }
 
     [Fact]
+    public void BuildScreenshotSpans_IgnoresScheduledFramesWithoutASpan()
+    {
+        var built = AppSessionQueryBuilder.BuildScreenshotSpans("abc", End.AddHours(-1), End);
+
+        Assert.Contains("SpanId != ''", built.Sql);
+    }
+
+    [Fact]
+    public void BuildReplayFrames_ListsPeriodicTimesOldestFirstWithOneExtraRow()
+    {
+        var built = AppSessionQueryBuilder.BuildReplayFrames("abc", End.AddHours(-1), End);
+
+        Assert.StartsWith("SELECT toUnixTimestamp64Milli(StartTime)", built.Sql);
+        Assert.Contains("Kind = 'periodic'", built.Sql);
+        Assert.Contains("SessionId = {sessionId:String}", built.Sql);
+        Assert.Contains("ORDER BY StartTime\nLIMIT 721", built.Sql);
+        Assert.DoesNotContain("abc", built.Sql);
+    }
+
+    [Fact]
+    public void BuildReplayFrame_ReadsExactlyOneMillisecondOfPeriodicRows()
+    {
+        var built = AppSessionQueryBuilder.BuildReplayFrame("abc", 1_700_000_000_123);
+
+        Assert.Contains("Kind = 'periodic'", built.Sql);
+        Assert.Contains("StartTime >= {from:DateTime64(3)}", built.Sql);
+        Assert.Contains("StartTime < {to:DateTime64(3)}", built.Sql);
+        Assert.DoesNotContain("SpanId = ", built.Sql);
+    }
+
+    [Fact]
     public void ResolveTimelineWindow_DefaultsToADayBeforeNow()
     {
         var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(new AppSessionTimelineRequest(), End);

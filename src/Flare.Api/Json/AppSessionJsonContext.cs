@@ -13,6 +13,8 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(AppSessionTimelineResponse))]
 [JsonSerializable(typeof(AppSessionScreenshotRequest))]
 [JsonSerializable(typeof(AppSessionScreenshotResponse))]
+[JsonSerializable(typeof(AppSessionReplayResponse))]
+[JsonSerializable(typeof(AppSessionReplayFrameRequest))]
 [JsonSerializable(typeof(ReleaseHealthRequest))]
 [JsonSerializable(typeof(ReleaseHealthResponse))]
 [JsonSerializable(typeof(ReleaseHealthTrendRequest))]

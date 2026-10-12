@@ -17,6 +17,10 @@ public interface IAppSessionQueryService
     Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken);
 
     Task<AppSessionScreenshotResponse?> GetScreenshotAsync(string sessionId, string spanId, AppSessionTimelineRequest window, CancellationToken cancellationToken);
+
+    Task<AppSessionReplayResponse> GetReplayAsync(string sessionId, AppSessionTimelineRequest window, CancellationToken cancellationToken);
+
+    Task<AppSessionScreenshotResponse?> GetReplayFrameAsync(string sessionId, long timeUnixMs, CancellationToken cancellationToken);
 }
 
 /// <summary>The one component holding an <see cref="IClickHouseClient"/> for the <c>/sessions</c> page - see <see cref="AppSessionQueryBuilder"/> for the SQL.</summary>
@@ -243,6 +247,40 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
     {
         var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(window, timeProvider.GetUtcNow());
         var built = AppSessionQueryBuilder.BuildScreenshot(sessionId, spanId, from, to);
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.ExecutionTimeOnly(queryLimits.Value), cancellationToken);
+        return reader.Read()
+            ? new AppSessionScreenshotResponse { ContentType = reader.GetString(0), ImageBase64 = reader.GetString(1) }
+            : null;
+    }
+
+    public async Task<AppSessionReplayResponse> GetReplayAsync(string sessionId, AppSessionTimelineRequest window, CancellationToken cancellationToken)
+    {
+        var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(window, timeProvider.GetUtcNow());
+        var built = AppSessionQueryBuilder.BuildReplayFrames(sessionId, from, to);
+        var frames = new List<long>();
+        try
+        {
+            await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken);
+            while (reader.Read()) frames.Add(reader.GetFieldValue<long>(0));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Table or Kind column missing (migration 0079/0081 not applied yet): an empty replay, same page.
+            frames.Clear();
+        }
+
+        var truncated = frames.Count > AppSessionQueryBuilder.MaxReplayFrames;
+        return new AppSessionReplayResponse
+        {
+            SessionId = sessionId,
+            FrameUnixMs = truncated ? frames.Take(AppSessionQueryBuilder.MaxReplayFrames).ToList() : frames,
+            Truncated = truncated,
+        };
+    }
+
+    public async Task<AppSessionScreenshotResponse?> GetReplayFrameAsync(string sessionId, long timeUnixMs, CancellationToken cancellationToken)
+    {
+        var built = AppSessionQueryBuilder.BuildReplayFrame(sessionId, timeUnixMs);
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.ExecutionTimeOnly(queryLimits.Value), cancellationToken);
         return reader.Read()
             ? new AppSessionScreenshotResponse { ContentType = reader.GetString(0), ImageBase64 = reader.GetString(1) }

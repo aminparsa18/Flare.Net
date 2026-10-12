@@ -240,3 +240,46 @@ export async function getAppSessionScreenshot(
 	}
 	return (await res.json()) as AppSessionScreenshot;
 }
+
+/** The times of a session's scheduled screenshots (session replay-lite, ADR-0192), oldest first. */
+export interface AppSessionReplay {
+	sessionId: string;
+	frameUnixMs: number[];
+	truncated: boolean;
+}
+
+export async function getAppSessionReplay(
+	sessionId: string,
+	range: { fromUnixMs?: number; toUnixMs?: number },
+	signal?: AbortSignal
+): Promise<AppSessionReplay> {
+	const res = await apiFetch(`${API_BASE_URL}/api/app-sessions/replay`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ sessionId, fromUnixMs: range.fromUnixMs ?? null, toUnixMs: range.toUnixMs ?? null }),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/app-sessions/replay failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as AppSessionReplay;
+}
+
+/** The scheduled screenshot taken at one of the session's frame times, or null when it is gone (404). */
+export async function getAppSessionReplayFrame(
+	sessionId: string,
+	timeUnixMs: number,
+	signal?: AbortSignal
+): Promise<AppSessionScreenshot | null> {
+	const res = await apiFetch(`${API_BASE_URL}/api/app-sessions/replay/frame`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ sessionId, timeUnixMs }),
+		signal
+	});
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`POST /api/app-sessions/replay/frame failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as AppSessionScreenshot;
+}
