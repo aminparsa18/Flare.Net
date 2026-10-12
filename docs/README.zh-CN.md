@@ -123,6 +123,7 @@
 -[采样、聚类与成本](explanation/sampling-clustering-and-cost.zh-CN.md)
 -[项目与访问范围](explanation/projects-and-access-scoping.zh-CN.md)
 -[保留策略与分层存储](explanation/retention-and-tiering.zh-CN.md)
+-[数据驻留与隐私](explanation/data-residency-and-privacy.zh-CN.md)
 
 ## 贡献文档
 
