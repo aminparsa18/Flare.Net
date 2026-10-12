@@ -98,7 +98,7 @@ folders are where "what happened and why" actually lives.
     React Native and Flutter, each thin over OTLP.
 - **Issue workflow, alert integrations and hosted-service parity.** Platform-wide, not specific to any one app or SDK.
   - Issue workflow follow-ups (ADR-0195, ADR-0196, ADR-0197): prefilled new-issue links and issue creation for Jira and
-    GitLab, and the owner in MCP `list_exceptions` once the groups API returns it.
+    GitLab.
   - Alert integrations beyond webhook/Slack/Telegram/email/PagerDuty: Teams, Opsgenie, Discord, and a Jira ticket on
     first occurrence.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested

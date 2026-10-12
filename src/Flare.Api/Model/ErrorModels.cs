@@ -73,6 +73,9 @@ public sealed partial record ExceptionGroup
 
     /// <summary>Source-file paths from one sample occurrence's stack trace (<see cref="Errors.StackFramePaths"/>), top frame first; empty when the group has no stack trace with file info. What <c>Path</c> ownership rules match (ADR-0196).</summary>
     public IReadOnlyList<string> SamplePaths { get; init; } = [];
+
+    /// <summary>The group's assignee, else the first matching ownership rule's owner (ADR-0197); empty when unowned. Always the same answer the dashboard derives itself.</summary>
+    public string Owner { get; init; } = "";
 }
 
 /// <summary>Response body for <c>POST /api/errors/groups</c>.</summary>

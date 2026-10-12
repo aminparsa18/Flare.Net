@@ -24,7 +24,7 @@ public interface IExceptionQueryService
 /// aggregate vs. a whole-span search) diverge enough to cost more shared-code complexity than
 /// they'd save.
 /// </summary>
-public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IExceptionQueryService
+public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IErrorIssueQueryService errorIssues, IErrorOwnershipQueryService ownership) : IExceptionQueryService
 {
     public async Task<ExceptionGroupsResponse> GetGroupsAsync(ExceptionGroupsRequest request, CancellationToken cancellationToken)
     {
@@ -47,7 +47,32 @@ public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<Que
             });
         }
 
-        return new ExceptionGroupsResponse { Groups = groups };
+        return new ExceptionGroupsResponse { Groups = await WithOwnersAsync(groups, cancellationToken) };
+    }
+
+    /// <summary>Fills each group's <see cref="ExceptionGroup.Owner"/> (ADR-0197). Best-effort: a failed lookup leaves the groups unowned.</summary>
+    private async Task<IReadOnlyList<ExceptionGroup>> WithOwnersAsync(List<ExceptionGroup> groups, CancellationToken cancellationToken)
+    {
+        if (groups.Count == 0)
+        {
+            return groups;
+        }
+
+        try
+        {
+            var assignees = await errorIssues.ListAssigneesAsync(cancellationToken);
+            var rules = await ownership.ListAsync(cancellationToken);
+            return groups.Select(g =>
+            {
+                assignees.TryGetValue(ErrorIssueFingerprint.Key(g.ExceptionType, g.ExceptionMessage), out var assignee);
+                var owner = ErrorOwnership.Resolve(assignee, rules, g.ExceptionType, g.AffectedServices, g.SamplePaths);
+                return owner is null ? g : g with { Owner = owner.Owner };
+            }).ToList();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return groups;
+        }
     }
 
     public async Task<ExceptionOccurrencesResponse> GetOccurrencesAsync(ExceptionOccurrencesRequest request, CancellationToken cancellationToken)
