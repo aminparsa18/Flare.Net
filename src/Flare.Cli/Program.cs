@@ -170,6 +170,17 @@ app.Configure(config =>
         retention.AddCommand<RetentionSetCommand>("set")
             .WithDescription("Set a signal's retention, cold-storage tiering and per-resource rules (admin).");
     });
+    config.AddBranch("erasure", erasure =>
+    {
+        erasure.AddCommand<ErasurePreviewCommand>("preview")
+            .WithDescription("Dry run: count the rows a data subject's identifiers match in every table (admin).");
+        erasure.AddCommand<ErasureRunCommand>("run")
+            .WithDescription("Permanently delete a data subject's telemetry (admin). Requires --confirm.");
+        erasure.AddCommand<ErasureStatusCommand>("status")
+            .WithDescription("Show erasure requests and their delete progress.");
+        erasure.AddCommand<ErasureExportCommand>("export")
+            .WithDescription("Export a data subject's telemetry as NDJSON (admin).");
+    });
     config.AddBranch("forwarding", forwarding =>
     {
         forwarding.AddCommand<ForwardingListCommand>("list")

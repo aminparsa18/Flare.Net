@@ -28,6 +28,7 @@
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import SigmaIcon from '@lucide/svelte/icons/sigma';
 	import FileCodeIcon from '@lucide/svelte/icons/file-code';
+	import EraserIcon from '@lucide/svelte/icons/eraser';
 	import { authContext } from '$lib/auth/context';
 	import { settingsManagementLinks, workspaceLinks } from '$lib/components/nav/nav-links';
 	import { searchSettings } from '$lib/settings/search-index';
@@ -56,6 +57,7 @@
 		'/settings/indexing': LayersIcon,
 		'/settings/usage': ChartColumnIcon,
 		'/settings/retention': HourglassIcon,
+		'/settings/erasure': EraserIcon,
 		'/settings/telemetry-export': SendIcon,
 		'/settings/projects': FolderIcon,
 		'/settings/ingest-keys': KeyIcon,

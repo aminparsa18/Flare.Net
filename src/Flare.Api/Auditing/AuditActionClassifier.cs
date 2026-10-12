@@ -72,6 +72,9 @@ public static class AuditActionClassifier
         new("PUT", "/api/views/{id:guid}", "saved-view", "update", "id"),
         new("DELETE", "/api/views/{id:guid}", "saved-view", "delete", "id"),
 
+        new("POST", "/api/erasure", "data-erasure", "erase", null),
+        new("POST", "/api/erasure/export", "data-erasure", "export", null),
+
         new("PATCH", "/api/users/{id:guid}/role", "user", "set-role", "id"),
         new("PATCH", "/api/users/{id:guid}/disabled", "user", "set-disabled", "id"),
 

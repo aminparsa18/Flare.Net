@@ -9,6 +9,8 @@ public class AuditActionClassifierTests
     [InlineData("POST", "/api/alerts", "alert", "create", null)]
     [InlineData("PUT", "/api/alerts/{id:guid}", "alert", "update", "id")]
     [InlineData("DELETE", "/api/dashboards/{id:guid}", "dashboard", "delete", "id")]
+    [InlineData("POST", "/api/erasure", "data-erasure", "erase", null)]
+    [InlineData("POST", "/api/erasure/export", "data-erasure", "export", null)]
     [InlineData("PATCH", "/api/users/{id:guid}/role", "user", "set-role", "id")]
     [InlineData("DELETE", "/api/access-tokens/{id:guid}", "access-token", "revoke", "id")]
     [InlineData("PUT", "/api/settings/oidc", "oidc-settings", "update", null)]
