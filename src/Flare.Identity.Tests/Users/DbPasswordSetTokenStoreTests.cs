@@ -90,9 +90,9 @@ public class DbPasswordSetTokenStoreTests : IAsyncLifetime
         var keep = await _sessions.CreateAsync(user.Id, TimeSpan.FromHours(1));
         var drop = await _sessions.CreateAsync(user.Id, TimeSpan.FromHours(1));
 
-        await _sessions.DeleteAllForUserExceptAsync(user.Id, keep.Id);
+        await _sessions.DeleteAllForUserExceptAsync(user.Id, keep.Token!);
 
-        Assert.NotNull(await _sessions.FindAsync(keep.Id));
-        Assert.Null(await _sessions.FindAsync(drop.Id));
+        Assert.NotNull(await _sessions.FindAsync(keep.Token!));
+        Assert.Null(await _sessions.FindAsync(drop.Token!));
     }
 }

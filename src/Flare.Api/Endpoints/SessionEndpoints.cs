@@ -1,6 +1,4 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -25,9 +23,8 @@ public static class SessionEndpoints
         return endpoints;
     }
 
-    /// <summary>First 16 bytes of SHA-256(token), hex - stable per session, not reversible.</summary>
-    internal static string HandleFor(string token) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)).AsSpan(0, 16)).ToLowerInvariant();
+    /// <summary>First 16 bytes (32 hex chars) of the session's stored digest - stable per session, not reversible to the token.</summary>
+    internal static string HandleFor(string sessionId) => sessionId[..32];
 
     internal static async Task<IResult> HandleListAsync(
         HttpContext http, ClaimsPrincipal principal, ISessionStore sessions, IOptions<AuthOptions> authOptions, CancellationToken cancellationToken)
@@ -37,7 +34,7 @@ public static class SessionEndpoints
             return Results.Unauthorized();
         }
 
-        var currentHandle = CurrentToken(http, authOptions) is { } token ? HandleFor(token) : null;
+        var currentHandle = CurrentToken(http, authOptions) is { } token ? HandleFor(SessionTokenHasher.Hash(token)) : null;
         var list = await sessions.ListForUserAsync(userId, cancellationToken);
         var dtos = list.Select(s => new SessionDto
         {
@@ -65,7 +62,7 @@ public static class SessionEndpoints
             return Results.NotFound();
         }
 
-        await sessions.DeleteAsync(match.Id, cancellationToken);
+        await sessions.DeleteByIdAsync(match.Id, cancellationToken);
         return Results.NoContent();
     }
 

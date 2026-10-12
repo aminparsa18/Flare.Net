@@ -105,7 +105,7 @@ public class AuthEndpointsTests
         Assert.Contains(DefaultAuthOptions.CookieName, setCookie);
         Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
 
-        // The cookie's value is the session token itself (Session.Id doubles as both) -
+        // The cookie's value is the session token itself (Session.Token) -
         // confirm a real session was actually created, not just a cookie shape.
         var token = ExtractCookieValue(setCookie, DefaultAuthOptions.CookieName);
         Assert.NotNull(await sessions.FindAsync(token));
@@ -120,14 +120,14 @@ public class AuthEndpointsTests
         var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1));
 
         var context = new DefaultHttpContext { RequestServices = EmptyRequestServices };
-        context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Id}";
+        context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Token}";
         context.Response.Body = new MemoryStream();
 
         var result = await AuthEndpoints.HandleLogoutAsync(context, users, sessions, new FakeProxyAuthSettingsStore(), Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Null(await sessions.FindAsync(session.Id));
+        Assert.Null(await sessions.FindAsync(session.Token!));
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.LogoutResponse);
         Assert.Null(dto!.RedirectUrl);
     }
@@ -144,14 +144,14 @@ public class AuthEndpointsTests
             LogoutRedirectUrl: "https://proxy.example.com/oauth2/sign_out"));
 
         var context = new DefaultHttpContext { RequestServices = EmptyRequestServices };
-        context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Id}";
+        context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Token}";
         context.Response.Body = new MemoryStream();
 
         var result = await AuthEndpoints.HandleLogoutAsync(context, users, sessions, proxyAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Null(await sessions.FindAsync(session.Id));
+        Assert.Null(await sessions.FindAsync(session.Token!));
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.LogoutResponse);
         Assert.Equal("https://proxy.example.com/oauth2/sign_out", dto!.RedirectUrl);
     }
@@ -168,7 +168,7 @@ public class AuthEndpointsTests
             LogoutRedirectUrl: "https://proxy.example.com/oauth2/sign_out"));
 
         var context = new DefaultHttpContext { RequestServices = EmptyRequestServices };
-        context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Id}";
+        context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Token}";
         context.Response.Body = new MemoryStream();
 
         var result = await AuthEndpoints.HandleLogoutAsync(context, users, sessions, proxyAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);

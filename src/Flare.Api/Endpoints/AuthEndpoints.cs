@@ -432,7 +432,7 @@ public static class AuthEndpoints
     internal static async Task SignInAsync(HttpContext http, ISessionStore sessions, AuthOptions authOptions, User user, CancellationToken cancellationToken)
     {
         var session = await sessions.CreateAsync(user.Id, authOptions.SessionLifetime, cancellationToken);
-        http.Response.Cookies.Append(authOptions.CookieName, session.Id, new CookieOptions
+        http.Response.Cookies.Append(authOptions.CookieName, session.Token!, new CookieOptions
         {
             HttpOnly = true,
             Secure = authOptions.CookieSecure,

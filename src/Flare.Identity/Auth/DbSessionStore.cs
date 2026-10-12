@@ -8,6 +8,7 @@ public sealed class DbSessionStore(IdentityDbConnectionFactory connectionFactory
     public async Task<Session> CreateAsync(Guid userId, TimeSpan lifetime, CancellationToken cancellationToken = default)
     {
         var token = GenerateToken();
+        var id = SessionTokenHasher.Hash(token);
         var now = timeProvider.GetUtcNow();
         var expiresAt = now + lifetime;
 
@@ -18,14 +19,14 @@ public sealed class DbSessionStore(IdentityDbConnectionFactory connectionFactory
             INSERT INTO Sessions (Id, UserId, CreatedAt, ExpiresAt, LastSeenAt)
             VALUES (@id, @userId, @createdAt, @expiresAt, @lastSeenAt)
             """;
-        command.AddParameter("@id", token);
+        command.AddParameter("@id", id);
         command.AddParameter("@userId", userId.ToString());
         command.AddParameter("@createdAt", now.ToString("O"));
         command.AddParameter("@expiresAt", expiresAt.ToString("O"));
         command.AddParameter("@lastSeenAt", now.ToString("O"));
         await command.ExecuteNonQueryAsync(cancellationToken);
 
-        return new Session(token, userId, now, expiresAt, now);
+        return new Session(id, userId, now, expiresAt, now, token);
     }
 
     public async Task<Session?> FindAsync(string token, CancellationToken cancellationToken = default)
@@ -36,7 +37,7 @@ public sealed class DbSessionStore(IdentityDbConnectionFactory connectionFactory
         await using (var select = connection.CreateCommand())
         {
             select.CommandText = "SELECT Id, UserId, CreatedAt, ExpiresAt, LastSeenAt FROM Sessions WHERE Id = @id";
-            select.AddParameter("@id", token);
+            select.AddParameter("@id", SessionTokenHasher.Hash(token));
             await using var reader = await select.ExecuteReaderAsync(cancellationToken);
             session = await reader.ReadAsync(cancellationToken) ? ReadSession(reader) : null;
         }
@@ -62,7 +63,16 @@ public sealed class DbSessionStore(IdentityDbConnectionFactory connectionFactory
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM Sessions WHERE Id = @id";
-        command.AddParameter("@id", token);
+        command.AddParameter("@id", SessionTokenHasher.Hash(token));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task DeleteByIdAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Sessions WHERE Id = @id";
+        command.AddParameter("@id", sessionId);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -81,7 +91,7 @@ public sealed class DbSessionStore(IdentityDbConnectionFactory connectionFactory
         await using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM Sessions WHERE UserId = @userId AND Id <> @keep";
         command.AddParameter("@userId", userId.ToString());
-        command.AddParameter("@keep", keepToken);
+        command.AddParameter("@keep", SessionTokenHasher.Hash(keepToken));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -113,7 +123,7 @@ public sealed class DbSessionStore(IdentityDbConnectionFactory connectionFactory
         await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE Sessions SET LastSeenAt = @lastSeenAt WHERE Id = @id";
         command.AddParameter("@lastSeenAt", timeProvider.GetUtcNow().ToString("O"));
-        command.AddParameter("@id", token);
+        command.AddParameter("@id", SessionTokenHasher.Hash(token));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 

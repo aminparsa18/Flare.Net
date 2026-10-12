@@ -3,7 +3,7 @@ namespace Flare.Identity.Auth;
 public interface ISessionStore
 {
     /// <summary>Creates a new session for <paramref name="userId"/>, generating a fresh
-    /// 256-bit token as its id. <paramref name="lifetime"/> sets a fixed
+    /// 256-bit token (returned once in <see cref="Session.Token"/>) and storing only its SHA-256 digest as the id. <paramref name="lifetime"/> sets a fixed
     /// <see cref="Session.ExpiresAt"/> from now - see <see cref="AuthOptions.SessionLifetime"/>.</summary>
     Task<Session> CreateAsync(Guid userId, TimeSpan lifetime, CancellationToken cancellationToken = default);
 
@@ -14,6 +14,10 @@ public interface ISessionStore
 
     /// <summary>Revokes a single session (logout).</summary>
     Task DeleteAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>Revokes a session by its stored <see cref="Session.Id"/> (the digest), for callers that
+    /// only hold a listed <see cref="Session"/> and not the raw token.</summary>
+    Task DeleteByIdAsync(string sessionId, CancellationToken cancellationToken = default);
 
     /// <summary>Revokes every session for a user (e.g. when an admin disables the account).</summary>
     Task DeleteAllForUserAsync(Guid userId, CancellationToken cancellationToken = default);

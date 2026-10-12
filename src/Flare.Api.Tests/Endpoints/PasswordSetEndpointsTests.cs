@@ -140,7 +140,7 @@ public class PasswordSetEndpointsTests
 
         var c = Ctx();
         Assert.Equal(200, await Run(await UserEndpoints.HandlePasswordResetAsync(local.Id, c, users, sessions, tokens, default), c));
-        Assert.False(sessions.Contains(s.Id));
+        Assert.False(sessions.Contains(s.Token!));
 
         var c2 = Ctx();
         Assert.Equal(400, await Run(await UserEndpoints.HandlePasswordResetAsync(sso.Id, c2, users, sessions, tokens, default), c2));
@@ -156,8 +156,8 @@ public class PasswordSetEndpointsTests
         var b = await sessions.CreateAsync(sso.Id, TimeSpan.FromHours(1));
 
         Assert.Equal(204, await Run(await UserEndpoints.HandleSignOutAsync(sso.Id, users, sessions, default), Ctx()));
-        Assert.False(sessions.Contains(a.Id));
-        Assert.False(sessions.Contains(b.Id));
+        Assert.False(sessions.Contains(a.Token!));
+        Assert.False(sessions.Contains(b.Token!));
         Assert.Equal(404, await Run(await UserEndpoints.HandleSignOutAsync(Guid.NewGuid(), users, sessions, default), Ctx()));
     }
 
@@ -185,14 +185,14 @@ public class PasswordSetEndpointsTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, u.Id.ToString())], "test"));
         var opts = Options.Create(new AuthOptions());
 
-        var bad = Ctx(new { currentPassword = "wrong", newPassword = "new-password-1" }, mine.Id);
+        var bad = Ctx(new { currentPassword = "wrong", newPassword = "new-password-1" }, mine.Token!);
         Assert.Equal(400, await Run(await AuthEndpoints.HandleChangePasswordAsync(bad, principal, users, sessions, opts, default), bad));
-        Assert.True(sessions.Contains(other.Id));
+        Assert.True(sessions.Contains(other.Token!));
 
-        var ok = Ctx(new { currentPassword = "old-password-1", newPassword = "new-password-1" }, mine.Id);
+        var ok = Ctx(new { currentPassword = "old-password-1", newPassword = "new-password-1" }, mine.Token!);
         Assert.Equal(204, await Run(await AuthEndpoints.HandleChangePasswordAsync(ok, principal, users, sessions, opts, default), ok));
-        Assert.True(sessions.Contains(mine.Id));
-        Assert.False(sessions.Contains(other.Id));
+        Assert.True(sessions.Contains(mine.Token!));
+        Assert.False(sessions.Contains(other.Token!));
         Assert.NotNull(await users.VerifyPasswordAsync("me", "new-password-1"));
     }
 }
