@@ -91,7 +91,6 @@ folders are where "what happened and why" actually lives.
     regression; iOS process start time; time-to-first-frame rather than first resume (a warm start is only the
     `OnRestart` to `OnResume` gap, about 12 ms).
   - Profiling follow-ups (ADR-0181): iOS, `app.start` profiles, managed frames, and a flame graph in the dashboard.
-  - User feedback: an in-app "report a problem" prompt that attaches the session, with a dashboard inbox.
   - Windows support, and a live (not startup-only) offline queue cap.
   - Scrub exception events recorded by other instrumentation (ADR-0191): an `ActivityEvent` is immutable once added, so
     this needs a different mechanism than a processor.

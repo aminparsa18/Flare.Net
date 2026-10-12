@@ -51,6 +51,10 @@ uploaded on that schedule, up to `MaxReplayScreenshots` (120) per launch, and th
 the timeline. Text inputs are hidden in every screenshot (`MaskTextInputs`, on by default; a password `Entry` always), and
 `FlareMask.IsMasked` hides any other view ([ADR-0192](../../docs-internal/adr/0192-maui-session-replay-lite.md)).
 
+User feedback: `await FlareFeedback.PromptAsync(page)` shows a "report a problem" dialog, and
+`FlareMaui.SendFeedbackAsync(message, email, name)` sends one from your own form. The message goes to `/v1/feedback` with
+the session id and appears in the Sessions > Feedback inbox ([ADR-0193](../../docs-internal/adr/0193-maui-user-feedback.md)).
+
 Your own spans and metrics: add the source/meter name to `o.AdditionalSources` / `o.AdditionalMeters`.
 `FlareMaui.RecordException(ex)` reports an exception you handled. `FlareMaui.Tracing` and `.Metering` expose the
 providers.

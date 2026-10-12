@@ -283,3 +283,40 @@ export async function getAppSessionReplayFrame(
 	}
 	return (await res.json()) as AppSessionScreenshot;
 }
+
+export interface AppFeedback {
+	feedbackId: string;
+	timeUnixMs: number;
+	serviceName: string;
+	sessionId: string;
+	userId: string;
+	name: string;
+	email: string;
+	appVersion: string;
+	message: string;
+}
+
+export interface AppFeedbackResponse {
+	items: AppFeedback[];
+	/** More messages matched than the server returns (the oldest were cut). */
+	truncated: boolean;
+}
+
+export interface AppFeedbackQuery {
+	windowMinutes: number;
+	service?: string;
+}
+
+/** User feedback sent from the app (`POST /api/app-feedback/list`, ADR-0193), newest first. */
+export async function getAppFeedback(query: AppFeedbackQuery, signal?: AbortSignal): Promise<AppFeedbackResponse> {
+	const res = await apiFetch(`${API_BASE_URL}/api/app-feedback/list`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ windowMinutes: query.windowMinutes, service: query.service || null }),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/app-feedback/list failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as AppFeedbackResponse;
+}

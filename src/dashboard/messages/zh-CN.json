@@ -3648,5 +3648,17 @@
 	"releases_confirmDelete": "移除 {service} {version} 的发布标记？遥测数据不受影响。",
 	"releases_noNewErrors": "没有异常分组首次出现在此版本中（已回溯部署前 {days} 天）。",
 	"releases_occurrences": "{count} 次出现",
-	"releases_historyNote": "若某分组在部署前 {days} 天内没有出现过，则视为新增。"
+	"releases_historyNote": "若某分组在部署前 {days} 天内没有出现过，则视为新增。",
+	"feedbackPage_title": "用户反馈 · Flare",
+	"feedbackPage_heading": "用户反馈",
+	"feedbackPage_link": "反馈",
+	"feedbackPage_back": "所有会话",
+	"feedbackPage_emptyTitle": "此时间范围内没有反馈",
+	"feedbackPage_emptyDescription": "用户通过应用中的 FlareMaui.SendFeedbackAsync 或内置的 FlareFeedback.PromptAsync 提示发送反馈。每条消息都附带其所属会话。",
+	"feedbackPage_truncated": "仅显示最新的 200 条消息；缩小时间范围或服务以查看其余内容。",
+	"feedbackPage_timeColumn": "时间",
+	"feedbackPage_userColumn": "用户",
+	"feedbackPage_messageColumn": "消息",
+	"feedbackPage_anonymous": "匿名",
+	"feedbackPage_openSession": "打开会话"
 }

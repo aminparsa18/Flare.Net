@@ -282,6 +282,25 @@ FlareMask.SetIsMasked(balanceLabel, true);
 Un conteneur masqué cache ses enfants. Le masquage ne couvre que ce que MAUI affiche sur la page principale : une boîte
 de dialogue native ou le clavier système ne font pas partie de la capture.
 
+## Recueillir les retours des utilisateurs
+
+Laissez les utilisateurs dire ce qui s'est mal passé, avec la session jointe. La boîte de dialogue intégrée demande un
+message (et, au choix, une adresse e-mail) puis l'envoie :
+
+```csharp
+// depuis une page, par exemple un bouton « Signaler un problème »
+await FlareFeedback.PromptAsync(this, askForEmail: true);
+```
+
+Pour votre propre formulaire, appelez `FlareMaui.SendFeedbackAsync(message, email, name)` ; il renvoie `false` si rien n'a
+été stocké (hors ligne, message vide, rejet). Les messages vont à `POST /v1/feedback` sur le même endpoint et avec la même
+clé d'ingestion que le reste, portent l'id de session, l'utilisateur défini par `SetUser` et la version de l'application, et
+suivent le réglage de rétention des Traces. Ils apparaissent sous **Sessions > Feedback**, du plus récent au plus ancien,
+avec un bouton **Ouvrir la session** vers la chronologie (et le replay) qui a mené au signalement. Le message est du texte
+libre saisi par l'utilisateur et n'est pas expurgé ; l'e-mail et le nom sont envoyés tels que l'utilisateur les a saisis,
+indépendamment de `SendDefaultPii`. Un ClickHouse existant a besoin de la
+[migration 0082](../../../db/clickhouse/0082_app_feedback.sql).
+
 ## Signaler les exceptions non gérées
 
 La page **Errors** de Flare regroupe les exceptions enregistrées sur des spans.

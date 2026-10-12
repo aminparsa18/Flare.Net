@@ -21,6 +21,8 @@ public interface IAppSessionQueryService
     Task<AppSessionReplayResponse> GetReplayAsync(string sessionId, AppSessionTimelineRequest window, CancellationToken cancellationToken);
 
     Task<AppSessionScreenshotResponse?> GetReplayFrameAsync(string sessionId, long timeUnixMs, CancellationToken cancellationToken);
+
+    Task<AppFeedbackResponse> GetFeedbackAsync(AppFeedbackRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>The one component holding an <see cref="IClickHouseClient"/> for the <c>/sessions</c> page - see <see cref="AppSessionQueryBuilder"/> for the SQL.</summary>
@@ -285,5 +287,48 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
         return reader.Read()
             ? new AppSessionScreenshotResponse { ContentType = reader.GetString(0), ImageBase64 = reader.GetString(1) }
             : null;
+    }
+
+    public async Task<AppFeedbackResponse> GetFeedbackAsync(AppFeedbackRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = AppSessionQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var end = AppSessionQueryBuilder.ResolveWindowEnd(request.EndUnixMs, timeProvider.GetUtcNow());
+        var built = AppSessionQueryBuilder.BuildFeedback(request, windowMinutes, end);
+
+        var items = new List<AppFeedback>();
+        var truncated = false;
+        try
+        {
+            await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken);
+            while (reader.Read())
+            {
+                if (items.Count >= AppSessionQueryBuilder.MaxFeedbackRows)
+                {
+                    truncated = true;
+                    break;
+                }
+
+                items.Add(new AppFeedback
+                {
+                    FeedbackId = reader.GetString(0),
+                    TimeUnixMs = reader.GetFieldValue<long>(1),
+                    ServiceName = reader.GetString(2),
+                    SessionId = reader.GetString(3),
+                    UserId = reader.GetString(4),
+                    Name = reader.GetString(5),
+                    Email = reader.GetString(6),
+                    AppVersion = reader.GetString(7),
+                    Message = reader.GetString(8),
+                });
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Table missing (migration 0082 not applied yet): an empty inbox, same page.
+            items.Clear();
+            truncated = false;
+        }
+
+        return new AppFeedbackResponse { Items = items, Truncated = truncated };
     }
 }

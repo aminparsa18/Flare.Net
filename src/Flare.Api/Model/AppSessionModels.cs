@@ -336,3 +336,49 @@ public sealed record AppPerformanceResponse
 
     public required IReadOnlyList<ScreenPerformance> Screens { get; init; }
 }
+
+/// <summary>Request body for <c>POST /api/app-feedback/list</c>: user feedback in a window, newest first (ADR-0193).</summary>
+public sealed record AppFeedbackRequest
+{
+    /// <summary>Lookback window; null/non-positive = <see cref="Query.AppSessionQueryBuilder.DefaultWindowMinutes"/>, clamped server-side.</summary>
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>Where the window ends, as Unix epoch milliseconds; null = now.</summary>
+    public long? EndUnixMs { get; init; }
+
+    /// <summary>Exact <c>ServiceName</c>. Null/empty = all services.</summary>
+    public string? Service { get; init; }
+
+    /// <summary>Only the feedback sent during this session.</summary>
+    public string? SessionId { get; init; }
+}
+
+/// <summary>One feedback message. <see cref="SessionId"/> links to the session timeline and replay.</summary>
+public sealed record AppFeedback
+{
+    public required string FeedbackId { get; init; }
+
+    public required long TimeUnixMs { get; init; }
+
+    public required string ServiceName { get; init; }
+
+    public required string SessionId { get; init; }
+
+    public required string UserId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string Email { get; init; }
+
+    public required string AppVersion { get; init; }
+
+    public required string Message { get; init; }
+}
+
+public sealed record AppFeedbackResponse
+{
+    public required IReadOnlyList<AppFeedback> Items { get; init; }
+
+    /// <summary>True when the window has more than <see cref="Query.AppSessionQueryBuilder.MaxFeedbackRows"/> messages (the oldest were cut).</summary>
+    public required bool Truncated { get; init; }
+}

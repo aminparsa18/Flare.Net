@@ -11,6 +11,8 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
+	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
+	import { withBase } from '$lib/paths';
 	import { AppSessionsState, APP_SESSIONS_WINDOW_PRESETS, type AppSessionsWindowPreset } from '$lib/app-sessions/state.svelte';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
 	import { crashFreePercent, framePercent } from '$lib/app-sessions-api';
@@ -108,6 +110,10 @@
 				{/each}
 			</Select.Content>
 		</Select.Root>
+		<Button variant="outline" size="sm" href={withBase('/sessions/feedback')}>
+			<MessageSquareIcon data-icon="inline-start" />
+			{m.feedbackPage_link()}
+		</Button>
 		<Button variant="outline" size="sm" onclick={() => sessions.load()} disabled={sessions.loading}>
 			{#if sessions.loading}
 				<Spinner class="size-4" data-icon="inline-start" />

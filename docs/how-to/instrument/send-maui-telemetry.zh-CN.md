@@ -217,6 +217,17 @@ FlareMask.SetIsMasked(balanceLabel, true);
 
 被遮罩的容器会连同其子元素一起隐藏。遮罩只覆盖 MAUI 在主页面上渲染的内容：原生对话框和系统键盘不在截图之内。
 
+## 收集用户反馈
+
+让用户说明哪里出了问题，并附带会话。内置提示会询问一条消息（可选再询问电子邮件地址）并发送：
+
+```csharp
+// 在页面中调用，例如“报告问题”按钮
+await FlareFeedback.PromptAsync(this, askForEmail: true);
+```
+
+如需自定义表单，请调用 `FlareMaui.SendFeedbackAsync(message, email, name)`；未存储任何内容时（离线、消息为空、被拒绝）返回 `false`。消息发送到同一端点和摄取密钥下的 `POST /v1/feedback`，附带会话 ID、由 `SetUser` 设置的用户和应用版本，并遵循链路的保留设置。它们显示在 **Sessions > Feedback** 下，按时间倒序排列，并带有 **打开会话** 按钮，可跳转到导致该报告的时间线（及回放）。消息是用户输入的自由文本，不会被脱敏；电子邮件和姓名按用户输入原样发送，与 `SendDefaultPii` 无关。已有的 ClickHouse 需要先执行[迁移 0082](../../../db/clickhouse/0082_app_feedback.sql)。
+
 ## 报告未处理的异常
 
 Flare 的 **Errors** 页面会对记录在 span 上的异常进行分组。将每次崩溃报告为一个带有

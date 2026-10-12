@@ -312,6 +312,36 @@ public static class AppSessionQueryBuilder
             "ORDER BY StartTime DESC\nLIMIT 1", "Kind = 'periodic'");
     }
 
+    /// <summary>Row cap for the feedback inbox. One more is fetched so the caller can tell it was cut.</summary>
+    public const int MaxFeedbackRows = 200;
+
+    /// <summary>
+    /// User feedback in the window, newest first. Columns: FeedbackId, TimeUnixMs, ServiceName, SessionId, UserId, Name,
+    /// Email, AppVersion, Message (ADR-0193).
+    /// </summary>
+    public static AppSessionSql BuildFeedback(AppFeedbackRequest request, int windowMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("from", end.AddMinutes(-windowMinutes).UtcDateTime);
+        parameters.AddParameter("to", end.UtcDateTime);
+        var clauses = new List<string> { "StartTime >= {from:DateTime64(3)}", "StartTime < {to:DateTime64(3)}" };
+        if (!string.IsNullOrEmpty(request.Service))
+        {
+            parameters.AddParameter("service", request.Service);
+            clauses.Add("ServiceName = {service:String}");
+        }
+        if (!string.IsNullOrEmpty(request.SessionId))
+        {
+            parameters.AddParameter("sessionId", request.SessionId);
+            clauses.Add("SessionId = {sessionId:String}");
+        }
+        ServiceScope.Append(clauses, parameters);
+        return new AppSessionSql(
+            "SELECT toString(FeedbackId), toUnixTimestamp64Milli(StartTime), ServiceName, SessionId, UserId, Name, Email, AppVersion, Message\n" +
+            $"FROM app_feedback\nWHERE {string.Join(" AND ", clauses)}\nORDER BY StartTime DESC, FeedbackId\nLIMIT {MaxFeedbackRows + 1}",
+            parameters);
+    }
+
     /// <summary>The newest screenshot of one span. Columns: ContentType, ImageBase64.</summary>
     public static AppSessionSql BuildScreenshot(string sessionId, string spanId, DateTimeOffset from, DateTimeOffset to) =>
         BuildScreenshotQuery("SELECT ContentType, ImageBase64", sessionId, spanId, from, to, "ORDER BY StartTime DESC\nLIMIT 1");
