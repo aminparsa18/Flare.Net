@@ -1,6 +1,6 @@
 # How to erase or export one person's telemetry
 
-Retention removes telemetry by age. When a person asks for their data to be deleted (GDPR Art. 17) or handed over (Art. 15), you need to remove or export it by who it belongs to instead. Flare matches rows on attributes such as `user.id`, `user.email` or `client.address`, across logs, spans (including exception events), metrics, profiles, and the screenshots and feedback of the user's sessions. Only an Admin can do this.
+Retention removes telemetry by age. When a person asks for their data to be deleted (GDPR Art. 17) or handed over (Art. 15), you need to remove or export it by who it belongs to instead. Flare matches rows on attributes such as `user.id`, `user.email` or `client.address`, across logs, spans (including exception events), metrics, profiles, and the rest of the user's sessions, including screenshots and feedback. Only an Admin can do this.
 
 You can do this in the dashboard under **Settings > Data erasure**, or with the `flare erasure` CLI and the `/api/erasure` API.
 
@@ -25,7 +25,7 @@ flare erasure preview --id user.id=42 --id user.email=jane@example.com
 
 Each `--id KEY=VALUE` is one identifier of the same person. A row belongs to them if any identifier matches. Matching is exact equality on a resource, scope, log, span, data-point or span-event attribute. The command prints the number of matching rows per table.
 
-Screenshots and feedback are matched through the session: Flare finds the `session.id` of every log and span that matches, then includes the screenshots and feedback recorded in those sessions. Feedback is also matched on its own user id and email fields. If more than 10,000 sessions match, the preview warns that the rest are not covered.
+Sessions are followed too: Flare finds the `session.id` of every log and span that matches, then also matches rows carrying one of those session ids, so log lines, spans and metric points from the same session are included even when they don't repeat the user id. Screenshots and feedback are matched only this way, plus feedback's own user id and email fields. If more than 10,000 sessions match, the preview warns that the rest are not covered.
 
 The same call is `POST /api/erasure/preview` with `{"identifiers": [{"key": "user.id", "value": "42"}]}`.
 

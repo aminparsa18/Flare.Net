@@ -94,6 +94,7 @@
 - [Как сократить атрибуты метрики при приёме](how-to/data/reduce-metric-attributes.ru.md)
 - [Как превратить поиск по логам в метрику](how-to/data/log-based-metrics.ru.md)
 - [Как задать срок хранения данных и перенести старые данные в холодное хранилище](how-to/data/set-data-retention.ru.md)
+- [Удалить или экспортировать телеметрию одного человека](how-to/data/erase-or-export-a-data-subjects-telemetry.ru.md)
 - [Как увидеть, что занимает место](how-to/data/see-what-drives-storage.ru.md)
 - [Как пересылать телеметрию на другой OTLP-эндпоинт](how-to/data/forward-telemetry-to-another-otlp-endpoint.ru.md)
 - [Как архивировать телеметрию в S3-совместимое хранилище](how-to/data/archive-telemetry-to-s3.ru.md)

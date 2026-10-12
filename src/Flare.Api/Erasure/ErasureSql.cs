@@ -24,7 +24,7 @@ public static class ErasureSql
     /// <summary>
     /// How a table is matched. <see cref="AttributeMaps"/> are <c>Map(String, String)</c> columns searched for
     /// <c>map[key] = value</c>; <see cref="EventAttributes"/> is the span <c>Events.Attributes</c> array of maps (exception
-    /// events); <see cref="UsesSessions"/> adds <c>SessionId IN (...)</c>; <see cref="UserIdColumn"/>/<see cref="EmailColumn"/>
+    /// events); <see cref="UsesSessions"/> adds <c>SessionId IN (...)</c>; <see cref="SessionMap"/> names the attribute map whose <c>session.id</c> is matched against the subject's sessions; <see cref="UserIdColumn"/>/<see cref="EmailColumn"/>
     /// are plain columns matched when the identifier key says they hold that value.
     /// </summary>
     public sealed record ErasureTable(
@@ -32,18 +32,19 @@ public static class ErasureSql
         IReadOnlyList<string> AttributeMaps,
         bool EventAttributes = false,
         bool UsesSessions = false,
+        string? SessionMap = null,
         string? UserIdColumn = null,
         string? EmailColumn = null);
 
     /// <summary>Every table that can hold a data subject's raw rows. The pre-aggregated rollups hold counts and quantiles with no identifiers, and the config tables are not telemetry.</summary>
     public static IReadOnlyList<ErasureTable> Tables { get; } =
     [
-        new("logs", ["ResourceAttributes", "ScopeAttributes", "LogAttributes"]),
-        new("spans", ["ResourceAttributes", "ScopeAttributes", "SpanAttributes"], EventAttributes: true),
-        new("metrics_gauge", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"]),
-        new("metrics_sum", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"]),
-        new("metrics_histogram", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"]),
-        new("metrics_exponential_histogram", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"]),
+        new("logs", ["ResourceAttributes", "ScopeAttributes", "LogAttributes"], SessionMap: "LogAttributes"),
+        new("spans", ["ResourceAttributes", "ScopeAttributes", "SpanAttributes"], EventAttributes: true, SessionMap: "SpanAttributes"),
+        new("metrics_gauge", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"], SessionMap: "DataPointAttributes"),
+        new("metrics_sum", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"], SessionMap: "DataPointAttributes"),
+        new("metrics_histogram", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"], SessionMap: "DataPointAttributes"),
+        new("metrics_exponential_histogram", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"], SessionMap: "DataPointAttributes"),
         new("profile_samples", ["ResourceAttributes", "SampleAttributes"]),
         new("app_screenshots", [], UsesSessions: true),
         new("app_feedback", [], UsesSessions: true, UserIdColumn: "UserId", EmailColumn: "Email"),
@@ -105,9 +106,18 @@ public static class ErasureSql
             }
         }
 
-        if (table.UsesSessions && sessionIds.Count > 0)
+        if (sessionIds.Count > 0)
         {
-            terms.Add($"SessionId IN ({string.Join(", ", sessionIds.Select(Literal))})");
+            var list = string.Join(", ", sessionIds.Select(Literal));
+            if (table.UsesSessions)
+            {
+                terms.Add($"SessionId IN ({list})");
+            }
+
+            if (table.SessionMap is { } map)
+            {
+                terms.Add($"{map}[{Literal(SessionAttribute)}] IN ({list})");
+            }
         }
 
         return terms.Count == 0 ? "0" : string.Join(" OR ", terms);

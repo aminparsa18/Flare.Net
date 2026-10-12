@@ -94,6 +94,7 @@
 - [在摄取时精简指标的属性](how-to/data/reduce-metric-attributes.zh-CN.md)
 - [把日志搜索变成指标](how-to/data/log-based-metrics.zh-CN.md)
 - [设置数据保留时长并将旧数据迁移到冷存储](how-to/data/set-data-retention.zh-CN.md)
+- [删除或导出某个人的遥测数据](how-to/data/erase-or-export-a-data-subjects-telemetry.zh-CN.md)
 - [查看存储的主要来源](how-to/data/see-what-drives-storage.zh-CN.md)
 - [将遥测数据转发到另一个 OTLP 端点](how-to/data/forward-telemetry-to-another-otlp-endpoint.zh-CN.md)
 - [将遥测数据归档到 S3 兼容存储](how-to/data/archive-telemetry-to-s3.zh-CN.md)

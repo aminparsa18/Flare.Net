@@ -106,8 +106,8 @@ folders are where "what happened and why" actually lives.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
   - **Data-subject erasure and export follow-ups** ([ADR-0198](../adr/0198-data-subject-erasure-export.md)). Russian,
-    French and Chinese translations of the how-to (`erase-or-export-a-data-subjects-telemetry`), following
-    sessions through metrics, and a live end-to-end run in cluster mode.
+    French and Chinese translations of the how-to (`erase-or-export-a-data-subjects-telemetry`) and a live end-to-end
+    run in cluster mode.
   - **Managed PII detection at ingest.** Redaction today means hand-written regex pipeline rules. Ship a built-in rule
     set (emails, Luhn-checked card numbers, IBANs, JWTs, bearer tokens, private keys) reusing the patterns in
     `AiRedactor`, one toggle, previewable with the [ADR-0034](../adr/0034-pipeline-rules-preview.md) simulator. A

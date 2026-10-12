@@ -94,6 +94,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Réduire les attributs d'une métrique à l'ingestion](how-to/data/reduce-metric-attributes.fr.md)
 - [Transformer une recherche de logs en métrique](how-to/data/log-based-metrics.fr.md)
 - [Définir la rétention des données et déplacer les anciennes données vers un stockage froid](how-to/data/set-data-retention.fr.md)
+- [Effacer ou exporter la télémétrie d'une personne](how-to/data/erase-or-export-a-data-subjects-telemetry.fr.md)
 - [Voir ce qui consomme le stockage](how-to/data/see-what-drives-storage.fr.md)
 - [Transférer la télémétrie vers un autre endpoint OTLP](how-to/data/forward-telemetry-to-another-otlp-endpoint.fr.md)
 - [Archiver la télémétrie vers un stockage compatible S3](how-to/data/archive-telemetry-to-s3.fr.md)

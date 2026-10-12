@@ -24,6 +24,15 @@ public class ErasureSqlTests
     }
 
     [Fact]
+    public void BuildPredicate_Sessions_AlsoMatchTheSessionAttributeOfLogsSpansAndMetrics()
+    {
+        Assert.EndsWith("OR LogAttributes['session.id'] IN ('s1')", ErasureSql.BuildPredicate(Table("logs"), [Id("user.id", "u1")], ["s1"]));
+        Assert.EndsWith("OR SpanAttributes['session.id'] IN ('s1')", ErasureSql.BuildPredicate(Table("spans"), [Id("user.id", "u1")], ["s1"]));
+        Assert.EndsWith("OR DataPointAttributes['session.id'] IN ('s1')", ErasureSql.BuildPredicate(Table("metrics_sum"), [Id("user.id", "u1")], ["s1"]));
+        Assert.DoesNotContain("session.id", ErasureSql.BuildPredicate(Table("profile_samples"), [Id("user.id", "u1")], ["s1"]));
+    }
+
+    [Fact]
     public void BuildPredicate_Spans_IncludesEventAttributes()
     {
         var sql = ErasureSql.BuildPredicate(Table("spans"), [Id("user.email", "a@b.c")], []);
