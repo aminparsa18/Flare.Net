@@ -80,6 +80,18 @@ check_16() {
   expect "http breadcrumb says failed: offline" "Name='breadcrumb' AND SpanAttributes['breadcrumb.message'] LIKE 'GET 10.255.255.1/ping failed: offline%'"
 }
 
+# Session replay-lite: the 5 s schedule (ADR-0192) must have stored at least 3 frames, with no trace or span id.
+# Whether the balance and notes text are blank is a visual check on the Sessions page.
+check_17() {
+  local n i
+  for i in $(seq 1 20); do
+    n=$(q "SELECT count() FROM app_screenshots WHERE ServiceName='$SERVICE' AND Kind='periodic' AND SpanId='' AND IngestedAt >= toDateTime64('$SINCE', 3)")
+    [ "${n:-0}" -ge 3 ] && { echo "    ok   $n scheduled replay frames stored"; return 0; }
+    sleep 2
+  done
+  echo "    FAIL scheduled replay frames (${n:-0} rows, expected >= 3)"; return 1
+}
+
 # Releases demo: mark both versions through the API (Member/Admin token in FLARE_TOKEN when auth is on), then ask which
 # errors 2.0.0 introduced. The shared handled error was already seen under 1.0.0 (or earlier), so it must not be listed.
 API=${FLARE_API:-http://localhost:8080}
@@ -93,7 +105,7 @@ check_15() {
   echo "    ok   Releases lists only the 2.0.0 error as new in 2.0.0"
 }
 
-for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen 15-releases 16-offline; do
+for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen 15-releases 16-offline 17-session-replay; do
   p=${f%%-*}
   if [ $# -gt 0 ]; then case " $* " in *" $p "*) ;; *) continue ;; esac; fi
   echo "== $f"

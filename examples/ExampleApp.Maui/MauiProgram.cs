@@ -37,6 +37,8 @@ public static class MauiProgram
                    if (version.Length > 0) o.ServiceVersion = version;
                    // Screenshots can show anything on screen, so a real app should think before enabling this.
                    o.CaptureScreenshotOnError = true;
+                   // Session replay-lite: a frame every 5 s while in the foreground; text inputs and FlareMask views are hidden.
+                   o.ScreenshotInterval = TimeSpan.FromSeconds(5);
                    o.ScrubAttribute = (key, value) => key == "example.email" ? "[redacted]" : value;
                    o.BeforeSend = span => span.OperationName != "example.noisy";
                });

@@ -17,7 +17,7 @@ It needs the MAUI workloads, so it lives in `Flare.Maui.slnx`, not `Flare.slnx`.
 3. Tap the buttons, then open the Flare dashboard and look for the `example-maui-app` service.
 4. Release comparison: set a `service.version` override (say `2.0.0`), save, relaunch, crash once on each version, and
    the Sessions page compares their crash-free rates. **Scrubbing** emits a span whose email tag shows `[redacted]`
-   and one that never arrives. Errors carry a screenshot, because the example turns `CaptureScreenshotOnError` on.
+   and one that never arrives. Errors carry a screenshot, because the example turns `CaptureScreenshotOnError` on. It also takes a session replay frame every 5 s (`ScreenshotInterval`); the Detail screen has a `FlareMask`ed balance and a notes field to check that masking blanks them (needs migration 0081 on the stack).
 5. Native crashes: tap **Native crash (abort)**, relaunch, and the crash shows up as a `Native.NativeCrash` error and a
    crashed session on the Sessions page (Android right away from `ApplicationExitInfo`; iOS when MetricKit delivers
    its report, up to a day later). On Android, **Freeze the UI thread** then tapping the screen for over 5 s produces an

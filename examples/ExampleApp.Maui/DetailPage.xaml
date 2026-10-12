@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:flare="clr-namespace:Flare.Maui;assembly=Flare.Maui"
              x:Class="ExampleApp.Maui.DetailPage"
              Title="Detail">
     <VerticalStackLayout Padding="20" Spacing="10">
         <Label Text="A second Shell route, so navigating here and back produces navigation spans." />
+        <!-- Session replay masking demo: both fields below must appear blank in the Sessions page's replay frames. -->
+        <Label Text="Account balance: $12,345.67 (marked with FlareMask)" AutomationId="BalanceLabel" FontSize="18"
+               flare:FlareMask.IsMasked="True" />
+        <Entry AutomationId="NotesEntry" Placeholder="Notes (text inputs are masked by default)" />
+        <Label Text="This label is not masked, so it shows in every frame." />
     </VerticalStackLayout>
 </ContentPage>
