@@ -10,17 +10,24 @@ internal sealed class FakeSessionStore : ISessionStore
     public Task<Session> CreateAsync(Guid userId, TimeSpan lifetime, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
-        var session = new Session(Guid.NewGuid().ToString("N"), userId, now, now + lifetime, now);
-        _sessionsByToken[session.Id] = session;
+        var token = Guid.NewGuid().ToString("N");
+        var session = new Session(SessionTokenHasher.Hash(token), userId, now, now + lifetime, now, token);
+        _sessionsByToken[session.Id] = session with { Token = null };
         return Task.FromResult(session);
     }
 
     public Task<Session?> FindAsync(string token, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_sessionsByToken.TryGetValue(token, out var session) && session.ExpiresAt > DateTimeOffset.UtcNow ? session : null);
+        Task.FromResult(_sessionsByToken.TryGetValue(SessionTokenHasher.Hash(token), out var session) && session.ExpiresAt > DateTimeOffset.UtcNow ? session : null);
 
     public Task DeleteAsync(string token, CancellationToken cancellationToken = default)
     {
-        _sessionsByToken.Remove(token);
+        _sessionsByToken.Remove(SessionTokenHasher.Hash(token));
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteByIdAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        _sessionsByToken.Remove(sessionId);
         return Task.CompletedTask;
     }
 
@@ -35,7 +42,7 @@ internal sealed class FakeSessionStore : ISessionStore
 
     public Task DeleteAllForUserExceptAsync(Guid userId, string keepToken, CancellationToken cancellationToken = default)
     {
-        foreach (var key in _sessionsByToken.Where(kv => kv.Value.UserId == userId && kv.Key != keepToken).Select(kv => kv.Key).ToList())
+        foreach (var key in _sessionsByToken.Where(kv => kv.Value.UserId == userId && kv.Key != SessionTokenHasher.Hash(keepToken)).Select(kv => kv.Key).ToList())
         {
             _sessionsByToken.Remove(key);
         }
@@ -48,12 +55,13 @@ internal sealed class FakeSessionStore : ISessionStore
 
     public Task TouchLastSeenAsync(string token, CancellationToken cancellationToken = default)
     {
-        if (_sessionsByToken.TryGetValue(token, out var session))
+        var id = SessionTokenHasher.Hash(token);
+        if (_sessionsByToken.TryGetValue(id, out var session))
         {
-            _sessionsByToken[token] = session with { LastSeenAt = DateTimeOffset.UtcNow };
+            _sessionsByToken[id] = session with { LastSeenAt = DateTimeOffset.UtcNow };
         }
         return Task.CompletedTask;
     }
 
-    public bool Contains(string token) => _sessionsByToken.ContainsKey(token);
+    public bool Contains(string token) => _sessionsByToken.ContainsKey(SessionTokenHasher.Hash(token));
 }

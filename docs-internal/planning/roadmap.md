@@ -146,9 +146,10 @@ folders are where "what happened and why" actually lives.
         unit-tested but was not exercised against a running stack. Verify with a short lifetime that live tail, the
         resource-graph watch and host stats close and the dashboard reconnects, that a revoked session or PAT is refused
         on the reconnect, and that a tail picks up a changed `AllowedServices` scope.
-    - **Hash session tokens at rest.** `Sessions.Id` holds the raw cookie token, while PATs and ingest keys are stored
-      as SHA-256 hashes. Store the digest and look up by digest (Sqlite and Postgres migrations; existing sessions can
-      simply be invalidated at upgrade).
+    - **Live e2e of hashed session tokens (ADR-0209).** Unit tests cover the store and endpoints, but not a real run:
+      sign in on a running stack, confirm `Sessions.Id` in the SQLite/Postgres file is a 64-char digest rather than the
+      cookie value, that the cookie still authenticates, and that revoke / sign-out-everywhere work. Also check that
+      pre-upgrade sessions are gone after migration `0036`/`0011` and a user can sign in again.
     - **ClickHouse published with a default password.** `docker-compose.yml` publishes `8123` with the default password
       `flare`. Bind to `127.0.0.1` by default (opt in to wider exposure) and have the installer generate a random
       password.

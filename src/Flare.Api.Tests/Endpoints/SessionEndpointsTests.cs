@@ -47,12 +47,12 @@ public class SessionEndpointsTests
         var other = await sessions.CreateAsync(userId, TimeSpan.FromHours(1));
         await sessions.CreateAsync(Guid.NewGuid(), TimeSpan.FromHours(1));
 
-        var c = Ctx(mine.Id);
+        var c = Ctx(mine.Token!);
         Assert.Equal(200, await Run(await SessionEndpoints.HandleListAsync(c, Principal(userId), sessions, Opts, default), c));
         c.Response.Body.Position = 0;
         var body = await new StreamReader(c.Response.Body).ReadToEndAsync();
-        Assert.DoesNotContain(mine.Id, body);
-        Assert.DoesNotContain(other.Id, body);
+        Assert.DoesNotContain(mine.Token!, body);
+        Assert.DoesNotContain(other.Token!, body);
 
         var list = JsonSerializer.Deserialize(body, SessionsJsonContext.Default.SessionListResponse)!;
         Assert.Equal(2, list.Sessions.Count);
@@ -69,11 +69,11 @@ public class SessionEndpointsTests
 
         var c1 = Ctx();
         Assert.Equal(404, await Run(await SessionEndpoints.HandleRevokeAsync(SessionEndpoints.HandleFor(theirs.Id), Principal(userId), sessions, default), c1));
-        Assert.True(sessions.Contains(theirs.Id));
+        Assert.True(sessions.Contains(theirs.Token!));
 
         var c2 = Ctx();
         Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAsync(SessionEndpoints.HandleFor(mine.Id), Principal(userId), sessions, default), c2));
-        Assert.False(sessions.Contains(mine.Id));
+        Assert.False(sessions.Contains(mine.Token!));
     }
 
     [Fact]
@@ -84,14 +84,14 @@ public class SessionEndpointsTests
         var mine = await sessions.CreateAsync(userId, TimeSpan.FromHours(1));
         var other = await sessions.CreateAsync(userId, TimeSpan.FromHours(1));
 
-        var keep = Ctx(mine.Id);
+        var keep = Ctx(mine.Token!);
         Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAllAsync(true, keep, Principal(userId), sessions, Opts, default), keep));
-        Assert.True(sessions.Contains(mine.Id));
-        Assert.False(sessions.Contains(other.Id));
+        Assert.True(sessions.Contains(mine.Token!));
+        Assert.False(sessions.Contains(other.Token!));
 
-        var all = Ctx(mine.Id);
+        var all = Ctx(mine.Token!);
         Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAllAsync(null, all, Principal(userId), sessions, Opts, default), all));
-        Assert.False(sessions.Contains(mine.Id));
+        Assert.False(sessions.Contains(mine.Token!));
     }
 
     [Fact]
