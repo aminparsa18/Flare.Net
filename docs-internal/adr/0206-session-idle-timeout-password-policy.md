@@ -14,8 +14,9 @@ side effect of generating a password-reset link, which is only valid for local a
 
 - **Idle timeout.** `Auth:SessionIdleTimeout` (unset by default, so behaviour is unchanged). `SessionAuthenticationHandler`
   compares `Sessions.LastSeenAt` with the timeout and deletes the session when it has been idle too long. `LastSeenAt` is
-  already refreshed at most once a minute, so no schema change; the cost is that the timeout is only accurate to about a
-  minute. The cookie keeps its absolute expiry, the idle check is server-side only.
+  refreshed at most once a minute, or every quarter of the timeout when that is shorter (found in e2e: otherwise a session
+  in continuous use is cut off under a timeout of a minute or less), so no schema change; the timeout is accurate to about
+  a minute. The cookie keeps its absolute expiry, the idle check is server-side only.
 - **Password policy.** `Auth:PasswordPolicy:{MinLength,RequireUppercase,RequireLowercase,RequireDigit,RequireSymbol}`, one
   `PasswordPolicy.Validate` used by bootstrap, set-password (invite/reset), change-password and `Identity:Admin:*`
   provisioning. Defaults reproduce the old behaviour (length 8 only). Login does not re-check it, so tightening the policy
