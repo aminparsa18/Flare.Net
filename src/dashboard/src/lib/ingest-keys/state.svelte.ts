@@ -7,6 +7,7 @@ import {
 	createIngestApiKey,
 	listIngestApiKeys,
 	revokeIngestApiKey,
+	setIngestApiKeyExpiry,
 	setIngestApiKeyOrigins,
 	setIngestApiKeyProject,
 	setIngestApiKeyServices,
@@ -61,17 +62,31 @@ export class IngestKeysState {
 		this.revealedKey = null;
 	}
 
-	async create(name: string, projectId: string | null = null): Promise<void> {
+	async create(name: string, projectId: string | null = null, expiresInDays: number | null = null): Promise<void> {
 		this.saving = true;
 		this.saveError = null;
 		try {
-			const response = await createIngestApiKey({ name, projectId });
+			const response = await createIngestApiKey({
+				name,
+				projectId,
+				expiresAtUnixMs: expiresInDays == null ? null : Date.now() + expiresInDays * 86_400_000
+			});
 			this.revealedKey = response.rawKey;
 			await this.load(true);
 		} catch (err) {
 			this.saveError = err instanceof Error ? err.message : String(err);
 		} finally {
 			this.saving = false;
+		}
+	}
+
+	/** Pushes the expiry `days` from now - also how an already-expired key is brought back. */
+	async extend(id: string, days: number): Promise<void> {
+		try {
+			await setIngestApiKeyExpiry(id, Date.now() + days * 86_400_000);
+			await this.load(true);
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
 		}
 	}
 

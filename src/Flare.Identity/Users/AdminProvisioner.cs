@@ -1,3 +1,4 @@
+using Flare.Identity.Auth;
 using Microsoft.Extensions.Logging;
 
 namespace Flare.Identity.Users;
@@ -8,10 +9,8 @@ namespace Flare.Identity.Users;
 /// </summary>
 public static class AdminProvisioner
 {
-    public const int MinPasswordLength = 8;
-
     public static async Task ApplyAsync(
-        IUserStore users, AdminProvisioningOptions options, ILogger logger, CancellationToken cancellationToken = default)
+        IUserStore users, AdminProvisioningOptions options, ILogger logger, CancellationToken cancellationToken = default, PasswordPolicy? policy = null)
     {
         var username = options.Username?.Trim();
         var password = ResolvePassword(options);
@@ -26,9 +25,9 @@ public static class AdminProvisioner
             return;
         }
 
-        if (password.Length < MinPasswordLength)
+        if ((policy ?? new PasswordPolicy()).Validate(password) is { } rejection)
         {
-            logger.LogWarning("Identity:Admin password must be at least {Min} characters; skipping admin provisioning.", MinPasswordLength);
+            logger.LogWarning("Identity:Admin password rejected: {Reason} Skipping admin provisioning.", rejection);
             return;
         }
 

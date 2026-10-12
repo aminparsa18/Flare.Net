@@ -110,9 +110,11 @@ folders are where "what happened and why" actually lives.
     single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
-  - **Session and credential hygiene.** Sessions have an absolute 14-day lifetime and no idle timeout. Add an idle
-    timeout, "sign out everywhere" per user, a configurable password policy (only `MinPasswordLength = 8` in
-    `AdminProvisioner` today), and expiry/rotation warnings for ingest keys and personal access tokens.
+  - **Pre-expiry notifications and CLI/config coverage for expiry.** Session idle timeout, admin sign-out and the password
+    policy ([ADR-0206](../adr/0206-session-idle-timeout-password-policy.md)) and ingest key expiry with a dashboard badge
+    ([ADR-0207](../adr/0207-ingest-key-expiry.md)) shipped. Still missing: a notification before an ingest key or personal
+    access token expires, an expiry badge on the personal access tokens page, and `--expires-in-days` for
+    `flare apikey create` plus expiry in `flare config` export/apply.
   - **Data-residency, DPA and sub-processor docs** (replaces the data-residency mention in the hosted-parity line above):
     a `docs/explanation` page on where each store lives, what can leave the box (AI providers, notification channels,
     update check), and a no-phone-home statement.

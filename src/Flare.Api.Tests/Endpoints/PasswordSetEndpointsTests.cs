@@ -5,6 +5,7 @@ using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Tests.TestSupport;
 using Flare.Identity.Auth;
+using Flare.Identity.PasswordSetTokens;
 using Flare.Identity.Users;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,11 +58,11 @@ public class PasswordSetEndpointsTests
         var link = await ReadLink(ic);
 
         var sc = Ctx(new { token = link.Token, password = "brand-new-pass" });
-        Assert.Equal(204, await Run(await AuthEndpoints.HandleSetPasswordAsync(sc, users, sessions, tokens, default), sc));
+        Assert.Equal(204, await Run(await AuthEndpoints.HandleSetPasswordAsync(sc, users, sessions, tokens, Options.Create(new AuthOptions()), default), sc));
         Assert.NotNull(await users.VerifyPasswordAsync("newbie", "brand-new-pass"));
 
         var again = Ctx(new { token = link.Token, password = "another-pass-1" });
-        Assert.Equal(400, await Run(await AuthEndpoints.HandleSetPasswordAsync(again, users, sessions, tokens, default), again));
+        Assert.Equal(400, await Run(await AuthEndpoints.HandleSetPasswordAsync(again, users, sessions, tokens, Options.Create(new AuthOptions()), default), again));
     }
 
     [Fact]
@@ -123,7 +124,7 @@ public class PasswordSetEndpointsTests
         var issued = await tokens.CreateAsync(u.Id, Flare.Identity.PasswordSetTokens.PasswordSetPurpose.Reset, TimeSpan.FromHours(1));
 
         var c = Ctx(new { token = issued.RawToken, password = "short" });
-        Assert.Equal(400, await Run(await AuthEndpoints.HandleSetPasswordAsync(c, users, new FakeSessionStore(), tokens, default), c));
+        Assert.Equal(400, await Run(await AuthEndpoints.HandleSetPasswordAsync(c, users, new FakeSessionStore(), tokens, Options.Create(new AuthOptions()), default), c));
         Assert.NotNull(await tokens.ConsumeAsync(issued.RawToken));
     }
 
@@ -143,6 +144,34 @@ public class PasswordSetEndpointsTests
 
         var c2 = Ctx();
         Assert.Equal(400, await Run(await UserEndpoints.HandlePasswordResetAsync(sso.Id, c2, users, sessions, tokens, default), c2));
+    }
+
+    [Fact]
+    public async Task AdminSignOut_RevokesEverySession_ForAnyProvider_AndNotFoundForUnknownUser()
+    {
+        var users = new FakeUserStore();
+        var sessions = new FakeSessionStore();
+        var sso = await users.CreateFromExternalAsync("Entra", "ext", "sso", UserRole.Viewer);
+        var a = await sessions.CreateAsync(sso.Id, TimeSpan.FromHours(1));
+        var b = await sessions.CreateAsync(sso.Id, TimeSpan.FromHours(1));
+
+        Assert.Equal(204, await Run(await UserEndpoints.HandleSignOutAsync(sso.Id, users, sessions, default), Ctx()));
+        Assert.False(sessions.Contains(a.Id));
+        Assert.False(sessions.Contains(b.Id));
+        Assert.Equal(404, await Run(await UserEndpoints.HandleSignOutAsync(Guid.NewGuid(), users, sessions, default), Ctx()));
+    }
+
+    [Fact]
+    public async Task SetPassword_EnforcesConfiguredPolicy()
+    {
+        var users = new FakeUserStore();
+        var tokens = new FakePasswordSetTokenStore();
+        var user = await users.CreateAsync("u", "password-123", UserRole.Viewer);
+        var issued = await tokens.CreateAsync(user.Id, PasswordSetPurpose.Reset, TimeSpan.FromHours(1));
+        var strict = Options.Create(new AuthOptions { PasswordPolicy = new PasswordPolicy { MinLength = 12, RequireDigit = true } });
+
+        var weak = Ctx(new { token = issued.RawToken, password = "longenoughbutnodigit" });
+        Assert.Equal(400, await Run(await AuthEndpoints.HandleSetPasswordAsync(weak, users, new FakeSessionStore(), tokens, strict, default), weak));
     }
 
     [Fact]

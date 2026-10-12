@@ -96,6 +96,7 @@
 - **使用它**：在您的 OTLP 导出器上发送 `Authorization: Bearer <key>`（gRPC 或 HTTP - 两者检查方式相同）。
 - **撤销它**：`DELETE /api/ingest-keys/{id}`。在 30 秒内生效 - `Flare.Ingest` 将活动密钥集缓存在内存中并在计时器上刷新它，而不是在每个摄取请求时点击 SQLite。
 - **重命名**：`PUT /api/ingest-keys/{id}/name`。名称在活动密钥中唯一（不区分大小写）；已撤销密钥的名称可以重复使用。
+- **设置过期**（可选）：创建时设置有效期（`POST /api/ingest-keys` 的 `expiresAtUnixMs`，或对话框中的“有效期”字段），之后可通过 `PUT /api/ingest-keys/{id}/expiry` 修改（`null` 表示清除；时间必须在未来）。过期的密钥会在到期的那一刻被拒绝，而不是延迟 30 秒，并且不算已撤销：设置新的未来过期时间即可恢复，**Ingest keys** 页面也提供一键延长 90 天。最后 14 天内页面会标注“N 天后过期”。密钥默认不会过期。[ADR-0207](../../../docs-internal/adr/0207-ingest-key-expiry.md)
 - **限制它**（可选）：在 **Ingest keys** 页面或通过 `PUT /api/ingest-keys/{id}/limits`，按 UTC 分钟和 UTC 天为密钥设置事件数和/或字节数上限，并带有启用开关。事件指日志记录、Span 和指标数据点。达到上限的密钥会收到可重试的 OTLP 限流响应 —— 带 `Retry-After` 的 HTTP `429`，或带 `RetryInfo` 延迟的 gRPC `RESOURCE_EXHAUSTED` —— 因此导出器会退避并重试，而不是丢弃数据。同一页面显示每个密钥在当前分钟和当天的用量。限制仅在 `Auth:IngestKeyRequired=true` 时生效（否则导出器可以直接省略密钥），从不适用于 `Auth:StaticIngestApiKey`，更改与吊销一样在 30 秒内生效。这是软上限：只要用量仍低于上限，批次就会被接受，因此一个时间窗口可能会因正在处理的批次而略微超出上限。
 - **迁移每个导出器后，启用强制执行：创建至少一个密钥，更新导出器以发送它，*然后*设置 `Auth:IngestKeyRequired=true`（默认为 `false`，因此升级现有部署不会突然拒绝匿名摄取）。该标志独立于仪表板的“需要登录”开关 - 摄取强制和仪表板/API 用户身份验证是单独的门。
 - **对于自动化设置**（AppHost 在任一进程开始之前连接资源图，其中“单击仪表板中的按钮”不适合）：`Auth:StaticIngestApiKey` 是通过配置设置的固定键，与通过 UI 创建的任何键一起有效。这是 `Flare.AppHost`（本地开发）和 `Aspire.Hosting.Flare` 的 `AddFlare(..., apiKey: ...)` 使用的。

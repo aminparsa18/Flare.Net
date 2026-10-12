@@ -7,6 +7,15 @@ public sealed record IngestApiKey(Guid Id, string Name, DateTimeOffset CreatedAt
 {
     public bool IsActive => RevokedAt is null;
 
+    /// <summary>When the key stops working (ADR-0207); null = never. Distinct from <see cref="RevokedAt"/>: an
+    /// expired key is not revoked and can be given a new expiry (or none) to bring it back.</summary>
+    public DateTimeOffset? ExpiresAt { get; init; }
+
+    public bool IsExpired(DateTimeOffset now) => ExpiresAt is { } at && at <= now;
+
+    /// <summary>Not revoked and not expired - what "active" means to a person looking at the key list.</summary>
+    public bool IsUsable(DateTimeOffset now) => IsActive && !IsExpired(now);
+
     public IngestApiKeyLimits Limits { get; init; } = IngestApiKeyLimits.None;
 
     /// <summary>The owning project (ADR-0123), or null for an instance-wide key.</summary>
@@ -24,6 +33,10 @@ public sealed record IngestApiKey(Guid Id, string Name, DateTimeOffset CreatedAt
 /// under (ADR-0051).</summary>
 public sealed record ActiveIngestApiKey(Guid Id, string Name, string KeyHash, IngestApiKeyLimits Limits)
 {
+    /// <summary>Checked per request against the clock, not just at cache refresh, so a key stops working at its
+    /// expiry rather than up to a refresh interval later (ADR-0207).</summary>
+    public DateTimeOffset? ExpiresAt { get; init; }
+
     public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
 
     public IReadOnlyList<string> AllowedServices { get; init; } = [];

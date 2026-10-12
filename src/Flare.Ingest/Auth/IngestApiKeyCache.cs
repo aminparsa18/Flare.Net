@@ -33,7 +33,7 @@ public sealed class IngestApiKeyCache(IIngestApiKeyStore store, IOptions<IngestA
     /// Bearer</c> header) and hashes it internally - callers never need to know the hash
     /// scheme, see <see cref="IngestApiKeyHasher"/>.</summary>
     public bool TryGetKey(string rawKey, [NotNullWhen(true)] out IngestKeyCacheEntry? entry) =>
-        _activeKeys.TryGetValue(IngestApiKeyHasher.Hash(rawKey), out entry);
+        _activeKeys.TryGetValue(IngestApiKeyHasher.Hash(rawKey), out entry) && !entry.IsExpired(DateTimeOffset.UtcNow);
 
     public bool IsValid(string rawKey) => TryGetKey(rawKey, out _);
 
@@ -65,6 +65,7 @@ public sealed class IngestApiKeyCache(IIngestApiKeyStore store, IOptions<IngestA
             {
                 map[key.KeyHash] = new IngestKeyCacheEntry(key.Id, key.Name, key.Limits)
                 {
+                    ExpiresAt = key.ExpiresAt,
                     AllowedOrigins = key.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase),
                     AllowedServices = key.AllowedServices.ToHashSet(StringComparer.Ordinal),
                 };
@@ -100,6 +101,11 @@ public sealed record IngestKeyCacheEntry(Guid? KeyId, string Name, IngestApiKeyL
 
     /// <summary>service.name values this key may write for (ADR-0150); empty = any.</summary>
     public IReadOnlySet<string> AllowedServices { get; init; } = new HashSet<string>();
+
+    /// <summary>When the key stops being accepted (ADR-0207); null = never, and always null for the static key.</summary>
+    public DateTimeOffset? ExpiresAt { get; init; }
+
+    public bool IsExpired(DateTimeOffset now) => ExpiresAt is { } at && at <= now;
 
     public static readonly IngestKeyCacheEntry StaticKey = new(null, "static", IngestApiKeyLimits.None);
 }

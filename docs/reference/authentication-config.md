@@ -43,6 +43,9 @@ generic `401` a wrong password gets.
 | `Identity:Admin:Reconcile` | `false` | Also reset the named account to the configured password, Admin role and enabled on every start. A password changed in the UI reverts on restart. |
 | `Auth:CookieName` | `flare_session` | Session cookie name. |
 | `Auth:SessionLifetime` | `14.00:00:00` (14 days) | Fixed session expiry, set at login. |
+| `Auth:SessionIdleTimeout` | unset (off) | Sign a session out after this long without a request, e.g. `00:30:00`. Accurate to about a minute. See [ADR-0206](../../docs-internal/adr/0206-session-idle-timeout-password-policy.md). |
+| `Auth:PasswordPolicy:MinLength` | `8` | Minimum length for any local password (bootstrap, invite/reset, change, `Identity:Admin:*`). Existing passwords are never re-checked at login. |
+| `Auth:PasswordPolicy:RequireUppercase` / `RequireLowercase` / `RequireDigit` / `RequireSymbol` | `false` | Require at least one character of that class. |
 | `Auth:CookieSecure` | `true` | Set `false` only for local plain-HTTP dev. |
 | `Auth:CookieSameSite` | `Lax` | `None` (with `CookieSecure=true`) if your dashboard and API are ever split across genuinely different domains, not just different ports on `localhost`. |
 | `Auth:MaxFailedLoginAttempts` | `5` | Consecutive failed local-login attempts for the same (username, client IP) pair before it's locked out. Only local username/password login is throttled this way - see [the authentication model](../explanation/authentication-model.md#local-usernamepassword). |

@@ -16,6 +16,7 @@
 	import FolderInputIcon from '@lucide/svelte/icons/folder-input';
 	import GlobeIcon from '@lucide/svelte/icons/globe';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
+	import CalendarPlusIcon from '@lucide/svelte/icons/calendar-plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { projects } from '$lib/projects/store.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -37,6 +38,27 @@
 		if (used >= cap) return 'text-destructive font-medium';
 		if (used >= cap * 0.8) return 'text-warning';
 		return '';
+	}
+
+	const SOON_DAYS = 14;
+	const EXTEND_DAYS = 90;
+
+	type Status = 'active' | 'expiring' | 'expired' | 'revoked';
+
+	/** Revoked wins over expired; "expiring" is an active key inside the warning window. */
+	function statusOf(key: IngestApiKeyDto): Status {
+		if (key.revokedAt) return 'revoked';
+		if (!key.isActive) return 'expired';
+		if (key.expiresAt && daysLeft(key.expiresAt) <= SOON_DAYS) return 'expiring';
+		return 'active';
+	}
+
+	function daysLeft(expiresAt: string): number {
+		return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000));
+	}
+
+	async function handleExtend(key: IngestApiKeyDto): Promise<void> {
+		await keys.extend(key.id, EXTEND_DAYS);
 	}
 
 	async function handleRevoke(key: IngestApiKeyDto): Promise<void> {
@@ -100,6 +122,7 @@
 				<Table.Row>
 					<Table.Head>{m.ingestKeyTable_nameColumn()}</Table.Head>
 					<Table.Head>{m.ingestKeyTable_statusColumn()}</Table.Head>
+					<Table.Head>{m.ingestKeyTable_expiresColumn()}</Table.Head>
 					{#if projects.mine.length}<Table.Head>{m.ingestKeyTable_projectColumn()}</Table.Head>{/if}
 					<Table.Head>{m.ingestKeyTable_createdColumn()}</Table.Head>
 					<Table.Head>{m.ingestKeyTable_limitsColumn()}</Table.Head>
@@ -115,11 +138,19 @@
 					<Table.Row>
 						<Table.Cell class="font-medium">{key.name}</Table.Cell>
 						<Table.Cell>
-							{#if key.isActive}
+							{@const status = statusOf(key)}
+							{#if status === 'active'}
 								<Badge variant="outline">{m.ingestKeyTable_statusActive()}</Badge>
+							{:else if status === 'expiring'}
+								<Badge variant="secondary" class="text-warning">{m.ingestKeyTable_expiresSoon({ days: daysLeft(key.expiresAt!) })}</Badge>
+							{:else if status === 'expired'}
+								<Badge variant="destructive">{m.ingestKeyTable_statusExpired()}</Badge>
 							{:else}
 								<Badge variant="destructive">{m.ingestKeyTable_statusRevoked()}</Badge>
 							{/if}
+						</Table.Cell>
+						<Table.Cell class="text-muted-foreground">
+							{key.expiresAt ? formatDateTime(key.expiresAt) : m.ingestKeyTable_neverExpires()}
 						</Table.Cell>
 						{#if projects.mine.length}
 							<Table.Cell class="text-muted-foreground">{projects.nameOf(key.projectId) ?? '—'}</Table.Cell>
@@ -178,6 +209,15 @@
 								onclick={() => keys.openLimits(key)}
 							>
 								<GaugeIcon />
+							</Button>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								title={m.ingestKeyTable_extend({ days: EXTEND_DAYS })}
+								disabled={!!key.revokedAt || !key.expiresAt}
+								onclick={() => handleExtend(key)}
+							>
+								<CalendarPlusIcon />
 							</Button>
 							<Button
 								variant="ghost"

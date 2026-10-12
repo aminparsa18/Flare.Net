@@ -32,6 +32,16 @@ public class AdminProvisionerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SkipsProvisioning_WhenPasswordViolatesPolicy()
+    {
+        await AdminProvisioner.ApplyAsync(
+            _store, new() { Username = "root", Password = "alllowercase" }, NullLogger.Instance,
+            policy: new PasswordPolicy { RequireDigit = true });
+
+        Assert.False(await _store.AnyAsync());
+    }
+
+    [Fact]
     public async Task ReadsPasswordFile_AndTrimsTrailingNewline()
     {
         var path = Path.GetTempFileName();

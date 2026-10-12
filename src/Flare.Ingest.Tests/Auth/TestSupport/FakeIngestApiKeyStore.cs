@@ -9,9 +9,9 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
     private readonly Dictionary<Guid, IngestApiKey> _keysById = [];
     private readonly Dictionary<Guid, string> _rawKeysById = [];
 
-    public Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, CancellationToken cancellationToken = default)
+    public Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, DateTimeOffset? expiresAt = null, CancellationToken cancellationToken = default)
     {
-        var key = new IngestApiKey(Guid.NewGuid(), name, DateTimeOffset.UtcNow, RevokedAt: null) { ProjectId = projectId };
+        var key = new IngestApiKey(Guid.NewGuid(), name, DateTimeOffset.UtcNow, RevokedAt: null) { ProjectId = projectId, ExpiresAt = expiresAt };
         var rawKey = Guid.NewGuid().ToString("N");
         _keysById[key.Id] = key;
         _rawKeysById[key.Id] = rawKey;
@@ -38,6 +38,16 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
             return Task.FromResult(false);
         }
         _keysById[id] = key with { Name = name };
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> SetExpiryAsync(Guid id, DateTimeOffset? expiresAt, CancellationToken cancellationToken = default)
+    {
+        if (!_keysById.TryGetValue(id, out var key))
+        {
+            return Task.FromResult(false);
+        }
+        _keysById[id] = key with { ExpiresAt = expiresAt };
         return Task.FromResult(true);
     }
 
@@ -84,7 +94,7 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
     {
         var keys = _keysById.Values
             .Where(k => k.IsActive)
-            .Select(k => new ActiveIngestApiKey(k.Id, k.Name, IngestApiKeyHasher.Hash(_rawKeysById[k.Id]), k.Limits) { AllowedOrigins = k.AllowedOrigins, AllowedServices = k.AllowedServices })
+            .Select(k => new ActiveIngestApiKey(k.Id, k.Name, IngestApiKeyHasher.Hash(_rawKeysById[k.Id]), k.Limits) { AllowedOrigins = k.AllowedOrigins, AllowedServices = k.AllowedServices, ExpiresAt = k.ExpiresAt })
             .ToList();
         return Task.FromResult<IReadOnlyList<ActiveIngestApiKey>>(keys);
     }

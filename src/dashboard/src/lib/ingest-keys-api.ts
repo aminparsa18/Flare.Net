@@ -15,6 +15,7 @@ import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memory
 import { CreateIngestApiKeyRequest as GeneratedCreateIngestApiKeyRequest } from '$lib/generated/memorypack/CreateIngestApiKeyRequest.js';
 import { SetIngestApiKeyProjectRequest as GeneratedSetIngestApiKeyProjectRequest } from '$lib/generated/memorypack/SetIngestApiKeyProjectRequest.js';
 import { NO_PROJECT } from './projects-api';
+import { SetIngestApiKeyExpiryRequest as GeneratedSetIngestApiKeyExpiryRequest } from '$lib/generated/memorypack/SetIngestApiKeyExpiryRequest.js';
 import { SetIngestApiKeyOriginsRequest as GeneratedSetIngestApiKeyOriginsRequest } from '$lib/generated/memorypack/SetIngestApiKeyOriginsRequest.js';
 import { SetIngestApiKeyServicesRequest as GeneratedSetIngestApiKeyServicesRequest } from '$lib/generated/memorypack/SetIngestApiKeyServicesRequest.js';
 import { UpdateIngestApiKeyLimitsRequest as GeneratedUpdateIngestApiKeyLimitsRequest } from '$lib/generated/memorypack/UpdateIngestApiKeyLimitsRequest.js';
@@ -51,11 +52,15 @@ export interface IngestApiKeyDto extends IngestApiKeyLimits, IngestApiKeyUsage {
 	allowedOrigins: string[];
 	/** service.name values the key may write for (ADR-0150); empty = any. */
 	allowedServices: string[];
+	/** When the key stops working (ADR-0207); `null` = never. `isActive` is already false once it has passed. */
+	expiresAt: string | null;
 }
 
 export interface CreateIngestApiKeyRequest {
 	name: string;
 	projectId?: string | null;
+	/** Optional expiry as Unix milliseconds; must be in the future. */
+	expiresAtUnixMs?: number | null;
 }
 
 /** `rawKey` is shown exactly once, here - Flare never stores or displays it again after this response. */
@@ -79,6 +84,7 @@ function toIngestApiKey(dto: GeneratedIngestApiKeyDto): IngestApiKeyDto {
 		projectId: dto.projectId,
 		allowedOrigins: dto.allowedOrigins,
 		allowedServices: dto.allowedServices,
+		expiresAt: dto.expiresAt?.toISOString() ?? null,
 		limitsEnabled: dto.limitsEnabled,
 		maxEventsPerMinute: toNumber(dto.maxEventsPerMinute),
 		maxBytesPerMinute: toNumber(dto.maxBytesPerMinute),
@@ -95,6 +101,7 @@ export async function createIngestApiKey(request: CreateIngestApiKeyRequest): Pr
 	const dto = new GeneratedCreateIngestApiKeyRequest();
 	dto.name = request.name;
 	dto.projectId = request.projectId ?? null;
+	dto.expiresAtUnixMs = toBigInt(request.expiresAtUnixMs ?? null);
 	const res = await apiFetch(`${API_BASE_URL}/api/ingest-keys`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),
@@ -139,6 +146,18 @@ export async function setIngestApiKeyProject(id: string, projectId: string | nul
 	if (!res.ok) {
 		throw new Error(`PUT /api/ingest-keys/${id}/project failed: ${res.status} ${res.statusText}`);
 	}
+}
+
+/** 204 No Content on success. `null` clears the expiry; a time must be in the future (ADR-0207). */
+export async function setIngestApiKeyExpiry(id: string, expiresAtUnixMs: number | null): Promise<void> {
+	const dto = new GeneratedSetIngestApiKeyExpiryRequest();
+	dto.expiresAtUnixMs = toBigInt(expiresAtUnixMs);
+	const res = await apiFetch(`${API_BASE_URL}/api/ingest-keys/${id}/expiry`, {
+		method: 'PUT',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSetIngestApiKeyExpiryRequest.serialize(dto))
+	});
+	if (!res.ok) throw await allowlistError(res, `/api/ingest-keys/${id}/expiry`);
 }
 
 /** 204 No Content on success. Reaches Flare.Ingest within its key cache's 30s refresh. */

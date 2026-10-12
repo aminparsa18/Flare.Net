@@ -28,10 +28,11 @@ public static class IngestApiKeyEndpoints
         endpoints.MapPut("/api/ingest-keys/{id:guid}/name", HandleRenameAsync);
         endpoints.MapPut("/api/ingest-keys/{id:guid}/origins", HandleSetOriginsAsync);
         endpoints.MapPut("/api/ingest-keys/{id:guid}/services", HandleSetServicesAsync);
+        endpoints.MapPut("/api/ingest-keys/{id:guid}/expiry", HandleSetExpiryAsync);
         return endpoints;
     }
 
-    private static async Task<IResult> HandleCreateAsync(HttpContext http, IIngestApiKeyStore keys, IProjectStore projects, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleCreateAsync(HttpContext http, IIngestApiKeyStore keys, IProjectStore projects, TimeProvider time, CancellationToken cancellationToken)
     {
         CreateIngestApiKeyRequest? request;
         try
@@ -60,9 +61,15 @@ public static class IngestApiKeyEndpoints
             return Results.Problem($"An active ingest key named '{request.Name}' already exists.", statusCode: StatusCodes.Status409Conflict);
         }
 
-        var (key, rawKey) = await keys.CreateAsync(request.Name, projectId, cancellationToken);
+        var (expiresAt, expiryError) = ParseExpiry(request.ExpiresAtUnixMs, time.GetUtcNow());
+        if (expiryError is not null)
+        {
+            return Results.Problem(expiryError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var (key, rawKey) = await keys.CreateAsync(request.Name, projectId, expiresAt, cancellationToken);
         AuditContext.SetResourceId(http, key.Id);
-        var response = new CreateIngestApiKeyResponse { Key = ToDto(key, default), RawKey = rawKey };
+        var response = new CreateIngestApiKeyResponse { Key = ToDto(key, default, time.GetUtcNow()), RawKey = rawKey };
         return ApiSerialization.Write(http, response, IngestApiKeysJsonContext.Default.CreateIngestApiKeyResponse, statusCode: StatusCodes.Status201Created);
     }
 
@@ -70,16 +77,18 @@ public static class IngestApiKeyEndpoints
         HttpContext http,
         IIngestApiKeyStore keys,
         IIngestApiKeyUsageQueryService usageQuery,
+        TimeProvider time,
         CancellationToken cancellationToken)
     {
         var list = await keys.ListAsync(cancellationToken);
+        var now = time.GetUtcNow();
 
-        // Revoked keys can't ingest, so there's nothing current to read for them.
-        var usage = await usageQuery.GetUsageAsync(list.Where(k => k.IsActive).Select(k => k.Id).ToList(), cancellationToken);
+        // Revoked and expired keys can't ingest, so there's nothing current to read for them.
+        var usage = await usageQuery.GetUsageAsync(list.Where(k => k.IsUsable(now)).Select(k => k.Id).ToList(), cancellationToken);
 
         var response = new IngestApiKeyListResponse
         {
-            Keys = list.Select(k => ToDto(k, usage.GetValueOrDefault(k.Id))).ToList(),
+            Keys = list.Select(k => ToDto(k, usage.GetValueOrDefault(k.Id), now)).ToList(),
         };
         return ApiSerialization.Write(http, response, IngestApiKeysJsonContext.Default.IngestApiKeyListResponse);
     }
@@ -130,7 +139,7 @@ public static class IngestApiKeyEndpoints
     /// Checked on write rather than by a constraint so existing duplicates don't block a migration.</summary>
     private static async Task<bool> NameInUseAsync(IIngestApiKeyStore keys, string name, Guid? exceptId, CancellationToken cancellationToken) =>
         (await keys.ListAsync(cancellationToken)).Any(k =>
-            k.IsActive && k.Id != exceptId && string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase));
+            k.IsUsable(DateTimeOffset.UtcNow) && k.Id != exceptId && string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase));
 
     private static async Task<IResult> HandleRenameAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, CancellationToken cancellationToken)
     {
@@ -231,6 +240,58 @@ public static class IngestApiKeyEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>Sets or clears a key's expiry (ADR-0207). A past time is refused here, so a key is only expired by
+    /// time passing or by revoking it; setting a new future expiry on an expired key brings it back.</summary>
+    private static async Task<IResult> HandleSetExpiryAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, TimeProvider time, CancellationToken cancellationToken)
+    {
+        SetIngestApiKeyExpiryRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, IngestApiKeysJsonContext.Default.SetIngestApiKeyExpiryRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var (expiresAt, error) = ParseExpiry(request.ExpiresAtUnixMs, time.GetUtcNow());
+        if (error is not null)
+        {
+            return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var before = (await keys.ListAsync(cancellationToken)).FirstOrDefault(k => k.Id == id);
+        if (before is null || !await keys.SetExpiryAsync(id, expiresAt, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        AuditContext.SetChange(http, new { before.ExpiresAt }, new { ExpiresAt = expiresAt });
+        return Results.NoContent();
+    }
+
+    /// <summary>Null stays null (never expires); a set value must be a valid instant in the future.</summary>
+    internal static (DateTimeOffset? ExpiresAt, string? Error) ParseExpiry(long? unixMs, DateTimeOffset now)
+    {
+        if (unixMs is null)
+        {
+            return (null, null);
+        }
+
+        if (unixMs is < 0 or > 253402300799000L)
+        {
+            return (null, "ExpiresAtUnixMs is out of range.");
+        }
+
+        var at = DateTimeOffset.FromUnixTimeMilliseconds(unixMs.Value);
+        return at <= now ? (null, "Expiry must be in the future.") : (at, null);
+    }
+
     /// <summary>Moves a key to another project, or to instance-wide (ADR-0123). Ownership metadata only: the
     /// key's own behaviour (what it may ingest) doesn't change, which is why managing keys stays Admin-only.</summary>
     private static async Task<IResult> HandleSetProjectAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, IProjectStore projects, CancellationToken cancellationToken)
@@ -296,13 +357,13 @@ public static class IngestApiKeyEndpoints
         return Results.NoContent();
     }
 
-    private static IngestApiKeyDto ToDto(IngestApiKey key, IngestApiKeyUsage usage) => new()
+    private static IngestApiKeyDto ToDto(IngestApiKey key, IngestApiKeyUsage usage, DateTimeOffset now) => new()
     {
         Id = key.Id,
         Name = key.Name,
         CreatedAt = key.CreatedAt,
         RevokedAt = key.RevokedAt,
-        IsActive = key.IsActive,
+        IsActive = key.IsUsable(now),
         LimitsEnabled = key.Limits.Enabled,
         MaxEventsPerMinute = key.Limits.MaxEventsPerMinute,
         MaxBytesPerMinute = key.Limits.MaxBytesPerMinute,
@@ -315,5 +376,6 @@ public static class IngestApiKeyEndpoints
         ProjectId = key.ProjectId,
         AllowedOrigins = key.AllowedOrigins,
         AllowedServices = key.AllowedServices,
+        ExpiresAt = key.ExpiresAt,
     };
 }

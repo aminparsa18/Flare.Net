@@ -46,6 +46,20 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Expiry_RoundTripsThroughCreateListAndActiveKeys_SetsAndClears()
+    {
+        var at = DateTimeOffset.UtcNow.AddDays(30);
+        var (key, _) = await _store.CreateAsync("short-lived", expiresAt: at);
+
+        Assert.Equal(at, (await _store.ListAsync()).Single().ExpiresAt);
+        Assert.Equal(at, (await _store.ListActiveKeysAsync()).Single().ExpiresAt);
+
+        Assert.True(await _store.SetExpiryAsync(key.Id, null));
+        Assert.Null((await _store.ListAsync()).Single().ExpiresAt);
+        Assert.False(await _store.SetExpiryAsync(Guid.NewGuid(), at));
+    }
+
+    [Fact]
     public async Task SetAllowedServicesAsync_RoundTripsThroughListAndActiveKeys_AndClears()
     {
         var (key, _) = await _store.CreateAsync("browser");

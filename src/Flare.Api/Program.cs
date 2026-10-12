@@ -540,7 +540,8 @@ await AdminProvisioner.ApplyAsync(
     app.Services.GetRequiredService<IUserStore>(),
     app.Services.GetRequiredService<IOptions<IdentityOptions>>().Value.Admin,
     app.Logger,
-    CancellationToken.None);
+    CancellationToken.None,
+    app.Services.GetRequiredService<IOptions<AuthOptions>>().Value.PasswordPolicy);
 
 // Sub-path hosting (Flare:BasePath / Flare__BasePath, e.g. /flare) - first, so every later
 // middleware and endpoint sees the request already split into PathBase + Path. No-op unset.

@@ -1,6 +1,6 @@
 <script lang="ts">
-	// Same two-step create -> reveal-once dialog as CreateAccessTokenDialog.svelte, minus
-	// the expiry field (ingest keys don't expire - they're revoked). The terminal's
+	// Same two-step create -> reveal-once dialog as CreateAccessTokenDialog.svelte, with the
+	// same optional expiry (ADR-0207). The terminal's
 	// `apikey create` command is the other front end for the same POST.
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -19,12 +19,16 @@
 
 	let name = $state('');
 	let projectId = $state<string | null>(null);
+	let neverExpires = $state(true);
+	let expiresInDays = $state(90);
 	let copied = $state(false);
 
 	$effect(() => {
 		if (keys.createOpen) {
 			name = '';
 			projectId = projects.defaultForNew;
+			neverExpires = true;
+			expiresInDays = 90;
 			copied = false;
 		}
 	});
@@ -36,7 +40,7 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		await keys.create(name, projectId);
+		await keys.create(name, projectId, neverExpires ? null : expiresInDays);
 	}
 
 	async function handleCopy(): Promise<void> {
@@ -78,6 +82,22 @@
 					<Input id="ingest-key-name" bind:value={name} required placeholder={m.createIngestKeyDialog_namePlaceholder()} />
 				</div>
 				<ProjectPicker bind:value={projectId} includeAll />
+				<div class="space-y-2">
+					<span class="text-sm font-medium">{m.createAccessTokenDialog_expiryLabel()}</span>
+					<div class="flex items-center gap-4 text-sm">
+						<label class="flex items-center gap-2">
+							<input type="radio" name="ingest-expiry-mode" checked={neverExpires} onchange={() => (neverExpires = true)} />
+							{m.createAccessTokenDialog_expiryNever()}
+						</label>
+						<label class="flex items-center gap-2">
+							<input type="radio" name="ingest-expiry-mode" checked={!neverExpires} onchange={() => (neverExpires = false)} />
+							{m.createAccessTokenDialog_expiryCustomLabel()}
+						</label>
+						{#if !neverExpires}
+							<Input type="number" min="1" max="3650" bind:value={expiresInDays} class="w-20" />
+						{/if}
+					</div>
+				</div>
 				{#if keys.saveError}
 					<p class="text-destructive text-sm">{keys.saveError}</p>
 				{/if}
