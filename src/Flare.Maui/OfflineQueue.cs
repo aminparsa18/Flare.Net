@@ -2,11 +2,15 @@ namespace Flare.Maui;
 
 /// <summary>
 /// Bounds the disk-retry directory. The OpenTelemetry exporter writes failed batches there and its own retention
-/// is not configurable, so Flare trims the directory at startup: files older than a maximum age go, then the
-/// oldest remaining ones until the total fits a size cap.
+/// is not configurable, so Flare trims the directory itself, at startup and then on a timer: files older than a
+/// maximum age go, then the oldest remaining ones until the total fits a size cap.
 /// </summary>
 internal static class OfflineQueue
 {
+    /// <summary>Re-applies the limits every <paramref name="interval"/> while the app runs. Dispose the timer to stop.</summary>
+    internal static Timer StartTrimming(string directory, long maxBytes, TimeSpan maxAge, TimeSpan interval) =>
+        new(_ => Prune(directory, maxBytes, maxAge, DateTime.UtcNow), null, interval, interval);
+
     internal static void Prune(string directory, long maxBytes, TimeSpan maxAge, DateTime nowUtc)
     {
         try
