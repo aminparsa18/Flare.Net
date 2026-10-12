@@ -70,6 +70,9 @@ public sealed partial record ExceptionGroup
 
     /// <summary>Every distinct <c>ServiceName</c> that recorded this (type, message) pair in the window, unordered.</summary>
     public required IReadOnlyList<string> AffectedServices { get; init; }
+
+    /// <summary>Source-file paths from one sample occurrence's stack trace (<see cref="Errors.StackFramePaths"/>), top frame first; empty when the group has no stack trace with file info. What <c>Path</c> ownership rules match (ADR-0196).</summary>
+    public IReadOnlyList<string> SamplePaths { get; init; } = [];
 }
 
 /// <summary>Response body for <c>POST /api/errors/groups</c>.</summary>

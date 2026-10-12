@@ -62,6 +62,8 @@ export interface ExceptionGroup {
 	firstSeen: string;
 	lastSeen: string;
 	affectedServices: string[];
+	/** Source-file paths from one sample stack trace, top frame first (ownership `Path` rules, ADR-0196). */
+	samplePaths: string[];
 }
 
 function toExceptionGroup(dto: GeneratedExceptionGroup): ExceptionGroup {
@@ -71,7 +73,8 @@ function toExceptionGroup(dto: GeneratedExceptionGroup): ExceptionGroup {
 		occurrenceCount: Number(dto.occurrenceCount),
 		firstSeen: dto.firstSeen.toISOString(),
 		lastSeen: dto.lastSeen.toISOString(),
-		affectedServices: (dto.affectedServices ?? []).filter((s): s is string => s != null)
+		affectedServices: (dto.affectedServices ?? []).filter((s): s is string => s != null),
+		samplePaths: (dto.samplePaths ?? []).filter((s): s is string => s != null)
 	};
 }
 

@@ -212,7 +212,7 @@ export class ErrorsExplorerState {
 	ownerOf(group: ExceptionGroup): { user: string; viaRule: boolean } | null {
 		const assignee = this.issueFor(group)?.assignee;
 		if (assignee) return { user: assignee, viaRule: false };
-		const rule = ownerFromRules(this.ownershipRules, group.exceptionType, group.affectedServices);
+		const rule = ownerFromRules(this.ownershipRules, group.exceptionType, group.affectedServices, group.samplePaths);
 		return rule ? { user: rule.owner, viaRule: true } : null;
 	}
 

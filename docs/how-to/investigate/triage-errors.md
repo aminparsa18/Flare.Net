@@ -23,6 +23,10 @@ If the group's service has a GitHub repository configured for [stack-trace sourc
 
 Click **Ownership rules** in the toolbar to map errors to people. Each rule matches either a **service** name or an **exception type** with a case-insensitive pattern where `*` stands for any text, for example `payments-*` or `*Timeout*`, and names the owner's username. Rules are checked top to bottom and the first match owns the group, shown as "Owner alice (rule)". Use the arrows to reorder them.
 
+A third kind, **File path**, matches the source files in the group's stack trace using [CODEOWNERS](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) path syntax: `/src/payments/` (a directory at the repo root), `*.sql` (any depth), `docs/*.md`, `src/**/Charge.cs`. Flare reads the file paths from one sample stack trace per group, so only frames that carry file information count (for .NET that means symbols, or a deterministic build with source paths). The checkout location on the build machine doesn't matter, because a pattern is tried against every trailing part of each path.
+
+**Import CODEOWNERS** turns a pasted CODEOWNERS file into File path rules. Each line takes its first owner with the leading `@` dropped, and the order is reversed because CODEOWNERS lets later lines win while Flare uses the first match. Owners are only useful if they equal Flare usernames, so review the list before saving.
+
 A person set with **Assign to me** always wins over a rule. Rules are not applied retroactively as stored assignments: change a rule and the owner shown changes with it.
 
 ## Regressions

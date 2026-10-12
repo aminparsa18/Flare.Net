@@ -23,6 +23,10 @@ Si le service du groupe a un dépôt GitHub configuré pour les [liens source de
 
 Cliquez sur **Règles de propriété** dans la barre d'outils pour associer des erreurs à des personnes. Chaque règle correspond à un nom de **service** ou à un **type d'exception** avec un motif insensible à la casse où `*` remplace n'importe quel texte, par exemple `payments-*` ou `*Timeout*`, et indique le nom d'utilisateur du responsable. Les règles sont évaluées de haut en bas et la première qui correspond possède le groupe, affiché « Responsable alice (règle) ». Les flèches permettent de les réordonner.
 
+Un troisième type, **Chemin de fichier**, compare les fichiers source de la trace de pile du groupe avec la syntaxe de chemins de [CODEOWNERS](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) : `/src/payments/` (un dossier à la racine du dépôt), `*.sql` (à toute profondeur), `docs/*.md`, `src/**/Charge.cs`. Flare lit les chemins d'une trace de pile d'exemple par groupe ; seuls les cadres qui portent une information de fichier comptent (pour .NET, il faut des symboles ou un build déterministe avec chemins source). L'emplacement du dépôt sur la machine de build n'importe pas : un motif est essayé sur chaque fin de chemin.
+
+**Importer CODEOWNERS** transforme un fichier CODEOWNERS collé en règles Chemin de fichier. Chaque ligne retient son premier responsable sans le `@` initial, et l'ordre est inversé car dans CODEOWNERS la dernière ligne l'emporte alors que Flare retient la première correspondance. Les responsables ne servent que s'ils sont identiques aux noms d'utilisateur Flare ; relisez la liste avant d'enregistrer.
+
 Une personne définie avec **M'assigner** l'emporte toujours sur une règle. Les règles ne sont pas enregistrées comme affectations : modifiez une règle et le responsable affiché change avec elle.
 
 ## Régressions
