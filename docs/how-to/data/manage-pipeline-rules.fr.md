@@ -173,7 +173,7 @@ personnalisées pour ce qui est propre à vos données. Définir
 
 Les spans sont aussi couverts : attributs de span, message de statut, et attributs d'événements et de liens de span (où se trouvent `exception.message` et `exception.stacktrace`) sont masqués de la même façon. Le nom du span n'est pas analysé.
 
-Avant de l'activer, cliquez sur **Aperçu du masquage PII** (« Preview PII redaction ») sur la page Pipeline Rules. Il analyse jusqu'à 500 logs récents et montre ce qui serait masqué ; rien n'est écrit.
+Avant de l'activer, cliquez sur **Aperçu du masquage PII** (« Preview PII redaction ») sur la page Pipeline Rules. Il analyse jusqu'à 500 logs récents (ou spans, via l'onglet **Spans**) et montre ce qui serait masqué ; rien n'est écrit.
 
 La même fenêtre propose **Analyser les champs pour PII** (« Scan fields for PII ») : une analyse en lecture seule qui liste les champs de corps ou d'attribut de log ressemblant à des PII, par détecteur, avec un compteur et un exemple masqué. Utilisez-la pour repérer où se trouvent les PII avant de choisir quoi activer.
 
