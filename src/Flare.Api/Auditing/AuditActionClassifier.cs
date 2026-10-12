@@ -116,15 +116,39 @@ public static class AuditActionClassifier
         new("DELETE", "/api/indexing/promoted-attributes/{columnName}", "promoted-attribute", "delete", "columnName"),
     ];
 
+    // Telemetry reads (ADR-0204): only the routes that return stored telemetry, not the
+    // metadata lookups (attribute keys, facet values) that feed filter pickers.
+    private static readonly Rule[] ReadRules =
+    [
+        new("POST", "/api/logs/search", "logs", "query", null),
+        new("POST", "/api/logs/aggregate", "logs", "query", null),
+        new("POST", "/api/logs/patterns", "logs", "query", null),
+        new("POST", "/api/logs/query", "logs", "query", null),
+        new("POST", "/api/logs/context", "logs", "query", null),
+        new("GET", "/api/logs/tail", "logs", "tail", null),
+        new("POST", "/api/spans/search", "traces", "query", null),
+        new("POST", "/api/spans/duration-percentile", "traces", "query", null),
+        new("GET", "/api/traces/{traceId}", "traces", "view", "traceId"),
+        new("GET", "/api/traces/{traceId}/spans/{spanId}/children", "traces", "view", "traceId"),
+        new("POST", "/api/metrics/query", "metrics", "query", null),
+        new("POST", "/api/errors/groups", "errors", "query", null),
+        new("POST", "/api/errors/occurrences", "errors", "query", null),
+    ];
+
+    /// <summary>Null when the request is not a recorded telemetry read. Callers apply this only when <c>Audit:RecordReads</c> is on.</summary>
+    public static AuditClassification? ClassifyRead(string method, string? routeTemplate) => Match(ReadRules, method, routeTemplate);
+
     /// <summary>Null when the request is not an audited state change.</summary>
-    public static AuditClassification? Classify(string method, string? routeTemplate)
+    public static AuditClassification? Classify(string method, string? routeTemplate) => Match(Rules, method, routeTemplate);
+
+    private static AuditClassification? Match(Rule[] rules, string method, string? routeTemplate)
     {
         if (routeTemplate is null)
         {
             return null;
         }
 
-        foreach (var rule in Rules)
+        foreach (var rule in rules)
         {
             if (string.Equals(rule.Method, method, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(rule.Template, routeTemplate, StringComparison.OrdinalIgnoreCase))

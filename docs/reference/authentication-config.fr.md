@@ -56,6 +56,13 @@ erroné.
 | `Auth:PatRateLimitPermitLimit` | `120` | Requêtes qu'un même [jeton d'accès personnel](../explanation/authentication-model.fr.md#jetons-daccès-personnels) peut effectuer par `PatRateLimitWindow` avant que `Flare.Api` ne réponde `429` pour ce jeton. Le trafic de session (cookie) du tableau de bord n'y est jamais soumis. |
 | `Auth:PatRateLimitWindow` | `00:01:00` (1 minute) | Fenêtre fixe sur laquelle `PatRateLimitPermitLimit` est mesuré. |
 | `Audit:RetentionDays` | `365` | Nombre de jours de conservation des événements du [journal d'audit](../how-to/admin/configure-authentication.fr.md#journal-daudit) avant leur suppression par une tâche horaire. `0` les conserve indéfiniment. |
+| `Audit:RecordReads` | `false` | Enregistre aussi qui a interrogé la télémétrie (logs, traces, métriques, erreurs) dans le [journal d'audit](../how-to/admin/configure-authentication.fr.md#journal-daudit). |
+| `Audit:ReadDedupeSeconds` | `60` | Enregistre une seule fois par intervalle (en secondes) le même utilisateur répétant la même lecture. `0` enregistre chaque requête. |
+| `Audit:Forwarding:Webhook:Url` | vide | Envoie chaque nouvel [événement d'audit](../how-to/admin/configure-authentication.fr.md#journal-daudit) en tableau JSON par POST à cette URL. Vide : destination désactivée. |
+| `Audit:Forwarding:Webhook:Secret` | vide | Si défini, les requêtes portent `X-Flare-Signature: sha256=<HMAC-SHA256 du corps>`. |
+| `Audit:Forwarding:Syslog:Host` | vide | Envoie chaque nouvel événement d'audit comme message syslog RFC 5424 à cet hôte. Vide : destination désactivée. |
+| `Audit:Forwarding:Syslog:Port` / `:Protocol` | `514` / `tcp` | Port syslog, et `tcp` (trames à comptage d'octets) ou `udp`. |
+| `Audit:Forwarding:IntervalSeconds` / `:BatchSize` | `10` / `100` | Fréquence d'interrogation de chaque destination, et nombre d'événements par envoi. |
 | `Auth:IngestKeyRequired` | `false` | Si `Flare.Ingest` rejette les requêtes OTLP sans clé API valide. |
 | `Auth:StaticIngestApiKey` | non défini | Une clé d'ingestion fixe définie via la configuration au lieu du tableau de bord — voir [les clés API d'ingestion](../how-to/admin/configure-authentication.fr.md#clés-api-dingestion). |
 | `Cors:AllowedOrigins:0`, `:1`, … | aucune | Origine(s) autorisée(s) à appeler `Flare.Api` avec des identifiants (c'est-à-dire la propre origine du tableau de bord). Requis — `Flare.Api` n'utilise plus `AllowAnyOrigin()` par défaut. Sert aussi de liste blanche pour le `returnUrl` de connexion Entra. |

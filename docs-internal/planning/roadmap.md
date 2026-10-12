@@ -110,9 +110,6 @@ folders are where "what happened and why" actually lives.
     single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
-  - **Audit export, streaming and read auditing.** CSV/JSON export, optional forwarding to a syslog/webhook sink, and
-    hash-chaining so tampering is detectable ([ADR-0079](../adr/0079-audit-log.md) covers config changes only). An
-    opt-in record of who queried telemetry is the other half compliance reviewers ask for.
   - **Encrypt stored channel secrets.** Webhook URLs, bot tokens and routing keys come back masked, but nothing in
     `src/Flare.Api` calls Data Protection on them, so they look plaintext at rest. Verify first; if so, wrap them with
     `IDataProtector` (the key ring is already shared via Redis) and add key rotation, otherwise document it.

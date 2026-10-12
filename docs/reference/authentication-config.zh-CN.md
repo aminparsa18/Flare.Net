@@ -53,6 +53,13 @@ Flare 的确切角色、身份解析事实和配置密钥
 | `Auth:PatRateLimitPermitLimit` | `120` | 单个[个人访问令牌](../explanation/authentication-model.zh-CN.md#个人访问令牌)在每个 `PatRateLimitWindow` 内允许发起的请求数，超出后 `Flare.Api` 会对该令牌返回 `429`。仪表板的会话（Cookie）流量永远不受此限制。 |
 | `Auth:PatRateLimitWindow` | `00:01:00`（1 分钟） | 计算 `PatRateLimitPermitLimit` 的固定时间窗口。 |
 | `Audit:RetentionDays` | `365` | [审计日志](../how-to/admin/configure-authentication.zh-CN.md#审计日志)事件的保留天数，超期后由每小时运行的任务删除。`0` 表示永久保留。 |
+| `Audit:RecordReads` | `false` | 同时在[审计日志](../how-to/admin/configure-authentication.zh-CN.md#审计日志)中记录谁查询了遥测数据（日志、链路、指标、错误）。 |
+| `Audit:ReadDedupeSeconds` | `60` | 同一用户重复相同的读取时，每隔这么多秒只记录一次。`0` 表示记录每个请求。 |
+| `Audit:Forwarding:Webhook:Url` | 空 | 将每个新的[审计事件](../how-to/admin/configure-authentication.zh-CN.md#审计日志)以 JSON 数组 POST 到此 URL。留空则禁用。 |
+| `Audit:Forwarding:Webhook:Secret` | 空 | 设置后，请求带有 `X-Flare-Signature: sha256=<请求体的 HMAC-SHA256>`。 |
+| `Audit:Forwarding:Syslog:Host` | 空 | 将每个新的审计事件作为 RFC 5424 syslog 消息发送到此主机。留空则禁用。 |
+| `Audit:Forwarding:Syslog:Port` / `:Protocol` | `514` / `tcp` | Syslog 端口，以及 `tcp`（按八位组计数分帧）或 `udp`。 |
+| `Audit:Forwarding:IntervalSeconds` / `:BatchSize` | `10` / `100` | 每个目标轮询新事件的间隔，以及每次发送的事件数。 |
 | `Auth:IngestKeyRequired` | `false` | `Flare.Ingest` 是否拒绝没有有效 API 密钥的 OTLP 请求。 |
 | `Auth:StaticIngestApiKey` | 未设置 | 通过配置而不是仪表板设置的固定摄取密钥 - 请参阅 [ingest API keys](../how-to/admin/configure-authentication.zh-CN.md#摄取-api-密钥)。 |
 | `Cors:AllowedOrigins:0`、`:1`、…… | 没有任何 | 允许使用凭据调用 `Flare.Api` 的来源（即仪表板自己的来源）。必需 — `Flare.Api` 不再默认为 `AllowAnyOrigin()`。还兼作 Entra 登录 `returnUrl` 允许列表。 |

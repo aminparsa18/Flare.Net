@@ -7,4 +7,7 @@ namespace Flare.Api.Json;
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(AuditEventListResponse))]
 [JsonSerializable(typeof(List<AuditFieldChangeDto>))]
+[JsonSerializable(typeof(AuditExportRowDto))]
+[JsonSerializable(typeof(List<AuditExportRowDto>))]
+[JsonSerializable(typeof(AuditChainVerificationDto))]
 public sealed partial class AuditJsonContext : JsonSerializerContext;

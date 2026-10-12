@@ -13,7 +13,9 @@ public sealed record AuditEvent(
     string Route,
     int StatusCode,
     string? SourceIp,
-    string? Changes = null);
+    string? Changes = null,
+    string? PrevHash = null,
+    string? Hash = null);
 
 /// <summary>An <see cref="AuditEvent"/> before the store assigns its id.</summary>
 public sealed record NewAuditEvent(
@@ -38,3 +40,15 @@ public sealed record AuditEventFilter
     public string? ResourceType { get; init; }
     public string? Action { get; init; }
 }
+
+/// <summary>
+/// Result of walking the audit hash chain (ADR-0202). <see cref="Valid"/> is false when a
+/// chained row's hash does not match its content or its link to the previous row.
+/// </summary>
+public sealed record AuditChainVerification(
+    bool Valid,
+    long ChainedEvents,
+    long LegacyEvents,
+    long? FirstBrokenId,
+    string? Reason,
+    string? HeadHash);

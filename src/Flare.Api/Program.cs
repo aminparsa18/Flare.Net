@@ -189,7 +189,32 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<AuditOptions>(builder.Configuration.GetSection(AuditOptions.SectionName));
+builder.Services.AddSingleton<AuditReadThrottle>();
 builder.Services.AddHostedService<AuditRetentionService>();
+builder.Services.AddHttpClient("audit-webhook");
+builder.Services.AddSingleton<IReadOnlyList<IAuditSink>>(sp =>
+{
+    var forwarding = sp.GetRequiredService<IOptions<AuditOptions>>().Value.Forwarding;
+    var sinks = new List<IAuditSink>();
+    if (!string.IsNullOrWhiteSpace(forwarding.Webhook.Url))
+    {
+        sinks.Add(new WebhookAuditSink(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("audit-webhook"),
+            forwarding.Webhook.Url,
+            forwarding.Webhook.Secret));
+    }
+
+    if (!string.IsNullOrWhiteSpace(forwarding.Syslog.Host))
+    {
+        sinks.Add(new SyslogAuditSink(
+            forwarding.Syslog.Host,
+            forwarding.Syslog.Port,
+            string.Equals(forwarding.Syslog.Protocol, "udp", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    return sinks;
+});
+builder.Services.AddHostedService<AuditForwardingService>();
 
 // Redis-backed cache seam in front of LogQueryService.SearchAsync/AggregateAsync and
 // MetricQueryService.QueryAsync (the "Query result caching" roadmap entry) - repeated

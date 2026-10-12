@@ -9,7 +9,15 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
-	import { AUDIT_RESOURCE_TYPES, listAuditEvents, type AuditEvent } from '$lib/audit-api';
+	import {
+		AUDIT_RESOURCE_TYPES,
+		downloadAuditExport,
+		listAuditEvents,
+		verifyAuditChain,
+		type AuditChainVerification,
+		type AuditEvent,
+		type AuditExportFormat
+	} from '$lib/audit-api';
 	import { formatDateTime } from '$lib/time/format';
 	import * as m from '$lib/paraglide/messages';
 
@@ -21,6 +29,30 @@
 	let loadingMore = $state(false);
 	let error = $state<string | null>(null);
 	let resourceType = $state('');
+	let verifying = $state(false);
+	let verification = $state<AuditChainVerification | null>(null);
+	let actionError = $state<string | null>(null);
+
+	async function exportAs(format: AuditExportFormat): Promise<void> {
+		actionError = null;
+		try {
+			await downloadAuditExport(format, { resourceType: resourceType || undefined });
+		} catch (e) {
+			actionError = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	async function verify(): Promise<void> {
+		verifying = true;
+		actionError = null;
+		try {
+			verification = await verifyAuditChain();
+		} catch (e) {
+			actionError = e instanceof Error ? e.message : String(e);
+		} finally {
+			verifying = false;
+		}
+	}
 
 	async function load(more = false): Promise<void> {
 		if (more) loadingMore = true;
@@ -55,6 +87,10 @@
 			<h1 class="text-sm font-semibold">{m.auditLogPage_heading()}</h1>
 			<p class="text-muted-foreground text-xs">{m.auditLogPage_description()}</p>
 		</div>
+		<div class="flex items-center gap-2">
+		<Button variant="outline" size="sm" onclick={() => void exportAs('csv')}>{m.auditLogPage_exportCsv()}</Button>
+		<Button variant="outline" size="sm" onclick={() => void exportAs('json')}>{m.auditLogPage_exportJson()}</Button>
+		<Button variant="outline" size="sm" disabled={verifying} onclick={() => void verify()}>{m.auditLogPage_verify()}</Button>
 		<select
 			class="border-input bg-background h-8 rounded-md border px-2 text-sm"
 			aria-label={m.auditLogPage_resourceFilter()}
@@ -66,7 +102,24 @@
 				<option value={type}>{type}</option>
 			{/each}
 		</select>
+		</div>
 	</div>
+
+	{#if verification}
+		<p
+			class="border-b px-4 py-2 text-xs {verification.valid ? 'text-muted-foreground' : 'text-destructive'}"
+			role="status"
+		>
+			{#if verification.valid}
+				{m.auditLogPage_verifyOk({ chained: verification.chainedEvents, legacy: verification.legacyEvents })}
+			{:else}
+				{m.auditLogPage_verifyBroken({ id: verification.firstBrokenId ?? 0, reason: verification.reason ?? '' })}
+			{/if}
+		</p>
+	{/if}
+	{#if actionError}
+		<p class="text-destructive border-b px-4 py-2 text-xs" role="alert">{actionError}</p>
+	{/if}
 
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center"><Spinner /></div>
