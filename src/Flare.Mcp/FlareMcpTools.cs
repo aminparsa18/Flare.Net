@@ -412,7 +412,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
     }
 
     [McpServerTool(Name = "list_exceptions", ReadOnly = true)]
-    [Description("Top exception groups (type + message) recorded on spans recently: count, first/last seen, affected services. Most frequent first.")]
+    [Description("Top exception groups (type + message) recorded on spans recently: count, first/last seen, affected services, owner when assigned or matched by an ownership rule. Most frequent first.")]
     public async Task<string> ListExceptions(
         [Description("Exact service names to include. Omit for all.")] string[]? services = null,
         [Description("How far back to look. Default 1h.")] string since = "1h",
@@ -457,7 +457,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
                 msg = string.Concat(msg.AsSpan(0, MaxBodyChars), "…");
             }
 
-            sb.AppendLine($"{g.OccurrenceCount}x {g.ExceptionType}: {msg} | services={string.Join(",", g.AffectedServices)} first={g.FirstSeen.UtcDateTime:HH:mm:ss}Z last={g.LastSeen.UtcDateTime:HH:mm:ss}Z");
+            sb.AppendLine($"{g.OccurrenceCount}x {g.ExceptionType}: {msg} | services={string.Join(",", g.AffectedServices)} first={g.FirstSeen.UtcDateTime:HH:mm:ss}Z last={g.LastSeen.UtcDateTime:HH:mm:ss}Z{(g.Owner.Length > 0 ? $" owner={g.Owner}" : "")}");
         }
 
         return sb.ToString();
@@ -746,6 +746,8 @@ internal sealed class ExceptionGroupWire
     public DateTimeOffset LastSeen { get; init; }
 
     public List<string> AffectedServices { get; init; } = [];
+
+    public string Owner { get; init; } = "";
 }
 
 internal sealed class ExceptionGroupsResponseWire

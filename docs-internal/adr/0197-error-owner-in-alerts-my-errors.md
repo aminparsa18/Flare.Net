@@ -48,7 +48,8 @@ user's groups.
   query is capped by `QuerySafety.AlertEvaluation`.
 - The owner in a notification is a sample: it comes from one stack trace per group, like the
   dashboard's, and only for the top three groups of the window.
-- The CLI has no errors command, and the MCP `list_exceptions` tool reads `/api/errors/groups`
-  without owners. Adding them there would need a third copy of the matcher in `Flare.Mcp` (which
-  cannot reference `Flare.Api`); it waits for the groups API to return the owner.
+- The CLI has no errors command. `POST /api/errors/groups` now returns each group's `Owner`
+  (resolved by the C# matcher, best-effort), and MCP `list_exceptions` prints it as `owner=...`, so
+  `Flare.Mcp` needs no copy of the matcher. The dashboard still derives its own owner for filtering
+  and could drop that copy in favor of this field.
 - Changing the semantics of ownership matching now means changing two files.
