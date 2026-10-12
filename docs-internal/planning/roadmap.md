@@ -96,12 +96,13 @@ folders are where "what happened and why" actually lives.
     this needs a different mechanism than a processor.
   - Other client SDKs on the same server pieces (sessions, release health, scoped keys): Android native, iOS native,
     React Native and Flutter, each thin over OTLP.
+- **Issue workflow, alert integrations and hosted-service parity.** Platform-wide, not specific to any one app or SDK.
   - Issue workflow follow-ups (ADR-0195, ADR-0196): showing the owner in alert messages, a "my errors" filter, and
     prefilled new-issue links and issue creation for Jira and GitLab.
   - Alert integrations beyond webhook/Slack/Telegram/email/PagerDuty: Teams, Opsgenie, Discord, and a Jira ticket on
     first occurrence.
-  - Hosted-service parity items a self-hoster still expects: SSO group mapping and
-    an upgrade guide with tested rollback.
+  - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested
+    rollback.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
   - **Data-subject erasure and export (GDPR Art. 15/17).** Telemetry can only leave through TTL; there is no delete or
