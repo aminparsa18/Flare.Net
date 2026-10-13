@@ -132,7 +132,7 @@ Instead of writing regex rules by hand, `Flare.Ingest` ships a built-in
 detector set that redacts email addresses, payment card numbers
 (Luhn-checked), IBANs (mod-97-checked), JWTs, `Bearer` tokens and PEM
 private keys. It is off by default. Turn it on with configuration on
-`Flare.Ingest` (restart required):
+`Flare.Ingest` (restart required), or from the dashboard (below):
 
 ```
 PipelineRules__Pii__Enabled=true
@@ -155,6 +155,19 @@ Spans are covered too: span attributes, the status message, and span event and l
 Before enabling it, click **Preview PII redaction** on the Pipeline Rules page. It scans up to 500 recent logs, or spans via the **Spans** tab, and shows what would be masked; nothing is written.
 
 The same dialog has **Scan fields for PII**, a report-only scan that lists which log body or attribute fields (or, on the **Spans** tab, span status message and attribute fields) look like PII, per detector, with a count and one masked example. Use it to find where PII lives before deciding what to enable.
+
+### Switch it from the dashboard
+
+Admins can override the configured value without a restart. On **Settings >
+Pipeline rules**, the *Managed PII redaction* card offers **Follow
+configuration** (no override, the default), **On** and **Off**. `Flare.Ingest`
+polls the saved choice every 30 seconds (`PipelineRules__RefreshInterval`), so
+a change applies within about that long on every replica. The choice wins over
+`PipelineRules__Pii__Enabled`; the detector list stays configuration-only.
+Redaction is not retroactive: events stored before the switch keep their
+original values. If the setting cannot be read, `Flare.Ingest` keeps the last
+value it saw. Members can see the card; only Admins can change it, and every
+change is written to the audit log (`pii-redaction-setting`).
 
 ## Changes take a little time to apply
 

@@ -148,9 +148,6 @@ folders are where "what happened and why" actually lives.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
-  - **Managed PII redaction dashboard toggle.** Enabling it is `PipelineRules__Pii__*` Ingest config today (restart
-    required). A settings page toggle needs a runtime-settings mechanism Ingest does not have: a settings table with
-    single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
 - **Map-aware text index for attribute filters, once ClickHouse 26.9+ is pinned.** The `keyValuePairs` text index serves

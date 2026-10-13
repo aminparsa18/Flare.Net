@@ -93,6 +93,8 @@ public static class AuditActionClassifier
         new("PUT", "/api/settings/ldap", "ldap-settings", "update", null),
         new("PUT", "/api/settings/oidc", "oidc-settings", "update", null),
         new("PUT", "/api/settings/proxyauth", "proxy-auth-settings", "update", null),
+        new("PUT", "/api/settings/pii-redaction", "pii-redaction-setting", "update", null),
+        new("DELETE", "/api/settings/pii-redaction", "pii-redaction-setting", "delete", null),
 
         new("PUT", "/api/services/apdex-thresholds/{serviceName}", "apdex-threshold", "update", "serviceName"),
         new("DELETE", "/api/services/apdex-thresholds/{serviceName}", "apdex-threshold", "delete", "serviceName"),

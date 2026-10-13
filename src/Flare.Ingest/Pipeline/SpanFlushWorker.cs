@@ -34,6 +34,7 @@ public sealed class SpanFlushWorker(
     IClickHouseSpanWriter writer,
     IOptions<SpanEventPipelineOptions> options,
     IOptions<PipelineRuleOptions> pipelineRuleOptions,
+    IPipelineRuleCache pipelineRuleCache,
     IFlushHealthTracker flushHealth,
     ILogger<SpanFlushWorker> logger) : BackgroundService
 {
@@ -196,13 +197,14 @@ public sealed class SpanFlushWorker(
     {
         var spans = batch.Select(b => b.Span).ToArray();
 
-        // Managed PII redaction (ADR-0199), same config gate as the log path.
+        // Managed PII redaction (ADR-0199), same config + dashboard-override gate as the log path (ADR-0210).
         var rules = pipelineRuleOptions.Value;
-        if (rules.Enabled && rules.Pii.Enabled && rules.Pii.Detectors != PiiDetectors.None)
+        var piiDetectors = rules.Enabled ? rules.Pii.EffectiveDetectors(pipelineRuleCache.PiiEnabledOverride) : PiiDetectors.None;
+        if (piiDetectors != PiiDetectors.None)
         {
             for (var i = 0; i < spans.Length; i++)
             {
-                spans[i] = PiiRedactor.RedactSpan(spans[i], rules.Pii.Detectors);
+                spans[i] = PiiRedactor.RedactSpan(spans[i], piiDetectors);
             }
         }
 

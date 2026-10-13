@@ -23,9 +23,12 @@ public sealed class PipelineRuleOptions
 /// <summary>Bound from <c>PipelineRules:Pii</c>.</summary>
 public sealed class PiiRedactionOptions
 {
-    /// <summary>One toggle for the whole built-in rule set. Takes effect on restart.</summary>
+    /// <summary>One toggle for the whole built-in rule set. This is the configured default; an Admin's dashboard override (ADR-0210, <see cref="IPipelineRuleCache.PiiEnabledOverride"/>) wins over it within <see cref="PipelineRuleOptions.RefreshInterval"/>, with no restart.</summary>
     public bool Enabled { get; set; }
 
     /// <summary>Which detectors run. Defaults to all; narrow with e.g. <c>Email,CreditCard</c>.</summary>
     public PiiDetectors Detectors { get; set; } = PiiDetectors.All;
+
+    /// <summary>The detector set that applies right now: <see cref="PiiDetectors.None"/> when redaction is off, after letting the dashboard override beat <see cref="Enabled"/>.</summary>
+    public PiiDetectors EffectiveDetectors(bool? enabledOverride) => enabledOverride ?? Enabled ? Detectors : PiiDetectors.None;
 }

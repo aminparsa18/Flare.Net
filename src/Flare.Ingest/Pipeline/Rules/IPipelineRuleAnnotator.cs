@@ -28,8 +28,7 @@ public sealed class PipelineRuleAnnotator(IPipelineRuleCache ruleCache, IOptions
             return Task.FromResult(events);
         }
 
-        var pii = options.Value.Pii;
-        var piiDetectors = pii.Enabled ? pii.Detectors : PiiDetectors.None;
+        var piiDetectors = options.Value.Pii.EffectiveDetectors(ruleCache.PiiEnabledOverride);
         var rules = ruleCache.CurrentRules;
         if (piiDetectors == PiiDetectors.None && rules.Count == 0)
         {
