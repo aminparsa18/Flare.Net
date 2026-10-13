@@ -1,18 +1,19 @@
 // Client for Flare.Api's /errors page Query API (grouped exceptions + per-group
 // occurrences). Same MemoryPack shape as `traces-api.ts` - see that file's header comment
-// for the general pattern. Every wire class is generated
-// (`#lib/generated/memorypack/`).
+// for the general pattern. Every type here nests a `DateTimeOffset` somewhere
+// (`ExceptionFilter.from`/`to`, `ExceptionGroup.firstSeen`/`lastSeen`,
+// `ExceptionOccurrence.timestamp`), so all are hand-written (`#lib/memorypack/`).
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { ExceptionFilter as GeneratedExceptionFilter } from '#lib/generated/memorypack/ExceptionFilter.ts';
-import { ExceptionGroupsRequest as GeneratedExceptionGroupsRequest } from '#lib/generated/memorypack/ExceptionGroupsRequest.ts';
-import { ExceptionGroupsResponse as GeneratedExceptionGroupsResponse } from '#lib/generated/memorypack/ExceptionGroupsResponse.ts';
-import type { ExceptionGroup as GeneratedExceptionGroup } from '#lib/generated/memorypack/ExceptionGroup.ts';
-import { ExceptionOccurrencesRequest as GeneratedExceptionOccurrencesRequest } from '#lib/generated/memorypack/ExceptionOccurrencesRequest.ts';
-import { ExceptionOccurrencesResponse as GeneratedExceptionOccurrencesResponse } from '#lib/generated/memorypack/ExceptionOccurrencesResponse.ts';
-import type { ExceptionOccurrence as GeneratedExceptionOccurrence } from '#lib/generated/memorypack/ExceptionOccurrence.ts';
-import { ExceptionFacetValuesRequest as GeneratedExceptionFacetValuesRequest } from '#lib/generated/memorypack/ExceptionFacetValuesRequest.ts';
-import { ExceptionFacetValuesResponse as GeneratedExceptionFacetValuesResponse } from '#lib/generated/memorypack/ExceptionFacetValuesResponse.ts';
+import { ExceptionFilter as GeneratedExceptionFilter } from '#lib/memorypack/ExceptionFilter.ts';
+import { ExceptionGroupsRequest as GeneratedExceptionGroupsRequest } from '#lib/memorypack/ExceptionGroupsRequest.ts';
+import { ExceptionGroupsResponse as GeneratedExceptionGroupsResponse } from '#lib/memorypack/ExceptionGroupsResponse.ts';
+import type { ExceptionGroup as GeneratedExceptionGroup } from '#lib/memorypack/ExceptionGroup.ts';
+import { ExceptionOccurrencesRequest as GeneratedExceptionOccurrencesRequest } from '#lib/memorypack/ExceptionOccurrencesRequest.ts';
+import { ExceptionOccurrencesResponse as GeneratedExceptionOccurrencesResponse } from '#lib/memorypack/ExceptionOccurrencesResponse.ts';
+import type { ExceptionOccurrence as GeneratedExceptionOccurrence } from '#lib/memorypack/ExceptionOccurrence.ts';
+import { ExceptionFacetValuesRequest as GeneratedExceptionFacetValuesRequest } from '#lib/memorypack/ExceptionFacetValuesRequest.ts';
+import { ExceptionFacetValuesResponse as GeneratedExceptionFacetValuesResponse } from '#lib/memorypack/ExceptionFacetValuesResponse.ts';
 import { type ResourceAttributeFilter, toGeneratedResourceAttributes, fromGeneratedResourceAttributes } from './services-api';
 
 // ---- Shared filter shape (ErrorModels.cs's ExceptionFilter) ----------------

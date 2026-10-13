@@ -1,12 +1,17 @@
-// Hand-written DateTimeOffset helpers for the few hand-written classes still left under
-// `#lib/memorypack/` (`Dashboard*`, `SavedView*`) - this file is NOT itself generated.
-// MemoryPack 1.21.4's own TypeScript generator has no `DateTimeOffset` mapping (MEMPACK031),
-// but Flare.Api builds with the patched `MemoryPack.Generator.DateTimeOffsetPatch`
-// (Cysharp/MemoryPack PR #459, see Directory.Packages.props), whose generated
-// MemoryPackWriter/Reader.ts carry `writeDateTimeOffset`/`readDateTimeOffset` (+ nullable
-// variants) in exactly the layout below. The classes that remain hand-written are blocked by
-// `JsonElement` (no generator mapping), and keep calling the functions below for their
-// `DateTimeOffset` members. When they are gone, delete this file.
+// Hand-written companion to MemoryPack's generated TypeScript runtime
+// (#lib/generated/memorypack/MemoryPackWriter.ts / MemoryPackReader.ts) - this file is NOT
+// itself generated. MemoryPack's C# side supports `DateTimeOffset` as a built-in type (no
+// custom formatter needed - see MemoryPack's README "Built-in supported types"), but its
+// TypeScript generator's member-type mapping only covers
+// bool/numeric-primitives/bigint/string/Guid/enum/DateTime (see MemoryPackGenerator's
+// `ConvertFromSymbol` in MemoryPack.Generator/TypeScriptMember.cs) - `DateTimeOffset` isn't
+// one of them, so any Flare.Api DTO with a `DateTimeOffset` member throws MEMPACK031 the
+// moment it's annotated `[GenerateTypeScript]`. Every hand-written class under
+// `#lib/memorypack/` that mirrors such a DTO calls the functions below at the right
+// position instead of a generated `write`/`readDateTimeOffset` method.
+// (Upstream fix proposed: https://github.com/Cysharp/MemoryPack/pull/459 - not merged as
+// of this writing. If/when it lands, DTOs with a `DateTimeOffset` member can drop the
+// hand-written wrapper and use `[GenerateTypeScript]` directly like every other DTO.)
 //
 // Wire format verified empirically against the real MemoryPack 1.21.4 package (a throwaway
 // `dotnet run` calling `MemoryPackSerializer.Serialize` on known `DateTimeOffset` values -

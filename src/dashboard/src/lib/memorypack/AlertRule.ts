@@ -1,0 +1,317 @@
+// Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
+// generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertRule` field-for-field, in
+// declared order. Can't carry `[GenerateTypeScript]` itself: it has its own `DateTimeOffset`
+// `CreatedAt`/`UpdatedAt` and nests `LogFilter` (itself blocked - see
+// `#lib/memorypack/LogFilter.ts`'s header comment). `Threshold` (`AlertThreshold`) has
+// neither problem, so it's a real generated class, reused here directly.
+// `conditionKind`/`metricCondition`/`metricThresholdValue` were appended after every
+// pre-existing field (not inserted earlier) - see `AlertConditionKind`'s C#-side doc
+// comment for why. `channelIds` was appended after those, same reasoning - see
+// `AlertRule.ChannelIds`'s C#-side doc comment. `exceptionCondition` was appended after
+// `channelIds`, same reasoning - see `AlertRule.ExceptionCondition`'s C#-side doc comment.
+// `noDataWindowSeconds` was appended after `exceptionCondition`, same reasoning - see
+// `AlertRule.NoDataWindowSeconds`'s C#-side doc comment. `evaluationIntervalSeconds` was
+// appended after `noDataWindowSeconds`, same reasoning - see `AlertRule.EvaluationIntervalSeconds`.
+// `anomalyCondition` was appended after `evaluationIntervalSeconds`, same reasoning - see
+// `AlertRule.AnomalyCondition` (ADR-0048). `minDataPoints` was appended after `anomalyCondition`,
+// same reasoning - see `AlertRule.MinDataPoints` (ADR-0050). `notificationTitleTemplate`/
+// `notificationBodyTemplate` were appended after `minDataPoints`, same reasoning (ADR-0052). `recoveryThreshold` was appended after `notificationBodyTemplate`, same
+// reasoning - see `AlertRule.RecoveryThreshold` (ADR-0076). `severity` was appended after `recoveryThreshold`, same reasoning (ADR-0077). `thresholdUnit` was appended after `severity`, same reasoning (ADR-0080). `labels` was appended after `thresholdUnit`, same reasoning (ADR-0084). `sloCondition` was appended after `labels`, same reasoning (ADR-0108).
+
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { AlertThreshold } from '#lib/generated/memorypack/AlertThreshold.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
+import { MetricAlertCondition } from '#lib/memorypack/MetricAlertCondition.ts';
+import { ExceptionCountCondition } from '#lib/memorypack/ExceptionCountCondition.ts';
+import { AnomalyCondition } from '#lib/memorypack/AnomalyCondition.ts';
+import { SloBurnRateCondition } from '#lib/memorypack/SloBurnRateCondition.ts';
+import { readStringRecord, writeStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
+
+export class AlertRule {
+	id: string;
+	name: string | null;
+	description: string | null;
+	enabled: boolean;
+	condition: LogFilter | null;
+	threshold: AlertThreshold | null;
+	windowSeconds: number;
+	cooldownSeconds: number;
+	webhookUrl: string | null;
+	telegramBotToken: string | null;
+	telegramChatId: string | null;
+	emailTo: string | null;
+	pagerDutyRoutingKey: string | null;
+	createdAt: Date;
+	updatedAt: Date;
+	conditionKind: number;
+	metricCondition: MetricAlertCondition | null;
+	metricThresholdValue: number | null;
+	channelIds: (string | null)[] | null;
+	exceptionCondition: ExceptionCountCondition | null;
+	noDataWindowSeconds: number;
+	evaluationIntervalSeconds: number;
+	anomalyCondition: AnomalyCondition | null;
+	minDataPoints: number;
+	notificationTitleTemplate: string | null;
+	notificationBodyTemplate: string | null;
+	recoveryThreshold: number | null;
+	severity: number;
+	thresholdUnit: string | null;
+	labels: StringRecord;
+	sloCondition: SloBurnRateCondition | null;
+	projectId: string | null;
+	escalateAfterMinutes: number;
+	escalationChannelIds: (string | null)[] | null;
+	escalationRotationId: string | null;
+	secondEscalateAfterMinutes: number;
+	secondEscalationChannelIds: (string | null)[] | null;
+	notificationTemplateId: string | null;
+
+	constructor() {
+		this.id = '00000000-0000-0000-0000-000000000000';
+		this.name = null;
+		this.description = null;
+		this.enabled = false;
+		this.condition = null;
+		this.threshold = null;
+		this.windowSeconds = 0;
+		this.cooldownSeconds = 0;
+		this.webhookUrl = null;
+		this.telegramBotToken = null;
+		this.telegramChatId = null;
+		this.emailTo = null;
+		this.pagerDutyRoutingKey = null;
+		this.createdAt = new Date(0);
+		this.updatedAt = new Date(0);
+		this.conditionKind = 0;
+		this.metricCondition = null;
+		this.metricThresholdValue = null;
+		this.channelIds = null;
+		this.exceptionCondition = null;
+		this.noDataWindowSeconds = 0;
+		this.evaluationIntervalSeconds = 0;
+		this.anomalyCondition = null;
+		this.minDataPoints = 0;
+		this.notificationTitleTemplate = null;
+		this.notificationBodyTemplate = null;
+		this.recoveryThreshold = null;
+		this.severity = 0;
+		this.thresholdUnit = null;
+		this.labels = null;
+		this.sloCondition = null;
+		this.projectId = null;
+		this.escalateAfterMinutes = 0;
+		this.escalationChannelIds = null;
+		this.escalationRotationId = null;
+		this.secondEscalateAfterMinutes = 0;
+		this.secondEscalationChannelIds = null;
+		this.notificationTemplateId = null;
+	}
+
+	static serialize(value: AlertRule | null): Uint8Array {
+		const writer = MemoryPackWriter.getSharedInstance();
+		this.serializeCore(writer, value);
+		return writer.toArray();
+	}
+
+	static serializeCore(writer: MemoryPackWriter, value: AlertRule | null): void {
+		if (value == null) {
+			writer.writeNullObjectHeader();
+			return;
+		}
+
+		writer.writeObjectHeader(38);
+		writer.writeGuid(value.id);
+		writer.writeString(value.name);
+		writer.writeString(value.description);
+		writer.writeBoolean(value.enabled);
+		LogFilter.serializeCore(writer, value.condition);
+		AlertThreshold.serializeCore(writer, value.threshold);
+		writer.writeInt32(value.windowSeconds);
+		writer.writeInt32(value.cooldownSeconds);
+		writer.writeString(value.webhookUrl);
+		writer.writeString(value.telegramBotToken);
+		writer.writeString(value.telegramChatId);
+		writer.writeString(value.emailTo);
+		writer.writeString(value.pagerDutyRoutingKey);
+		writeDateTimeOffset(writer, value.createdAt);
+		writeDateTimeOffset(writer, value.updatedAt);
+		writer.writeInt32(value.conditionKind);
+		MetricAlertCondition.serializeCore(writer, value.metricCondition);
+		writer.writeNullableFloat64(value.metricThresholdValue);
+		writer.writeArray(value.channelIds, (writer, x) => writer.writeGuid(x!));
+		ExceptionCountCondition.serializeCore(writer, value.exceptionCondition);
+		writer.writeInt32(value.noDataWindowSeconds);
+		writer.writeInt32(value.evaluationIntervalSeconds);
+		AnomalyCondition.serializeCore(writer, value.anomalyCondition);
+		writer.writeInt32(value.minDataPoints);
+		writer.writeString(value.notificationTitleTemplate);
+		writer.writeString(value.notificationBodyTemplate);
+		writer.writeNullableFloat64(value.recoveryThreshold);
+		writer.writeInt32(value.severity);
+		writer.writeString(value.thresholdUnit);
+		writeStringRecord(writer, value.labels);
+		SloBurnRateCondition.serializeCore(writer, value.sloCondition);
+		writer.writeNullableGuid(value.projectId);
+		writer.writeInt32(value.escalateAfterMinutes);
+		writer.writeArray(value.escalationChannelIds, (writer, x) => writer.writeGuid(x!));
+		writer.writeNullableGuid(value.escalationRotationId);
+		writer.writeInt32(value.secondEscalateAfterMinutes);
+		writer.writeArray(value.secondEscalationChannelIds, (writer, x) => writer.writeGuid(x!));
+		writer.writeNullableGuid(value.notificationTemplateId);
+	}
+
+	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
+		const writer = MemoryPackWriter.getSharedInstance();
+		this.serializeArrayCore(writer, value);
+		return writer.toArray();
+	}
+
+	static serializeArrayCore(writer: MemoryPackWriter, value: (AlertRule | null)[] | null): void {
+		writer.writeArray(value, (writer, x) => AlertRule.serializeCore(writer, x));
+	}
+
+	static deserialize(buffer: ArrayBuffer): AlertRule | null {
+		return this.deserializeCore(new MemoryPackReader(buffer));
+	}
+
+	static deserializeCore(reader: MemoryPackReader): AlertRule | null {
+		const [ok, count] = reader.tryReadObjectHeader();
+		if (!ok) {
+			return null;
+		}
+
+		const value = new AlertRule();
+		if (count == 38) {
+			value.id = reader.readGuid();
+			value.name = reader.readString();
+			value.description = reader.readString();
+			value.enabled = reader.readBoolean();
+			value.condition = LogFilter.deserializeCore(reader);
+			value.threshold = AlertThreshold.deserializeCore(reader);
+			value.windowSeconds = reader.readInt32();
+			value.cooldownSeconds = reader.readInt32();
+			value.webhookUrl = reader.readString();
+			value.telegramBotToken = reader.readString();
+			value.telegramChatId = reader.readString();
+			value.emailTo = reader.readString();
+			value.pagerDutyRoutingKey = reader.readString();
+			value.createdAt = readDateTimeOffset(reader);
+			value.updatedAt = readDateTimeOffset(reader);
+			value.conditionKind = reader.readInt32();
+			value.metricCondition = MetricAlertCondition.deserializeCore(reader);
+			value.metricThresholdValue = reader.readNullableFloat64();
+			value.channelIds = reader.readArray((reader) => reader.readGuid());
+			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
+			value.noDataWindowSeconds = reader.readInt32();
+			value.evaluationIntervalSeconds = reader.readInt32();
+			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
+			value.minDataPoints = reader.readInt32();
+			value.notificationTitleTemplate = reader.readString();
+			value.notificationBodyTemplate = reader.readString();
+			value.recoveryThreshold = reader.readNullableFloat64();
+			value.severity = reader.readInt32();
+			value.thresholdUnit = reader.readString();
+			value.labels = readStringRecord(reader);
+			value.sloCondition = SloBurnRateCondition.deserializeCore(reader);
+			value.projectId = reader.readNullableGuid();
+			value.escalateAfterMinutes = reader.readInt32();
+			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			value.escalationRotationId = reader.readNullableGuid();
+			value.secondEscalateAfterMinutes = reader.readInt32();
+			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			value.notificationTemplateId = reader.readNullableGuid();
+		} else if (count > 38) {
+			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
+		} else {
+			if (count == 0) return value;
+			value.id = reader.readGuid();
+			if (count == 1) return value;
+			value.name = reader.readString();
+			if (count == 2) return value;
+			value.description = reader.readString();
+			if (count == 3) return value;
+			value.enabled = reader.readBoolean();
+			if (count == 4) return value;
+			value.condition = LogFilter.deserializeCore(reader);
+			if (count == 5) return value;
+			value.threshold = AlertThreshold.deserializeCore(reader);
+			if (count == 6) return value;
+			value.windowSeconds = reader.readInt32();
+			if (count == 7) return value;
+			value.cooldownSeconds = reader.readInt32();
+			if (count == 8) return value;
+			value.webhookUrl = reader.readString();
+			if (count == 9) return value;
+			value.telegramBotToken = reader.readString();
+			if (count == 10) return value;
+			value.telegramChatId = reader.readString();
+			if (count == 11) return value;
+			value.emailTo = reader.readString();
+			if (count == 12) return value;
+			value.pagerDutyRoutingKey = reader.readString();
+			if (count == 13) return value;
+			value.createdAt = readDateTimeOffset(reader);
+			if (count == 14) return value;
+			value.updatedAt = readDateTimeOffset(reader);
+			if (count == 15) return value;
+			value.conditionKind = reader.readInt32();
+			if (count == 16) return value;
+			value.metricCondition = MetricAlertCondition.deserializeCore(reader);
+			if (count == 17) return value;
+			value.metricThresholdValue = reader.readNullableFloat64();
+			if (count == 18) return value;
+			value.channelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 19) return value;
+			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
+			if (count == 20) return value;
+			value.noDataWindowSeconds = reader.readInt32();
+			if (count == 21) return value;
+			value.evaluationIntervalSeconds = reader.readInt32();
+			if (count == 22) return value;
+			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
+			if (count == 23) return value;
+			value.minDataPoints = reader.readInt32();
+			if (count == 24) return value;
+			value.notificationTitleTemplate = reader.readString();
+			if (count == 25) return value;
+			value.notificationBodyTemplate = reader.readString();
+			if (count == 26) return value;
+			value.recoveryThreshold = reader.readNullableFloat64();
+			if (count == 27) return value;
+			value.severity = reader.readInt32();
+			if (count == 28) return value;
+			value.thresholdUnit = reader.readString();
+			if (count == 29) return value;
+			value.labels = readStringRecord(reader);
+			if (count == 30) return value;
+			value.sloCondition = SloBurnRateCondition.deserializeCore(reader);
+			if (count == 31) return value;
+			value.projectId = reader.readNullableGuid();
+			if (count == 32) return value;
+			value.escalateAfterMinutes = reader.readInt32();
+			if (count == 33) return value;
+			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 34) return value;
+			value.escalationRotationId = reader.readNullableGuid();
+			if (count == 35) return value;
+			value.secondEscalateAfterMinutes = reader.readInt32();
+			if (count == 36) return value;
+			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 37) return value;
+			value.notificationTemplateId = reader.readNullableGuid();
+			if (count == 38) return value;
+		}
+		return value;
+	}
+
+	static deserializeArray(buffer: ArrayBuffer): (AlertRule | null)[] | null {
+		return this.deserializeArrayCore(new MemoryPackReader(buffer));
+	}
+
+	static deserializeArrayCore(reader: MemoryPackReader): (AlertRule | null)[] | null {
+		return reader.readArray((reader) => AlertRule.deserializeCore(reader));
+	}
+}

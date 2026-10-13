@@ -23,7 +23,6 @@ public enum MaintenanceWindowRecurrence
 /// See <c>docs-internal/adr/0055-alert-maintenance-windows.md</c>.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MaintenanceWindow
 {
     public required Guid Id { get; init; }
@@ -79,7 +78,6 @@ public sealed partial record MaintenanceWindow
 /// the defaults are resolved in <c>MaintenanceWindowQueryService.ResolveDefaults</c>.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MaintenanceWindowRequest
 {
     public const int MaxNameLength = 200;
@@ -189,7 +187,6 @@ public sealed partial record MaintenanceWindowRequest
 
 /// <summary>Response body for <c>GET /api/maintenance-windows</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MaintenanceWindowListResponse
 {
     public required IReadOnlyList<MaintenanceWindow> Windows { get; init; }

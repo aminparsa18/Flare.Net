@@ -64,7 +64,6 @@ public sealed partial record MetricCatalogEntry
 
 /// <summary>Response body for <c>POST /api/metrics/catalog</c>, ordered by <see cref="MetricCatalogEntry.SeriesCount"/> descending.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MetricCatalogResponse
 {
     public required int WindowMinutes { get; init; }
@@ -116,7 +115,6 @@ public sealed partial record MetricCatalogServiceInfo
 /// user id recorded as an attribute).
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MetricCatalogAttributeInfo
 {
     public required string Key { get; init; }
@@ -153,7 +151,6 @@ public sealed partial record MetricCatalogRelatedMetric
 
 /// <summary>Response body for <c>POST /api/metrics/catalog/detail</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MetricCatalogDetailResponse
 {
     public required string MetricName { get; init; }
@@ -287,7 +284,6 @@ public sealed partial record MetricInspectBucket
 
 /// <summary>One series (a distinct <c>ServiceName</c> + <c>DataPointAttributes</c>) in <see cref="MetricCatalogInspectResponse"/>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MetricInspectSeries
 {
     public required string ServiceName { get; init; }
@@ -306,7 +302,6 @@ public sealed partial record MetricInspectSeries
 
 /// <summary>Response body for <c>POST /api/metrics/catalog/inspect</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MetricCatalogInspectResponse
 {
     public required string MetricName { get; init; }

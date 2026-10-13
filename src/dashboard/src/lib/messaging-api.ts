@@ -5,15 +5,16 @@
 // `rabbitmq.message.current`) - see MessagingQueryBuilder.cs and
 // docs-internal/adr/0056-messaging-queue-monitoring.md / 0057-rabbitmq-queue-depth.md.
 //
-// MemoryPack over the wire, same shape as `hosts-api.ts`: every wire class is
-// generated (`#lib/generated/memorypack/`).
+// MemoryPack over the wire, same shape as `hosts-api.ts`: both requests and every row type
+// are real generated classes; the two responses carry `IReadOnlyList` members, so those are
+// hand-written under `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { MessagingDestinationsRequest as GeneratedDestinationsRequest } from '#lib/generated/memorypack/MessagingDestinationsRequest.ts';
 import { MessagingDestinationDetailRequest as GeneratedDetailRequest } from '#lib/generated/memorypack/MessagingDestinationDetailRequest.ts';
 import type { MessagingServiceStats as GeneratedServiceStats } from '#lib/generated/memorypack/MessagingServiceStats.ts';
-import { MessagingDestinationsResponse as GeneratedDestinationsResponse } from '#lib/generated/memorypack/MessagingDestinationsResponse.ts';
-import { MessagingDestinationDetailResponse as GeneratedDetailResponse } from '#lib/generated/memorypack/MessagingDestinationDetailResponse.ts';
+import { MessagingDestinationsResponse as GeneratedDestinationsResponse } from '#lib/memorypack/MessagingDestinationsResponse.ts';
+import { MessagingDestinationDetailResponse as GeneratedDetailResponse } from '#lib/memorypack/MessagingDestinationDetailResponse.ts';
 
 /** One `(system, destination)` row. Latencies are milliseconds and 0 when that side has no spans; `backlog` (Kafka consumer lag, RabbitMQ ready + unacked) is null when no broker metric is collected for it - never 0. */
 export interface MessagingDestination {

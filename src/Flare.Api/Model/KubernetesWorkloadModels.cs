@@ -34,7 +34,6 @@ public sealed partial record KubernetesWorkloadListRequest
 /// pods with their workload. Null = no data, never silently 0.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesWorkloadSummary
 {
     public required string Name { get; init; }
@@ -75,7 +74,6 @@ public sealed partial record KubernetesWorkloadSummary
 
 /// <summary>Response body for <c>POST /api/kubernetes/workloads</c>, sorted by namespace then name.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesWorkloadListResponse
 {
     /// <summary>The request's kind, normalized to its canonical casing.</summary>
@@ -105,7 +103,6 @@ public sealed partial record KubernetesWorkloadMetricsRequest
 
 /// <summary>One time bucket of <see cref="KubernetesWorkloadMetricsResponse"/> - same fields and null semantics as <see cref="KubernetesWorkloadSummary"/>, scoped to the bucket (counts are the bucket's latest reading).</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesWorkloadMetricsPoint
 {
     public required DateTimeOffset BucketStart { get; init; }
@@ -131,7 +128,6 @@ public sealed partial record KubernetesWorkloadMetricsPoint
 
 /// <summary>Response body for <c>POST /api/kubernetes/workloads/metrics</c>, <see cref="Points"/> ascending by bucket; buckets with no data are absent.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesWorkloadMetricsResponse
 {
     public required string Kind { get; init; }
@@ -160,7 +156,6 @@ public sealed partial record KubernetesNamespaceListRequest
 
 /// <summary>One namespace's row in <see cref="KubernetesNamespaceListResponse"/> - pod count and usage aggregated the same way as <see cref="KubernetesWorkloadSummary"/>'s.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesNamespaceSummary
 {
     public required string Namespace { get; init; }
@@ -179,7 +174,6 @@ public sealed partial record KubernetesNamespaceSummary
 
 /// <summary>Response body for <c>POST /api/kubernetes/namespaces</c>, sorted by name.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesNamespaceListResponse
 {
     public required int WindowMinutes { get; init; }
@@ -214,7 +208,6 @@ public sealed partial record KubernetesVolumeListRequest
 /// available, so they need both.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesVolumeSummary
 {
     public required string VolumeName { get; init; }
@@ -245,7 +238,6 @@ public sealed partial record KubernetesVolumeSummary
 
 /// <summary>Response body for <c>POST /api/kubernetes/volumes</c>, sorted by namespace, pod, then volume name.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesVolumeListResponse
 {
     public required int WindowMinutes { get; init; }
@@ -271,7 +263,6 @@ public sealed partial record KubernetesVolumeMetricsRequest
 
 /// <summary>One time bucket of <see cref="KubernetesVolumeMetricsResponse"/> - the bucket's latest capacity/available readings and what they derive.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesVolumeMetricsPoint
 {
     public required DateTimeOffset BucketStart { get; init; }
@@ -285,7 +276,6 @@ public sealed partial record KubernetesVolumeMetricsPoint
 
 /// <summary>Response body for <c>POST /api/kubernetes/volumes/metrics</c>, <see cref="Points"/> ascending by bucket.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesVolumeMetricsResponse
 {
     public required string Namespace { get; init; }

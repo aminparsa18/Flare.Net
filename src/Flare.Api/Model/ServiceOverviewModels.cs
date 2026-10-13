@@ -52,10 +52,13 @@ public sealed partial record ServiceMetrics
 }
 
 /// <summary>
-/// Response body for <c>POST /api/services/overview</c>.
+/// Response body for <c>POST /api/services/overview</c>. Deliberately hand-written on
+/// the MemoryPack TS side (not <c>[GenerateTypeScript]</c>) - an
+/// <c>IReadOnlyList&lt;ServiceMetrics&gt;</c> member blocks the generator the same way
+/// <c>IndexingStatsResponse</c>'s list members do; see <c>indexing-api.ts</c>'s header
+/// comment for the precedent.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ServiceOverviewResponse
 {
     /// <summary>The window this snapshot covers, as requested (post-<see cref="Query.ServiceOverviewQueryBuilder.ClampWindowMinutes"/> clamp).</summary>
@@ -78,7 +81,6 @@ public sealed partial record ServiceOverviewResponse
 /// (<see cref="LogSearchRequest.Filter"/>'s own remarks) for no benefit.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ServiceOverviewRequest
 {
     /// <summary>Lookback window, minutes. Null/non-positive defaults - see <see cref="Query.ServiceOverviewQueryBuilder.ClampWindowMinutes"/>.</summary>

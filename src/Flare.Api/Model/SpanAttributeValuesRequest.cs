@@ -11,7 +11,6 @@ namespace Flare.Api.Model;
 /// keep-logs-and-spans-independent reasoning <see cref="SpanAttributeBag"/>'s remarks give.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record SpanAttributeValuesRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
@@ -70,7 +69,6 @@ public sealed partial record SpanAttributeValueInfo
 
 /// <summary>Response body for <c>POST /api/spans/attribute-values</c>, ordered by <see cref="SpanAttributeValueInfo.Count"/> descending.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record SpanAttributeValuesResponse
 {
     public required IReadOnlyList<SpanAttributeValueInfo> Values { get; init; }

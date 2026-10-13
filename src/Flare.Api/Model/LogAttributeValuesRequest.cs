@@ -13,7 +13,6 @@ namespace Flare.Api.Model;
 /// three-bag shape <see cref="AttributeFilter"/> already targets.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogAttributeValuesRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
@@ -80,7 +79,6 @@ public sealed partial record LogAttributeValueInfo
 
 /// <summary>Response body for <c>POST /api/logs/attribute-values</c>, ordered by <see cref="LogAttributeValueInfo.Count"/> descending.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogAttributeValuesResponse
 {
     public required IReadOnlyList<LogAttributeValueInfo> Values { get; init; }

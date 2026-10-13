@@ -1,11 +1,12 @@
 // Client for Flare.Api's traces Query API (span search, get-trace-by-id).
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
-// to MemoryPack - see `auth-api.ts`'s header comment for the general shape. Every wire
-// class is generated (`#lib/generated/memorypack/`). `bag` converts through `#lib/memorypack/enums.ts`'s
+// to MemoryPack - see `auth-api.ts`'s header comment for the general shape. Every type in
+// this file nests a `DateTimeOffset` member somewhere (`SpanDto.StartTime`/`EndTime`/
+// `IngestedAt`, `SpanEventDto.Timestamp`, `SpanFilter.From`/`To`), so all are hand-written
+// (`#lib/memorypack/`). `bag` converts through `#lib/memorypack/enums.ts`'s
 // `spanAttributeBagToString`/`FromString`.
 
-import { mapToRecord } from '#lib/memorypack/map-record.ts';
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import {
 	spanAttributeBagFromString,
@@ -15,18 +16,18 @@ import {
 	type SpanValuesFieldName,
 	type SpanAttributeFilterOperatorName
 } from '#lib/memorypack/enums.ts';
-import { SpanFilter as GeneratedSpanFilter } from '#lib/generated/memorypack/SpanFilter.ts';
-import { SpanAttributeFilter as GeneratedSpanAttributeFilter } from '#lib/generated/memorypack/SpanAttributeFilter.ts';
-import { TraceSpanCondition as GeneratedTraceSpanCondition } from '#lib/generated/memorypack/TraceSpanCondition.ts';
-import { TraceStructureFilter as GeneratedTraceStructureFilter } from '#lib/generated/memorypack/TraceStructureFilter.ts';
-import { SpanSearchRequest as GeneratedSpanSearchRequest } from '#lib/generated/memorypack/SpanSearchRequest.ts';
-import { SpanSearchResponse as GeneratedSpanSearchResponse } from '#lib/generated/memorypack/SpanSearchResponse.ts';
-import { TraceDto as GeneratedTraceDto } from '#lib/generated/memorypack/TraceDto.ts';
-import type { SpanDto as GeneratedSpanDto } from '#lib/generated/memorypack/SpanDto.ts';
-import type { SpanEventDto as GeneratedSpanEventDto } from '#lib/generated/memorypack/SpanEventDto.ts';
-import type { SpanLinkDto as GeneratedSpanLinkDto } from '#lib/generated/memorypack/SpanLinkDto.ts';
-import { SpanAttributeValuesRequest as GeneratedSpanAttributeValuesRequest } from '#lib/generated/memorypack/SpanAttributeValuesRequest.ts';
-import { SpanAttributeValuesResponse as GeneratedSpanAttributeValuesResponse } from '#lib/generated/memorypack/SpanAttributeValuesResponse.ts';
+import { SpanFilter as GeneratedSpanFilter } from '#lib/memorypack/SpanFilter.ts';
+import { SpanAttributeFilter as GeneratedSpanAttributeFilter } from '#lib/memorypack/SpanAttributeFilter.ts';
+import { TraceSpanCondition as GeneratedTraceSpanCondition } from '#lib/memorypack/TraceSpanCondition.ts';
+import { TraceStructureFilter as GeneratedTraceStructureFilter } from '#lib/memorypack/TraceStructureFilter.ts';
+import { SpanSearchRequest as GeneratedSpanSearchRequest } from '#lib/memorypack/SpanSearchRequest.ts';
+import { SpanSearchResponse as GeneratedSpanSearchResponse } from '#lib/memorypack/SpanSearchResponse.ts';
+import { TraceDto as GeneratedTraceDto } from '#lib/memorypack/TraceDto.ts';
+import type { SpanDto as GeneratedSpanDto } from '#lib/memorypack/SpanDto.ts';
+import type { SpanEventDto as GeneratedSpanEventDto } from '#lib/memorypack/SpanEventDto.ts';
+import type { SpanLinkDto as GeneratedSpanLinkDto } from '#lib/memorypack/SpanLinkDto.ts';
+import { SpanAttributeValuesRequest as GeneratedSpanAttributeValuesRequest } from '#lib/memorypack/SpanAttributeValuesRequest.ts';
+import { SpanAttributeValuesResponse as GeneratedSpanAttributeValuesResponse } from '#lib/memorypack/SpanAttributeValuesResponse.ts';
 
 // ---- Shared filter shape (SpanFilter.cs) -----------------------------------
 
@@ -208,7 +209,7 @@ function toSpanEventDto(dto: GeneratedSpanEventDto): SpanEventDto {
 	return {
 		timestamp: dto.timestamp.toISOString(),
 		name: dto.name ?? '',
-		attributes: mapToRecord(dto.attributes)
+		attributes: dto.attributes ?? {}
 	};
 }
 
@@ -217,7 +218,7 @@ function toSpanLinkDto(dto: GeneratedSpanLinkDto): SpanLinkDto {
 		traceId: dto.traceId ?? '',
 		spanId: dto.spanId ?? '',
 		traceState: dto.traceState ?? '',
-		attributes: mapToRecord(dto.attributes)
+		attributes: dto.attributes ?? {}
 	};
 }
 
@@ -236,12 +237,12 @@ function toSpanDto(dto: GeneratedSpanDto): SpanDto {
 		statusMessage: dto.statusMessage ?? '',
 		serviceName: dto.serviceName ?? '',
 		resourceSchemaUrl: dto.resourceSchemaUrl ?? '',
-		resourceAttributes: mapToRecord(dto.resourceAttributes),
+		resourceAttributes: dto.resourceAttributes ?? {},
 		scopeSchemaUrl: dto.scopeSchemaUrl ?? '',
 		scopeName: dto.scopeName ?? '',
 		scopeVersion: dto.scopeVersion ?? '',
-		scopeAttributes: mapToRecord(dto.scopeAttributes),
-		spanAttributes: mapToRecord(dto.spanAttributes),
+		scopeAttributes: dto.scopeAttributes ?? {},
+		spanAttributes: dto.spanAttributes ?? {},
 		events: (dto.events ?? []).map((e) => toSpanEventDto(e!)),
 		spanCount: dto.spanCount == null ? undefined : Number(dto.spanCount),
 		hasError: dto.hasError ?? undefined,

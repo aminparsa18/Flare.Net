@@ -8,7 +8,6 @@ namespace Flare.Api.Model;
 /// docs-internal/adr/0067-trace-funnels.md.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record TraceFunnelStep
 {
     /// <summary>Exact <c>ServiceName</c>. Null/empty = any service.</summary>
@@ -23,7 +22,6 @@ public sealed partial record TraceFunnelStep
 
 /// <summary>Request body for <c>POST /api/traces/funnel</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record TraceFunnelRequest
 {
     /// <summary>Lookback window; null/non-positive = <see cref="Query.TraceFunnelQueryBuilder.DefaultWindowMinutes"/>, clamped server-side.</summary>
@@ -65,7 +63,6 @@ public sealed partial record TraceFunnelStepResult
 
 /// <summary>Response body for <c>POST /api/traces/funnel</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record TraceFunnelResponse
 {
     public required int WindowMinutes { get; init; }
@@ -89,7 +86,6 @@ public enum TraceFunnelOutcome
 
 /// <summary>Request body for <c>POST /api/traces/funnel/traces</c> - the drill-down from one step.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record TraceFunnelTracesRequest
 {
     public int? WindowMinutes { get; init; }
@@ -123,7 +119,6 @@ public sealed partial record TraceFunnelTrace
 
 /// <summary>Response body for <c>POST /api/traces/funnel/traces</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record TraceFunnelTracesResponse
 {
     /// <summary>Most recent first, capped at <see cref="Query.TraceFunnelQueryBuilder.MaxTraces"/>.</summary>

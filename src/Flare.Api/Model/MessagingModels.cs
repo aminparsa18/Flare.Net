@@ -88,10 +88,11 @@ public sealed partial record MessagingDestination
 }
 
 /// <summary>
-/// Response body for <c>POST /api/messaging/destinations</c>.
+/// Response body for <c>POST /api/messaging/destinations</c>. Hand-written on the MemoryPack
+/// TS side - the <c>IReadOnlyList&lt;T&gt;</c> member blocks <c>[GenerateTypeScript]</c>, same
+/// precedent as <see cref="ServiceOverviewResponse"/>.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MessagingDestinationsResponse
 {
     /// <summary>The window actually used, post-clamp.</summary>
@@ -203,9 +204,8 @@ public sealed partial record MessagingQueueDepth
     public required long Unacknowledged { get; init; }
 }
 
-/// <summary>Response body for <c>POST /api/messaging/destination-detail</c>.</summary>
+/// <summary>Response body for <c>POST /api/messaging/destination-detail</c>. Hand-written on the MemoryPack TS side, same reason as <see cref="MessagingDestinationsResponse"/>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MessagingDestinationDetailResponse
 {
     /// <summary>Echoed back from the request, so the drill-down titles itself off the response.</summary>

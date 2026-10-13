@@ -2,16 +2,20 @@
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape.
-// Every wire class is generated (`#lib/generated/memorypack/`).
+// `TableStorageInfo`/`SkipIndexInfo`/`DiskUsageInfo`/`QueryPerformanceInfo`/`ClusterNodeInfo`
+// have no DateTimeOffset/JsonElement/IReadOnlyList member and use real generated classes;
+// `StorageGrowthPoint` (DateTimeOffset), `IndexingStatsResponse`, and `ClusterStatusResponse`
+// (both IReadOnlyList-of-object members - see `PipelineServiceBreakdown.ts`'s header comment
+// for why that alone blocks `[GenerateTypeScript]`) are hand-written (`#lib/memorypack/`).
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type AttributeBag } from './api';
-import { IndexingStatsResponse as GeneratedIndexingStatsResponse } from '#lib/generated/memorypack/IndexingStatsResponse.ts';
-import { ClusterStatusResponse as GeneratedClusterStatusResponse } from '#lib/generated/memorypack/ClusterStatusResponse.ts';
+import { IndexingStatsResponse as GeneratedIndexingStatsResponse } from '#lib/memorypack/IndexingStatsResponse.ts';
+import { ClusterStatusResponse as GeneratedClusterStatusResponse } from '#lib/memorypack/ClusterStatusResponse.ts';
 import type { TableStorageInfo as GeneratedTableStorageInfo } from '#lib/generated/memorypack/TableStorageInfo.ts';
 import type { SkipIndexInfo as GeneratedSkipIndexInfo } from '#lib/generated/memorypack/SkipIndexInfo.ts';
-import type { StorageGrowthPoint as GeneratedStorageGrowthPoint } from '#lib/generated/memorypack/StorageGrowthPoint.ts';
+import type { StorageGrowthPoint as GeneratedStorageGrowthPoint } from '#lib/memorypack/StorageGrowthPoint.ts';
 import type { ClusterNodeInfo as GeneratedClusterNodeInfo } from '#lib/generated/memorypack/ClusterNodeInfo.ts';
-import { PromotedAttributesResponse as GeneratedPromotedAttributesResponse } from '#lib/generated/memorypack/PromotedAttributesResponse.ts';
+import { PromotedAttributesResponse as GeneratedPromotedAttributesResponse } from '#lib/memorypack/PromotedAttributesResponse.ts';
 import { PromoteAttributeRequest as GeneratedPromoteAttributeRequest } from '#lib/generated/memorypack/PromoteAttributeRequest.ts';
 import { attributeBagFromString, attributeBagToString } from '#lib/memorypack/enums.ts';
 

@@ -28,7 +28,6 @@ public enum LogAggregateGroupBy
 
 /// <summary>Request body for <c>POST /api/logs/aggregate</c> - volume-over-time chart data.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogAggregateRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
@@ -136,7 +135,6 @@ public sealed partial record LogPostProcessFunction
 /// not `25.0`), so this is a no-op for every existing <c>/api/logs/aggregate</c> caller.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogAggregateBucket
 {
     public required DateTimeOffset BucketStart { get; init; }
@@ -148,7 +146,6 @@ public sealed partial record LogAggregateBucket
 
 /// <summary>Response body for <c>POST /api/logs/aggregate</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogAggregateResponse
 {
     public required IReadOnlyList<LogAggregateBucket> Buckets { get; init; }

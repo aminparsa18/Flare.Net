@@ -5,18 +5,20 @@
 // MetricInspectReducer.cs - and the Admin-only unit/description overrides
 // (`PUT`/`DELETE /api/metrics/metadata-overrides`, ADR-0065) with "treat as counter" (ADR-0066).
 //
-// MemoryPack over the wire, same shape as `hosts-api.ts`: every wire class is
-// generated (`#lib/generated/memorypack/`).
+// MemoryPack over the wire, same shape as `hosts-api.ts`: both requests and the per-row
+// entry/service/related types are real generated classes (timestamps travel as epoch ms to
+// keep them generatable); the responses and `MetricCatalogAttributeInfo` carry an
+// IReadOnlyList, so those are hand-written under `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { metricPointTypeFromString, metricPointTypeToString } from '#lib/memorypack/enums.ts';
 import type { MetricPointType } from './metrics-api';
 import { MetricCatalogRequest as GeneratedMetricCatalogRequest } from '#lib/generated/memorypack/MetricCatalogRequest.ts';
 import { MetricCatalogDetailRequest as GeneratedMetricCatalogDetailRequest } from '#lib/generated/memorypack/MetricCatalogDetailRequest.ts';
-import { MetricCatalogResponse as GeneratedMetricCatalogResponse } from '#lib/generated/memorypack/MetricCatalogResponse.ts';
-import { MetricCatalogDetailResponse as GeneratedMetricCatalogDetailResponse } from '#lib/generated/memorypack/MetricCatalogDetailResponse.ts';
+import { MetricCatalogResponse as GeneratedMetricCatalogResponse } from '#lib/memorypack/MetricCatalogResponse.ts';
+import { MetricCatalogDetailResponse as GeneratedMetricCatalogDetailResponse } from '#lib/memorypack/MetricCatalogDetailResponse.ts';
 import { MetricCatalogInspectRequest as GeneratedMetricCatalogInspectRequest } from '#lib/generated/memorypack/MetricCatalogInspectRequest.ts';
-import { MetricCatalogInspectResponse as GeneratedMetricCatalogInspectResponse } from '#lib/generated/memorypack/MetricCatalogInspectResponse.ts';
+import { MetricCatalogInspectResponse as GeneratedMetricCatalogInspectResponse } from '#lib/memorypack/MetricCatalogInspectResponse.ts';
 import { SetMetricMetadataOverrideRequest as GeneratedSetMetricMetadataOverrideRequest } from '#lib/generated/memorypack/SetMetricMetadataOverrideRequest.ts';
 
 export interface MetricCatalogEntry {
@@ -184,7 +186,7 @@ export async function getMetricCatalogDetail(
 		throw new Error('Empty response body decoding MetricCatalogDetailResponse.');
 	}
 	return {
-		metricName: dto.metricName ?? '',
+		metricName: dto.metricName,
 		type: metricPointTypeToString(dto.type),
 		unit: dto.unit || null,
 		description: dto.description || null,
@@ -200,7 +202,7 @@ export async function getMetricCatalogDetail(
 		attributes: (dto.attributes ?? [])
 			.filter((a) => a != null)
 			.map((a) => ({
-				key: a.key ?? '',
+				key: a.key,
 				distinctValueCount: Number(a.distinctValueCount),
 				sampleCount: Number(a.sampleCount),
 				sampleValues: (a.sampleValues ?? []).filter((v): v is string => v != null)

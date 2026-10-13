@@ -55,7 +55,6 @@ public sealed partial record PipelineStreamHealth(
 /// flushed since Flare.Ingest last started (not an error state).
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record PipelineFlushHealth(
     IngestionSignal Signal,
     DateTimeOffset? LastFlushAt,
@@ -88,7 +87,6 @@ public sealed partial record PipelineServiceEntry(string ServiceName, long Recor
 /// has its bytes split proportionally to each service's record share, not measured exactly.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record PipelineServiceBreakdown(
     IngestionSignal Signal,
     IReadOnlyList<PipelineServiceEntry> TopServices,
@@ -97,7 +95,6 @@ public sealed partial record PipelineServiceBreakdown(
     long OtherBytes);
 
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record PipelineStatsResponse(
     DateTimeOffset GeneratedAt,
     IReadOnlyList<PipelineStreamHealth> Streams,

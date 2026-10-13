@@ -21,7 +21,6 @@ namespace Flare.Api.Model;
 /// going through <see cref="Query.LogFilterSqlBuilder"/> for this reason.
 /// </remarks>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogContextRequest
 {
     /// <summary>The anchor event's <c>EventId</c> - together with <see cref="Timestamp"/>, its exact position in the <c>(Timestamp, EventId)</c> sort key.</summary>
@@ -46,7 +45,6 @@ public sealed partial record LogContextRequest
 
 /// <summary>Response body for <c>POST /api/logs/context</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogContextResponse
 {
     /// <summary>

@@ -3,17 +3,18 @@
 // (`POST /api/traces/funnel/traces`). See TraceFunnelQueryBuilder.cs and
 // docs-internal/adr/0067-trace-funnels.md for the matching and ordering semantics.
 //
-// MemoryPack over the wire, same shape as `messaging-api.ts`: every wire class is
-// generated (`#lib/generated/memorypack/`).
+// MemoryPack over the wire, same shape as `messaging-api.ts`: the two row types are
+// generated; the requests, responses and `TraceFunnelStep` carry `IReadOnlyList` members, so
+// those are hand-written under `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { spanAttributeBagFromString, spanAttributeFilterOperatorFromString, traceFunnelOutcomeFromString, type TraceFunnelOutcomeName } from '#lib/memorypack/enums.ts';
-import { SpanAttributeFilter as GeneratedSpanAttributeFilter } from '#lib/generated/memorypack/SpanAttributeFilter.ts';
-import { TraceFunnelStep as GeneratedStep } from '#lib/generated/memorypack/TraceFunnelStep.ts';
-import { TraceFunnelRequest as GeneratedRequest } from '#lib/generated/memorypack/TraceFunnelRequest.ts';
-import { TraceFunnelResponse as GeneratedResponse } from '#lib/generated/memorypack/TraceFunnelResponse.ts';
-import { TraceFunnelTracesRequest as GeneratedTracesRequest } from '#lib/generated/memorypack/TraceFunnelTracesRequest.ts';
-import { TraceFunnelTracesResponse as GeneratedTracesResponse } from '#lib/generated/memorypack/TraceFunnelTracesResponse.ts';
+import { SpanAttributeFilter as GeneratedSpanAttributeFilter } from '#lib/memorypack/SpanAttributeFilter.ts';
+import { TraceFunnelStep as GeneratedStep } from '#lib/memorypack/TraceFunnelStep.ts';
+import { TraceFunnelRequest as GeneratedRequest } from '#lib/memorypack/TraceFunnelRequest.ts';
+import { TraceFunnelResponse as GeneratedResponse } from '#lib/memorypack/TraceFunnelResponse.ts';
+import { TraceFunnelTracesRequest as GeneratedTracesRequest } from '#lib/memorypack/TraceFunnelTracesRequest.ts';
+import { TraceFunnelTracesResponse as GeneratedTracesResponse } from '#lib/memorypack/TraceFunnelTracesResponse.ts';
 import type { SpanAttributeFilter } from './traces-api';
 
 /** Mirrors `TraceFunnelQueryBuilder.MinSteps`/`MaxSteps`. */

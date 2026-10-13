@@ -8,10 +8,13 @@ namespace Flare.Api.Model;
 /// of the dashboard's per-trace <c>ServiceMapNode</c> (<c>service-map.ts</c>), same field
 /// shape on purpose so a future dashboard component can render both. Backs the "Map" view
 /// of <c>GET /api/services/dependencies</c> - see <see cref="Query.ServiceDependencyQueryBuilder"/>'s
-/// remarks for how it's computed.
+/// remarks for how it's computed. Deliberately hand-written on the MemoryPack TS side (not
+/// <c>[GenerateTypeScript]</c>) - <see cref="TopOperations"/>'s <c>IReadOnlyList&lt;string&gt;</c>
+/// blocks the generator (MEMPACK031: no list-of-primitive member is a supported
+/// TypeScript-generation type, not just list-of-object ones like
+/// <see cref="ServiceOverviewResponse.Services"/>).
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ServiceDependencyNode
 {
     /// <summary>The <c>peer.service</c>-overridden or actual service name - see <see cref="Query.ServiceDependencyQueryBuilder"/>'s <c>EffectiveServiceExpr</c>. May name a service with no spans of its own in this store (an uninstrumented external dependency only ever seen as a caller's <c>peer.service</c> attribute).</summary>
@@ -55,10 +58,13 @@ public sealed partial record ServiceDependencyEdge
 }
 
 /// <summary>
-/// Response body for <c>POST /api/services/dependencies</c>.
+/// Response body for <c>POST /api/services/dependencies</c>. Deliberately hand-written on
+/// the MemoryPack TS side (not <c>[GenerateTypeScript]</c>) - an
+/// <c>IReadOnlyList&lt;T&gt;</c> member blocks the generator the same way
+/// <see cref="ServiceOverviewResponse"/>'s own list member does; see <c>indexing-api.ts</c>'s
+/// header comment for the precedent.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ServiceDependencyGraphResponse
 {
     /// <summary>The window this snapshot covers, as requested (post-<see cref="Query.ServiceDependencyQueryBuilder.ClampWindowMinutes"/> clamp) - same shared clamp as <see cref="ServiceOverviewResponse.WindowMinutes"/>, so switching between the Services tab's Table and Map views can reuse one window control.</summary>
@@ -73,7 +79,6 @@ public sealed partial record ServiceDependencyGraphResponse
 
 /// <summary>Request body for <c>POST /api/services/dependencies</c> - see <see cref="ServiceOverviewRequest"/>'s remarks for why this is POST-with-a-flat-body rather than the GET-with-query-string it used to be.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ServiceDependencyRequest
 {
     /// <summary>Lookback window, minutes. Null/non-positive defaults - see <see cref="Query.ServiceDependencyQueryBuilder.ClampWindowMinutes"/>.</summary>

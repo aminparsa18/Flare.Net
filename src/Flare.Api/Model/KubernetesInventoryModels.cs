@@ -33,7 +33,6 @@ public sealed partial record KubernetesNodeListRequest
 /// <see cref="Query.KubernetesInventoryQueryBuilder"/>'s remarks for which metric feeds which field.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesNodeSummary
 {
     public required string NodeName { get; init; }
@@ -63,7 +62,6 @@ public sealed partial record KubernetesNodeSummary
 
 /// <summary>Response body for <c>POST /api/kubernetes/nodes</c>, sorted by <see cref="KubernetesNodeSummary.NodeName"/>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesNodeListResponse
 {
     public required int WindowMinutes { get; init; }
@@ -87,7 +85,6 @@ public sealed partial record KubernetesNodeMetricsRequest
 
 /// <summary>One time bucket of <see cref="KubernetesNodeMetricsResponse"/> - same per-field meaning and null semantics as <see cref="KubernetesNodeSummary"/>, scoped to the bucket.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesNodeMetricsPoint
 {
     public required DateTimeOffset BucketStart { get; init; }
@@ -103,7 +100,6 @@ public sealed partial record KubernetesNodeMetricsPoint
 
 /// <summary>Response body for <c>POST /api/kubernetes/nodes/metrics</c>, <see cref="Points"/> ascending by bucket; buckets with no data are absent.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesNodeMetricsResponse
 {
     public required string NodeName { get; init; }
@@ -159,7 +155,6 @@ public sealed partial record KubernetesPodListRequest
 /// fills only its half).
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesPodSummary
 {
     public required string PodName { get; init; }
@@ -193,7 +188,6 @@ public sealed partial record KubernetesPodSummary
 
 /// <summary>Response body for <c>POST /api/kubernetes/pods</c>, sorted by namespace then pod name.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record KubernetesPodListResponse
 {
     public required int WindowMinutes { get; init; }

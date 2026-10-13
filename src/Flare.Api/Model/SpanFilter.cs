@@ -79,7 +79,6 @@ public enum SpanAttributeFilterOperator
 /// meaningless) choice on a span filter, or vice versa.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record SpanAttributeFilter
 {
     public SpanAttributeBag Bag { get; init; } = SpanAttributeBag.Span;
@@ -116,7 +115,6 @@ public sealed partial record SpanAttributeFilter
 /// severity/body search) for a shared shape to stay meaningful for either endpoint.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record SpanFilter
 {
     public DateTimeOffset? From { get; init; }

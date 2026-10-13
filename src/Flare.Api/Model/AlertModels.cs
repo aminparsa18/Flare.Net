@@ -159,11 +159,15 @@ public enum MetricAlertAggregation
 
 /// <summary>
 /// A metric-query threshold condition - the <see cref="AlertConditionKind.MetricThreshold"/>
-/// counterpart to <see cref="LogFilter"/>. Nests <see cref="MetricFilter"/>, the same filter
-/// the Metrics Explorer uses.
+/// counterpart to <see cref="LogFilter"/>. Deliberately <see cref="MemoryPackableAttribute"/>
+/// only, no <c>[GenerateTypeScript]</c>: it nests <see cref="MetricFilter"/>, itself
+/// generator-ineligible for the same <c>IReadOnlyList&lt;T&gt;</c> reason
+/// <see cref="LogFilter"/> is (see <c>docs-internal/adr/0016-memorypack-dashboard-typescript-adoption.md</c>) -
+/// hand-written TypeScript companion (<c>$lib/memorypack/MetricAlertCondition.ts</c>),
+/// reusing the <c>$lib/memorypack/MetricFilter.ts</c> that already exists for the Metrics
+/// Explorer.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record MetricAlertCondition
 {
     public required string MetricName { get; init; }
@@ -177,8 +181,12 @@ public sealed partial record MetricAlertCondition
 
 /// <summary>
 /// An exception-occurrence-count condition - the <see cref="AlertConditionKind.ExceptionCount"/>
-/// counterpart to <see cref="LogFilter"/>. Nests <see cref="ExceptionFilter"/>, the same filter
-/// the Exceptions page uses.
+/// counterpart to <see cref="LogFilter"/>. Deliberately <see cref="MemoryPackableAttribute"/>
+/// only, no <c>[GenerateTypeScript]</c>: it nests <see cref="ExceptionFilter"/>, itself
+/// generator-ineligible (nullable <c>DateTimeOffset</c> members - see
+/// <c>$lib/memorypack/date-time-offset.ts</c>'s header comment) - hand-written TypeScript
+/// companion (<c>$lib/memorypack/ExceptionCountCondition.ts</c>), reusing the
+/// <c>$lib/memorypack/ExceptionFilter.ts</c> that already exists for the Exceptions page.
 /// </summary>
 /// <remarks>
 /// Counts via <see cref="Query.ExceptionCountConditionQueryBuilder"/>, which reuses
@@ -188,7 +196,6 @@ public sealed partial record MetricAlertCondition
 /// Exceptions page itself groups occurrences.
 /// </remarks>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ExceptionCountCondition
 {
     /// <summary>The <c>exception.type</c> event attribute to match, e.g. <c>"System.NullReferenceException"</c>.</summary>
@@ -212,6 +219,9 @@ public sealed partial record ExceptionCountCondition
 /// <see cref="AlertRule.MetricCondition"/> or <see cref="AlertRule.ExceptionCondition"/>) is
 /// evaluated once for the current window and once per baseline window - see
 /// <see cref="Alerting.AnomalyEvaluator"/> and <c>docs-internal/adr/0048-anomaly-detection-alerting.md</c>.
+/// <see cref="MemoryPackableAttribute"/> only, with a hand-written TypeScript companion
+/// (<c>$lib/memorypack/AnomalyCondition.ts</c>), so its enums stay the plain
+/// <c>enums.ts</c> name/int converters <see cref="AlertConditionKind"/> already uses.
 /// </summary>
 /// <remarks>
 /// System.Text.Json source-gen resets a member omitted from the JSON body to
@@ -221,7 +231,6 @@ public sealed partial record ExceptionCountCondition
 /// silent 0.
 /// </remarks>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record AnomalyCondition
 {
     /// <summary><see cref="AlertConditionKind.LogCount"/>, <see cref="AlertConditionKind.MetricThreshold"/> or <see cref="AlertConditionKind.ExceptionCount"/> - never <see cref="AlertConditionKind.Anomaly"/> itself.</summary>
@@ -303,7 +312,6 @@ public sealed partial record AlertThreshold
 /// <see cref="WindowSeconds"/> at evaluation time.
 /// </remarks>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record AlertRule
 {
     public required Guid Id { get; init; }
@@ -365,7 +373,7 @@ public sealed partial record AlertRule
 
     public required DateTimeOffset UpdatedAt { get; init; }
 
-    /// <summary>Which condition this rule evaluates. Appended after every pre-existing field (not inserted earlier) so the generated TypeScript decoder versions the same way its own <c>deserializeCore</c> already does for older payloads.</summary>
+    /// <summary>Which condition this rule evaluates. Appended after every pre-existing field (not inserted earlier) so the hand-written MemoryPack TypeScript companion (<c>$lib/memorypack/AlertRule.ts</c>) versions the same way its own <c>deserializeCore</c> already does for older payloads.</summary>
     public AlertConditionKind ConditionKind { get; init; } = AlertConditionKind.LogCount;
 
     /// <summary>Set (non-null) only for <see cref="AlertConditionKind.MetricThreshold"/> rules; null/ignored for <see cref="AlertConditionKind.LogCount"/> ones, which use <see cref="Condition"/> instead.</summary>
@@ -592,7 +600,6 @@ public sealed partial record AlertRule
 /// mixing coalescing strategies.
 /// </remarks>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record AlertRuleRequest
 {
     public required string Name { get; init; }
@@ -993,7 +1000,6 @@ public sealed partial record AlertRuleRequest
 
 /// <summary>Response body for <c>GET /api/alerts</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record AlertRuleListResponse
 {
     public required IReadOnlyList<AlertRule> Rules { get; init; }
@@ -1001,7 +1007,6 @@ public sealed partial record AlertRuleListResponse
 
 /// <summary>One row of an <see cref="AlertRule"/>'s fired-notification history.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record AlertHistoryEntry
 {
     public required Guid EventId { get; init; }
@@ -1176,7 +1181,6 @@ public sealed record AlertRuleStatusResponse(IReadOnlyList<AlertRuleStatus> Stat
 
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record AlertHistoryResponse
 {
     public required IReadOnlyList<AlertHistoryEntry> Events { get; init; }
@@ -1188,7 +1192,6 @@ public sealed partial record AlertHistoryResponse
 /// data without touching cooldown state or sending a notification.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record AlertTestResult
 {
     /// <summary>Meaningful only for a <see cref="AlertConditionKind.LogCount"/>/<see cref="AlertConditionKind.ExceptionCount"/> rule/draft - 0 for a <see cref="AlertConditionKind.MetricThreshold"/> one, which reports its result via <see cref="ObservedValue"/> instead.</summary>
@@ -1275,7 +1278,9 @@ public sealed partial record AlertNotificationPreview
 /// rule/draft's configured channel (unlike <see cref="AlertTestResult"/>'s dry-run, which
 /// never notifies), so a channel's config (URL, bot token, SMTP address, PagerDuty
 /// routing key) can be verified before relying on it in a real incident. Carries no
-/// <see cref="DateTimeOffset"/>/nested member, unlike <see cref="AlertRule"/>.
+/// <see cref="DateTimeOffset"/>/nested member, unlike <see cref="AlertRule"/>, so this can
+/// carry <c>[GenerateTypeScript]</c> directly rather than needing a hand-written
+/// <c>$lib/memorypack/</c> companion.
 /// </summary>
 [MemoryPackable]
 [GenerateTypeScript]
