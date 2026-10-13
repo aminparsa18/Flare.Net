@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using ClickHouse.Driver;
 using Flare.Identity;
 using Flare.Ingest.Auth;
@@ -79,6 +80,14 @@ builder.Services.Configure<ProfileEventPipelineOptions>(
 // match the resource names Flare.AppHost references onto this project.
 builder.AddRedisClient(connectionName: "redis");
 builder.AddClickHouseDataSource(connectionName: "clickhousedb");
+// Decrypts forwarding-target header values saved by Flare.Api (ADR-0213), so it must share Flare.Api's key ring:
+// same application name and Redis key as Flare.Api's Program.cs.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Flare")
+    .PersistKeysToStackExchangeRedis(
+        () => StackExchange.Redis.ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!).GetDatabase(),
+        "Flare-DataProtection-Keys");
+builder.Services.AddSingleton<ExportSecretUnprotector>();
 
 builder.Services.AddSingleton<ILogEventSink, RedisStreamLogEventSink>();
 builder.Services.AddSingleton<IClickHouseLogEventWriter, ClickHouseLogEventWriter>();

@@ -108,7 +108,7 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 - CORS restricted to `Cors:AllowedOrigins` with credentials; no `AllowAnyOrigin` **[obs]**.
 - Baseline security headers on API and dashboard (ADR-0200); HSTS only for HTTPS requests.
 - SSRF connect-time guard (resolves, rejects if *any* address is non-public, connects to the checked IP, covers redirects/rebinding) on notifiers and forwarding **[obs]**.
-- Notification secrets encrypted with Data Protection (`enc:v1:`); masked on read (ADR-0205).
+- Notification secrets, SSO/LDAP secrets, source-link tokens and telemetry-export credentials encrypted with Data Protection (`enc:v1:`); masked on read (ADR-0205, 0212, 0213).
 - Per-key ingest limits, origin and service allowlists, key expiry; limit failures fail **open** if Redis is down (documented as a fairness guard, not a security boundary) **[obs]**.
 - PAT/ingest key stored as SHA-256 of a high-entropy random token; PAT optional expiry; per-token rate limit.
 - Audit log with hash chain, export, forwarding, read auditing.
@@ -182,7 +182,6 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 | Static ingest key, SMTP password, ClickHouse/Redis/Postgres passwords, archive keys | High | Env/config/Helm secrets | Process env, logs if mis-logged **[assumed]** |
 | Notification channel secrets (webhooks, bot tokens, routing keys, Jira/incident.io/JSM tokens) | High | ClickHouse `notification_channels`, `alert_rules` as `enc:v1:` ciphertext; **key ring in Redis, unencrypted** | Outbound requests; masked in API |
 | SSO/LDAP settings (client secret, bind password) | High | Identity DB **[assumed encrypted? check]** | Outbound to IdP/LDAP |
-| Telemetry export config (`telemetry_exports.ConfigJson`), source-link access tokens | High | Stored un-encrypted per ADR-0205 "not covered" | Outbound |
 | Audit log | Integrity-critical, moderate confidentiality (actor, source IP, field diffs, redacted) | Identity DB (append-only trigger + hash chain) | Export, forwarding sinks, read-audit entries |
 | Alert definitions, dashboards, saved views | Low–moderate | ClickHouse/Identity | Exports, Grafana import/export |
 | Status-page subscriber emails | PII | Identity/ClickHouse | Mail |
@@ -240,7 +239,6 @@ Anything needing attacker control of `appsettings`, env, compose, Helm values, o
 1. Is ClickHouse **8123** intentionally published in `docker-compose.yml` with the default `flare` password? Should the default bind to 127.0.0.1?
 2. Should a fresh install nudge or force enabling auth and ingest keys when ports are bound beyond loopback, or is "open by default" the long-term stance?
 3. Are the dashboard (`{@html}`, ANSI, markdown, code highlighting) rendering paths audited for telemetry-derived XSS? None were verified in this pass **[assumed]**.
-4. Are SSO/LDAP/OIDC client secrets and bind passwords encrypted at rest in the Identity DB, or only masked in API responses? (ADR-0205 covers notification channels only.)
 5. Should `Sessions.Id` be stored as a hash (like PATs and ingest keys)? Current design keeps the raw token because the cookie value is the primary key.
 6. Does the live-tail WebSocket need an `Origin` check and a per-user connection cap?
 7. Is every query-service path covered by `ServiceScope` tests (I3), including exports, MCP tools, Prometheus-compat endpoints, and resource-graph?

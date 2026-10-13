@@ -11,6 +11,7 @@ namespace Flare.Api.Alerting;
 public sealed class NotificationSecretBackfillService(
     INotificationChannelQueryService channels,
     IAlertQueryService alerts,
+    ITelemetryExportQueryService exports,
     ILogger<NotificationSecretBackfillService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -21,9 +22,10 @@ public sealed class NotificationSecretBackfillService(
             await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
             var channelCount = await channels.ProtectLegacySecretsAsync(stoppingToken);
             var ruleCount = await alerts.ProtectLegacySecretsAsync(stoppingToken);
-            if (channelCount + ruleCount > 0)
+            var exportCount = await exports.ProtectLegacySecretsAsync(stoppingToken);
+            if (channelCount + ruleCount + exportCount > 0)
             {
-                logger.LogInformation("Encrypted stored notification secrets on {Channels} channel(s) and {Rules} alert rule(s)", channelCount, ruleCount);
+                logger.LogInformation("Encrypted stored notification secrets on {Channels} channel(s), {Rules} alert rule(s) and {Exports} telemetry export(s)", channelCount, ruleCount, exportCount);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

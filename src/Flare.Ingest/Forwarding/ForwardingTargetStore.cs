@@ -8,7 +8,7 @@ namespace Flare.Ingest.Forwarding;
 public sealed record ManagedForwardingTarget(Guid Id, ForwardingTargetOptions Options)
 {
     /// <summary>Builds a target from a <c>telemetry_exports</c> row; null when <paramref name="configJson"/> is the JSON <c>null</c>.</summary>
-    public static ManagedForwardingTarget? FromRow(Guid id, string name, string configJson)
+    public static ManagedForwardingTarget? FromRow(Guid id, string name, string configJson, Func<string, string>? unprotect = null)
     {
         var config = JsonSerializer.Deserialize(configJson, ForwardingConfigJsonContext.Default.ForwardingConfigJson);
         return config is null
@@ -17,7 +17,7 @@ public sealed record ManagedForwardingTarget(Guid Id, ForwardingTargetOptions Op
             {
                 Name = name,
                 Endpoint = config.Endpoint ?? "",
-                Headers = config.Headers ?? [],
+                Headers = (config.Headers ?? []).ToDictionary(h => h.Key, h => unprotect is null ? h.Value : unprotect(h.Value)),
                 Signals = config.Signals ?? [],
                 Services = config.Services ?? [],
                 IngestKeyIds = config.IngestKeyIds ?? [],
@@ -57,7 +57,7 @@ internal sealed partial class ForwardingConfigJsonContext : JsonSerializerContex
 /// Read-only view of <c>telemetry_exports</c> (Kind 0): latest version per <c>Id</c> (not <c>FINAL</c> - ADR-0074),
 /// enabled and not deleted. Flare.Api owns writes.
 /// </summary>
-public sealed class ClickHouseForwardingTargetStore(IClickHouseClient client) : IForwardingTargetStore
+public sealed class ClickHouseForwardingTargetStore(IClickHouseClient client, ExportSecretUnprotector secrets) : IForwardingTargetStore
 {
     private const string Sql = """
         SELECT Id, Name, ConfigJson
@@ -78,7 +78,7 @@ public sealed class ClickHouseForwardingTargetStore(IClickHouseClient client) : 
         var targets = new List<ManagedForwardingTarget>();
         while (reader.Read())
         {
-            if (ManagedForwardingTarget.FromRow(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)) is { } target)
+            if (ManagedForwardingTarget.FromRow(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), secrets.Unprotect) is { } target)
             {
                 targets.Add(target);
             }

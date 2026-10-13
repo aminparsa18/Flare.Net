@@ -23,6 +23,7 @@ using Flare.Api.ResourceGraph;
 using Flare.Api.Updates;
 using Flare.Identity;
 using Flare.Identity.Auth;
+using Flare.Identity.SourceLinks;
 using Flare.Identity.Users;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Authorization;
@@ -280,6 +281,20 @@ builder.Services.AddSingleton<IRuntimeHealthQueryService, RuntimeHealthQueryServ
 builder.Services.AddSingleton<IVersionComparisonQueryService, VersionComparisonQueryService>();
 builder.Services.AddSingleton<INotificationSecretProtector, NotificationSecretProtector>();
 builder.Services.AddHostedService<NotificationSecretBackfillService>();
+// SSO/LDAP secrets and source-link tokens are encrypted by wrapping the Identity stores (ADR-0206); later registrations win.
+builder.Services.AddSingleton(sp => new ProtectedEntraSettingsStore(ActivatorUtilities.CreateInstance<DbEntraSettingsStore>(sp), sp.GetRequiredService<INotificationSecretProtector>()));
+builder.Services.AddSingleton(sp => new ProtectedOidcSettingsStore(ActivatorUtilities.CreateInstance<DbOidcSettingsStore>(sp), sp.GetRequiredService<INotificationSecretProtector>()));
+builder.Services.AddSingleton(sp => new ProtectedLdapSettingsStore(ActivatorUtilities.CreateInstance<DbLdapSettingsStore>(sp), sp.GetRequiredService<INotificationSecretProtector>()));
+builder.Services.AddSingleton(sp => new ProtectedSourceLinkStore(ActivatorUtilities.CreateInstance<DbSourceLinkStore>(sp), sp.GetRequiredService<INotificationSecretProtector>()));
+builder.Services.AddSingleton<IEntraSettingsStore>(sp => sp.GetRequiredService<ProtectedEntraSettingsStore>());
+builder.Services.AddSingleton<IOidcSettingsStore>(sp => sp.GetRequiredService<ProtectedOidcSettingsStore>());
+builder.Services.AddSingleton<ILdapSettingsStore>(sp => sp.GetRequiredService<ProtectedLdapSettingsStore>());
+builder.Services.AddSingleton<ISourceLinkStore>(sp => sp.GetRequiredService<ProtectedSourceLinkStore>());
+builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedEntraSettingsStore>());
+builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedOidcSettingsStore>());
+builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedLdapSettingsStore>());
+builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedSourceLinkStore>());
+builder.Services.AddHostedService<IdentitySecretBackfillService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();
