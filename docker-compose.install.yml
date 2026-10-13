@@ -131,7 +131,6 @@ services:
         condition: service_healthy
     environment:
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
-      ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
     ports:
       - "${FLARE_DASHBOARD_PORT:-7777}:3000"
 

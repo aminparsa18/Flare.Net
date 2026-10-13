@@ -12,7 +12,7 @@ image:
 imagePullSecrets: []
 
 # Public address of the dashboard, as the browser sees it, without a trailing slash or the
-# base path (e.g. https://flare.example.com). Drives the dashboard's ORIGIN/PUBLIC_API_URL,
+# base path (e.g. https://flare.example.com). Drives the dashboard's PUBLIC_API_URL,
 # the API's CORS allow-list and the deep links in alert notifications. Leave empty to use
 # `kubectl port-forward` defaults (dashboard http://localhost:7777, api http://localhost:8080).
 publicUrl: ""

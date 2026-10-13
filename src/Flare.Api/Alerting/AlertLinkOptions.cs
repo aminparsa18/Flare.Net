@@ -23,7 +23,7 @@ public sealed class AlertLinkOptions
     /// <summary>
     /// e.g. <c>https://flare.example.com</c> - no trailing slash required (trimmed before
     /// use). Same URL an operator would pass to <c>WithPublicDashboardUrl</c> in Aspire
-    /// hosting, or that the dashboard's own <c>ORIGIN</c> is set to for docker-compose/CLI.
+    /// hosting, or that <c>Cors__AllowedOrigins__0</c> is set to for docker-compose/CLI.
     /// </summary>
     public string PublicUrl { get; set; } = "";
 

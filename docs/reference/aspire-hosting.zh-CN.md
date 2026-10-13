@@ -41,7 +41,7 @@ IResourceBuilder<FlareResource> AddFlare(
 | `WithApiPort(int)` / `WithDashboardPort(int)` | 查询API/仪表板主机端口。正常代理 Aspire HTTP 端点。 |
 | `WithIngestImage(string)` / `WithApiImage(string)` / `WithDashboardImage(string)` | 图像名称/注册表（不是标签 - `imageTag` 仍然提供） - 用于本地开发使用 `docker compose build` 而不是 Docker Hub 构建的图像。 |
 | `WithApiKey(IResourceBuilder<ParameterResource>)` | 传递 `secret: true` `AddParameter` 结果以要求 OTLP 调用者提供摄取 API 密钥。未调用 = 摄取保持匿名。无自动流通：调用 `AddFlareOtlpExporter` 的项目仍需要将相同的原始值传递给其自己的 `configureSettings: s => s.ApiKey = ...` 委托。 |
-| `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | 覆盖 `localhost` 固定的面向浏览器的 URL (`PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0`)。仅在实际发布/部署时需要 - 请参阅下面的 [Publishing to Kubernetes/Docker Compose](#部署事实)。 |
+| `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | 覆盖 `localhost` 固定的面向浏览器的 URL (`PUBLIC_API_URL`/`Cors__AllowedOrigins__0`)。仅在实际发布/部署时需要 - 请参阅下面的 [Publishing to Kubernetes/Docker Compose](#部署事实)。 |
 | `WithPersistentStorage(clickHouseVolume, redisVolume, identityVolume)` | 将三个 `kubernetesEnvironment.AddPersistentVolume(...)` 结果（每个结果都包含您需要的 `WithStorageClass`/`WithCapacity`/`WithAccessMode`）到 ClickHouse/Redis/身份数据库的存储 - 请参阅下面的 [the Kubernetes section](#库伯内斯)。需要抑制 `ASPIRECOMPUTE002`（`AddPersistentVolume` 本身也有同样的要求）——因此该方法被标记为 `[Experimental("ASPIRECOMPUTE002")]`。 |
 
 > **`0.3.2` 中的重大更改：** 在此版本之前，上述所有内容
@@ -61,7 +61,7 @@ AppHost — 有关实际步骤，请参见
 
 - `publicApiUrl`/`publicDashboardUrl` 默认未设置 — `aspire run`
   假设浏览器位于同一台机器上并点
-  `PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0` 位于 `localhost`。左边
+  `PUBLIC_API_URL`/`Cors__AllowedOrigins__0` 位于 `localhost`。左边
   未设置，Aspire 将它们捕获为您填充的 ​​`.env.{environment}` 占位符
   每个环境中实际部署的 URL。
 - ClickHouse init 在发布时构建一个小型自定义映像 (`FROM`
@@ -135,7 +135,7 @@ AppHost — 有关实际步骤，请参见
     控制台）——参见调查结果#7。不要依赖于看到它；
     请将此文档视为事实来源。
 - `publicApiUrl`/`publicDashboardUrl` 与 Docker 的要求相同
-  Compose — 未设置，仪表板的 `PUBLIC_API_URL`/`ORIGIN`/`api`
+  Compose — 未设置，仪表板的 `PUBLIC_API_URL`/`api`
   `Cors__AllowedOrigins__0` 解析为 Kubernetes 自己的集群内服务
   DNS 名称（例如 `http://flare-api-service:8080`），无法从
   外部浏览器。

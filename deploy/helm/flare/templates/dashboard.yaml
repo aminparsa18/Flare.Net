@@ -41,12 +41,10 @@ spec:
           ports:
             - { name: http, containerPort: 3000 }
           env:
-            # Both resolve from the *browser* (the dashboard is a client-rendered SPA), not
-            # from inside the cluster.
+            # Resolves from the *browser* (the dashboard is a client-rendered SPA), not from
+            # inside the cluster.
             - name: PUBLIC_API_URL
               value: {{ include "flare.publicApiUrl" . | quote }}
-            - name: ORIGIN
-              value: {{ include "flare.origin" . | quote }}
             - name: FLARE_BASE_PATH
               value: {{ include "flare.basePath" . | quote }}
             {{- with .Values.dashboard.extraEnv }}

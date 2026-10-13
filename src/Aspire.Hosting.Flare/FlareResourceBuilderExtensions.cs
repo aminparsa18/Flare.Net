@@ -316,14 +316,12 @@ public static class FlareResourceBuilderExtensions
         // ingest above.
         alertWorker.WithImagePullPolicy(ImagePullPolicy.Always);
 
-        // Flare.Dashboard: the SvelteKit SPA. PUBLIC_API_URL/ORIGIN are read at *container
+        // Flare.Dashboard: the SvelteKit SPA. PUBLIC_API_URL is read at *container
         // runtime* via SvelteKit's $env/dynamic/public, not baked in at image build time
         // (confirmed against src/dashboard/src/lib/api.ts in Flare's own repo), so this one
-        // published image is reconfigurable per consumer with zero rework. ORIGIN references
-        // the dashboard's own endpoint - it has to know its own externally-reachable URL for
-        // SvelteKit's Node adapter to accept requests. Both are read by *the browser*, not by
-        // another container, so both are pinned to the localhost/loopback network context
-        // (KnownNetworkIdentifiers.LocalhostNetwork) rather than the default container-network
+        // published image is reconfigurable per consumer with zero rework. It is read by *the
+        // browser*, not by another container, so it is pinned to the localhost/loopback network
+        // context (KnownNetworkIdentifiers.LocalhostNetwork) rather than the default container-network
         // resolution GetEndpoint uses for a plain container-to-container reference - confirmed
         // by e2e run that the default otherwise injects Aspire's internal *.dev.internal DNS
         // names, unreachable from a real browser on the host.
@@ -359,7 +357,6 @@ public static class FlareResourceBuilderExtensions
         // for PUBLIC_API_URL above and for the same reason: this has to resolve to what
         // the *browser* sees, not container-network DNS. Confirmed live against a real
         // Aspire-orchestrated run that this was missing and broke the dashboard outright.
-        dashboard.WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
         api.WithEnvironment("Cors__AllowedOrigins__0", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
 
         // Opt-in Resources page (docs/aspire-hosting.md) - see enableResourceGraph's doc
@@ -740,8 +737,7 @@ public static class FlareResourceBuilderExtensions
 
     /// <summary>
     /// Overrides the externally-reachable URL browsers should use to reach the dashboard itself,
-    /// surfaced as the dashboard's own <c>ORIGIN</c> (required by SvelteKit's Node adapter to
-    /// accept requests) and as <c>api</c>'s <c>Cors__AllowedOrigins__0</c> (so <c>api</c> accepts
+    /// surfaced as <c>api</c>'s <c>Cors__AllowedOrigins__0</c> (so <c>api</c> accepts
     /// browser requests originating from it). Same default/override story as
     /// <see cref="WithPublicApiUrl"/> - not called, keeps today's loopback-pinned <c>aspire run</c>
     /// behavior; call it with an <c>AddParameter</c> result for publish/deploy.
@@ -749,7 +745,7 @@ public static class FlareResourceBuilderExtensions
     /// Also fans out as <c>Alerting__PublicUrl</c> on both <c>api</c> and <c>alert-worker</c>
     /// (<see cref="Flare.Api.Alerting.AlertLinkOptions"/>) - the same URL a fired alert's
     /// notification links back to the rule with, so calling this one method is enough to
-    /// get both the CORS/ORIGIN wiring and working notification links; nothing extra to
+    /// get both the CORS wiring and working notification links; nothing extra to
     /// call for the latter.
     /// </summary>
     /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
@@ -760,7 +756,6 @@ public static class FlareResourceBuilderExtensions
         ArgumentNullException.ThrowIfNull(flare);
         ArgumentNullException.ThrowIfNull(publicDashboardUrl);
 
-        GetDashboardBuilder(flare).WithEnvironment("ORIGIN", publicDashboardUrl);
         GetApiBuilder(flare)
             .WithEnvironment("Cors__AllowedOrigins__0", publicDashboardUrl)
             .WithEnvironment("Alerting__PublicUrl", publicDashboardUrl);

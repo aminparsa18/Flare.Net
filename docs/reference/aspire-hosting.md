@@ -39,7 +39,7 @@ returned `FlareResource` builder, the usual Aspire convention (compare
 | `WithApiPort(int)` / `WithDashboardPort(int)` | The query API / dashboard host ports. Normal proxied Aspire HTTP endpoints. |
 | `WithIngestImage(string)` / `WithApiImage(string)` / `WithDashboardImage(string)` | Image name/registry (not tag — `imageTag` still supplies that) — for local-dev use against images built with `docker compose build` instead of Docker Hub. |
 | `WithApiKey(IResourceBuilder<ParameterResource>)` | Pass a `secret: true` `AddParameter` result to require OTLP callers to present an ingest API key. Uncalled = ingest stays anonymous. No automatic flow-through: a project calling `AddFlareOtlpExporter` still needs the same raw value passed to its own `configureSettings: s => s.ApiKey = ...` delegate. |
-| `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | Override the `localhost`-pinned browser-facing URLs (`PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0`). Only needed once actually publishing/deploying — see [Publishing to Kubernetes/Docker Compose](#deployment-facts) below. |
+| `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | Override the `localhost`-pinned browser-facing URLs (`PUBLIC_API_URL`/`Cors__AllowedOrigins__0`). Only needed once actually publishing/deploying — see [Publishing to Kubernetes/Docker Compose](#deployment-facts) below. |
 | `WithPersistentStorage(clickHouseVolume, redisVolume, identityVolume)` | Binds three `kubernetesEnvironment.AddPersistentVolume(...)` results (each with whatever `WithStorageClass`/`WithCapacity`/`WithAccessMode` you need) to ClickHouse's/Redis's/the identity database's storage — see [the Kubernetes section](#kubernetes) below. Requires suppressing `ASPIRECOMPUTE002` (same requirement `AddPersistentVolume` itself carries) — this method is marked `[Experimental("ASPIRECOMPUTE002")]` for that reason. |
 
 > **Breaking change in `0.3.2`:** before this version, all of the above
@@ -59,7 +59,7 @@ AppHost — for the actual steps, see
 
 - `publicApiUrl`/`publicDashboardUrl` are unset by default — `aspire run`
   assumes the browser is on the same machine and points
-  `PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0` at `localhost`. Left
+  `PUBLIC_API_URL`/`Cors__AllowedOrigins__0` at `localhost`. Left
   unset, Aspire captures them as `.env.{environment}` placeholders you fill
   in with real deployed URLs per environment.
 - ClickHouse init builds a small custom image at publish time (`FROM`
@@ -133,7 +133,7 @@ AppHost — for the actual steps, see
     console) — see the investigation's finding #7. Don't rely on seeing it;
     treat this document as the source of truth instead.
 - `publicApiUrl`/`publicDashboardUrl` are just as required as for Docker
-  Compose — left unset, the dashboard's `PUBLIC_API_URL`/`ORIGIN`/`api`'s
+  Compose — left unset, the dashboard's `PUBLIC_API_URL`/`api`'s
   `Cors__AllowedOrigins__0` resolve to Kubernetes' own in-cluster Service
   DNS names (e.g. `http://flare-api-service:8080`), unreachable from an
   external browser.

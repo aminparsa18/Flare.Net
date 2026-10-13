@@ -43,7 +43,7 @@ retourné, la convention Aspire habituelle (comparez avec
 | `WithApiPort(int)` / `WithDashboardPort(int)` | Les ports hôtes de l'API de requêtage / du tableau de bord. Points de terminaison HTTP Aspire proxifiés normaux. |
 | `WithIngestImage(string)` / `WithApiImage(string)` / `WithDashboardImage(string)` | Nom d'image/registre (pas le tag — `imageTag` le fournit toujours) — pour un usage en développement local contre des images construites avec `docker compose build` au lieu de Docker Hub. |
 | `WithApiKey(IResourceBuilder<ParameterResource>)` | Passez un résultat `AddParameter` avec `secret: true` pour exiger des appelants OTLP qu'ils présentent une clé API d'ingestion. Non appelé = l'ingestion reste anonyme. Aucune propagation automatique : un projet appelant `AddFlareOtlpExporter` doit quand même se voir passer la même valeur brute dans son propre délégué `configureSettings: s => s.ApiKey = ...`. |
-| `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | Surcharge les URLs orientées navigateur épinglées sur `localhost` (`PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0`). Nécessaire seulement lors d'une publication/d'un déploiement réel — voir [Publier sur Kubernetes/Docker Compose](#deployment-facts) ci-dessous. |
+| `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | Surcharge les URLs orientées navigateur épinglées sur `localhost` (`PUBLIC_API_URL`/`Cors__AllowedOrigins__0`). Nécessaire seulement lors d'une publication/d'un déploiement réel — voir [Publier sur Kubernetes/Docker Compose](#deployment-facts) ci-dessous. |
 | `WithPersistentStorage(clickHouseVolume, redisVolume, identityVolume)` | Lie trois résultats de `kubernetesEnvironment.AddPersistentVolume(...)` (chacun avec les `WithStorageClass`/`WithCapacity`/`WithAccessMode` dont vous avez besoin) au stockage de ClickHouse/Redis/de la base de données d'identité — voir [la section Kubernetes](#kubernetes) ci-dessous. Nécessite de supprimer `ASPIRECOMPUTE002` (la même exigence que porte `AddPersistentVolume` lui-même) — cette méthode est marquée `[Experimental("ASPIRECOMPUTE002")]` pour cette raison. |
 
 > **Changement cassant dans la `0.3.2` :** avant cette version, tout ce
@@ -64,7 +64,7 @@ contenant Flare — pour les étapes concrètes, voir
 
 - `publicApiUrl`/`publicDashboardUrl` ne sont pas définis par défaut —
   `aspire run` suppose que le navigateur est sur la même machine et
-  pointe `PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0` vers
+  pointe `PUBLIC_API_URL`/`Cors__AllowedOrigins__0` vers
   `localhost`. Laissés non définis, Aspire les capture comme des
   placeholders `.env.{environment}` que vous remplissez avec de vraies
   URLs déployées par environnement.
@@ -149,7 +149,7 @@ contenant Flare — pour les étapes concrètes, voir
     conclusion n°7 de l'investigation. Ne comptez pas sur le fait de le
     voir ; considérez plutôt ce document comme la source de vérité.
 - `publicApiUrl`/`publicDashboardUrl` sont tout aussi requis que pour
-  Docker Compose — laissés non définis, le `PUBLIC_API_URL`/`ORIGIN` du
+  Docker Compose — laissés non définis, le `PUBLIC_API_URL` du
   tableau de bord et le `Cors__AllowedOrigins__0` de l'`api` se résolvent
   vers les propres noms DNS de Service internes au cluster Kubernetes
   (par ex. `http://flare-api-service:8080`), inaccessibles depuis un

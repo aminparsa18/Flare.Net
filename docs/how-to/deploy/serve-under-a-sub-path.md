@@ -33,7 +33,6 @@ links in alert notifications all pick up the one `FLARE_BASE_PATH` setting.
      dashboard:
        environment:
          FLARE_BASE_PATH: /flare
-         ORIGIN: https://example.com
          PUBLIC_API_URL: https://example.com/flare
    ```
 

@@ -153,9 +153,8 @@ services:
       # Same file `ingest` above points at - see its Identity__DbPath comment.
       Identity__DbPath: "/data/identity/flare-identity.db"
       # Must match wherever *your browser* actually loads the dashboard from - same
-      # value the dashboard service's own ORIGIN below is computed from, so overriding
-      # FLARE_DASHBOARD_PORT (or opening the dashboard from a different host, see that
-      # service's comment) keeps both in sync automatically. AllowCredentials() means
+      # derived from FLARE_DASHBOARD_PORT, so overriding it (or opening the dashboard from
+      # a different host, see the dashboard service's comment) keeps it in sync. AllowCredentials() means
       # this can't be a wildcard - the session cookie won't cross origins otherwise.
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       # Sub-path hosting behind a reverse proxy (docs/how-to/deploy/serve-under-a-sub-path.md) -
@@ -277,7 +276,6 @@ services:
       # "api" would not resolve for you. Override in .env if you're opening the
       # dashboard from a different host than the one running `docker compose up`.
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
-      ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       # Sub-path hosting - see `api`'s Flare__BasePath above. Resolved at container start
       # (the image is built with a placeholder), so no rebuild is needed to change it.
       FLARE_BASE_PATH: "${FLARE_BASE_PATH:-}"
