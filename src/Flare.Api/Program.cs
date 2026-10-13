@@ -285,6 +285,7 @@ builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryServic
 builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();
 // Managed OTLP forwarding targets + S3 archive settings (ADR-0157), and the status the workers publish to Redis.
 builder.Services.AddSingleton<ITelemetryExportQueryService, TelemetryExportQueryService>();
+builder.Services.AddSingleton<IRuntimeSettingsQueryService, RuntimeSettingsQueryService>();
 builder.Services.AddSingleton<IExportStatusStore, RedisExportStatusStore>();
 builder.Services.AddSingleton<ILogMetricQueryService, LogMetricQueryService>();
 // Data retention (ADR-0143): factory registration for the same ClickHouse:ClusterMode reason as
@@ -683,6 +684,8 @@ memberRoutes.MapMetricAttributeRuleEndpoints();
 // Same Member/Admin-only rationale - a log metric writes a new metric at ingest and every group-by key adds series.
 memberRoutes.MapLogMetricEndpoints();
 memberRoutes.MapRetentionReadEndpoints();
+// Reading the PII-redaction override is open to members (they manage the pipeline rules it sits beside); writing is Admin-only below.
+memberRoutes.MapRuntimeSettingsReadEndpoints();
 
 // Ingest API key issuance/revocation is Admin-only - a leaked key lets any caller ingest
 // telemetry as this Flare instance, so this isn't something a Member should be able to
@@ -709,6 +712,8 @@ adminRoutes.MapAuthSettingsEndpoints();
 adminRoutes.MapApdexThresholdEndpoints();
 // Changing retention deletes data - Admin-only; reading it (above) is open to members.
 adminRoutes.MapRetentionWriteEndpoints();
+// Flipping managed PII redaction changes what every future event stores (ADR-0210).
+adminRoutes.MapRuntimeSettingsWriteEndpoints();
 // Data-subject export reads, and erasure deletes, personal data across every service (ADR-0198).
 adminRoutes.MapErasureEndpoints();
 // Forwarding targets and archive settings hold destination credentials and ship all telemetry out (ADR-0157).

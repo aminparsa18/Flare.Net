@@ -75,10 +75,44 @@ public class PiiRedactorTests
         Assert.Same(input, await Annotator(new() { Enabled = false, Pii = { Enabled = true } }).AnnotateAsync(input, default));
     }
 
-    private sealed class EmptyCache : IPipelineRuleCache
+    private sealed class EmptyCache(bool? piiOverride = null) : IPipelineRuleCache
     {
         public IReadOnlyList<PipelineRule> CurrentRules => [];
+
+        public bool? PiiEnabledOverride => piiOverride;
     }
+
+    [Theory]
+    [InlineData(false, null, false)]
+    [InlineData(true, null, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    public void Dashboard_override_beats_configured_enabled(bool configured, bool? overrideValue, bool expectRedacted)
+    {
+        var options = new PipelineRuleOptions { Pii = { Enabled = configured } };
+        var detectors = options.Pii.EffectiveDetectors(overrideValue);
+        Assert.Equal(expectRedacted ? PiiDetectors.All : PiiDetectors.None, detectors);
+    }
+
+    [Fact]
+    public async Task Annotator_follows_the_cache_override_without_a_restart()
+    {
+        var input = new[] { Event("bob@example.com", []) };
+        var on = new PipelineRuleAnnotator(new EmptyCache(true), Options.Create(new PipelineRuleOptions()));
+        Assert.Equal("[REDACTED:email]", (await on.AnnotateAsync(input, default))[0].Body);
+
+        var off = new PipelineRuleAnnotator(new EmptyCache(false), Options.Create(new PipelineRuleOptions { Pii = { Enabled = true } }));
+        Assert.Same(input, await off.AnnotateAsync(input, default));
+    }
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("null", null)]
+    [InlineData("\"yes\"", null)]
+    [InlineData("not json", null)]
+    public void Store_parses_only_json_booleans(string json, bool? expected) =>
+        Assert.Equal(expected, ClickHousePipelineRuleStore.ParseBool(json));
 
     [Fact]
     public void RedactSpan_masks_attributes_status_and_event_attributes()

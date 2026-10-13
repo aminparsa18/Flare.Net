@@ -14,6 +14,8 @@ public class AuditActionClassifierTests
     [InlineData("PATCH", "/api/users/{id:guid}/role", "user", "set-role", "id")]
     [InlineData("DELETE", "/api/access-tokens/{id:guid}", "access-token", "revoke", "id")]
     [InlineData("PUT", "/api/settings/oidc", "oidc-settings", "update", null)]
+    [InlineData("PUT", "/api/settings/pii-redaction", "pii-redaction-setting", "update", null)]
+    [InlineData("DELETE", "/api/settings/pii-redaction", "pii-redaction-setting", "delete", null)]
     [InlineData("DELETE", "/api/services/apdex-thresholds/{serviceName}", "apdex-threshold", "delete", "serviceName")]
     [InlineData("put", "/API/ALERTS/{id:guid}", "alert", "update", "id")]
     public void Classify_StateChangingRoute_ReturnsClassification(string method, string template, string type, string action, string? idKey)

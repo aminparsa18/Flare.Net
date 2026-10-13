@@ -31,6 +31,39 @@ public sealed class ClickHousePipelineRuleStore(IClickHouseClient client) : IPip
         ORDER BY CreatedAt
         """;
 
+    // Latest version of the one key, tombstones excluded - same shape as Sql above. Mirrors Flare.Api's
+    // RuntimeSettingsQueryService (ADR-0210) rather than referencing it.
+    private const string PiiOverrideSql = """
+        SELECT ValueJson
+        FROM (
+            SELECT ValueJson, IsDeleted
+            FROM runtime_settings
+            WHERE Key = 'pii.enabled'
+            ORDER BY UpdatedAt DESC
+            LIMIT 1 BY Id
+        )
+        WHERE IsDeleted = 0
+        """;
+
+    public async Task<bool?> GetPiiEnabledOverrideAsync(CancellationToken cancellationToken)
+    {
+        await using var reader = await client.ExecuteReaderAsync(PiiOverrideSql, null, SafetyOptions(), cancellationToken);
+        return reader.Read() ? ParseBool(reader.GetString(0)) : null;
+    }
+
+    /// <summary>A value that is not a JSON boolean is treated as "no override" rather than guessed at.</summary>
+    public static bool? ParseBool(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<bool?>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<PipelineRule>> GetEnabledRulesAsync(CancellationToken cancellationToken)
     {
         await using var reader = await client.ExecuteReaderAsync(Sql, null, SafetyOptions(), cancellationToken);

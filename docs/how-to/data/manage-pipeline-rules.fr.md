@@ -151,7 +151,7 @@ jeu de détecteurs intégré qui masque les adresses e-mail, les numéros de
 carte bancaire (vérifiés par Luhn), les IBAN (vérifiés par modulo 97), les
 JWT, les jetons `Bearer` et les clés privées PEM. Il est désactivé par
 défaut. Activez-le par configuration de `Flare.Ingest` (redémarrage
-nécessaire) :
+nécessaire) ou depuis le tableau de bord (voir ci-dessous) :
 
 ```
 PipelineRules__Pii__Enabled=true
@@ -176,6 +176,21 @@ Les spans sont aussi couverts : attributs de span, message de statut, et attribu
 Avant de l'activer, cliquez sur **Aperçu du masquage PII** (« Preview PII redaction ») sur la page Pipeline Rules. Il analyse jusqu'à 500 logs récents (ou spans, via l'onglet **Spans**) et montre ce qui serait masqué ; rien n'est écrit.
 
 La même fenêtre propose **Analyser les champs pour PII** (« Scan fields for PII ») : une analyse en lecture seule qui liste les champs de corps ou d'attribut de log ressemblant à des PII, par détecteur, avec un compteur et un exemple masqué. Utilisez-la pour repérer où se trouvent les PII avant de choisir quoi activer.
+
+### L'activer depuis le tableau de bord
+
+Les administrateurs peuvent remplacer la valeur configurée sans redémarrage.
+Dans **Settings > Pipeline rules**, la carte *Masquage PII géré* propose
+**Suivre la configuration** (aucun remplacement, par défaut), **Activé** et
+**Désactivé**. `Flare.Ingest` interroge le choix enregistré toutes les 30
+secondes (`PipelineRules__RefreshInterval`), donc un changement s'applique en
+environ ce délai sur chaque réplique. Le choix l'emporte sur
+`PipelineRules__Pii__Enabled` ; la liste des détecteurs reste réservée à la
+configuration. Le masquage n'est pas rétroactif : les événements déjà stockés
+gardent leurs valeurs d'origine. Si le réglage ne peut pas être lu,
+`Flare.Ingest` conserve la dernière valeur connue. Les membres voient la
+carte ; seuls les administrateurs peuvent la modifier, et chaque changement
+est écrit dans le journal d'audit (`pii-redaction-setting`).
 
 ## Les changements mettent un peu de temps à s'appliquer
 

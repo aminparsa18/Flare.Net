@@ -4,4 +4,7 @@ namespace Flare.Ingest.Pipeline.Rules;
 public interface IPipelineRuleCache
 {
     IReadOnlyList<PipelineRule> CurrentRules { get; }
+
+    /// <summary>Last-known dashboard override of <see cref="PiiRedactionOptions.Enabled"/> (ADR-0210); <see langword="null"/> means follow configuration.</summary>
+    bool? PiiEnabledOverride { get; }
 }

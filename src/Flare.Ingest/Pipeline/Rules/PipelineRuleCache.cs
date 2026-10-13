@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Options;
 
 namespace Flare.Ingest.Pipeline.Rules;
@@ -19,7 +20,11 @@ public sealed class PipelineRuleCache(
 {
     private volatile IReadOnlyList<PipelineRule> currentRules = [];
 
+    private volatile StrongBox<bool?> piiOverride = new(null);
+
     public IReadOnlyList<PipelineRule> CurrentRules => currentRules;
+
+    public bool? PiiEnabledOverride => piiOverride.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -34,6 +39,7 @@ public sealed class PipelineRuleCache(
             while (!stoppingToken.IsCancellationRequested)
             {
                 await RefreshAsync(stoppingToken);
+                await RefreshPiiOverrideAsync(stoppingToken);
                 await Task.Delay(opts.RefreshInterval, stoppingToken);
             }
         }
@@ -57,6 +63,23 @@ public sealed class PipelineRuleCache(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Failed to refresh pipeline rules; keeping the last known set ({Count} rules).", currentRules.Count);
+        }
+    }
+
+    /// <summary>
+    /// Separate from <see cref="RefreshAsync"/> so one failing query never freezes the other. On failure the
+    /// last-known override stays: reverting to configuration on a transient error could silently switch
+    /// redaction off (ADR-0210).
+    /// </summary>
+    private async Task RefreshPiiOverrideAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            piiOverride = new StrongBox<bool?>(await store.GetPiiEnabledOverrideAsync(cancellationToken));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Failed to refresh the PII redaction override; keeping the last known value ({Value}).", piiOverride.Value);
         }
     }
 }
