@@ -98,7 +98,7 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 6. **MCP** (`/mcp`, stateless streamable HTTP; forwards only the Bearer header over loopback so browsers cannot be driven cross-site) **[obs]**.
 7. **Dashboard server** (adapter-node): SSR, per-request CSP nonce, `PUBLIC_API_URL`; scheduled-report headless Chromium (optional, `Reports__Enabled`) using a signed Viewer-only render token cookie **[obs]**.
 8. **Operator tooling.** `flare` CLI, Aspire AppHost, docker-compose, Helm; Docker-socket-proxy (optional profile).
-9. **Supply chain / CI.** Workflows for docker/NuGet/Helm publishing; `tecnativa/docker-socket-proxy:latest` is an unpinned image in the compose file **[obs]**.
+9. **Supply chain / CI.** Workflows for docker/NuGet/Helm publishing; `tecnativa/docker-socket-proxy` is pinned to `v0.5.0` plus a digest in both compose files **[obs]**.
 
 ### Existing mitigations that change severity
 
@@ -129,8 +129,8 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 | S6 | Holder of a notification/email | Replays an ack/confirm/unsubscribe link. Bound to incident and lifetime; works for any holder. | Bearer by design **[obs]** (ADR-0127) |
 | S7 | Network attacker reaching API directly in proxy-auth mode | Sets the identity header from an in-range IP or via a compromised neighbour on the trusted CIDR; becomes Admin. | Documented sharp edge; operator must keep API unreachable except via the proxy **[obs]** |
 | S8 | Attacker with DB/volume/backup read | Reads `Sessions.Id`, which is the raw session token (not hashed), and replays it as a cookie; also exports telemetry. Admin API keys and PATs are hashed so a leak of the table does not leak them. | Observed in `Migrations/Sqlite/0001_identity.sql` comment and `DbSessionStore` (no hashing) **[obs]** |
-| S9 | Attacker who steals a PAT/ingest key from CI/browser | PAT: acts as that user via REST (not WebSocket). Browser ingest key: restricted by origin/service allowlist only if configured. | Common leak paths: CI logs, JS bundles |
-| S10 | Compromised dependency / image | Unpinned `docker-socket-proxy:latest`; NuGet/Docker/Helm publish workflows; the proxy holds the Docker socket (read-only mount, but the proxy process has full socket access if the image is malicious). | Optional `resource-graph` profile only **[obs]** |
+| S9 | Attacker who steals a PAT/ingest key from CI/browser | PAT: acts as that user via REST and, for a non-browser client sending `Authorization: Bearer` on the upgrade, the WebSocket (the PAT rate limit counts only the upgrade). Browser ingest key: restricted by origin/service allowlist only if configured. | Common leak paths: CI logs, JS bundles |
+| S10 | Compromised dependency / image | `docker-socket-proxy` pinned by tag and digest (bump deliberately); NuGet/Docker/Helm publish workflows; the proxy holds the Docker socket (read-only mount, but the proxy process has full socket access if the image is malicious). | Optional `resource-graph` profile only **[obs]** |
 | S11 | Authenticated user + ClickHouse resource abuse | Expensive but valid queries (wide aggregates, regex over body, many parallel live-tail sockets) to exhaust ClickHouse/Redis. | Caps exist; live-tail connection count is not obviously capped **[assumed]** |
 | S12 | CSRF / cross-site WebSocket | Drive state-changing API calls or open `/api/logs/tail` using the victim's cookie from another site. | `SameSite=Lax` blocks cross-site POST/WS cookies in modern browsers; `LogTailEndpoints` has no `Origin` check and the API has no antiforgery token **[obs]**. Same-*site* attackers (another service on the same registrable domain) are not stopped. If `Auth:CookieSameSite=None` is configured, this becomes real **[obs]** option exists |
 
@@ -176,7 +176,7 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 | Logs, span attributes, exception stacks, metric labels | **High, uncontrolled.** Commonly contain PII, tokens, connection strings, request bodies | ClickHouse (`logs`, `spans`, `exceptions`, …), Redis Streams (transient), live-tail sockets | Dashboards, exports (CSV/JSON/XML), MCP/CLI, forwarding targets, S3 archive, LLM (after `AiRedactor`), notification bodies (log excerpts) |
 | Managed PII redaction / data-subject erasure | Control, not data | ADR-0198/0199 pipeline and `Erasure` | Erasure mutations are async (`ALTER … DELETE`) |
 | Screenshots, user feedback, session replay-lite | **High** (can show on-screen PII) | ClickHouse blobs | Dashboard |
-| Password hashes | High | Identity DB (PBKDF2 via ASP.NET `PasswordHasher`; docs still say "bcrypt", which is stale) | none |
+| Password hashes | High | Identity DB (PBKDF2 via ASP.NET `PasswordHasher`) | none |
 | **Session tokens** | **High** | Identity DB `Sessions.Id` in **plaintext**; cookie `flare_session` | Cookie only |
 | PAT, ingest keys | High | SHA-256 hash only; raw shown once | Client-held |
 | Static ingest key, SMTP password, ClickHouse/Redis/Postgres passwords, archive keys | High | Env/config/Helm secrets | Process env, logs if mis-logged **[assumed]** |
@@ -229,7 +229,6 @@ Bounded impact, or exploitation depends on a non-default or already-privileged s
 - Operator-config footguns documented in how-tos (broad trusted CIDR, auth left off).
 - Telemetry content spoofing on an instance that allows anonymous ingest.
 - Verbose logging, missing hardening headers on static assets served by sirv before the SvelteKit handler.
-- Stale docs (e.g., bcrypt vs PBKDF2) and unpinned `:latest` on optional images.
 
 ### Not a vulnerability here
 Anything needing attacker control of `appsettings`, env, compose, Helm values, or the Data Protection key ring; findings in `examples/`, `scripts/`, `src/website`, benchmarks, and tests; "requires admin" for Admin-by-design capabilities **on an instance with auth enabled**.
