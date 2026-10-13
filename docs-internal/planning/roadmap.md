@@ -142,14 +142,6 @@ folders are where "what happened and why" actually lives.
           inbound frames are discarded, so only the socket count matters). Anonymous callers share one bucket, so with
           auth off the per-user cap is a second global cap. The 10 per user, 200 total and filter limits are untuned
           defaults.
-      - **Socket lifetime cap needs a live e2e run.** `LiveTail:MaxSocketLifetime` (default 5 minutes) is shipped and
-        unit-tested but was not exercised against a running stack. Verify with a short lifetime that live tail, the
-        resource-graph watch and host stats close and the dashboard reconnects, that a revoked session or PAT is refused
-        on the reconnect, and that a tail picks up a changed `AllowedServices` scope.
-    - **Live e2e of hashed session tokens (ADR-0209).** Unit tests cover the store and endpoints, but not a real run:
-      sign in on a running stack, confirm `Sessions.Id` in the SQLite/Postgres file is a 64-char digest rather than the
-      cookie value, that the cookie still authenticates, and that revoke / sign-out-everywhere work. Also check that
-      pre-upgrade sessions are gone after migration `0036`/`0011` and a user can sign in again.
     - **ClickHouse published with a default password.** `docker-compose.yml` publishes `8123` with the default password
       `flare`. Bind to `127.0.0.1` by default (opt in to wider exposure) and have the installer generate a random
       password.
@@ -180,11 +172,6 @@ folders are where "what happened and why" actually lives.
     single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
-  - **Live end-to-end test of credential expiry warnings.** Pre-expiry notifications
-    ([ADR-0208](../adr/0208-credential-expiry-warnings.md)), the personal access token expiry badge,
-    `flare apikey create --expires-in-days` and `expiresAt` in `flare config` export/apply shipped with unit tests only. Still
-    to run against a real stack: a warning delivered to a channel for a key and a token close to expiry, no repeat on the next
-    check, and a config export/apply round trip of an expiry.
 - **Map-aware text index for attribute filters, once ClickHouse 26.9+ is pinned.** The `keyValuePairs` text index serves
   `attr['k'] = 'v'` only and 4 to 7x speeds up broad equality filters, at about 15x the bloom filters' size and with the
   bloom filters still needed for `mapContains`/`IN`/regex; it does not exist on the pinned 26.8 LTS. Re-benchmark on a real
