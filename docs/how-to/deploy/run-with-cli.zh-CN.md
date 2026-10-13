@@ -31,6 +31,18 @@ dotnet tool install --global Flare.Cli
 > `flare`。如果直接尝试`dotnet tool install -g flare`，会失败
 > 出现未发现错误；使用上面的命令。
 
+没有 .NET SDK？可以改从 npm 安装自包含版本
+（macOS arm64/x64、Linux arm64/x64、Windows x64；Node 18+）：
+
+```sh
+npm install --global @apardev/flare-cli
+# 或者不安装直接运行：npx @apardev/flare-cli doctor
+```
+
+两种方式得到的是同一版本的同一个 `flare` 命令。请只选其一：如果两者都已安装，
+`PATH` 中靠前的那个生效。不要使用 `--omit=optional` 安装 — 二进制文件位于按平台
+划分的可选软件包中。
+
 ## 步骤
 
 ```sh

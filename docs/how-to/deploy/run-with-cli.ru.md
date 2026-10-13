@@ -34,6 +34,19 @@ dotnet tool install --global Flare.Cli
 > `dotnet tool install -g flare` напрямую, это завершится ошибкой
 > «не найдено»; используйте команду выше.
 
+Нет .NET SDK? Установите автономную сборку из npm
+(macOS arm64/x64, Linux arm64/x64, Windows x64; Node 18+):
+
+```sh
+npm install --global @apardev/flare-cli
+# или без установки: npx @apardev/flare-cli doctor
+```
+
+Оба способа дают одну и ту же команду `flare` той же версии. Выберите один: если
+установлены оба, побеждает тот, что раньше в `PATH`. Не устанавливайте с
+`--omit=optional` — бинарный файл поставляется в необязательном пакете для
+конкретной платформы.
+
 ## Шаги
 
 ```sh
