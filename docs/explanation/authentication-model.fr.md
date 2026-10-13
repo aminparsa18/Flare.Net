@@ -189,7 +189,7 @@ pour toute méthode non locale.
 
 La seule méthode sans fournisseur d'identité externe derrière elle — la
 vérification du mot de passe se fait entièrement à l'intérieur de
-`Flare.Identity`, contre un hachage bcrypt stocké aux côtés de la ligne
+`Flare.Identity`, contre un hachage PBKDF2 stocké aux côtés de la ligne
 `Users` du compte. Même position anti-énumération que LDAP :
 `POST /api/auth/login` fusionne « nom d'utilisateur inexistant », « mot
 de passe erroné » et « compte désactivé » en le même `401` générique, sans

@@ -61,6 +61,17 @@ To receive OTLP from outside the cluster, enable `ingress.otlpHttp` and/or
 `ingress.otlpGrpc` with their own hosts. The gRPC one needs a controller that
 speaks gRPC; the default annotation is the ingress-nginx one.
 
+### Reverse-proxy sign-in behind the Ingress
+
+With [reverse-proxy (trusted header) sign-in](../admin/configure-authentication.md) and an authenticating proxy such as
+oauth2-proxy running in the cluster, **Trusted proxy CIDRs** must cover the pod IP of that proxy, not the address of your
+load balancer or of the client. Flare checks the raw TCP peer of the connection and ignores `X-Forwarded-For`, so the
+address it sees is whichever pod connects to `flare-api`. Use a range that contains only the proxy's pods (for example a
+dedicated namespace's pod CIDR), never the whole cluster range, and add a `NetworkPolicy` that lets only the proxy and
+the dashboard reach the API port, because any other pod inside the trusted range can set the identity header.
+
+For the same reason, login throttling treats everyone behind the Ingress as one client.
+
 ### Under a sub-path
 
 Add `basePath: /flare` and keep `publicUrl` at the origin (without the path).

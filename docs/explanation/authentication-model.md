@@ -165,7 +165,7 @@ non-local method.
 ### Local (username/password)
 
 The one method with no external identity provider behind it — password
-verification happens entirely inside `Flare.Identity`, against a bcrypt
+verification happens entirely inside `Flare.Identity`, against a PBKDF2
 hash stored alongside the account's `Users` row. Same anti-enumeration
 stance as LDAP: `POST /api/auth/login` collapses "no such username,"
 "wrong password," and "disabled account" into the same generic `401`,

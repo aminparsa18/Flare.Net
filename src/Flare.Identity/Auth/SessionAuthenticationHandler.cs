@@ -19,10 +19,11 @@ namespace Flare.Identity.Auth;
 /// into a self-contained payload. This is also what makes the WebSocket live-tail
 /// endpoint (<c>LogTailEndpoints</c>) work with a plain <c>RequireAuthorization()</c>
 /// with no special-casing: the browser sends the cookie automatically on the WS upgrade
-/// request, and this handler runs like it would for any other request. (A PAT, being a
-/// header rather than a cookie, does NOT work against the WebSocket upgrade the way the
-/// cookie does - a browser can't attach a custom header to that handshake. PATs are for
-/// plain HTTP request/response calls; see docs-internal/adr/0019-personal-access-tokens.md.)
+/// request, and this handler runs like it would for any other request. (A PAT is a header,
+/// so a browser can't attach it to that handshake, but a non-browser client can send
+/// <c>Authorization: Bearer</c> on the upgrade and it authenticates like any other
+/// request. The PAT rate limit then only counts the upgrade itself, not the frames on the
+/// open socket; see docs-internal/adr/0019-personal-access-tokens.md.)
 /// </summary>
 /// <remarks>
 /// Registered once as the default scheme in <c>Flare.Api/Program.cs</c>

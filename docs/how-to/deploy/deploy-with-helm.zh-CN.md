@@ -57,6 +57,16 @@ ingress:
 若要从集群外部接收 OTLP，请启用 `ingress.otlpHttp` 和/或 `ingress.otlpGrpc` 并分别指定主机。
 gRPC 需要支持 gRPC 的控制器；默认注解适用于 ingress-nginx。
 
+### Ingress 之后的反向代理登录
+
+使用[反向代理（受信任标头）登录](../admin/configure-authentication.zh-CN.md)，并在集群内运行 oauth2-proxy 等认证代理时，
+**Trusted proxy CIDRs** 必须覆盖该代理的 Pod IP，而不是负载均衡器或客户端的地址。Flare 检查连接的原始 TCP 对端地址并忽略
+`X-Forwarded-For`，因此它看到的是连接到 `flare-api` 的那个 Pod 的地址。请使用只包含代理 Pod 的范围（例如专用命名空间的
+Pod CIDR），不要使用整个集群范围，并添加 `NetworkPolicy`，仅允许代理和仪表板访问 API 端口，因为受信任范围内的任何其他
+Pod 都可以设置身份标头。
+
+出于同样的原因，登录限流会把 Ingress 之后的所有用户视为同一个客户端。
+
 ### 在子路径下
 
 添加 `basePath: /flare`，并让 `publicUrl` 保持为 origin（不含路径）。chart 会设置

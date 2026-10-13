@@ -175,12 +175,6 @@ folders are where "what happened and why" actually lives.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
-    - **Smaller items:** pin `tecnativa/docker-socket-proxy` to a digest or version in `docker-compose.yml` and
-      `docker-compose.install.yml`; document the trusted-proxy range for Kubernetes deployments; the docs say
-      passwords use bcrypt but the threat-model pass found PBKDF2 via ASP.NET `PasswordHasher` (verify, then correct the
-      docs and their translations); correct the `SessionAuthenticationHandler` comment and threat-model S9, which say a
-      PAT cannot be used on the WebSocket (a PAT `Authorization` header works on the upgrade for non-browser clients, so
-      the PAT rate limit covers only the upgrade).
   - **Managed PII redaction dashboard toggle.** Enabling it is `PipelineRules__Pii__*` Ingest config today (restart
     required). A settings page toggle needs a runtime-settings mechanism Ingest does not have: a settings table with
     single and cluster migrations, a polling cache in Ingest, an API and an audit entry. Needs its own ADR.
