@@ -60,6 +60,7 @@ the full rule set on what goes where.
 - [Monitor hosts with the OpenTelemetry Collector](how-to/monitor/monitor-hosts.md)
 - [Monitor Kubernetes clusters (nodes, workloads, pods, volumes) with the OpenTelemetry Collector](how-to/monitor/monitor-kubernetes.md)
 - [Monitor message queues](how-to/monitor/monitor-message-queues.md)
+- [Monitor Dapr applications](how-to/monitor/monitor-dapr-applications.md)
 - [Monitor external APIs](how-to/monitor/monitor-external-apis.md)
 - [Monitor LLM calls](how-to/monitor/monitor-llm-calls.md)
 - [Monitor endpoints, ports and certificates with synthetic probes](how-to/monitor/synthetic-monitoring.md)

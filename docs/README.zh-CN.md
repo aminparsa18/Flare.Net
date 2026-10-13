@@ -62,6 +62,7 @@
 - [使用 OpenTelemetry Collector 监控主机](how-to/monitor/monitor-hosts.zh-CN.md)
 - [使用 OpenTelemetry Collector 监控 Kubernetes 集群（节点、工作负载、Pod、卷）](how-to/monitor/monitor-kubernetes.zh-CN.md)
 - [监控消息队列](how-to/monitor/monitor-message-queues.zh-CN.md)
+- [监控 Dapr 应用](how-to/monitor/monitor-dapr-applications.zh-CN.md)
 - [监控外部 API](how-to/monitor/monitor-external-apis.zh-CN.md)
 - [监控 LLM 调用](how-to/monitor/monitor-llm-calls.zh-CN.md)
 - [发布状态页](how-to/monitor/publish-a-status-page.zh-CN.md)

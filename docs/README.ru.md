@@ -62,6 +62,7 @@
 - [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor/monitor-hosts.ru.md)
 - [Мониторинг кластеров Kubernetes (узлы, рабочие нагрузки, поды, тома) с OpenTelemetry Collector](how-to/monitor/monitor-kubernetes.ru.md)
 - [Мониторинг очередей сообщений](how-to/monitor/monitor-message-queues.ru.md)
+- [Мониторинг приложений Dapr](how-to/monitor/monitor-dapr-applications.ru.md)
 - [Мониторинг внешних API](how-to/monitor/monitor-external-apis.ru.md)
 - [Отслеживание вызовов LLM](how-to/monitor/monitor-llm-calls.ru.md)
 - [Как опубликовать страницу статуса](how-to/monitor/publish-a-status-page.ru.md)
