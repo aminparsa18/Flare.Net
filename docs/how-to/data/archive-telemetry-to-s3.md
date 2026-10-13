@@ -100,3 +100,5 @@ Read it back, for example with DuckDB: `SELECT * FROM read_parquet('s3://flare-a
 - The credentials are sent to ClickHouse inside the export statement, so they appear in its query log.
 
 Design notes: [ADR-0156](../../../docs-internal/adr/0156-telemetry-archive-s3.md), [ADR-0157](../../../docs-internal/adr/0157-managed-telemetry-export.md).
+
+Flare will not archive to a loopback, private or link-local endpoint (for example a MinIO on `10.x`); it logs why and stays idle. To use one, allow it on Flare.AlertWorker with `Outbound__Allow__0=10.20.0.0/16` (an IP, a CIDR or a host name; see [the forwarding guide](forward-telemetry-to-another-otlp-endpoint.md)). The check is best-effort, because ClickHouse resolves the name itself; ClickHouse's `remote_url_allow_hosts` is the hard limit.

@@ -297,6 +297,11 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 (`flare` est le mot de passe ClickHouse par défaut de compose — voir
 [`.env.example`](../../../.env.example) si vous l'avez changé.)
 
+Le port de ClickHouse n'est publié que sur `127.0.0.1` : la commande fonctionne depuis la machine qui exécute la pile,
+pas depuis un autre hôte. Le script d'installation rapide remplace aussi `flare` par un mot de passe aléatoire dans
+`~/.flare/.env` lors d'une première installation. Pour publier le port sur le réseau, définissez
+`CLICKHOUSE_BIND_ADDRESS=0.0.0.0` dans `.env`, après avoir changé le mot de passe.
+
 ## Désactiver la vérification des mises à jour (installations isolées)
 
 Quand une nouvelle version de Flare est publiée, le tableau de bord affiche un

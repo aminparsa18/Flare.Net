@@ -41,7 +41,9 @@ services:
       # var wires that up for you.
       - ./db/clickhouse:/docker-entrypoint-initdb.d:ro
     ports:
-      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      # Loopback only by default: this is the ad hoc query port, and the password is a well-known default
+      # unless install.sh generated one. Set CLICKHOUSE_BIND_ADDRESS=0.0.0.0 to publish it on purpose.
+      - "${CLICKHOUSE_BIND_ADDRESS:-127.0.0.1}:${CLICKHOUSE_HTTP_PORT:-8123}:8123"
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --user default --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1' >/dev/null 2>&1"]
       interval: 5s

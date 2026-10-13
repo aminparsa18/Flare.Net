@@ -277,6 +277,10 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 (`flare` is the compose-default ClickHouse password — see
 [`.env.example`](../../../.env.example) if you changed it.)
 
+ClickHouse's port is published on `127.0.0.1` only, so this works from the machine running the stack but not from
+another host. The quick-install script also replaces `flare` with a random password in `~/.flare/.env` on a first install.
+To publish the port on the network, set `CLICKHOUSE_BIND_ADDRESS=0.0.0.0` in `.env`, and change the password first.
+
 ## Turn off the update check (air-gapped installs)
 
 When a newer Flare release is out, the dashboard shows a notice under the nav

@@ -55,6 +55,8 @@ au niveau Debug.
   n'ont pas de résumé. Une alerte de données absentes en reçoit un construit à
   partir de la règle seule, faute de données.
 
+Le point de terminaison du LLM passe par la même protection sortante que les canaux d'alerte. Un serveur de modèle sur une adresse privée, comme un Ollama local sur `http://localhost:11434`, est refusé tant que vous ne l'autorisez pas sur Flare.Api avec `Outbound__Allow__0=localhost` (voir [le guide de transfert](../data/forward-telemetry-to-another-otlp-endpoint.fr.md)).
+
 ## Où apparaît le résumé
 
 - **L'historique des alertes** du tableau de bord l'affiche sous l'événement, en

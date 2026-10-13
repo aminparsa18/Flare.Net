@@ -4,6 +4,7 @@ using ClickHouse.Driver.Utility;
 using Flare.Api.Export;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.ServiceDefaults.Outbound;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
@@ -25,6 +26,7 @@ public sealed class ArchiveWorker(
     IExportStatusStore statusStore,
     IConnectionMultiplexer redis,
     IOptions<ArchiveOptions> options,
+    IOptions<OutboundGuardOptions> outbound,
     TimeProvider timeProvider,
     ILogger<ArchiveWorker> logger) : BackgroundService
 {
@@ -97,6 +99,14 @@ public sealed class ArchiveWorker(
         if (effective.Validate() is { } problem)
         {
             logger.LogWarning("{Problem} The telemetry archive is idle until this is fixed.", problem);
+            return (null, source);
+        }
+
+        // ClickHouse makes the S3 request, not this process, so the HTTP-client guard (ADR-0201) cannot cover it. Checking the
+        // endpoint here is best-effort (ClickHouse resolves the name itself); ClickHouse's remote_url_allow_hosts is the hard limit.
+        if (await new OutboundAddressPolicy(outbound.Value).CheckUrlAsync(effective.Endpoint, ct) is { } refused)
+        {
+            logger.LogWarning("The archive endpoint is refused: {Reason} The telemetry archive is idle until this is fixed.", refused);
             return (null, source);
         }
 

@@ -96,6 +96,8 @@ Flare leaves a frame as plain text rather than guess:
 - the location is a bare file name with no directory, as Java frames are;
 - the occurrence has no commit and the service has no fallback branch.
 
+Repository requests go through the same outbound guard as alert channels, so a self-hosted GitLab or GitHub Enterprise on a private address is refused until you allow it on Flare.Api with `Outbound__Allow__0=git.corp.local` (see [the forwarding guide](../data/forward-telemetry-to-another-otlp-endpoint.md)). Redirects are never followed.
+
 ## See also
 
 - [Architecture decision: ADR-0095](../../../docs-internal/adr/0095-exception-source-links.md)

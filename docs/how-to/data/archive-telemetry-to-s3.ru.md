@@ -86,3 +86,5 @@ flare/metrics_gauge/dt=2026-10-08/hh=14/metrics_gauge-20261008T1400Z.parquet
 - Учётные данные передаются в ClickHouse внутри команды выгрузки, поэтому попадают в его журнал запросов.
 
 Устройство описано в [ADR-0156](../../../docs-internal/adr/0156-telemetry-archive-s3.md) и [ADR-0157](../../../docs-internal/adr/0157-managed-telemetry-export.md).
+
+Flare не архивирует на loopback-, частные и link-local-адреса (например, MinIO в сети `10.x`): он записывает причину в журнал и простаивает. Чтобы использовать такой адрес, разрешите его на Flare.AlertWorker через `Outbound__Allow__0=10.20.0.0/16` (IP, CIDR или имя хоста; см. [руководство по пересылке](forward-telemetry-to-another-otlp-endpoint.ru.md)). Проверка приблизительная, так как имя разрешает сам ClickHouse; жёсткое ограничение — `remote_url_allow_hosts` в ClickHouse.

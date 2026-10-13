@@ -123,12 +123,6 @@ folders are where "what happened and why" actually lives.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
   - **Threat-model findings to fix first** (from [the threat model](../threat-model.md); each was confirmed in code):
-    - **ClickHouse published with a default password.** `docker-compose.yml` publishes `8123` with the default password
-      `flare`. Bind to `127.0.0.1` by default (opt in to wider exposure) and have the installer generate a random
-      password.
-    - **SSRF guard coverage.** [ADR-0201](../adr/0201-outbound-ssrf-guard.md) covers alert notifiers and OTLP forwarding
-      only. Source-repo fetch (which sends a stored access token), S3 archive and the LLM endpoint are unguarded; apply
-      `AddOutboundGuard()` there with the same `Outbound__Allow__N` opt-out. Synthetic probes stay exempt on purpose.
     - **Secrets at rest beyond notification channels.** [ADR-0205](../adr/0205-encrypt-notification-secrets-at-rest.md)
       stops at notification channels. Audit and extend it to telemetry-export config, source-link tokens and the
       SSO/LDAP/OIDC client secrets and bind passwords (first confirm whether those are already encrypted).

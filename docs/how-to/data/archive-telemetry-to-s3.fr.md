@@ -86,3 +86,5 @@ Pour relire avec DuckDB, par exemple : `SELECT * FROM read_parquet('s3://flare-a
 - Les identifiants sont envoyés à ClickHouse dans l'instruction d'export ; ils apparaissent donc dans son journal de requêtes.
 
 Notes de conception : [ADR-0156](../../../docs-internal/adr/0156-telemetry-archive-s3.md), [ADR-0157](../../../docs-internal/adr/0157-managed-telemetry-export.md).
+
+Flare n'archive pas vers un point de terminaison de bouclage, privé ou de lien local (par exemple un MinIO en `10.x`) ; il en consigne la raison et reste inactif. Pour en utiliser un, autorisez-le sur Flare.AlertWorker avec `Outbound__Allow__0=10.20.0.0/16` (une IP, un CIDR ou un nom d'hôte ; voir [le guide de transfert](forward-telemetry-to-another-otlp-endpoint.fr.md)). Le contrôle est indicatif, car ClickHouse résout lui-même le nom ; la vraie limite est `remote_url_allow_hosts` de ClickHouse.

@@ -168,6 +168,17 @@ cp -R "$extracted_root/db/clickhouse" "$FLARE_INSTALL_DIR/db/clickhouse"
 # overrides from a previous run of this same script.
 if [ ! -f "$FLARE_INSTALL_DIR/.env" ]; then
 	cp "$extracted_root/.env.example" "$FLARE_INSTALL_DIR/.env"
+	# Random ClickHouse/Redis passwords instead of the well-known "flare" default. Skipped when a data volume from an
+	# earlier install exists: ClickHouse bakes the password in at first init, so a new one would lock the stack out.
+	if command -v openssl >/dev/null 2>&1 && ! "${DOCKER[@]}" volume ls -q 2>/dev/null | grep -q 'clickhouse-data$'; then
+		for var in CLICKHOUSE_PASSWORD REDIS_PASSWORD; do
+			# Hex only: the ClickHouse image's init script breaks on shell-special characters (see AppHost.cs).
+			sed "s/^$var=.*/$var=$(openssl rand -hex 16)/" "$FLARE_INSTALL_DIR/.env" > "$FLARE_INSTALL_DIR/.env.tmp"
+			mv "$FLARE_INSTALL_DIR/.env.tmp" "$FLARE_INSTALL_DIR/.env"
+		done
+		chmod 600 "$FLARE_INSTALL_DIR/.env"
+		log "Generated random ClickHouse and Redis passwords in $FLARE_INSTALL_DIR/.env"
+	fi
 fi
 
 # ---- 3. Bring the stack up -----------------------------------------------------
