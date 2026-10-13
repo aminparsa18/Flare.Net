@@ -62,6 +62,9 @@ public interface ITelemetryExportQueryService
 
     /// <summary>Removes the saved settings so the archive follows configuration again. False if none were saved.</summary>
     Task<bool> DeleteArchiveAsync(CancellationToken cancellationToken);
+
+    /// <summary>Encrypts header values and archive keys still stored as plaintext (ADR-0213). Returns how many rows were re-saved.</summary>
+    Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -69,7 +72,7 @@ public interface ITelemetryExportQueryService
 /// archive row (Kind 1). Same tombstone/latest-version shape as <see cref="MetricAttributeRuleQueryService"/>.
 /// Returns the real credentials; masking is the endpoints' job (<see cref="TelemetryExportMasking"/>).
 /// </summary>
-public sealed class TelemetryExportQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ITelemetryExportQueryService
+public sealed class TelemetryExportQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, INotificationSecretProtector secrets) : ITelemetryExportQueryService
 {
     private const string Columns = "Id, Name, Enabled, ConfigJson, CreatedAt, UpdatedAt";
     private const byte ForwardingKind = 0;
@@ -149,8 +152,8 @@ public sealed class TelemetryExportQueryService(IClickHouseClient client, IOptio
         {
             Enabled = reader.GetByte(2) != 0,
             Endpoint = config.Endpoint,
-            AccessKey = config.AccessKey,
-            SecretKey = config.SecretKey,
+            AccessKey = secrets.Unprotect(config.AccessKey),
+            SecretKey = secrets.Unprotect(config.SecretKey),
             Prefix = config.Prefix,
             Format = config.Format,
             Signals = config.Signals,
@@ -179,8 +182,8 @@ public sealed class TelemetryExportQueryService(IClickHouseClient client, IOptio
         var config = new ArchiveConfig
         {
             Endpoint = settings.Endpoint,
-            AccessKey = settings.AccessKey,
-            SecretKey = settings.SecretKey,
+            AccessKey = secrets.Protect(settings.AccessKey),
+            SecretKey = secrets.Protect(settings.SecretKey),
             Prefix = settings.Prefix,
             Format = settings.Format,
             Signals = [.. settings.Signals],
@@ -200,6 +203,61 @@ public sealed class TelemetryExportQueryService(IClickHouseClient client, IOptio
 
         await InsertAsync(ArchiveId, ArchiveKind, "archive", existing.Enabled, isDeleted: true, "{}", existing.UpdatedAt ?? timeProvider.GetUtcNow(), timeProvider.GetUtcNow(), cancellationToken);
         return true;
+    }
+
+    public async Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken)
+    {
+        var sql = LatestVersionSql.Select("telemetry_exports", "Id, Kind, ConfigJson");
+        var legacyForwarding = new List<Guid>();
+        var archiveLegacy = false;
+        await using (var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                var json = reader.GetString(2);
+                if (reader.GetByte(1) == ForwardingKind)
+                {
+                    var config = JsonSerializer.Deserialize(json, TelemetryExportJsonContext.Default.ForwardingConfig);
+                    if (config?.Headers.Values.Any(secrets.NeedsProtection) == true)
+                    {
+                        legacyForwarding.Add(reader.GetGuid(0));
+                    }
+                }
+                else
+                {
+                    var config = JsonSerializer.Deserialize(json, TelemetryExportJsonContext.Default.ArchiveConfig);
+                    archiveLegacy |= config is not null && (secrets.NeedsProtection(config.AccessKey) || secrets.NeedsProtection(config.SecretKey));
+                }
+            }
+        }
+
+        var count = 0;
+        foreach (var id in legacyForwarding)
+        {
+            if (await GetForwardingAsync(id, cancellationToken) is { } target)
+            {
+                await InsertAsync(id, ForwardingKind, target.Name, target.Enabled, isDeleted: false, ToJson(target), target.CreatedAt, timeProvider.GetUtcNow(), cancellationToken);
+                count++;
+            }
+        }
+
+        if (archiveLegacy && await GetArchiveAsync(cancellationToken) is { } archive)
+        {
+            var config = new ArchiveConfig
+            {
+                Endpoint = archive.Endpoint,
+                AccessKey = secrets.Protect(archive.AccessKey),
+                SecretKey = secrets.Protect(archive.SecretKey),
+                Prefix = archive.Prefix,
+                Format = archive.Format,
+                Signals = [.. archive.Signals],
+            };
+            await InsertAsync(ArchiveId, ArchiveKind, "archive", archive.Enabled, isDeleted: false,
+                JsonSerializer.Serialize(config, TelemetryExportJsonContext.Default.ArchiveConfig), archive.UpdatedAt ?? timeProvider.GetUtcNow(), timeProvider.GetUtcNow(), cancellationToken);
+            count++;
+        }
+
+        return count;
     }
 
     private static ForwardingTarget Build(Guid id, ForwardingTargetRequest request, ForwardingTarget? existing, DateTimeOffset createdAt, DateTimeOffset updatedAt)
@@ -224,17 +282,17 @@ public sealed class TelemetryExportQueryService(IClickHouseClient client, IOptio
         };
     }
 
-    private static string ToJson(ForwardingTarget target) => JsonSerializer.Serialize(new ForwardingConfig
+    private string ToJson(ForwardingTarget target) => JsonSerializer.Serialize(new ForwardingConfig
     {
         Endpoint = target.Endpoint,
-        Headers = new Dictionary<string, string>(target.Headers),
+        Headers = target.Headers.ToDictionary(h => h.Key, h => secrets.Protect(h.Value)),
         Signals = [.. target.Signals],
         Services = [.. target.Services],
         IngestKeyIds = [.. target.IngestKeyIds],
         Gzip = target.Gzip,
     }, TelemetryExportJsonContext.Default.ForwardingConfig);
 
-    private static ForwardingTarget ReadTarget(ClickHouseDataReader reader)
+    private ForwardingTarget ReadTarget(ClickHouseDataReader reader)
     {
         var config = JsonSerializer.Deserialize(reader.GetString(3), TelemetryExportJsonContext.Default.ForwardingConfig) ?? new ForwardingConfig();
         return new ForwardingTarget
@@ -243,7 +301,7 @@ public sealed class TelemetryExportQueryService(IClickHouseClient client, IOptio
             Name = reader.GetString(1),
             Enabled = reader.GetByte(2) != 0,
             Endpoint = config.Endpoint,
-            Headers = config.Headers,
+            Headers = config.Headers.ToDictionary(h => h.Key, h => secrets.Unprotect(h.Value)),
             Signals = config.Signals,
             Services = config.Services,
             IngestKeyIds = config.IngestKeyIds,

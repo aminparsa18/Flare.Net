@@ -123,9 +123,6 @@ folders are where "what happened and why" actually lives.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
   - **Threat-model findings to fix first** (from [the threat model](../threat-model.md); each was confirmed in code):
-    - **Secrets at rest beyond notification channels.** [ADR-0205](../adr/0205-encrypt-notification-secrets-at-rest.md)
-      stops at notification channels. Audit and extend it to telemetry-export config, source-link tokens and the
-      SSO/LDAP/OIDC client secrets and bind passwords (first confirm whether those are already encrypted).
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.

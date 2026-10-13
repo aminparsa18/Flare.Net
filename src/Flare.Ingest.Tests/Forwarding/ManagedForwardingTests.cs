@@ -1,4 +1,5 @@
 using Flare.Ingest.Forwarding;
+using Microsoft.AspNetCore.DataProtection;
 using Xunit;
 
 namespace Flare.Ingest.Tests.Forwarding;
@@ -57,4 +58,18 @@ public class ManagedForwardingTests
     [Fact]
     public void IsExpired_TreatsUnparseableIdAsFresh() =>
         Assert.False(OtlpForwarder.IsExpired("garbage", DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1)));
+
+    [Fact]
+    public void FromRow_DecryptsHeaderValuesThroughUnprotect()
+    {
+        var provider = new EphemeralDataProtectionProvider();
+        var cipher = "enc:v1:" + provider.CreateProtector("Flare.NotificationSecrets.v1").Protect("Bearer secret");
+        var unprotector = new ExportSecretUnprotector(provider);
+        var json = "{\"endpoint\":\"http://x\",\"headers\":{\"Authorization\":\"" + cipher + "\",\"X-Plain\":\"legacy\"}}";
+
+        var target = ManagedForwardingTarget.FromRow(Guid.NewGuid(), "t", json, unprotector.Unprotect);
+
+        Assert.Equal("Bearer secret", target!.Options.Headers["Authorization"]);
+        Assert.Equal("legacy", target.Options.Headers["X-Plain"]);
+    }
 }
