@@ -40,7 +40,7 @@ Flare.Api (`Security__Headers__*`):
 | `FLARE_CSP` | включено | `off` убирает только CSP. |
 | `FLARE_CSP_FRAME_ANCESTORS` | `'none'` | Кто может встраивать дашборд, например `'self' https://wiki.example.com`. |
 | `FLARE_CSP_CONNECT_SRC` | пусто | Дополнительные источники `connect-src` через пробел. |
-| `FLARE_CSP_IMG_SRC` | пусто | Дополнительные источники `img-src` (изображения уже разрешены с `https:`). |
+| `FLARE_CSP_IMG_SRC` | пусто | Дополнительные источники `img-src` (изображения разрешены только с того же источника и `data:`/`blob:`, а на публичной странице `/status/*` ещё и с `https:` для логотипа). |
 | `FLARE_HSTS_MAX_AGE` | `15552000` | `0` отключает HSTS. |
 | `FLARE_HSTS_INCLUDE_SUBDOMAINS` | `false` | Добавляет `includeSubDomains`. |
 

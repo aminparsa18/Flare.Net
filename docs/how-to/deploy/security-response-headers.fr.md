@@ -41,7 +41,7 @@ Tableau de bord :
 | `FLARE_CSP` | activé | `off` supprime uniquement la CSP. |
 | `FLARE_CSP_FRAME_ANCESTORS` | `'none'` | Qui peut intégrer le tableau de bord, p. ex. `'self' https://wiki.example.com`. |
 | `FLARE_CSP_CONNECT_SRC` | vide | Sources `connect-src` supplémentaires, séparées par des espaces. |
-| `FLARE_CSP_IMG_SRC` | vide | Sources `img-src` supplémentaires (les images autorisent déjà `https:`). |
+| `FLARE_CSP_IMG_SRC` | vide | Sources `img-src` supplémentaires (les images sont limitées à la même origine et à `data:`/`blob:`, plus `https:` sur la page publique `/status/*` pour son logo). |
 | `FLARE_HSTS_MAX_AGE` | `15552000` | `0` désactive HSTS. |
 | `FLARE_HSTS_INCLUDE_SUBDOMAINS` | `false` | Ajoute `includeSubDomains`. |
 

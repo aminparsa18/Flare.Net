@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Inbox of messages users sent from the app ("report a problem", ADR-0193). Each row links to its session timeline.
 	import { onMount, onDestroy } from 'svelte';
+	import { safeMailto } from '$lib/safe-url';
 	import * as Select from '$lib/components/ui/select';
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
@@ -107,7 +108,7 @@
 							<Table.Cell class="align-top text-xs">
 								{#if item.name || item.email || item.userId}
 									{#if item.name}<div class="font-medium">{item.name}</div>{/if}
-									{#if item.email}<a class="text-primary hover:underline" href={`mailto:${item.email}`}>{item.email}</a>{/if}
+									{#if item.email}{@const mailto = safeMailto(item.email)}{#if mailto}<a class="text-primary hover:underline" href={mailto}>{item.email}</a>{:else}<span>{item.email}</span>{/if}{/if}
 									{#if item.userId}<div class="text-muted-foreground font-mono">{item.userId}</div>{/if}
 								{:else}
 									<span class="text-muted-foreground">{m.feedbackPage_anonymous()}</span>

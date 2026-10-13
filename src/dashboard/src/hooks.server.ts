@@ -49,7 +49,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 			isHttps: proto === 'https',
 			nonce,
 			requestOrigin: `${proto}://${event.url.host}`,
-			apiUrl: env.PUBLIC_API_URL
+			apiUrl: env.PUBLIC_API_URL,
+			remoteImages: event.url.pathname.startsWith('/status/')
 		})) {
 			// Only on responses that do not already carry the header (an endpoint may have chosen its own).
 			if (!response.headers.has(name)) response.headers.set(name, value);

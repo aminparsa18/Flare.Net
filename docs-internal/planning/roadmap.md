@@ -132,19 +132,12 @@ folders are where "what happened and why" actually lives.
     - **Secrets at rest beyond notification channels.** [ADR-0205](../adr/0205-encrypt-notification-secrets-at-rest.md)
       stops at notification channels. Audit and extend it to telemetry-export config, source-link tokens and the
       SSO/LDAP/OIDC client secrets and bind passwords (first confirm whether those are already encrypted).
-    - **Dashboard defense-in-depth guards (low risk; the 2026 XSS review found no exploitable telemetry-driven XSS).**
-      The only attacker-reachable `{@html}` is the sanitized Markdown panel, and the CSP (nonce scripts, no
-      `unsafe-inline`) backstops the rest, so these only matter if the CSP is off (`FLARE_CSP=off`) or stripped by a proxy:
-      - Run `safeHttpUrl` over three `href`s that come from internal sources not traced to a server-side validator:
-        `release.url` (`UpdateNotice.svelte`, `releases/+page.svelte`) and `node.urls` (`ResourceNode.svelte`).
-      - Allow-list the session-replay screenshot `contentType` to `image/png`, `image/jpeg` and `image/webp` before it
-        is placed in a `data:` URL (`timeline.svelte.ts`); it comes from the ingest client.
-      - Validate the submitted email before building `mailto:` in `feedback/+page.svelte`, since a crafted address can add
-        `?cc=` or `?body=`.
-      - Consider narrowing `img-src` (it allows any `https:`), so telemetry-derived images cannot load from arbitrary
-        hosts and leak the viewer's IP.
-      - Not reviewed: `/status/[slug]` and the server routes (`+server.ts`, form actions), CodeMirror and Lottie
-        dependency CVEs, `npm audit`, and a check on the built output that the CSP and nonce apply to every response.
+    - **Dashboard XSS review follow-ups (low risk; no exploitable telemetry-driven XSS was found).**
+      The `href`, screenshot `data:` URL and `mailto:` guards shipped (`src/lib/safe-url.ts`), and `img-src` allows `https:` only on `/status/*`. Still open:
+      - `npm audit` is down to six low-severity findings, all from `cookie` <0.7.0 under `@sveltejs/kit` 2.x. The only fix
+        npm offers is the SvelteKit 3 major upgrade, so it waits for that migration.
+      - Not reviewed: form actions (there are no `+server.ts` files today). The built output was checked: CSP, nonce
+        and `nosniff` are on `/login`, `/status/*` and 404 responses.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
