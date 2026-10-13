@@ -149,3 +149,9 @@ folders are where "what happened and why" actually lives.
   (single + cluster) alongside the retention TTL work. Flare sets no
   force-merge or `ttl_only_drop_parts` settings today. Prior art: [ClickHouse
   26.9 changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).
+- **Clear the SvelteKit 3 deprecations in the dashboard.** All still work, but SvelteKit 4 will drop them: the `goto`
+  option `replaceState` (use `replace`; `routes/+page.svelte`, `routes/profiles/+page.svelte`,
+  `routes/settings/slos/+page.svelte`), shallow-routing `replaceState()` from `$app/navigation` (use
+  `goto(url, { shallow: true, replace: true, state })`; `AlertRuleTable.svelte`, `routes/dashboards/[id]/+page.svelte`),
+  and the `$env/*` leftovers if any reappear. Also give `tsconfig.json` explicit `include`/`exclude` arrays, which
+  `$app/tsconfig` no longer supplies.
