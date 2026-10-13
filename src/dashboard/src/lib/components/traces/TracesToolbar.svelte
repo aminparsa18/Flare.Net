@@ -1,14 +1,14 @@
 <script lang="ts">
-	import AroundTimePopover from '$lib/components/AroundTimePopover.svelte';
-	import { withBase } from '$lib/paths';
+	import AroundTimePopover from '#lib/components/AroundTimePopover.svelte';
+	import { withBase } from '#lib/paths.ts';
 	import { goto } from '$app/navigation';
-	import * as Select from '$lib/components/ui/select';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
-	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Button } from '$lib/components/ui/button';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import ViewsMenu from '#lib/components/saved-views/ViewsMenu.svelte';
+	import PinToDashboardButton from '#lib/components/dashboards/PinToDashboardButton.svelte';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import TracesViewTabs from './TracesViewTabs.svelte';
 	import TracesExportDialog from './TracesExportDialog.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
@@ -17,11 +17,11 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { tracesExplorerContext } from '$lib/traces/context';
-	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
-	import { setLastUsedViewId } from '$lib/saved-views/last-used';
+	import { tracesExplorerContext } from '#lib/traces/context.ts';
+	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '#lib/logs/time-range.ts';
+	import { setLastUsedViewId } from '#lib/saved-views/last-used.ts';
 	import DatabaseZapIcon from '@lucide/svelte/icons/database-zap';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	interface Props {
 		activeTab: 'traces' | 'services';
@@ -94,7 +94,7 @@
 	/>
 
 	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
-	     starts from defaults rather than restoring it ($lib/saved-views/last-used.ts). -->
+	     starts from defaults rather than restoring it (#lib/saved-views/last-used.ts). -->
 	<Button
 		variant="ghost"
 		size="sm"

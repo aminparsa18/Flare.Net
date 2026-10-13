@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
-	import * as Command from '$lib/components/ui/command';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import type { MetricNameInfo, MetricPointType } from '$lib/metrics-api';
-	import { cn } from '$lib/utils';
-	import * as m from '$lib/paraglide/messages';
+	import { withBase } from '#lib/paths.ts';
+	import * as Command from '#lib/components/ui/command/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import type { MetricNameInfo, MetricPointType } from '#lib/metrics-api.ts';
+	import { cn } from '#lib/utils.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// Controlled width in px, not a Tailwind class - the divider in +page.svelte drags
 	// this live, and Tailwind has no arbitrary-per-drag-frame class to generate. Default

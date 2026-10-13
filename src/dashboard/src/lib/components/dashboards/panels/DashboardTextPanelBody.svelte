@@ -3,11 +3,11 @@
 	// substitution a panel title gets) as sanitized HTML. No query, so no refresh/lazy-load
 	// handling - DashboardPanelCard mounts it immediately. `renderMarkdown` escapes all input
 	// and emits only a fixed tag allow-list, which is what makes {@html} safe here.
-	import { renderMarkdown } from '$lib/dashboards/markdown';
-	import { textPanelMarkdown } from '$lib/dashboards/text-panel';
-	import { resolvePanelTitle } from '$lib/dashboards/variables';
-	import type { DashboardVariable } from '$lib/dashboards-api';
-	import * as m from '$lib/paraglide/messages';
+	import { renderMarkdown } from '#lib/dashboards/markdown.ts';
+	import { textPanelMarkdown } from '#lib/dashboards/text-panel.ts';
+	import { resolvePanelTitle } from '#lib/dashboards/variables.ts';
+	import type { DashboardVariable } from '#lib/dashboards-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		query,

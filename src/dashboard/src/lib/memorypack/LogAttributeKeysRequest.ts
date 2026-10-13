@@ -1,12 +1,12 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/LogValueDistributionRequest.cs`'s
 // `LogAttributeKeysRequest`. Can't carry `[GenerateTypeScript]` itself because its one
-// member's type, `LogFilter`, is blocked - see `$lib/memorypack/LogFilter.ts`'s header
+// member's type, `LogFilter`, is blocked - see `#lib/memorypack/LogFilter.ts`'s header
 // comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogFilter } from '$lib/memorypack/LogFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
 
 export class LogAttributeKeysRequest {
 	filter: LogFilter | null;

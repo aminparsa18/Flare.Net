@@ -21,19 +21,19 @@
 // dashboard in the list.
 
 import { parseDashboardUrlState } from './url-state';
-import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel, type DashboardLayout, type DashboardRow, type DashboardVariable } from '$lib/dashboards-api';
-import type { TimeRangePreset } from '$lib/logs/time-range';
+import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel, type DashboardLayout, type DashboardRow, type DashboardVariable } from '#lib/dashboards-api.ts';
+import type { TimeRangePreset } from '#lib/logs/time-range.ts';
 import { type RefreshInterval, refreshIntervalMs } from './refresh-intervals';
 import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching } from './home-preference';
 import { nextPanelPosition, panelsInRow } from './layout';
 import { slugify } from './state.svelte';
-import { downloadBlob } from '$lib/logs/export';
+import { downloadBlob } from '#lib/logs/export.ts';
 import { applyValueRegex, defaultSelection, resolveQueryVariableOptions, type VariableDependency } from './variables';
 import type { PanelThreshold, ThresholdColor } from './thresholds';
 import type { LegendPosition } from './legend';
 import { parseStacking, parseVisualization, type PanelReducer, type PanelStacking, type PanelVisualization } from './visualization';
-import type { YAxisScale } from '$lib/metrics/axis';
-import * as m from '$lib/paraglide/messages';
+import type { YAxisScale } from '#lib/metrics/axis.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { ReadonlyURLSearchParams } from '$app/state';
 
 export class DashboardViewerState {

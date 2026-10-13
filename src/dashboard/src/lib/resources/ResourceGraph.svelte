@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SvelteFlow, Background, Controls, type Edge } from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
-	import type { ResourceGraphSnapshot } from '$lib/api';
+	import type { ResourceGraphSnapshot } from '#lib/api.ts';
 	import type { FlareGraphNode, FlareTopologyNode, FlareProducerNode } from './types';
 	import { layoutGraph } from './layout';
 	import ResourceNode from './ResourceNode.svelte';

@@ -1,9 +1,9 @@
 <script lang="ts">
 	// Telemetry export (ADR-0155/0156/0157): managed OTLP forwarding targets and the S3 archive. Admin-only,
 	// like the other Workspace pages (the API enforces it; the rail link is hidden for everyone else).
-	import ForwardingSection from '$lib/components/telemetry-export/ForwardingSection.svelte';
-	import ArchiveSection from '$lib/components/telemetry-export/ArchiveSection.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import ForwardingSection from '#lib/components/telemetry-export/ForwardingSection.svelte';
+	import ArchiveSection from '#lib/components/telemetry-export/ArchiveSection.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 </script>
 
 <svelte:head>

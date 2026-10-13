@@ -1,15 +1,15 @@
 <script lang="ts">
-	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
+	import VirtualList from '#lib/components/virtual-list/VirtualList.svelte';
 	import TraceRow from './TraceRow.svelte';
-	import * as Empty from '$lib/components/ui/empty';
-	import CaseSuggestions from '$lib/components/CaseSuggestions.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import CaseSuggestions from '#lib/components/CaseSuggestions.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
-	import { tracesExplorerContext } from '$lib/traces/context';
-	import type { SpanSortKey } from '$lib/traces-api';
-	import * as m from '$lib/paraglide/messages';
+	import { tracesExplorerContext } from '#lib/traces/context.ts';
+	import type { SpanSortKey } from '#lib/traces-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = tracesExplorerContext.get();
 

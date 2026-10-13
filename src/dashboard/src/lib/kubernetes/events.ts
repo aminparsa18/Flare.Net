@@ -3,8 +3,8 @@
 // (the OTLP kvlist body is stored as JSON - see json-body.ts). No dedicated storage: the tab is a
 // filtered logs search, and these pure helpers build that filter and read a row back out.
 
-import type { BodyJsonFilter, LogEventDto, LogFilter } from '$lib/api';
-import { parseJsonBody, extractBodyPath } from '$lib/logs/json-body';
+import type { BodyJsonFilter, LogEventDto, LogFilter } from '#lib/api.ts';
+import { parseJsonBody, extractBodyPath } from '#lib/logs/json-body.ts';
 
 export const KUBERNETES_EVENT_TYPES = ['Warning', 'Normal'] as const;
 export type KubernetesEventType = (typeof KUBERNETES_EVENT_TYPES)[number];

@@ -4,9 +4,9 @@
 // `IReadOnlyList<ExceptionOccurrence>` member blocks the generator - same
 // `ExceptionGroupsResponse`/`ServiceCallBreakdownResponse` precedent.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ExceptionOccurrence } from '$lib/memorypack/ExceptionOccurrence';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ExceptionOccurrence } from '#lib/memorypack/ExceptionOccurrence.ts';
 
 export class ExceptionOccurrencesResponse {
 	exceptionType: string | null;

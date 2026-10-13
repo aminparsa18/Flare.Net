@@ -1,14 +1,14 @@
 <script lang="ts">
 	// Mirrors AlertRuleTable.svelte's shape - same Table/Empty/Badge/Spinner components,
 	// same per-row ephemeral "send test" result state.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { notificationChannelsContext } from '$lib/notification-channels/context';
-	import type { NotificationChannel } from '$lib/notification-channels-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { notificationChannelsContext } from '#lib/notification-channels/context.ts';
+	import type { NotificationChannel } from '#lib/notification-channels-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';

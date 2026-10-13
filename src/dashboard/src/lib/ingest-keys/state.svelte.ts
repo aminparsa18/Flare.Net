@@ -1,5 +1,5 @@
 // Central reactive state for the Ingest Keys page - same shape as AccessTokensState
-// (`$lib/access-tokens/state.svelte.ts`: create with a reveal-once raw value, revoke),
+// (`#lib/access-tokens/state.svelte.ts`: create with a reveal-once raw value, revoke),
 // plus one extra mutation: editing a key's ingestion limits (ADR-0051), the only part of
 // an ingest key that isn't fixed at creation.
 
@@ -14,7 +14,7 @@ import {
 	updateIngestApiKeyLimits,
 	type IngestApiKeyDto,
 	type IngestApiKeyLimits
-} from '$lib/ingest-keys-api';
+} from '#lib/ingest-keys-api.ts';
 
 export class IngestKeysState {
 	keys = $state.raw<IngestApiKeyDto[]>([]);

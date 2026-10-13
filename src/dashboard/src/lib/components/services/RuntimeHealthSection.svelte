@@ -4,13 +4,13 @@
 	// starvation, GC pressure, lock-contention and exception spikes, each linking to the
 	// traces and logs of the window it covers. Detection is server-side
 	// (Flare.Api's RuntimeHealthDetector); this only renders and links.
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { formatPercent } from '$lib/indexing/format';
-	import { buildServiceWindowLogsHref, buildServiceWindowTracesHref } from '$lib/deep-links';
-	import { getRuntimeHealth, type RuntimeHealthFinding, type RuntimeHealthResponse } from '$lib/runtime-health-api';
-	import { formatTimeOfDay } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { buildServiceWindowLogsHref, buildServiceWindowTracesHref } from '#lib/deep-links.ts';
+	import { getRuntimeHealth, type RuntimeHealthFinding, type RuntimeHealthResponse } from '#lib/runtime-health-api.ts';
+	import { formatTimeOfDay } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { service, windowMinutes }: { service: string; windowMinutes: number } = $props();
 

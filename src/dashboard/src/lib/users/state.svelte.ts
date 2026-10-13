@@ -1,9 +1,9 @@
 // Central reactive state for the Users page - mirrors AlertsState's shape
-// ($lib/alerts/state.svelte.ts): a class with $state fields, provided via usersContext
+// (#lib/alerts/state.svelte.ts): a class with $state fields, provided via usersContext
 // (context.ts) rather than passed as props, per this repo's svelte-best-practices skill.
 
-import { listUsers, setUserRole, setUserDisabled, inviteUser, bulkInviteUsers, createPasswordReset, type BulkInviteResult, type PasswordSetLink, type UserSummary } from '$lib/users-api';
-import type { UserRole } from '$lib/auth-api';
+import { listUsers, setUserRole, setUserDisabled, inviteUser, bulkInviteUsers, createPasswordReset, type BulkInviteResult, type PasswordSetLink, type UserSummary } from '#lib/users-api.ts';
+import type { UserRole } from '#lib/auth-api.ts';
 
 export class UsersState {
 	users = $state.raw<UserSummary[]>([]);

@@ -2,7 +2,7 @@
 	// A radio group rendered as selectable option cards - theme, nav layout, density and font
 	// size all share this shape on the Appearance page.
 	import type { Component, Snippet } from 'svelte';
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.ts';
 
 	interface Option {
 		value: T;

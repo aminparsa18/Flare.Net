@@ -1,7 +1,7 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertRuleRequest`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
-// nests `LogFilter` (blocked - see `$lib/memorypack/LogFilter.ts`'s header comment).
+// nests `LogFilter` (blocked - see `#lib/memorypack/LogFilter.ts`'s header comment).
 // `Threshold` (`AlertThreshold`) has no such problem, so it's a real generated class,
 // reused here directly. `conditionKind`/`metricCondition`/`metricThresholdValue`/`channelIds`/
 // `exceptionCondition`/`noDataWindowSeconds`/`evaluationIntervalSeconds` were appended after every pre-existing field, same versioning
@@ -12,15 +12,15 @@
 // `recoveryThreshold` was appended after `notificationBodyTemplate`, same reasoning (ADR-0076).
 // `severity` was appended after `recoveryThreshold`, same reasoning (ADR-0077). `thresholdUnit` was appended after `severity`, same reasoning (ADR-0080). `labels` was appended after `thresholdUnit`, same reasoning (ADR-0084). `sloCondition` was appended after `labels`, same reasoning (ADR-0108).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { AlertThreshold } from '$lib/generated/memorypack/AlertThreshold.js';
-import { LogFilter } from '$lib/memorypack/LogFilter';
-import { MetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
-import { ExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
-import { AnomalyCondition } from '$lib/memorypack/AnomalyCondition';
-import { SloBurnRateCondition } from '$lib/memorypack/SloBurnRateCondition';
-import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { AlertThreshold } from '#lib/generated/memorypack/AlertThreshold.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
+import { MetricAlertCondition } from '#lib/memorypack/MetricAlertCondition.ts';
+import { ExceptionCountCondition } from '#lib/memorypack/ExceptionCountCondition.ts';
+import { AnomalyCondition } from '#lib/memorypack/AnomalyCondition.ts';
+import { SloBurnRateCondition } from '#lib/memorypack/SloBurnRateCondition.ts';
+import { readStringRecord, writeStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
 
 export class AlertRuleRequest {
 	name: string | null;

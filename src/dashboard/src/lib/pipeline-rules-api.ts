@@ -4,15 +4,15 @@
 // pipeline-*health*-stats client) - different concern despite the similar name.
 //
 // MemoryPack over the wire, same shape as `alerts-api.ts`'s header comment describes.
-// `condition` reuses `$lib/memorypack/LogFilter.ts`'s existing `LogFilter`/`logFilterFromPlain`/
+// `condition` reuses `#lib/memorypack/LogFilter.ts`'s existing `LogFilter`/`logFilterFromPlain`/
 // `logFilterToPlain` directly, same as `alerts-api.ts` does for `AlertRule.condition`.
 // `ExtractRegexAction`/`RedactRegexAction`/`ParseJsonAction`/`PipelineRuleAction` have no `DateTimeOffset`/
 // `IReadOnlyList<T>` member (even nested), so all four are real MemoryPack-TS-*generated*
-// classes, reused here directly - `kind` converts through `$lib/memorypack/enums.ts`'s
+// classes, reused here directly - `kind` converts through `#lib/memorypack/enums.ts`'s
 // `ruleActionKindToString`/`FromString`, same pattern `alerts-api.ts` uses for `conditionKind`.
 // `PipelineRule`/`PipelineRuleRequest`/`PipelineRuleListResponse` themselves nest `LogFilter`
 // and/or an `IReadOnlyList<PipelineRuleAction>`, so all three are hand-written
-// (`$lib/memorypack/`), same reasoning `AlertRule.ts` documents.
+// (`#lib/memorypack/`), same reasoning `AlertRule.ts` documents.
 //
 // `previewPipelineRule`/`previewDraftPipelineRule` (Phase 2, see
 // docs-internal/adr/0034-pipeline-rules-preview.md) mirror `alerts-api.ts`'s
@@ -21,17 +21,17 @@
 // list of it are both hand-written too, same reasoning as `PipelineRule` above.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
-import { ruleActionKindFromString, ruleActionKindToString, type RuleActionKindName } from '$lib/memorypack/enums';
-import { logFilterFromPlain, logFilterToPlain } from '$lib/memorypack/LogFilter';
-import { ExtractRegexAction as GeneratedExtractRegexAction } from '$lib/generated/memorypack/ExtractRegexAction.js';
-import { RedactRegexAction as GeneratedRedactRegexAction } from '$lib/generated/memorypack/RedactRegexAction.js';
-import { ParseJsonAction as GeneratedParseJsonAction } from '$lib/generated/memorypack/ParseJsonAction.js';
-import { PipelineRuleAction as GeneratedPipelineRuleAction } from '$lib/generated/memorypack/PipelineRuleAction.js';
-import { PipelineRule as GeneratedPipelineRule } from '$lib/memorypack/PipelineRule';
-import { PipelineRuleRequest as GeneratedPipelineRuleRequest } from '$lib/memorypack/PipelineRuleRequest';
-import { PipelineRuleListResponse as GeneratedPipelineRuleListResponse } from '$lib/memorypack/PipelineRuleListResponse';
-import { PipelineRulePreviewMatch as GeneratedPipelineRulePreviewMatch } from '$lib/memorypack/PipelineRulePreviewMatch';
-import { PipelineRulePreviewResult as GeneratedPipelineRulePreviewResult } from '$lib/memorypack/PipelineRulePreviewResult';
+import { ruleActionKindFromString, ruleActionKindToString, type RuleActionKindName } from '#lib/memorypack/enums.ts';
+import { logFilterFromPlain, logFilterToPlain } from '#lib/memorypack/LogFilter.ts';
+import { ExtractRegexAction as GeneratedExtractRegexAction } from '#lib/generated/memorypack/ExtractRegexAction.ts';
+import { RedactRegexAction as GeneratedRedactRegexAction } from '#lib/generated/memorypack/RedactRegexAction.ts';
+import { ParseJsonAction as GeneratedParseJsonAction } from '#lib/generated/memorypack/ParseJsonAction.ts';
+import { PipelineRuleAction as GeneratedPipelineRuleAction } from '#lib/generated/memorypack/PipelineRuleAction.ts';
+import { PipelineRule as GeneratedPipelineRule } from '#lib/memorypack/PipelineRule.ts';
+import { PipelineRuleRequest as GeneratedPipelineRuleRequest } from '#lib/memorypack/PipelineRuleRequest.ts';
+import { PipelineRuleListResponse as GeneratedPipelineRuleListResponse } from '#lib/memorypack/PipelineRuleListResponse.ts';
+import { PipelineRulePreviewMatch as GeneratedPipelineRulePreviewMatch } from '#lib/memorypack/PipelineRulePreviewMatch.ts';
+import { PipelineRulePreviewResult as GeneratedPipelineRulePreviewResult } from '#lib/memorypack/PipelineRulePreviewResult.ts';
 
 // ---- Shared shapes (PipelineRuleModels.cs) ---------------------------------
 

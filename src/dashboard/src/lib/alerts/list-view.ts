@@ -4,8 +4,8 @@
 //
 // Shape: `?q=<name>&label=<key=value,...>&state=firing|ok|disabled|muted&kind=<AlertConditionKind>&sort=name|state|lastFired&dir=desc`.
 // Absent params are the defaults (no filter, name ascending).
-import type { AlertConditionKind, AlertRule, AlertRuleStatus } from '$lib/alerts-api';
-import { labelsMatch, parseLabels } from '$lib/alerts/labels';
+import type { AlertConditionKind, AlertRule, AlertRuleStatus } from '#lib/alerts-api.ts';
+import { labelsMatch, parseLabels } from '#lib/alerts/labels.ts';
 import type { ReadonlyURLSearchParams } from '$app/state';
 
 export type RuleStateFilter = 'all' | 'firing' | 'ok' | 'disabled' | 'muted';

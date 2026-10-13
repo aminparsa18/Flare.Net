@@ -12,8 +12,8 @@ import {
 	type ExternalDomain,
 	type ExternalDomainDetailResponse,
 	type ExternalEndpoint
-} from '$lib/external-apis-api';
-import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
+} from '#lib/external-apis-api.ts';
+import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 // Same five presets as the Services tab and Messaging page - the server clamps to the same
 // 5m-24h range (ExternalApiQueryBuilder.MinWindowMinutes/MaxWindowMinutes).

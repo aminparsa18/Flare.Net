@@ -4,13 +4,13 @@
 	// decides when to run. Shared by the funnel step cards and the trace-structure condition
 	// cards; the Traces explorer's own filter row (SpanAttributeFiltersRow.svelte) has
 	// debounced commits and chips instead, so it doesn't use this.
-	import * as Select from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
-	import AttributeValueCombobox, { type AttributeValueSuggestion } from '$lib/components/logs/AttributeValueCombobox.svelte';
-	import AttributeValueListInput from '$lib/components/logs/AttributeValueListInput.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import AttributeValueCombobox, { type AttributeValueSuggestion } from '#lib/components/logs/AttributeValueCombobox.svelte';
+	import AttributeValueListInput from '#lib/components/logs/AttributeValueListInput.svelte';
 	import XIcon from '@lucide/svelte/icons/x';
-	import type { SpanAttributeBag, SpanAttributeFilter, SpanAttributeFilterOperator } from '$lib/traces-api';
-	import * as m from '$lib/paraglide/messages';
+	import type { SpanAttributeBag, SpanAttributeFilter, SpanAttributeFilterOperator } from '#lib/traces-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	interface Props {
 		attributes: SpanAttributeFilter[];

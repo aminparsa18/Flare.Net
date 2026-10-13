@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
+	import { withBase } from '#lib/paths.ts';
 	// +layout.svelte's route guard is what actually sends an unauthenticated visitor
 	// here whenever auth is on and there's no session - this page itself decides,
 	// from GET /api/auth/bootstrap/status, whether to show the first-run "create admin"
@@ -8,16 +8,16 @@
 	// sign-in form(s).
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Separator } from '$lib/components/ui/separator';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { authContext } from '$lib/auth/context';
-	import { requestPasswordReset } from '$lib/users-api';
-	import { getBootstrapStatus, startEntraLogin, startOidcLogin, type BootstrapStatusResponse } from '$lib/auth-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Separator } from '#lib/components/ui/separator/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { requestPasswordReset } from '#lib/users-api.ts';
+	import { getBootstrapStatus, startEntraLogin, startOidcLogin, type BootstrapStatusResponse } from '#lib/auth-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 

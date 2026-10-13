@@ -4,11 +4,11 @@
 // `IReadOnlyList<T>` members (see ADR-0016). `Attributes` decodes into a plain
 // `Record<string, string>` - see `string-record.ts`.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricInspectSample } from '$lib/generated/memorypack/MetricInspectSample.js';
-import { MetricInspectBucket } from '$lib/generated/memorypack/MetricInspectBucket.js';
-import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricInspectSample } from '#lib/generated/memorypack/MetricInspectSample.ts';
+import { MetricInspectBucket } from '#lib/generated/memorypack/MetricInspectBucket.ts';
+import { readStringRecord, writeStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
 
 export class MetricInspectSeries {
 	serviceName: string | null;

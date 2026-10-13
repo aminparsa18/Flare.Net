@@ -4,9 +4,9 @@
 // member's type, `AccessTokenDto`, has `DateTimeOffset` members - see
 // `AccessTokenDto.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { AccessTokenDto } from '$lib/memorypack/AccessTokenDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { AccessTokenDto } from '#lib/memorypack/AccessTokenDto.ts';
 
 export class AccessTokenListResponse {
 	tokens: (AccessTokenDto | null)[] | null;

@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
+	import { withBase } from '#lib/paths.ts';
 	// The traces behind one step's reached/dropped/errored figure - most recent first, capped
 	// server-side (TraceFunnelQueryBuilder.MaxTraces). Each row opens the trace waterfall.
-	import * as Sheet from '$lib/components/ui/sheet';
-	import * as Table from '$lib/components/ui/table';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { traceFunnelContext } from '$lib/trace-funnels/context';
-	import { stepLabel } from '$lib/trace-funnels/state.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { traceFunnelContext } from '#lib/trace-funnels/context.ts';
+	import { stepLabel } from '#lib/trace-funnels/state.svelte.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const funnel = traceFunnelContext.get();
 

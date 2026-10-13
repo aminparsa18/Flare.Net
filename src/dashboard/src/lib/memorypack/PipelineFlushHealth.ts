@@ -2,12 +2,12 @@
 // generated. Mirrors `src/Flare.Api/Model/PipelineModels.cs`'s `PipelineFlushHealth`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
 // `LastFlushAt`/`LastErrorAt` are `DateTimeOffset?` - see
-// `$lib/memorypack/date-time-offset.ts`'s header comment. `signal` is a raw MemoryPack
+// `#lib/memorypack/date-time-offset.ts`'s header comment. `signal` is a raw MemoryPack
 // numeric ordinal (converted to string at `pipeline-api.ts`'s module boundary).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class PipelineFlushHealth {
 	signal: number;

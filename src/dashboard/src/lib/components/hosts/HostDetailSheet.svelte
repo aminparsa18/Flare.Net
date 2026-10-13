@@ -1,12 +1,12 @@
 <script lang="ts">
-	import * as Sheet from '$lib/components/ui/sheet';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import HostMetricChart from './HostMetricChart.svelte';
-	import { hostsContext } from '$lib/hosts/context';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import type { HostMetricsPoint } from '$lib/hosts-api';
-	import * as m from '$lib/paraglide/messages';
+	import { hostsContext } from '#lib/hosts/context.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import type { HostMetricsPoint } from '#lib/hosts-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const hosts = hostsContext.get();
 

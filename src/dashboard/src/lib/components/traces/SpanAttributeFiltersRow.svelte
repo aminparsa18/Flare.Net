@@ -15,17 +15,17 @@
 	// add/remove commit immediately; key/value text inputs debounce (300ms), same
 	// reasoning AttributeFiltersRow.svelte documents for its own identical fields.
 	import { browser } from '$app/env';
-	import { tracesExplorerContext } from '$lib/traces/context';
-	import { getSpanAttributeValues, type SpanAttributeBag, type SpanAttributeFilter, type SpanAttributeFilterOperator } from '$lib/traces-api';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import * as Select from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import AttributeValueCombobox, { type AttributeValueSuggestion } from '$lib/components/logs/AttributeValueCombobox.svelte';
-	import AttributeValueListInput from '$lib/components/logs/AttributeValueListInput.svelte';
+	import { tracesExplorerContext } from '#lib/traces/context.ts';
+	import { getSpanAttributeValues, type SpanAttributeBag, type SpanAttributeFilter, type SpanAttributeFilterOperator } from '#lib/traces-api.ts';
+	import * as Accordion from '#lib/components/ui/accordion/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import AttributeValueCombobox, { type AttributeValueSuggestion } from '#lib/components/logs/AttributeValueCombobox.svelte';
+	import AttributeValueListInput from '#lib/components/logs/AttributeValueListInput.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = tracesExplorerContext.get();
 

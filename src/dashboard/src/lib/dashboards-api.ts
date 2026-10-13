@@ -4,7 +4,7 @@
 // Same MemoryPack shape as `saved-views-api.ts` (see that file's header comment for the
 // general convention): `Dashboard`/`DashboardRequest` carry the opaque `JsonElement
 // LayoutJson` blob MemoryPack has no native mapping for, on top of `DateTimeOffset`
-// `createdAt`/`updatedAt` - both hand-written companions (`$lib/memorypack/Dashboard.ts`).
+// `createdAt`/`updatedAt` - both hand-written companions (`#lib/memorypack/Dashboard.ts`).
 //
 // `layoutJson` stays deliberately typed as `DashboardLayout` (this module's own shape, not
 // generated) on the wire - Flare.Api never interprets it (round-trips it as an opaque
@@ -15,24 +15,24 @@
 // state verbatim.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { Dashboard as GeneratedDashboard } from '$lib/memorypack/Dashboard';
-import { DashboardRequest as GeneratedDashboardRequest } from '$lib/memorypack/DashboardRequest';
-import { DashboardListResponse as GeneratedDashboardListResponse } from '$lib/memorypack/DashboardListResponse';
-import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
-import type { LegendPosition } from '$lib/dashboards/legend';
-import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
-import type { YAxisScale } from '$lib/metrics/axis';
-import type { PanelReducer, PanelStacking, PanelVisualization } from '$lib/dashboards/visualization';
+import { Dashboard as GeneratedDashboard } from '#lib/memorypack/Dashboard.ts';
+import { DashboardRequest as GeneratedDashboardRequest } from '#lib/memorypack/DashboardRequest.ts';
+import { DashboardListResponse as GeneratedDashboardListResponse } from '#lib/memorypack/DashboardListResponse.ts';
+import type { PanelThreshold, ThresholdColor } from '#lib/dashboards/thresholds.ts';
+import type { LegendPosition } from '#lib/dashboards/legend.ts';
+import { TIME_RANGE_PRESETS, type TimeRangePreset } from '#lib/logs/time-range.ts';
+import type { YAxisScale } from '#lib/metrics/axis.ts';
+import type { PanelReducer, PanelStacking, PanelVisualization } from '#lib/dashboards/visualization.ts';
 
 // ---- Shared shapes (DashboardModels.cs) ------------------------------------
 
 /**
  * Which Explorer page a panel's embedded `query` came from - same three values as `SavedViewPageType` -
- * or `'Text'`, a query-less Markdown note (`query` is a `TextPanelQuery`, see `$lib/dashboards/text-panel.ts`).
+ * or `'Text'`, a query-less Markdown note (`query` is a `TextPanelQuery`, see `#lib/dashboards/text-panel.ts`).
  */
 export type PanelType = 'Logs' | 'Traces' | 'Metrics' | 'Text';
 
-/** One widget on a dashboard. `query` is that panel type's own `*FilterState` shape (see `$lib/logs/state.svelte.ts` etc.) - opaque here, exactly as a `SavedView.state` is opaque to this client too. */
+/** One widget on a dashboard. `query` is that panel type's own `*FilterState` shape (see `#lib/logs/state.svelte.ts` etc.) - opaque here, exactly as a `SavedView.state` is opaque to this client too. */
 export interface DashboardPanel {
 	id: string;
 	panelType: PanelType;
@@ -52,7 +52,7 @@ export interface DashboardPanel {
 	 * it still narrows every other panel it's applicable to (roadmap's "Per-panel opt-out
 	 * from a dashboard variable" item). `undefined`/`[]` means "narrowed by every applicable
 	 * variable, same as before this field existed" - `resolveVariableOverrides` in
-	 * `$lib/dashboards/variables.ts` is where the exclusion is actually applied. An id left
+	 * `#lib/dashboards/variables.ts` is where the exclusion is actually applied. An id left
 	 * over from a since-removed variable is harmless - filtering by id just never matches
 	 * anything, same "stale reference, silently inert" posture `DashboardVariable.
 	 * dependsOnVariableId` already has.
@@ -64,7 +64,7 @@ export interface DashboardPanel {
 	 * to its one value (ADR-0058's multi-value selection, one value per copy). Copies are derived
 	 * at render time and never stored. `undefined`, an "All"/single-value selection, an excluded
 	 * or since-removed variable all render the one normal panel. See `repeatValues` in
-	 * `$lib/dashboards/variables.ts`.
+	 * `#lib/dashboards/variables.ts`.
 	 */
 	repeatVariableId?: string;
 	/** How repeated copies are laid out inside the card; `undefined` is `'horizontal'`. */
@@ -96,7 +96,7 @@ export interface DashboardPanel {
 	 * shaded region per rule, and the first matching rule's color on a hovered value),
 	 * never a notification. `undefined`/`[]` means none, same as before this field existed.
 	 * Meaningless for `Logs`/`Traces` panels, same posture as `yAxisMin`/`yAxisMax`. See
-	 * `$lib/dashboards/thresholds.ts` for the shape and the first-match-wins precedence rule.
+	 * `#lib/dashboards/thresholds.ts` for the shape and the first-match-wins precedence rule.
 	 */
 	thresholds?: PanelThreshold[];
 	/**
@@ -105,7 +105,7 @@ export interface DashboardPanel {
 	 * touching `query`. `undefined` means `'timeSeries'` (the line chart every panel had before
 	 * this existed); read it through `parseVisualization`, which also maps an unknown value to
 	 * that default. Meaningless for `Logs`/`Traces` panels. See
-	 * `$lib/dashboards/visualization.ts` and docs-internal/adr/0059-dashboard-panel-visualizations.md.
+	 * `#lib/dashboards/visualization.ts` and docs-internal/adr/0059-dashboard-panel-visualizations.md.
 	 */
 	visualization?: PanelVisualization;
 	/**
@@ -131,27 +131,27 @@ export interface DashboardPanel {
 	/**
 	 * Fixed number of fraction digits (0-6) a `Metrics` panel formats values with - axis ticks,
 	 * tooltips, `value`/`table`/`pie`/`bar`/`histogram` readouts. `undefined` is auto
-	 * (`formatMagnitude` in `$lib/metrics/axis.ts` picks by magnitude). Read through `parseDecimals`.
+	 * (`formatMagnitude` in `#lib/metrics/axis.ts` picks by magnitude). Read through `parseDecimals`.
 	 */
 	decimals?: number;
 	/**
 	 * Where a `Metrics` panel's series legend sits - below the chart, to its right, or not
 	 * shown. `undefined` keeps the visualization's own default (below for line/bar charts,
-	 * beside it for a pie). Read through `parseLegendPosition`. See `$lib/dashboards/legend.ts`.
+	 * beside it for a pie). Read through `parseLegendPosition`. See `#lib/dashboards/legend.ts`.
 	 */
 	legendPosition?: LegendPosition;
 	/**
 	 * Per-series color overrides for a `Metrics` panel, keyed by the series' full label
 	 * (`seriesLabel` - service name plus every attribute). A series without an entry keeps
 	 * its hashed palette color; an entry for a series no longer in the result is inert. Read
-	 * through `parseSeriesColors`. See `$lib/dashboards/legend.ts`.
+	 * through `parseSeriesColors`. See `#lib/dashboards/legend.ts`.
 	 */
 	seriesColors?: Record<string, ThresholdColor>;
 	/**
 	 * Legend label template for a `Metrics` panel, e.g. `{{service}} {{http.route}}` -
 	 * `{{service}}` is the service name, any other `{{key}}` an attribute value, a missing key
 	 * renders empty. `undefined` keeps the automatic labels. Colors stay keyed on the full
-	 * series identity, not this text. See `formatSeriesLabel` in `$lib/dashboards/legend.ts`.
+	 * series identity, not this text. See `formatSeriesLabel` in `#lib/dashboards/legend.ts`.
 	 */
 	legendFormat?: string;
 	/**
@@ -188,7 +188,7 @@ export interface DashboardRow {
  * applicability" decision). Determines both which panel types a resolved value gets
  * applied to (`Log` -> Logs panels only, `Span` -> Traces panels only, `Resource`/`Scope`
  * -> both) and, for a `Query`-sourced variable, which endpoint resolves its option list
- * (see `$lib/dashboards/variables.ts`'s `resolveQueryVariableOptions`).
+ * (see `#lib/dashboards/variables.ts`'s `resolveQueryVariableOptions`).
  */
 export type DashboardAttributeBag = 'Log' | 'Span' | 'Resource' | 'Scope';
 
@@ -217,7 +217,7 @@ export type DashboardVariableSourceKind = 'Query' | 'Custom' | 'Textbox';
  */
 export interface DashboardVariable {
 	id: string;
-	/** Display label shown in both the viewer's dropdown and the manage-variables list - freeform, not a token (no panel query is ever textually templated). Panel *titles* can still reference it by name as `$name`/`${name}` - see `resolvePanelTitle` in `$lib/dashboards/variables.ts`. */
+	/** Display label shown in both the viewer's dropdown and the manage-variables list - freeform, not a token (no panel query is ever textually templated). Panel *titles* can still reference it by name as `$name`/`${name}` - see `resolvePanelTitle` in `#lib/dashboards/variables.ts`. */
 	name: string;
 	/** Optional help text shown as the viewer picker's tooltip. Omitted for every variable saved before this existed. */
 	description?: string;
@@ -249,7 +249,7 @@ export interface DashboardVariable {
 	 * the roadmap item this closes). Ignored when `sourceKind === 'Custom'` (a fixed list has
 	 * nothing to narrow) or when the referenced variable is currently unselected ("All") -
 	 * in either case this variable's options fall back to the same unscoped wide window used
-	 * before chaining existed. `$lib/dashboards/variables.ts#resolveQueryVariableOptions`
+	 * before chaining existed. `#lib/dashboards/variables.ts#resolveQueryVariableOptions`
 	 * does the actual narrowing; `DashboardViewerState` resolves parents before their
 	 * dependents and re-resolves + revalidates every (transitive) dependent whenever the
 	 * parent's own selected value changes.
@@ -261,7 +261,7 @@ export interface DashboardVariable {
 	 * If it has a capture group, the first group's text becomes the option's *displayed* label
 	 * (`^prod-(.*)$` shows `prod-api` as `api`); the selected value stays the raw one, so panel
 	 * filters still match real data. An invalid pattern is ignored (no filtering). Applied
-	 * client-side - see `applyValueRegex`/`variableOptionLabel` in `$lib/dashboards/variables.ts`.
+	 * client-side - see `applyValueRegex`/`variableOptionLabel` in `#lib/dashboards/variables.ts`.
 	 */
 	valueRegex?: string | null;
 }

@@ -1,7 +1,7 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertHistoryEntry`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
-// `FiredAt` is a `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header
+// `FiredAt` is a `DateTimeOffset` - see `#lib/memorypack/date-time-offset.ts`'s header
 // comment. `conditionKind`/`observedValue`/`thresholdValue`/`channelResults`/`noData` were appended
 // after every pre-existing field, same versioning reasoning as `AlertRule.ts`.
 // `channelResults`' element type, `AlertChannelResult`, has no such problem (flat fields
@@ -12,10 +12,10 @@
 // `resolved` was appended after `suppressedByWindow`, same reasoning (ADR-0064).
 // `aiSummary`/`aiModel` were appended after `resolved`, same reasoning (ADR-0104).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { AlertChannelResult } from '$lib/generated/memorypack/AlertChannelResult.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { AlertChannelResult } from '#lib/generated/memorypack/AlertChannelResult.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class AlertHistoryEntry {
 	eventId: string;

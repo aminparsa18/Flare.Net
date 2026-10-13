@@ -1,18 +1,18 @@
 <script lang="ts">
 	// No drill-down sheet of its own - a namespace is a filter, so a row opens the Pods tab
 	// narrowed to it (the Workloads/Volumes tabs share the same namespace filter).
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import SortableHead from './SortableHead.svelte';
-	import { kubernetesContext } from '$lib/kubernetes/context';
-	import type { NamespacesSortColumn } from '$lib/kubernetes/state.svelte';
-	import { formatAgo, isStale } from '$lib/kubernetes/ago';
-	import { formatBytes, formatCores } from '$lib/kubernetes/format';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import { kubernetesContext } from '#lib/kubernetes/context.ts';
+	import type { NamespacesSortColumn } from '#lib/kubernetes/state.svelte.ts';
+	import { formatAgo, isStale } from '#lib/kubernetes/ago.ts';
+	import { formatBytes, formatCores } from '#lib/kubernetes/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const k8s = kubernetesContext.get();
 	const now = $derived(k8s.loadedAt);

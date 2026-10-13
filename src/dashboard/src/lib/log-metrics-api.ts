@@ -3,7 +3,7 @@
 //
 // Plain JSON, not MemoryPack - same call `metric-attribute-rules-api.ts` makes for a handful of
 // small config rows. The API negotiates on Accept, so a request without the MemoryPack headers
-// gets camelCase JSON. `condition` is the shared `LogFilter` wire shape from `$lib/api`.
+// gets camelCase JSON. `condition` is the shared `LogFilter` wire shape from `#lib/api.ts`.
 
 import { API_BASE_URL, apiFetch, type LogFilter } from './api';
 import type { ReadonlyURL } from '$app/state';

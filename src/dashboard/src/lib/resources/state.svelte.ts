@@ -8,7 +8,7 @@ import {
 	type ResourceGraphSnapshot,
 	type ResourcesWatchConnection,
 	type ResourcesWatchStatus
-} from '$lib/api';
+} from '#lib/api.ts';
 
 export class ResourcesState {
 	snapshot = $state<ResourceGraphSnapshot | null>(null);

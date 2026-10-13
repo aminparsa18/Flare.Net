@@ -1,8 +1,8 @@
 // Localized name of a named palette color - shared by ThresholdsPopover and LegendPopover,
 // which both pick from `THRESHOLD_COLORS`. A function, not a lookup object, so it re-reads the
 // live locale on every call (see time-range.ts's remarks).
-import type { ThresholdColor } from '$lib/dashboards/thresholds';
-import * as m from '$lib/paraglide/messages';
+import type { ThresholdColor } from '#lib/dashboards/thresholds.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 export function thresholdColorLabel(color: ThresholdColor): string {
 	switch (color) {

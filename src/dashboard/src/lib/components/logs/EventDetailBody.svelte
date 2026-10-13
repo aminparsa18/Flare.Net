@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
+	import { withBase } from '#lib/paths.ts';
 	import AnsiText from './AnsiText.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Separator } from '$lib/components/ui/separator';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Separator } from '#lib/components/ui/separator/index.ts';
 	import AttributeTable from './AttributeTable.svelte';
 	import StackTraceViewer from './StackTraceViewer.svelte';
 	import EventHostMetrics from './EventHostMetrics.svelte';
@@ -10,16 +10,16 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import JsonTree from './JsonTree.svelte';
-	import { parseJsonBody } from '$lib/logs/json-body';
-	import type { BodyJsonFilterOperator } from '$lib/api';
+	import { parseJsonBody } from '#lib/logs/json-body.ts';
+	import type { BodyJsonFilterOperator } from '#lib/api.ts';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import ClockIcon from '@lucide/svelte/icons/clock';
-	import { AROUND_DEFAULT_MS, aroundRange } from '$lib/time/around';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { pinnedAttributes } from '$lib/logs/pinned-attributes.svelte';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import * as m from '$lib/paraglide/messages';
-	import type { AttributeBag, LogEventDto } from '$lib/api';
+	import { AROUND_DEFAULT_MS, aroundRange } from '#lib/time/around.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { pinnedAttributes } from '#lib/logs/pinned-attributes.svelte.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { AttributeBag, LogEventDto } from '#lib/api.ts';
 
 	const explorer = logsExplorerContext.get();
 

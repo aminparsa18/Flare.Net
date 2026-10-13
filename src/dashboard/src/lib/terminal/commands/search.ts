@@ -1,5 +1,5 @@
 // `search` - mimics flare.cli's SearchCommand.cs (one-shot log search) by calling the
-// same POST /api/logs/search the Logs Explorer itself uses (searchLogs() from $lib/api),
+// same POST /api/logs/search the Logs Explorer itself uses (searchLogs() from #lib/api),
 // rather than any new backend surface - same "already-authenticated dashboard API,
 // different front end" shape as commands/tail.ts/traces.ts. Flag parsing is a direct port
 // of Flare.Cli/Commands/SearchCommand.cs's own Settings, including
@@ -9,14 +9,14 @@
 // them rather than a third copy - same precedent commands/metrics.ts's parseSince already
 // sets for metric.ts/ingestion.ts.
 
-import { searchLogs, type AttributeFilter, type LogEventDto, type LogFilter } from '$lib/api';
-import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
-import type { SpanFilter } from '$lib/traces-api';
+import { searchLogs, type AttributeFilter, type LogEventDto, type LogFilter } from '#lib/api.ts';
+import { SEVERITY_BUCKETS, severityNumbersForBucket } from '#lib/logs/severity.ts';
+import type { SpanFilter } from '#lib/traces-api.ts';
 import { parseAttrBareKey, parseAttrKeyValue, type AttrFlagEntry } from './attr-flags';
 import { parseDurationNano } from './duration';
 import { UsageError } from './usage-error';
 import type { TerminalCommand } from '../types';
-import { formatTimeOfDay } from '$lib/time/format';
+import { formatTimeOfDay } from '#lib/time/format.ts';
 
 export { UsageError };
 

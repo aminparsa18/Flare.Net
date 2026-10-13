@@ -1,17 +1,17 @@
 <script lang="ts">
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ServerIcon from '@lucide/svelte/icons/server';
 	import SortableHead from './SortableHead.svelte';
-	import { kubernetesContext } from '$lib/kubernetes/context';
-	import type { NodesSortColumn } from '$lib/kubernetes/state.svelte';
-	import { formatAgo, isStale } from '$lib/kubernetes/ago';
-	import { formatBytes, formatCores } from '$lib/kubernetes/format';
-	import { formatPercent } from '$lib/indexing/format';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import { kubernetesContext } from '#lib/kubernetes/context.ts';
+	import type { NodesSortColumn } from '#lib/kubernetes/state.svelte.ts';
+	import { formatAgo, isStale } from '#lib/kubernetes/ago.ts';
+	import { formatBytes, formatCores } from '#lib/kubernetes/format.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const k8s = kubernetesContext.get();
 	const now = $derived(k8s.loadedAt);

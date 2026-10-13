@@ -17,7 +17,7 @@
 // bare npm version. We only ever *write* a workbook from our own trusted API response here
 // (never parse an untrusted file), which is the lower-risk side of those CVEs regardless.
 
-import { searchLogs, type LogEventDto, type LogFilter } from '$lib/api';
+import { searchLogs, type LogEventDto, type LogFilter } from '#lib/api.ts';
 import type { ResolvedTimeRange } from './time-range';
 import * as XLSX from 'xlsx';
 

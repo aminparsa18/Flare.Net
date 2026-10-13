@@ -5,9 +5,9 @@
 // `ResourceAttributeFilter`'s own header comment on the C# side for why the *element*
 // type is generated even though this wrapping list is not.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ResourceAttributeFilter } from '$lib/generated/memorypack/ResourceAttributeFilter.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ResourceAttributeFilter } from '#lib/generated/memorypack/ResourceAttributeFilter.ts';
 
 export class ServiceOverviewRequest {
 	windowMinutes: number | null;

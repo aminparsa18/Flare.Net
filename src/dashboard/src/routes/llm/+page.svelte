@@ -2,11 +2,11 @@
 	// Model calls grouped by provider and model, from spans' `gen_ai.*` attributes - see
 	// docs-internal/adr/0100-llm-observability-genai-spans.md.
 	import { onMount, onDestroy } from 'svelte';
-	import { LlmState } from '$lib/llm/state.svelte';
-	import { llmContext } from '$lib/llm/context';
-	import LlmToolbar from '$lib/components/llm/LlmToolbar.svelte';
-	import LlmTable from '$lib/components/llm/LlmTable.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { LlmState } from '#lib/llm/state.svelte.ts';
+	import { llmContext } from '#lib/llm/context.ts';
+	import LlmToolbar from '#lib/components/llm/LlmToolbar.svelte';
+	import LlmTable from '#lib/components/llm/LlmTable.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const llm = llmContext.set(new LlmState());
 

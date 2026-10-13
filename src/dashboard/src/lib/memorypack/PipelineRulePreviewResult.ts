@@ -3,9 +3,9 @@
 // Can't carry `[GenerateTypeScript]` itself because its `matches` member's type,
 // `PipelineRulePreviewMatch`, is hand-written - see that file's header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { PipelineRulePreviewMatch } from '$lib/memorypack/PipelineRulePreviewMatch';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { PipelineRulePreviewMatch } from '#lib/memorypack/PipelineRulePreviewMatch.ts';
 
 export class PipelineRulePreviewResult {
 	sampledCount: number;

@@ -4,14 +4,14 @@
 	// against the one first seen before it - on endpoint error rate and p95, and lists what is new
 	// under the current version: exception types, outbound dependencies and Drain log patterns.
 	// The comparison is server-side (Flare.Api's VersionComparisonQueryBuilder); this renders and links.
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as Table from '$lib/components/ui/table';
-	import { formatMs, formatPercent } from '$lib/indexing/format';
-	import { buildServiceVersionErrorsHref, buildServiceVersionLogsHref, buildServiceVersionTracesHref } from '$lib/deep-links';
-	import { getVersionComparison, type VersionComparisonResponse, type VersionEndpointComparison } from '$lib/version-comparison-api';
-	import { formatDateTimeMinutes } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { formatMs, formatPercent } from '#lib/indexing/format.ts';
+	import { buildServiceVersionErrorsHref, buildServiceVersionLogsHref, buildServiceVersionTracesHref } from '#lib/deep-links.ts';
+	import { getVersionComparison, type VersionComparisonResponse, type VersionEndpointComparison } from '#lib/version-comparison-api.ts';
+	import { formatDateTimeMinutes } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { service }: { service: string } = $props();
 

@@ -26,11 +26,11 @@ import {
 	type KubernetesWorkloadMetricsResponse,
 	type KubernetesWorkloadRef,
 	type KubernetesWorkloadSummary
-} from '$lib/kubernetes-api';
-import { searchLogs } from '$lib/api';
+} from '#lib/kubernetes-api.ts';
+import { searchLogs } from '#lib/api.ts';
 import { buildKubernetesEventsFilter, parseKubernetesEvent, type KubernetesEvent, type KubernetesEventFilters } from './events';
-import { getPodMetrics, type PodMetricsResponse } from '$lib/pods-api';
-import { HOSTS_WINDOW_PRESETS, type HostsWindowPreset } from '$lib/hosts/state.svelte';
+import { getPodMetrics, type PodMetricsResponse } from '#lib/pods-api.ts';
+import { HOSTS_WINDOW_PRESETS, type HostsWindowPreset } from '#lib/hosts/state.svelte.ts';
 import { workloadStatusRank } from './format';
 
 export const KUBERNETES_TABS = ['nodes', 'namespaces', 'workloads', 'pods', 'volumes', 'events'] as const;

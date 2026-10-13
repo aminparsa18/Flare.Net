@@ -8,17 +8,17 @@
 // and use real generated classes; `PipelineFlushHealth` (DateTimeOffset?),
 // `PipelineServiceBreakdown` (an `IReadOnlyList<T>` member - see that hand-written file's
 // header comment), and the top-level `PipelineStatsResponse` are hand-written
-// (`$lib/memorypack/`). `signal` converts through `$lib/memorypack/enums.ts`'s
+// (`#lib/memorypack/`). `signal` converts through `#lib/memorypack/enums.ts`'s
 // `ingestionSignalToString`, same enum `ingestion-api.ts` exports as `IngestionSignal`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders } from './api';
 import type { IngestionSignal } from './ingestion-api';
-import { ingestionSignalToString } from '$lib/memorypack/enums';
-import { PipelineStatsResponse as GeneratedPipelineStatsResponse } from '$lib/memorypack/PipelineStatsResponse';
-import type { PipelineStreamHealth as GeneratedPipelineStreamHealth } from '$lib/generated/memorypack/PipelineStreamHealth.js';
-import type { PipelineFlushHealth as GeneratedPipelineFlushHealth } from '$lib/memorypack/PipelineFlushHealth';
-import type { PipelineServiceBreakdown as GeneratedPipelineServiceBreakdown } from '$lib/memorypack/PipelineServiceBreakdown';
-import type { PipelineServiceEntry as GeneratedPipelineServiceEntry } from '$lib/generated/memorypack/PipelineServiceEntry.js';
+import { ingestionSignalToString } from '#lib/memorypack/enums.ts';
+import { PipelineStatsResponse as GeneratedPipelineStatsResponse } from '#lib/memorypack/PipelineStatsResponse.ts';
+import type { PipelineStreamHealth as GeneratedPipelineStreamHealth } from '#lib/generated/memorypack/PipelineStreamHealth.ts';
+import type { PipelineFlushHealth as GeneratedPipelineFlushHealth } from '#lib/memorypack/PipelineFlushHealth.ts';
+import type { PipelineServiceBreakdown as GeneratedPipelineServiceBreakdown } from '#lib/memorypack/PipelineServiceBreakdown.ts';
+import type { PipelineServiceEntry as GeneratedPipelineServiceEntry } from '#lib/generated/memorypack/PipelineServiceEntry.ts';
 
 export interface PipelineStreamHealth {
 	signal: IngestionSignal;

@@ -2,10 +2,10 @@
 	// Settings shell: a left rail of sections, one route per section (/settings/<section>) so
 	// each is deep-linkable. Appearance is the first; the roadmap lists the rest (Regional,
 	// Explorer defaults, Account & security, ...).
-	import { stripBase, withBase } from '$lib/paths';
+	import { stripBase, withBase } from '#lib/paths.ts';
 	import { page } from '$app/state';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import { cn } from '$lib/utils';
+	import { buttonVariants } from '#lib/components/ui/button/index.ts';
+	import { cn } from '#lib/utils.ts';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import GlobeIcon from '@lucide/svelte/icons/globe';
 	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
@@ -29,10 +29,10 @@
 	import SigmaIcon from '@lucide/svelte/icons/sigma';
 	import FileCodeIcon from '@lucide/svelte/icons/file-code';
 	import EraserIcon from '@lucide/svelte/icons/eraser';
-	import { authContext } from '$lib/auth/context';
-	import { settingsManagementLinks, workspaceLinks } from '$lib/components/nav/nav-links';
-	import { searchSettings } from '$lib/settings/search-index';
-	import * as m from '$lib/paraglide/messages';
+	import { authContext } from '#lib/auth/context.ts';
+	import { settingsManagementLinks, workspaceLinks } from '#lib/components/nav/nav-links.ts';
+	import { searchSettings } from '#lib/settings/search-index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const { children } = $props();
 

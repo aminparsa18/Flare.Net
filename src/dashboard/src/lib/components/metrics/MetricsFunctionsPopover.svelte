@@ -5,15 +5,15 @@
 	// in order to the queried series' points server-side (MetricPostProcessor.cs), same
 	// "small icon-triggered popover with a mini form" shape as MetricsHavingPopover.svelte,
 	// just a list of rows instead of one operator/value pair.
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import SquareFunctionIcon from '@lucide/svelte/icons/square-function';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
-	import type { MetricPostProcessFunction, MetricPostProcessFunctionType } from '$lib/metrics-api';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { MetricPostProcessFunction, MetricPostProcessFunctionType } from '#lib/metrics-api.ts';
 
 	let {
 		functions,

@@ -6,14 +6,14 @@
 // `SkipIndexInfo`/`DiskUsageInfo`/`QueryPerformanceInfo` have neither problem, so they're
 // real generated classes, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { TableStorageInfo } from '$lib/generated/memorypack/TableStorageInfo.js';
-import { SkipIndexInfo } from '$lib/generated/memorypack/SkipIndexInfo.js';
-import { DiskUsageInfo } from '$lib/generated/memorypack/DiskUsageInfo.js';
-import { QueryPerformanceInfo } from '$lib/generated/memorypack/QueryPerformanceInfo.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { StorageGrowthPoint } from '$lib/memorypack/StorageGrowthPoint';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { TableStorageInfo } from '#lib/generated/memorypack/TableStorageInfo.ts';
+import { SkipIndexInfo } from '#lib/generated/memorypack/SkipIndexInfo.ts';
+import { DiskUsageInfo } from '#lib/generated/memorypack/DiskUsageInfo.ts';
+import { QueryPerformanceInfo } from '#lib/generated/memorypack/QueryPerformanceInfo.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { StorageGrowthPoint } from '#lib/memorypack/StorageGrowthPoint.ts';
 
 export class IndexingStatsResponse {
 	generatedAt: Date;

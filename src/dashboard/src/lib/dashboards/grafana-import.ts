@@ -30,10 +30,10 @@
 // (it's a grouping header, not a real widget - never counted as skipped/unsupported).
 
 import { GRID_COLUMNS, nextPanelPosition } from './layout';
-import type { DashboardLayout, DashboardPanel, PanelType } from '$lib/dashboards-api';
-import type { LogsSavedViewState } from '$lib/logs/state.svelte';
-import type { TracesSavedViewState } from '$lib/traces/state.svelte';
-import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
+import type { DashboardLayout, DashboardPanel, PanelType } from '#lib/dashboards-api.ts';
+import type { LogsSavedViewState } from '#lib/logs/state.svelte.ts';
+import type { TracesSavedViewState } from '#lib/traces/state.svelte.ts';
+import type { MetricsSavedViewState } from '#lib/metrics/state.svelte.ts';
 import type { PanelVisualization } from './visualization';
 
 /** Grafana's dashboard grid is always 24 columns wide, regardless of screen size - fixed in its own schema, unlike GRID_COLUMNS which is this app's own gridstack config. */

@@ -6,9 +6,9 @@
 // comment). `ApdexThresholdDto` has no such member, so it's a real generated class,
 // reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ApdexThresholdDto } from '$lib/generated/memorypack/ApdexThresholdDto.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ApdexThresholdDto } from '#lib/generated/memorypack/ApdexThresholdDto.ts';
 
 export class ApdexThresholdsResponse {
 	defaultThresholdMs: number;

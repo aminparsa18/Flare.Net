@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { IngestionState } from '$lib/ingestion/state.svelte';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import IngestionToolbar from '$lib/components/ingestion/IngestionToolbar.svelte';
-	import IngestionTiles from '$lib/components/ingestion/IngestionTiles.svelte';
-	import IngestionChart from '$lib/components/ingestion/IngestionChart.svelte';
-	import IngestionReceivers from '$lib/components/ingestion/IngestionReceivers.svelte';
-	import IngestionSignalsTable from '$lib/components/ingestion/IngestionSignalsTable.svelte';
-	import IngestionLog from '$lib/components/ingestion/IngestionLog.svelte';
-	import PipelineStreamsTable from '$lib/components/ingestion/PipelineStreamsTable.svelte';
-	import PipelineFlushHealthTable from '$lib/components/ingestion/PipelineFlushHealthTable.svelte';
-	import ArchiveStatusCard from '$lib/components/telemetry-export/ArchiveStatusCard.svelte';
-	import PipelineServiceBreakdown from '$lib/components/ingestion/PipelineServiceBreakdown.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { IngestionState } from '#lib/ingestion/state.svelte.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import IngestionToolbar from '#lib/components/ingestion/IngestionToolbar.svelte';
+	import IngestionTiles from '#lib/components/ingestion/IngestionTiles.svelte';
+	import IngestionChart from '#lib/components/ingestion/IngestionChart.svelte';
+	import IngestionReceivers from '#lib/components/ingestion/IngestionReceivers.svelte';
+	import IngestionSignalsTable from '#lib/components/ingestion/IngestionSignalsTable.svelte';
+	import IngestionLog from '#lib/components/ingestion/IngestionLog.svelte';
+	import PipelineStreamsTable from '#lib/components/ingestion/PipelineStreamsTable.svelte';
+	import PipelineFlushHealthTable from '#lib/components/ingestion/PipelineFlushHealthTable.svelte';
+	import ArchiveStatusCard from '#lib/components/telemetry-export/ArchiveStatusCard.svelte';
+	import PipelineServiceBreakdown from '#lib/components/ingestion/PipelineServiceBreakdown.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const ingestion = ingestionContext.set(new IngestionState());
 

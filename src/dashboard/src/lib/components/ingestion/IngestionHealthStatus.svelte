@@ -7,8 +7,8 @@
 	// is the one addition, there being no existing "good" accent color to reuse (ResourceNode's
 	// Healthy badge is neutral gray, which doesn't read as reassuring enough for the one verdict
 	// this whole page hangs off of).
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { computeIngestionHealth, type IngestionHealthLevel } from '$lib/ingestion/health';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { computeIngestionHealth, type IngestionHealthLevel } from '#lib/ingestion/health.ts';
 
 	const ingestion = ingestionContext.get();
 

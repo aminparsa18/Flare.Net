@@ -2,16 +2,16 @@
 	// "Let Flare do the analysis" - turns the numbers already on this page (compression,
 	// parts, per-table row share, cross-signal growth rate) into plain-language verdicts
 	// instead of leaving the reader to eyeball the Tables/growth data themselves and decide
-	// what's normal. See $lib/indexing/storage-health.ts for the checks themselves and why
+	// what's normal. See #lib/indexing/storage-health.ts for the checks themselves and why
 	// there's no "skip index usage" check among them.
-	import * as Card from '$lib/components/ui/card';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { indexingContext } from '$lib/indexing/context';
-	import { computeStorageHealth, type StorageHealthTone } from '$lib/indexing/storage-health';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import { computeStorageHealth, type StorageHealthTone } from '#lib/indexing/storage-health.ts';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import MinusIcon from '@lucide/svelte/icons/minus';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.get();
 

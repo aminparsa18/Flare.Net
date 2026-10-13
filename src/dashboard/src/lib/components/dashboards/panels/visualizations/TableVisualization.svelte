@@ -8,18 +8,18 @@
 	// view state, never saved to the panel. A column's unit is the metric's own unless the
 	// panel's `columnUnits` overrides it (ColumnUnitsPopover.svelte) - e.g. giving a
 	// unit-less formula result "ms", or reading a Sum column as bytes.
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
-	import { formatValue, reduceValues, toCsv, type PanelReducer, type VizSeries } from '$lib/dashboards/visualization';
-	import { downloadBlob } from '$lib/logs/export';
-	import { slugify } from '$lib/dashboards/state.svelte';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '#lib/dashboards/thresholds.ts';
+	import { formatValue, reduceValues, toCsv, type PanelReducer, type VizSeries } from '#lib/dashboards/visualization.ts';
+	import { downloadBlob } from '#lib/logs/export.ts';
+	import { slugify } from '#lib/dashboards/state.svelte.ts';
 	import { reducerLabel } from './labels';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import DownloadIcon from '@lucide/svelte/icons/file-down';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		series,

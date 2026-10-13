@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { withBase } from '$lib/paths';
+import { withBase } from '#lib/paths.ts';
 
 // Moved under Settings; keeps old bookmarks and deep links (incl. ?query) working.
 export function load({ url }) {

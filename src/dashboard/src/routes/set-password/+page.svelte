@@ -2,13 +2,13 @@
 	// Public page (see +layout.svelte's onPublicRoute): redeems an invite / admin-generated
 	// reset token from `?token=` and sets the account's password.
 	import { page } from '$app/state';
-	import { withBase } from '$lib/paths';
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { setPasswordWithToken } from '$lib/users-api';
-	import * as m from '$lib/paraglide/messages';
+	import { withBase } from '#lib/paths.ts';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { setPasswordWithToken } from '#lib/users-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const token = $derived(page.url.searchParams.get('token') ?? '');
 	let password = $state('');

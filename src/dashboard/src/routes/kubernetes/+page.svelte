@@ -6,17 +6,17 @@
 	// `?tab=pods` (or namespaces/workloads/volumes/events) opens that tab.
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { KUBERNETES_TABS, KubernetesState, type KubernetesTab } from '$lib/kubernetes/state.svelte';
-	import { kubernetesContext } from '$lib/kubernetes/context';
-	import KubernetesToolbar from '$lib/components/kubernetes/KubernetesToolbar.svelte';
-	import KubernetesNodesTable from '$lib/components/kubernetes/KubernetesNodesTable.svelte';
-	import KubernetesNamespacesTable from '$lib/components/kubernetes/KubernetesNamespacesTable.svelte';
-	import KubernetesWorkloadsTable from '$lib/components/kubernetes/KubernetesWorkloadsTable.svelte';
-	import KubernetesPodsTable from '$lib/components/kubernetes/KubernetesPodsTable.svelte';
-	import KubernetesVolumesTable from '$lib/components/kubernetes/KubernetesVolumesTable.svelte';
-	import KubernetesEventsTable from '$lib/components/kubernetes/KubernetesEventsTable.svelte';
-	import KubernetesDetailSheet from '$lib/components/kubernetes/KubernetesDetailSheet.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { KUBERNETES_TABS, KubernetesState, type KubernetesTab } from '#lib/kubernetes/state.svelte.ts';
+	import { kubernetesContext } from '#lib/kubernetes/context.ts';
+	import KubernetesToolbar from '#lib/components/kubernetes/KubernetesToolbar.svelte';
+	import KubernetesNodesTable from '#lib/components/kubernetes/KubernetesNodesTable.svelte';
+	import KubernetesNamespacesTable from '#lib/components/kubernetes/KubernetesNamespacesTable.svelte';
+	import KubernetesWorkloadsTable from '#lib/components/kubernetes/KubernetesWorkloadsTable.svelte';
+	import KubernetesPodsTable from '#lib/components/kubernetes/KubernetesPodsTable.svelte';
+	import KubernetesVolumesTable from '#lib/components/kubernetes/KubernetesVolumesTable.svelte';
+	import KubernetesEventsTable from '#lib/components/kubernetes/KubernetesEventsTable.svelte';
+	import KubernetesDetailSheet from '#lib/components/kubernetes/KubernetesDetailSheet.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const k8s = kubernetesContext.set(new KubernetesState());
 

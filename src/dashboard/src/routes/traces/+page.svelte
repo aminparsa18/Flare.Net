@@ -1,30 +1,30 @@
 <script lang="ts">
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import { page } from '$app/state';
-	import { TracesExplorerState } from '$lib/traces/state.svelte';
-	import { tracesExplorerContext } from '$lib/traces/context';
-	import { ServicesState } from '$lib/services/state.svelte';
-	import { servicesContext } from '$lib/services/context';
-	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
-	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
-	import { parseStateDeepLinkParam, parseTracesDeepLinkParams } from '$lib/deep-links';
-	import NaturalLanguageFilter from '$lib/components/NaturalLanguageFilter.svelte';
-	import TracesToolbar from '$lib/components/traces/TracesToolbar.svelte';
-	import SpanAttributeFiltersRow from '$lib/components/traces/SpanAttributeFiltersRow.svelte';
-	import TraceStructureEditor from '$lib/components/traces/TraceStructureEditor.svelte';
-	import TraceList from '$lib/components/traces/TraceList.svelte';
-	import ServicesToolbar from '$lib/components/services/ServicesToolbar.svelte';
-	import ResourceAttributeFiltersRow from '$lib/components/services/ResourceAttributeFiltersRow.svelte';
-	import ServicesSummaryTiles from '$lib/components/services/ServicesSummaryTiles.svelte';
-	import ServicesTable from '$lib/components/services/ServicesTable.svelte';
-	import ServiceDependencyGraph from '$lib/components/services/ServiceDependencyGraph.svelte';
-	import ServiceCallBreakdownDialog from '$lib/components/services/ServiceCallBreakdownDialog.svelte';
-	import FacetSidebar from '$lib/components/facets/FacetSidebar.svelte';
-	import { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
-	import { TRACE_FACET_BAGS, traceFacetDefinitions, traceFacetReloadKey } from '$lib/traces/facets';
-	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import type { SpanAttributeFilter, TraceStructureFilter } from '$lib/traces-api';
-	import * as m from '$lib/paraglide/messages';
+	import { TracesExplorerState } from '#lib/traces/state.svelte.ts';
+	import { tracesExplorerContext } from '#lib/traces/context.ts';
+	import { ServicesState } from '#lib/services/state.svelte.ts';
+	import { servicesContext } from '#lib/services/context.ts';
+	import { resolveRequestedSavedView } from '#lib/saved-views/hydrate.ts';
+	import { resolveLastUsedSavedView } from '#lib/saved-views/last-used.ts';
+	import { parseStateDeepLinkParam, parseTracesDeepLinkParams } from '#lib/deep-links.ts';
+	import NaturalLanguageFilter from '#lib/components/NaturalLanguageFilter.svelte';
+	import TracesToolbar from '#lib/components/traces/TracesToolbar.svelte';
+	import SpanAttributeFiltersRow from '#lib/components/traces/SpanAttributeFiltersRow.svelte';
+	import TraceStructureEditor from '#lib/components/traces/TraceStructureEditor.svelte';
+	import TraceList from '#lib/components/traces/TraceList.svelte';
+	import ServicesToolbar from '#lib/components/services/ServicesToolbar.svelte';
+	import ResourceAttributeFiltersRow from '#lib/components/services/ResourceAttributeFiltersRow.svelte';
+	import ServicesSummaryTiles from '#lib/components/services/ServicesSummaryTiles.svelte';
+	import ServicesTable from '#lib/components/services/ServicesTable.svelte';
+	import ServiceDependencyGraph from '#lib/components/services/ServiceDependencyGraph.svelte';
+	import ServiceCallBreakdownDialog from '#lib/components/services/ServiceCallBreakdownDialog.svelte';
+	import FacetSidebar from '#lib/components/facets/FacetSidebar.svelte';
+	import { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
+	import { TRACE_FACET_BAGS, traceFacetDefinitions, traceFacetReloadKey } from '#lib/traces/facets.ts';
+	import type { TimeRangePreset } from '#lib/logs/time-range.ts';
+	import type { SpanAttributeFilter, TraceStructureFilter } from '#lib/traces-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = tracesExplorerContext.set(new TracesExplorerState());
 	const services = servicesContext.set(new ServicesState());
@@ -72,8 +72,8 @@
 			// by the $effect below instead of here - see its own comment for why - so this
 			// only needs to fall back to a plain default search when neither applies.
 			// A bare visit restores the saved view last picked here instead
-			// ($lib/saved-views/last-used.ts) - never over a `?view=` or deep link.
-			// A dashboard panel's "Open in Traces" link ($lib/dashboards/explore-links.ts) carries
+			// (#lib/saved-views/last-used.ts) - never over a `?view=` or deep link.
+			// A dashboard panel's "Open in Traces" link (#lib/dashboards/explore-links.ts) carries
 			// a whole saved-view state inline as `?state=`, restored through the same path.
 			const requested = await resolveRequestedSavedView(page.url, 'Traces');
 			const inlineState = requested ? null : parseStateDeepLinkParam(page.url);

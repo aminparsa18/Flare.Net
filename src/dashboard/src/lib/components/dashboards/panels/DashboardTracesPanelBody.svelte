@@ -9,11 +9,11 @@
 	// `refreshToken` (Phase 3) is DashboardViewerState's auto-refresh tick - see
 	// DashboardLogsPanelBody.svelte's header comment for the general shape.
 	import { onMount, untrack } from 'svelte';
-	import { TracesExplorerState, type TracesSavedViewState } from '$lib/traces/state.svelte';
-	import { tracesExplorerContext } from '$lib/traces/context';
-	import TraceList from '$lib/components/traces/TraceList.svelte';
-	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import { attributesForTracesPanel, type ResolvedVariableOverrides } from '$lib/dashboards/variables';
+	import { TracesExplorerState, type TracesSavedViewState } from '#lib/traces/state.svelte.ts';
+	import { tracesExplorerContext } from '#lib/traces/context.ts';
+	import TraceList from '#lib/components/traces/TraceList.svelte';
+	import type { TimeRangePreset } from '#lib/logs/time-range.ts';
+	import { attributesForTracesPanel, type ResolvedVariableOverrides } from '#lib/dashboards/variables.ts';
 
 	let {
 		query,

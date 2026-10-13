@@ -1,7 +1,7 @@
 // Central reactive state for the /auth page's umbrella switch - mirrors
-// EntraSettingsState's shape ($lib/entra-settings/state.svelte.ts).
+// EntraSettingsState's shape (#lib/entra-settings/state.svelte.ts).
 
-import { getAuthSettings, saveAuthSettings, type AuthSettings } from '$lib/auth-settings-api';
+import { getAuthSettings, saveAuthSettings, type AuthSettings } from '#lib/auth-settings-api.ts';
 
 export class AuthSettingsState {
 	settings = $state.raw<AuthSettings | null>(null);

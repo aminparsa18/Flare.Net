@@ -5,7 +5,7 @@
 // its own - a plain `{#key}`+fade only animates opacity, so the *container* still jumps
 // to the new height the instant swapped-in content mounts. Promoted here once a second
 // consumer (VolumeChart's collapse toggle) needed the exact same behavior - that file's
-// own comment already flagged "no shared $lib/actions home yet... until a second
+// own comment already flagged "no shared #lib/actions home yet... until a second
 // consumer needs it".
 //
 // A FLIP-style animation via ResizeObserver + the Web Animations API: capture the

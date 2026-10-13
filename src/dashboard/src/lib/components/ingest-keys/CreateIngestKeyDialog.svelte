@@ -2,18 +2,18 @@
 	// Same two-step create -> reveal-once dialog as CreateAccessTokenDialog.svelte, with the
 	// same optional expiry (ADR-0207). The terminal's
 	// `apikey create` command is the other front end for the same POST.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
-	import { projects } from '$lib/projects/store.svelte';
-	import { ingestKeysContext } from '$lib/ingest-keys/context';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import ProjectPicker from '#lib/components/projects/ProjectPicker.svelte';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import { ingestKeysContext } from '#lib/ingest-keys/context.ts';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const keys = ingestKeysContext.get();
 

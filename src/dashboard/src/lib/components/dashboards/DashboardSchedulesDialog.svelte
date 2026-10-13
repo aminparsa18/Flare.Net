@@ -2,11 +2,11 @@
 	// Scheduled report schedules for one dashboard (ADR-0142): list, create/edit, send now, run history.
 	// Self-contained - it talks to the schedules API directly rather than through a shared context, since
 	// nothing outside this dialog reads them.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import {
 		createDashboardSchedule,
 		deleteDashboardSchedule,
@@ -18,14 +18,14 @@
 		type DashboardSchedule,
 		type DashboardScheduleRequest,
 		type ReportFormat
-	} from '$lib/dashboard-schedules-api';
-	import { CRON_PRESETS, SCHEDULE_RANGES, looksLikeCron, presetForCron, splitViewerSearch } from '$lib/dashboards/schedules';
-	import { buildDashboardUrlSearch } from '$lib/dashboards/url-state';
-	import { presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
-	import { formatDateTime } from '$lib/time/format';
-	import { browserTimeZone, timeZoneOptions } from '$lib/time/time-zone';
-	import type { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/dashboard-schedules-api.ts';
+	import { CRON_PRESETS, SCHEDULE_RANGES, looksLikeCron, presetForCron, splitViewerSearch } from '#lib/dashboards/schedules.ts';
+	import { buildDashboardUrlSearch } from '#lib/dashboards/url-state.ts';
+	import { presetLabel, type TimeRangePreset } from '#lib/logs/time-range.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import { browserTimeZone, timeZoneOptions } from '#lib/time/time-zone.ts';
+	import type { DashboardViewerState } from '#lib/dashboards/viewer.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';

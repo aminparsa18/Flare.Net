@@ -12,7 +12,7 @@ import {
 	loginViaProxy as loginViaProxyRequest,
 	logout as logoutRequest,
 	type AuthUser
-} from '$lib/auth-api';
+} from '#lib/auth-api.ts';
 
 export class AuthState {
 	currentUser = $state.raw<AuthUser | null>(null);

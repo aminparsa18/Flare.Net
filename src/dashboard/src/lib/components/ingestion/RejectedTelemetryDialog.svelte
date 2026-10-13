@@ -11,14 +11,14 @@
 	// against - a rejection this early (bad protobuf/JSON, wrong content-type) means the
 	// export was never parsed far enough to read a resource's service.name from it. Showing
 	// one would mean inventing data the receiver never had.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { INGESTION_WINDOW_PRESETS } from '$lib/ingestion/state.svelte';
-	import { formatCount, protocolLabel, signalLabel } from '$lib/ingestion/format';
-	import type { IngestionProtocol, IngestionSignal } from '$lib/ingestion-api';
-	import * as m from '$lib/paraglide/messages';
-	import { formatTimestamp } from '$lib/time/format';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { INGESTION_WINDOW_PRESETS } from '#lib/ingestion/state.svelte.ts';
+	import { formatCount, protocolLabel, signalLabel } from '#lib/ingestion/format.ts';
+	import type { IngestionProtocol, IngestionSignal } from '#lib/ingestion-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatTimestamp } from '#lib/time/format.ts';
 
 	let {
 		open = $bindable(false),

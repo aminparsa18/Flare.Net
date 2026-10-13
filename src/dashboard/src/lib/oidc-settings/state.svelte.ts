@@ -1,8 +1,8 @@
 // Central reactive state for the /auth page's OpenID Connect card - mirrors
-// EntraSettingsState's shape ($lib/entra-settings/state.svelte.ts): a class with $state
+// EntraSettingsState's shape (#lib/entra-settings/state.svelte.ts): a class with $state
 // fields, provided via oidcSettingsContext (context.ts) rather than passed as props.
 
-import { getOidcSettings, saveOidcSettings, type OidcSettings, type SaveOidcSettingsRequest } from '$lib/oidc-settings-api';
+import { getOidcSettings, saveOidcSettings, type OidcSettings, type SaveOidcSettingsRequest } from '#lib/oidc-settings-api.ts';
 
 export class OidcSettingsState {
 	settings = $state.raw<OidcSettings | null>(null);

@@ -5,8 +5,8 @@
 	// Only rendered by DashboardPanelCard.svelte for Metrics panels while `editing`, same
 	// gating as YAxisBoundsPopover/ThresholdsPopover. See
 	// docs-internal/adr/0059-dashboard-panel-visualizations.md.
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import {
 		PANEL_REDUCERS,
 		PANEL_STACKINGS,
@@ -16,7 +16,7 @@
 		type PanelReducer,
 		type PanelStacking,
 		type PanelVisualization
-	} from '$lib/dashboards/visualization';
+	} from '#lib/dashboards/visualization.ts';
 	import { reducerLabel, stackingLabel, visualizationLabel } from './panels/visualizations/labels';
 	import ChartLineIcon from '@lucide/svelte/icons/chart-line';
 	import ChartColumnIcon from '@lucide/svelte/icons/chart-column';
@@ -25,7 +25,7 @@
 	import TableIcon from '@lucide/svelte/icons/table';
 	import HistogramIcon from '@lucide/svelte/icons/chart-no-axes-column';
 	import HeatmapIcon from '@lucide/svelte/icons/grid-3x3';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		visualization,

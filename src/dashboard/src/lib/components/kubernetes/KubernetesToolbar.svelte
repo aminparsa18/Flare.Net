@@ -1,19 +1,19 @@
 <script lang="ts">
 	// Tabs are local state with plain buttonVariants styling - same pattern as
 	// TracesViewTabs.svelte (this dashboard has no shadcn Tabs component).
-	import * as Select from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
-	import { Badge } from '$lib/components/ui/badge';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { buttonVariants } from '#lib/components/ui/button/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { kubernetesContext } from '$lib/kubernetes/context';
-	import { KUBERNETES_EVENT_TYPES } from '$lib/kubernetes/events';
-	import { KUBERNETES_WINDOW_PRESETS, type KubernetesTab, type KubernetesWindowPreset } from '$lib/kubernetes/state.svelte';
-	import { KUBERNETES_WORKLOAD_KINDS, type KubernetesWorkloadKind } from '$lib/kubernetes-api';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { cn } from '$lib/utils';
-	import * as m from '$lib/paraglide/messages';
+	import { kubernetesContext } from '#lib/kubernetes/context.ts';
+	import { KUBERNETES_EVENT_TYPES } from '#lib/kubernetes/events.ts';
+	import { KUBERNETES_WINDOW_PRESETS, type KubernetesTab, type KubernetesWindowPreset } from '#lib/kubernetes/state.svelte.ts';
+	import { KUBERNETES_WORKLOAD_KINDS, type KubernetesWorkloadKind } from '#lib/kubernetes-api.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import { cn } from '#lib/utils.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const k8s = kubernetesContext.get();
 

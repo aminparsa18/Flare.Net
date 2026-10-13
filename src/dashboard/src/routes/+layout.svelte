@@ -1,29 +1,29 @@
 <script lang="ts">
-	import { stripBase, withBase } from '$lib/paths';
+	import { stripBase, withBase } from '#lib/paths.ts';
 	import './layout.css';
 	import { ModeWatcher, userPrefersMode } from 'mode-watcher';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import AppNav from '$lib/components/nav/AppNav.svelte';
-	import SideNav from '$lib/components/nav/SideNav.svelte';
-	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
-	import { notificationPrefs } from '$lib/notifications/prefs.svelte';
-	import { startAlertWatcher, browserNotificationsSupported } from '$lib/notifications/alert-watcher.svelte';
-	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
-	import { regional } from '$lib/regional/prefs.svelte';
-	import { appearance, type Theme } from '$lib/appearance/prefs.svelte';
-	import CommandPalette from '$lib/components/nav/CommandPalette.svelte';
-	import GlobalShortcuts from '$lib/components/nav/GlobalShortcuts.svelte';
-	import UpdateNotice from '$lib/components/nav/UpdateNotice.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert';
-	import { Button } from '$lib/components/ui/button';
-	import { AuthState } from '$lib/auth/state.svelte';
-	import { authContext } from '$lib/auth/context';
-	import { getBootstrapStatus } from '$lib/auth-api';
-	import { ChromeVisibilityState, setChromeVisibilityContext } from '$lib/chrome/context.svelte';
-	import { projects } from '$lib/projects/store.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import AppNav from '#lib/components/nav/AppNav.svelte';
+	import SideNav from '#lib/components/nav/SideNav.svelte';
+	import { keyboardPrefs } from '#lib/keyboard/prefs.svelte.ts';
+	import { notificationPrefs } from '#lib/notifications/prefs.svelte.ts';
+	import { startAlertWatcher, browserNotificationsSupported } from '#lib/notifications/alert-watcher.svelte.ts';
+	import { explorerPrefs } from '#lib/explorer/prefs.svelte.ts';
+	import { regional } from '#lib/regional/prefs.svelte.ts';
+	import { appearance, type Theme } from '#lib/appearance/prefs.svelte.ts';
+	import CommandPalette from '#lib/components/nav/CommandPalette.svelte';
+	import GlobalShortcuts from '#lib/components/nav/GlobalShortcuts.svelte';
+	import UpdateNotice from '#lib/components/nav/UpdateNotice.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Alert, AlertTitle, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { AuthState } from '#lib/auth/state.svelte.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { getBootstrapStatus } from '#lib/auth-api.ts';
+	import { ChromeVisibilityState, setChromeVisibilityContext } from '#lib/chrome/context.svelte.ts';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const { children } = $props();
 
@@ -31,7 +31,7 @@
 	authContext.set(auth);
 
 	// Lets a child route (e.g. the dashboard viewer's full-screen/TV mode) hide AppNav
-	// without this layout knowing anything about why - see $lib/chrome/context.svelte.ts.
+	// without this layout knowing anything about why - see #lib/chrome/context.svelte.ts.
 	const chrome = new ChromeVisibilityState();
 	setChromeVisibilityContext(chrome);
 

@@ -5,9 +5,9 @@
 // can't (its `From`/`To` are `DateTimeOffset?`), and the generator's nested-object import is
 // a hardcoded same-directory `./{Type}.js` reference, so a generated `AttributeFilter`
 // wouldn't help a hand-written `LogFilter` that has to import it from
-// `$lib/memorypack/` instead. Hand-written for consistency with `LogFilter`, its only user.
+// `#lib/memorypack/` instead. Hand-written for consistency with `LogFilter`, its only user.
 // `bag`/`operator` are raw MemoryPack numeric ordinals (converted to string at
-// `$lib/memorypack/LogFilter.ts`'s mapping boundary, via `$lib/memorypack/enums.ts`'s
+// `#lib/memorypack/LogFilter.ts`'s mapping boundary, via `#lib/memorypack/enums.ts`'s
 // `attributeBagToString`/`FromString` and `attributeFilterOperatorToString`/`FromString`).
 // `operator` is member 4, appended after the original 3 (`Flare.Api`'s own C# comment on
 // `AttributeFilter.Operator` explains why it had to land last, not inserted) - the
@@ -17,8 +17,8 @@
 // reason - the `In`/`NotIn` operators' multi-value operand (`AttributeFilter.Values` in the
 // C# source).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class AttributeFilter {
 	bag: number;

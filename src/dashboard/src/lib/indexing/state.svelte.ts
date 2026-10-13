@@ -15,8 +15,8 @@ import {
 	type ClusterStatusResponse,
 	type PromotedAttributesResponse,
 	type PromotedAttributeTable
-} from '$lib/indexing-api';
-import type { AttributeBag } from '$lib/api';
+} from '#lib/indexing-api.ts';
+import type { AttributeBag } from '#lib/api.ts';
 
 export class IndexingState {
 	stats = $state.raw<IndexingStatsResponse | null>(null);

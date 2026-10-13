@@ -1,14 +1,14 @@
 <script lang="ts">
 	// One signal's retention: what ClickHouse has now (parsed live) next to what was last asked
 	// for, plus the editable default / cold-after / per-resource rules (ADR-0143/0144/0145).
-	import * as Card from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { MAX_RETENTION_DAYS, MAX_RETENTION_RULES, type RetentionRule, type SignalRetention } from '$lib/retention-api';
-	import * as m from '$lib/paraglide/messages';
+	import { MAX_RETENTION_DAYS, MAX_RETENTION_RULES, type RetentionRule, type SignalRetention } from '#lib/retention-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		retention,

@@ -1,6 +1,6 @@
 // Pure helpers behind the "Schedule reports" dialog (ADR-0142): the cron presets it offers and the
 // translation between a dashboard viewer's URL state and a schedule's `timeRange` + `variableQuery` fields.
-import { TIME_RANGE_PRESETS } from '$lib/logs/time-range';
+import { TIME_RANGE_PRESETS } from '#lib/logs/time-range.ts';
 
 /** The fixed-duration presets a schedule may carry - the same set the dashboard's own override accepts. */
 export const SCHEDULE_RANGES = TIME_RANGE_PRESETS.filter((p) => p.value !== 'custom').map((p) => p.value as string);

@@ -2,16 +2,16 @@
 	// First real use of the `Table`/`Card` shadcn components in this app (both were
 	// scaffolded but unused before this feature - see AlertRuleFormDialog.svelte's own
 	// note about `Dialog` being in the same position).
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Input } from '$lib/components/ui/input';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import { page } from '$app/state';
 	import { goto, replaceState } from '$app/navigation';
-	import { withBase } from '$lib/paths';
-	import { formatBurnRate, formatWindow } from '$lib/slos/burn-rate';
-	import { formatDateTime } from '$lib/time/format';
+	import { withBase } from '#lib/paths.ts';
+	import { formatBurnRate, formatWindow } from '#lib/slos/burn-rate.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
 	import {
 		applyAlertListView,
 		buildAlertListSearch,
@@ -22,17 +22,17 @@
 		RULE_STATE_FILTERS,
 		type AlertListView,
 		type RuleSortKey
-	} from '$lib/alerts/list-view';
+	} from '#lib/alerts/list-view.ts';
 	import AckRuleMenu from './AckRuleMenu.svelte';
 	import MuteRuleMenu from './MuteRuleMenu.svelte';
 	import AlertRulesTransfer from './AlertRulesTransfer.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { alertsContext } from '$lib/alerts/context';
-	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
-	import { testAlertRule, sendTestAlertRule, type AlertRule, type AlertTestResult, type AlertNotificationTestResult } from '$lib/alerts-api';
-	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
-	import { severityBadgeVariant, severityLabel } from '$lib/alerts/severity';
-	import * as m from '$lib/paraglide/messages';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { alertsContext } from '#lib/alerts/context.ts';
+	import { maintenanceWindowsContext } from '#lib/maintenance-windows/context.ts';
+	import { testAlertRule, sendTestAlertRule, type AlertRule, type AlertTestResult, type AlertNotificationTestResult } from '#lib/alerts-api.ts';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '#lib/logs/severity.ts';
+	import { severityBadgeVariant, severityLabel } from '#lib/alerts/severity.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -40,7 +40,7 @@
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import BellIcon from '@lucide/svelte/icons/bell';
-	import { projects } from '$lib/projects/store.svelte';
+	import { projects } from '#lib/projects/store.svelte.ts';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';

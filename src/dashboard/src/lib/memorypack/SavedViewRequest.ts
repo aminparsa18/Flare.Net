@@ -4,8 +4,8 @@
 // `State` is a `JsonElement` - see `SavedView.ts`'s header comment for the full explanation
 // and the raw-JSON-text wire format this hand-writes against.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class SavedViewRequest {
 	name: string | null;

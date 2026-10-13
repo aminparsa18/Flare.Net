@@ -1,6 +1,6 @@
 // Turns the release-health trend points (ADR-0189) into per-version series for the sessions chart.
 
-import type { ReleaseHealthTrendPoint } from '$lib/app-sessions-api';
+import type { ReleaseHealthTrendPoint } from '#lib/app-sessions-api.ts';
 
 export interface TrendSeries {
 	version: string;

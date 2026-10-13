@@ -4,8 +4,8 @@
 // does not change what telemetry a query returns, which the server already scopes to the
 // caller's union of projects.
 
-import { listMyProjects, NO_PROJECT, type MyProject } from '$lib/projects-api';
-import type { UserRole } from '$lib/auth-api';
+import { listMyProjects, NO_PROJECT, type MyProject } from '#lib/projects-api.ts';
+import type { UserRole } from '#lib/auth-api.ts';
 
 const STORAGE_KEY = 'flare.activeProject';
 

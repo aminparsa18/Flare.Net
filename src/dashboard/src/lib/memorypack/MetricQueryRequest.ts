@@ -1,21 +1,21 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/MetricModels.cs`'s `MetricQueryRequest`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
-// nests `MetricFilter` (blocked - see `$lib/memorypack/MetricFilter.ts`'s header comment).
+// nests `MetricFilter` (blocked - see `#lib/memorypack/MetricFilter.ts`'s header comment).
 // `havingOperator`/`havingValue` were appended after every pre-existing field (same
 // versioning convention AlertRuleRequest.ts documents) when the HAVING post-aggregation
 // filter was added - see MetricModels.cs' MetricHavingOperator/MetricQueryRequest remarks.
 // `postProcessFunctions` was appended the same way for ADR-0038's post-processing chain -
 // `MetricPostProcessFunction` itself has no DateTimeOffset/nesting problem, so it's a real
-// generated class (`$lib/generated/memorypack/MetricPostProcessFunction.js`), reused here
+// generated class (`#lib/generated/memorypack/MetricPostProcessFunction.ts`), reused here
 // directly the same way MetricFilter.ts reuses the generated `MetricAttributeFilter`.
 // `treatAsCounter` was appended the same way for ADR-0066 (null = the metric's admin setting).
 // `includeBuckets` was appended the same way for ADR-0085's heatmap (null/false = omit per-bucket counts).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricFilter } from '$lib/memorypack/MetricFilter';
-import { MetricPostProcessFunction } from '$lib/generated/memorypack/MetricPostProcessFunction.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricFilter } from '#lib/memorypack/MetricFilter.ts';
+import { MetricPostProcessFunction } from '#lib/generated/memorypack/MetricPostProcessFunction.ts';
 
 export class MetricQueryRequest {
 	metricName: string | null;

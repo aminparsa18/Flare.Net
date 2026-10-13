@@ -11,12 +11,12 @@
 	// queue size *against capacity*, ~60-70% being the point to start considering scaling).
 	// Thresholds/computation live in ingestion/health.ts, shared with the page-level verdict
 	// so the two never disagree about what "getting full" means.
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatAge, formatCount, signalLabel } from '$lib/ingestion/format';
-	import { DOWN_UTILIZATION_PERCENT, WARN_UTILIZATION_PERCENT, isBacklogStuck, utilizationPercent } from '$lib/ingestion/health';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { formatAge, formatCount, signalLabel } from '#lib/ingestion/format.ts';
+	import { DOWN_UTILIZATION_PERCENT, WARN_UTILIZATION_PERCENT, isBacklogStuck, utilizationPercent } from '#lib/ingestion/health.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const ingestion = ingestionContext.get();
 

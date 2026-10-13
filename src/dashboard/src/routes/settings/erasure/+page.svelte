@@ -3,12 +3,12 @@
 	// matches, export it, or delete it. ClickHouse applies a delete asynchronously, so while one is
 	// running the page polls for per-table progress.
 	import { onDestroy, onMount } from 'svelte';
-	import * as Card from '$lib/components/ui/card';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import {
@@ -21,9 +21,9 @@
 		type ErasureOperation,
 		type ErasurePreview,
 		type ErasureStatus
-	} from '$lib/erasure-api';
-	import { downloadBlob } from '$lib/logs/export';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/erasure-api.ts';
+	import { downloadBlob } from '#lib/logs/export.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let rows = $state<ErasureIdentifier[]>([{ key: 'user.id', value: '' }]);
 	let preview = $state.raw<ErasurePreview | null>(null);

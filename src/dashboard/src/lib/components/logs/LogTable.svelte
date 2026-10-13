@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
-	import { regional } from '$lib/regional/prefs.svelte';
-	import { withBase } from '$lib/paths';
-	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
+	import { explorerPrefs } from '#lib/explorer/prefs.svelte.ts';
+	import { regional } from '#lib/regional/prefs.svelte.ts';
+	import { withBase } from '#lib/paths.ts';
+	import VirtualList from '#lib/components/virtual-list/VirtualList.svelte';
 	import LogRow from './LogRow.svelte';
 	import EventDetailBody from './EventDetailBody.svelte';
-	import * as Empty from '$lib/components/ui/empty';
-	import CaseSuggestions from '$lib/components/CaseSuggestions.svelte';
-	import { Lottie } from '$lib/components/ui/lottie';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import type { LogEventDto } from '$lib/api';
-	import { logRowHeight } from '$lib/logs/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import CaseSuggestions from '#lib/components/CaseSuggestions.svelte';
+	import { Lottie } from '#lib/components/ui/lottie/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import type { LogEventDto } from '#lib/api.ts';
+	import { logRowHeight } from '#lib/logs/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = logsExplorerContext.get();
 	const inline = $derived(explorerPrefs.rowClickAction === 'inline');

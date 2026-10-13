@@ -23,8 +23,8 @@
 // `IReadOnlyDictionary<string, string>`, never `<string?, string?>`), so this is
 // defensive, not a behavior change.
 
-import type { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import type { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import type { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import type { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export type StringRecord = Record<string, string> | null;
 

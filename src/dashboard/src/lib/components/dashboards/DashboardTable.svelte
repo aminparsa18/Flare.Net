@@ -13,24 +13,24 @@
 	// fresh, currently-unowned dashboard) and Duplicate (creates a new one, doesn't touch
 	// the source) only need the coarser `auth.canMutate`.
 	//
-	// "From template" installs one of the built-in templates ($lib/dashboards/templates.ts).
+	// "From template" installs one of the built-in templates (#lib/dashboards/templates.ts).
 	//
 	// Import accepts either a Flare export or a Grafana dashboard export from the same file
 	// picker - DashboardsState.importDashboard() sniffs which shape it got. See that method
-	// and $lib/dashboards/grafana-import.ts.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Badge } from '$lib/components/ui/badge';
+	// and #lib/dashboards/grafana-import.ts.
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import DashboardTemplatesDialog from './DashboardTemplatesDialog.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { goto } from '$app/navigation';
-	import { authContext } from '$lib/auth/context';
-	import { dashboardsContext } from '$lib/dashboards/context';
-	import { dashboardPath } from '$lib/dashboards/page-paths';
-	import type { DashboardSummary } from '$lib/dashboards-api';
+	import { authContext } from '#lib/auth/context.ts';
+	import { dashboardsContext } from '#lib/dashboards/context.ts';
+	import { dashboardPath } from '#lib/dashboards/page-paths.ts';
+	import type { DashboardSummary } from '#lib/dashboards-api.ts';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UploadIcon from '@lucide/svelte/icons/upload';
@@ -42,8 +42,8 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	const auth = authContext.get();
 	const dashboards = dashboardsContext.get();

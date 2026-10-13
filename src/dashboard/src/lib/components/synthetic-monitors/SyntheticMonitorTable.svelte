@@ -1,18 +1,18 @@
 <script lang="ts">
 	// Mirrors OnCallRotationTable.svelte's shape. See docs-internal/adr/0128-synthetic-monitoring.md.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Switch } from '$lib/components/ui/switch';
-	import { syntheticMonitorsContext } from '$lib/synthetic-monitors/context';
-	import type { SyntheticMonitor } from '$lib/synthetic-monitors-api';
-	import { formatDateTime } from '$lib/time/format';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { syntheticMonitorsContext } from '#lib/synthetic-monitors/context.ts';
+	import type { SyntheticMonitor } from '#lib/synthetic-monitors-api.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
 	import { goto } from '$app/navigation';
-	import { authContext } from '$lib/auth/context';
-	import { buildAlertDeepLinkHref } from '$lib/deep-links';
-	import * as m from '$lib/paraglide/messages';
+	import { authContext } from '#lib/auth/context.ts';
+	import { buildAlertDeepLinkHref } from '#lib/deep-links.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import BellPlusIcon from '@lucide/svelte/icons/bell-plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';

@@ -4,11 +4,11 @@
 	// installed, and these snippets are short enough that color-coding wouldn't earn its
 	// keep. Copy button follows EventDetailSheet.svelte's copyException pattern exactly
 	// (same 1500ms Copy->Check reset).
-	import { Button } from '$lib/components/ui/button';
-	import { cn } from '$lib/utils.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { cn } from '#lib/utils.ts';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { code, label, class: className }: { code: string; label?: string; class?: string } = $props();
 

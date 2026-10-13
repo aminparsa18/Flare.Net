@@ -1,12 +1,12 @@
 <script lang="ts">
 	// Moves an ingest key to another project (or back to instance-wide). Ownership metadata only:
 	// what the key may ingest doesn't change (ADR-0123).
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
-	import { ingestKeysContext } from '$lib/ingest-keys/context';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import ProjectPicker from '#lib/components/projects/ProjectPicker.svelte';
+	import { ingestKeysContext } from '#lib/ingest-keys/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const keys = ingestKeysContext.get();
 

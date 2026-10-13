@@ -1,8 +1,8 @@
 // Single source of truth for span Status/Kind display - same "one place, badge +
 // waterfall both read from it" spirit as `logs/severity.ts` does for SeverityNumber.
 
-import type { BadgeVariant } from '$lib/components/ui/badge';
-import type { SpanDto } from '$lib/traces-api';
+import type { BadgeVariant } from '#lib/components/ui/badge/index.ts';
+import type { SpanDto } from '#lib/traces-api.ts';
 import type { LucideIcon } from '@lucide/svelte';
 import GlobeIcon from '@lucide/svelte/icons/globe';
 import Settings2Icon from '@lucide/svelte/icons/settings-2';
@@ -11,7 +11,7 @@ import DatabaseIcon from '@lucide/svelte/icons/database';
 import SendIcon from '@lucide/svelte/icons/send';
 import InboxIcon from '@lucide/svelte/icons/inbox';
 import CircleHelpIcon from '@lucide/svelte/icons/circle-help';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 export function statusVariant(statusCode: string): BadgeVariant {
 	switch (statusCode) {

@@ -1,15 +1,15 @@
 <script lang="ts">
 	// "Repeat for variable" option for a panel (`DashboardPanel.repeatVariableId`/
-	// `repeatDirection`, see `repeatValues` in `$lib/dashboards/variables.ts`). Only multi-value
+	// `repeatDirection`, see `repeatValues` in `#lib/dashboards/variables.ts`). Only multi-value
 	// variables are offered - a single-value variable has only one value to repeat over. Applied
 	// immediately on change, like PanelVariablesPopover. Rendered by DashboardPanelCard.svelte
 	// while `editing`.
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import type { DashboardVariable } from '$lib/dashboards-api';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import type { DashboardVariable } from '#lib/dashboards-api.ts';
 	import Repeat2Icon from '@lucide/svelte/icons/repeat-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		variables,

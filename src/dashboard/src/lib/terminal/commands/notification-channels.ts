@@ -1,6 +1,6 @@
 // `notification-channels` - mimics flare.cli's NotificationChannelsCommand.cs (a branch off
 // `notification-channels`): list / create / update / delete / send-test, via the existing
-// $lib/notification-channels-api.ts functions (the same /api/notification-channels/*
+// #lib/notification-channels-api.ts functions (the same /api/notification-channels/*
 // endpoints the Settings > Notification channels page uses - no new backend surface).
 //
 // Option names, --type aliases, update's "only override what was passed" carry-forward
@@ -18,7 +18,7 @@ import {
 	type NotificationChannel,
 	type NotificationChannelRequest,
 	type NotificationChannelType
-} from '$lib/notification-channels-api';
+} from '#lib/notification-channels-api.ts';
 import type { TerminalCommand, TerminalWriter } from '../types';
 import { formatTable } from './table';
 import { UsageError } from './usage-error';

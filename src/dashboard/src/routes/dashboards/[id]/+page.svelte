@@ -1,27 +1,27 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
+	import { withBase } from '#lib/paths.ts';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
-	import { buildDashboardUrlSearch } from '$lib/dashboards/url-state';
-	import { isReportSearch, markReportReady } from '$lib/dashboards/report-mode';
+	import { buildDashboardUrlSearch } from '#lib/dashboards/url-state.ts';
+	import { isReportSearch, markReportReady } from '#lib/dashboards/report-mode.ts';
 	import { onMount, onDestroy } from 'svelte';
-	import { authContext } from '$lib/auth/context';
-	import { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
-	import { REFRESH_INTERVALS, refreshIntervalLabel, type RefreshInterval } from '$lib/dashboards/refresh-intervals';
-	import { getChromeVisibilityContext } from '$lib/chrome/context.svelte';
-	import DashboardGrid from '$lib/components/dashboards/DashboardGrid.svelte';
-	import DashboardRowSection from '$lib/components/dashboards/DashboardRowSection.svelte';
-	import { panelsInRow } from '$lib/dashboards/layout';
-	import AddPanelDialog from '$lib/components/dashboards/AddPanelDialog.svelte';
-	import ManageVariablesDialog from '$lib/components/dashboards/ManageVariablesDialog.svelte';
-	import DashboardSchedulesDialog from '$lib/components/dashboards/DashboardSchedulesDialog.svelte';
-	import VariableTextbox from '$lib/components/dashboards/VariableTextbox.svelte';
-	import VariableMultiPicker from '$lib/components/dashboards/VariableMultiPicker.svelte';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import { authContext } from '#lib/auth/context.ts';
+	import { DashboardViewerState } from '#lib/dashboards/viewer.svelte.ts';
+	import { REFRESH_INTERVALS, refreshIntervalLabel, type RefreshInterval } from '#lib/dashboards/refresh-intervals.ts';
+	import { getChromeVisibilityContext } from '#lib/chrome/context.svelte.ts';
+	import DashboardGrid from '#lib/components/dashboards/DashboardGrid.svelte';
+	import DashboardRowSection from '#lib/components/dashboards/DashboardRowSection.svelte';
+	import { panelsInRow } from '#lib/dashboards/layout.ts';
+	import AddPanelDialog from '#lib/components/dashboards/AddPanelDialog.svelte';
+	import ManageVariablesDialog from '#lib/components/dashboards/ManageVariablesDialog.svelte';
+	import DashboardSchedulesDialog from '#lib/components/dashboards/DashboardSchedulesDialog.svelte';
+	import VariableTextbox from '#lib/components/dashboards/VariableTextbox.svelte';
+	import VariableMultiPicker from '#lib/components/dashboards/VariableMultiPicker.svelte';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '#lib/logs/time-range.ts';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -34,9 +34,9 @@
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
 	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
-	import type { DashboardPanel, DashboardVariable } from '$lib/dashboards-api';
-	import { variableOptionLabel } from '$lib/dashboards/variables';
-	import * as m from '$lib/paraglide/messages';
+	import type { DashboardPanel, DashboardVariable } from '#lib/dashboards-api.ts';
+	import { variableOptionLabel } from '#lib/dashboards/variables.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 	const viewer = new DashboardViewerState();
@@ -48,7 +48,7 @@
 	let schedulesOpen = $state(false);
 
 	// Full-screen/TV mode: hides AppNav (via the layout-provided chrome signal - see
-	// $lib/chrome/context.svelte.ts) and asks the browser's Fullscreen API to fill the screen with
+	// #lib/chrome/context.svelte.ts) and asks the browser's Fullscreen API to fill the screen with
 	// just this route's own root element, for wall-mounted displays. `isFullscreen` mirrors
 	// `document.fullscreenElement` rather than being toggled directly, so it stays correct
 	// however fullscreen ends - our own button, the browser's native Escape handling, or the

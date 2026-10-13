@@ -1,12 +1,12 @@
 // `apikey` - mimics flare.cli's ApiKeyCreateCommand.cs (a branch off `apikey`, same as
-// the real CLI) by calling the new $lib/ingest-keys-api.ts's createIngestApiKey() -
+// the real CLI) by calling the new #lib/ingest-keys-api.ts's createIngestApiKey() -
 // POST /api/ingest-keys, admin-only on the backend. Only `create` - matching
 // ApiKeyCreateCommand.cs's own deliberately-scoped surface; listing, revoking and
 // per-key limits live on the dashboard's Settings > Ingest keys page.
 
-import { createIngestApiKey } from '$lib/ingest-keys-api';
+import { createIngestApiKey } from '#lib/ingest-keys-api.ts';
 import type { TerminalCommand } from '../types';
-import { formatDateTime } from '$lib/time/format';
+import { formatDateTime } from '#lib/time/format.ts';
 
 export const apikeyCommand: TerminalCommand = {
 	name: 'apikey',

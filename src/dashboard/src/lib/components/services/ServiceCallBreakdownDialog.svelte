@@ -6,17 +6,17 @@
 	// onOpenChange-clears-it precedent as SpanDetailSheet.svelte reading
 	// TraceDetailState.selectedSpanId - see ServicesState.selectedService's own remarks for
 	// why the selection lives there rather than as local state on the graph component.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { formatMs, formatPercent } from '$lib/indexing/format';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { formatMs, formatPercent } from '#lib/indexing/format.ts';
 	import RuntimeHealthSection from './RuntimeHealthSection.svelte';
 	import VersionComparisonSection from './VersionComparisonSection.svelte';
-	import { servicesContext } from '$lib/services/context';
-	import { SERVICES_WINDOW_PRESETS } from '$lib/services/state.svelte';
-	import { getServiceCallBreakdown, type ServiceCallBreakdown } from '$lib/services-api';
-	import * as m from '$lib/paraglide/messages';
+	import { servicesContext } from '#lib/services/context.ts';
+	import { SERVICES_WINDOW_PRESETS } from '#lib/services/state.svelte.ts';
+	import { getServiceCallBreakdown, type ServiceCallBreakdown } from '#lib/services-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const services = servicesContext.get();
 

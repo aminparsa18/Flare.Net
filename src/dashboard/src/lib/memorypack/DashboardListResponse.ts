@@ -3,9 +3,9 @@
 // Can't carry `[GenerateTypeScript]` itself because its one member's type, `Dashboard`, has
 // a `JsonElement` member - see `Dashboard.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { Dashboard } from '$lib/memorypack/Dashboard';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { Dashboard } from '#lib/memorypack/Dashboard.ts';
 
 export class DashboardListResponse {
 	dashboards: (Dashboard | null)[] | null;

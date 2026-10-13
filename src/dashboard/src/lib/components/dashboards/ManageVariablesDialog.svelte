@@ -5,15 +5,15 @@
 	// DashboardTable.svelte/DashboardFormDialog.svelte already establish for dashboards
 	// themselves (this dialog is the list, VariableFormDialog.svelte - opened from here via
 	// `viewer.openCreateVariable`/`openEditVariable` - is the add/edit form, stacked on top).
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import VariableFormDialog from './VariableFormDialog.svelte';
-	import type { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
+	import type { DashboardViewerState } from '#lib/dashboards/viewer.svelte.ts';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { open = $bindable(false), viewer }: { open: boolean; viewer: DashboardViewerState } = $props();
 

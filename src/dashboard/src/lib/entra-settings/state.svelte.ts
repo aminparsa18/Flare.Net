@@ -1,8 +1,8 @@
 // Central reactive state for the Security page - mirrors UsersState's shape
-// ($lib/users/state.svelte.ts): a class with $state fields, provided via
+// (#lib/users/state.svelte.ts): a class with $state fields, provided via
 // entraSettingsContext (context.ts) rather than passed as props.
 
-import { getEntraSettings, saveEntraSettings, type EntraSettings, type SaveEntraSettingsRequest } from '$lib/entra-settings-api';
+import { getEntraSettings, saveEntraSettings, type EntraSettings, type SaveEntraSettingsRequest } from '#lib/entra-settings-api.ts';
 
 export class EntraSettingsState {
 	settings = $state.raw<EntraSettings | null>(null);

@@ -4,11 +4,11 @@
 	// docs-internal/adr/0054-dashboard-collapsible-rows.md), so a panel can't be dragged
 	// from one row into another - this menu is how a panel changes rows instead. Only
 	// rendered by DashboardPanelCard.svelte while `editing` and the dashboard has rows.
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Button } from '$lib/components/ui/button';
-	import type { DashboardRow } from '$lib/dashboards-api';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import type { DashboardRow } from '#lib/dashboards-api.ts';
 	import RowsIcon from '@lucide/svelte/icons/rows-3';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		rows,

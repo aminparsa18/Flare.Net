@@ -1,5 +1,5 @@
 // Central reactive state for the Dashboards management page - mirrors SavedViewsState's
-// shape (`$lib/saved-views/state.svelte.ts`), widened to also cover creation: unlike a
+// shape (`#lib/saved-views/state.svelte.ts`), widened to also cover creation: unlike a
 // SavedView (always born from a source explorer page's current filter), a dashboard is
 // created blank from this page and filled in afterward by pinning panels to it from the
 // Logs/Traces/Metrics toolbars (see PinToDashboardDialog.svelte) - so `formTarget` follows
@@ -41,12 +41,12 @@ import {
 	parseLayout,
 	type DashboardSummary,
 	type DashboardLayout
-} from '$lib/dashboards-api';
-import { downloadBlob } from '$lib/logs/export';
+} from '#lib/dashboards-api.ts';
+import { downloadBlob } from '#lib/logs/export.ts';
 import { parseGrafanaDashboard } from './grafana-import';
 import { buildTemplateLayout, type DashboardTemplate } from './templates';
-import { projects, projectIdForRequest } from '$lib/projects/store.svelte';
-import * as m from '$lib/paraglide/messages';
+import { projects, projectIdForRequest } from '#lib/projects/store.svelte.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 export class DashboardsState {
 	dashboards = $state.raw<DashboardSummary[]>([]);
@@ -281,7 +281,7 @@ export class DashboardsState {
 }
 
 /** Lowercases and replaces anything that isn't a letter/digit with `-`, collapsing runs -
- *  same rough shape as exportFilename's own timestamp sanitizing in `$lib/logs/export.ts`,
+ *  same rough shape as exportFilename's own timestamp sanitizing in `#lib/logs/export.ts`,
  *  just for a name instead of a timestamp. Falls back to `fallback` for an all-punctuation
  *  name so the filename is never just `flare-dashboard_.json`. Exported for
  *  DashboardViewerState.exportPanel's own per-panel filename, same reasoning as here. */

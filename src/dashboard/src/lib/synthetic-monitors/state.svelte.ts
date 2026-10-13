@@ -7,7 +7,7 @@ import {
 	deleteSyntheticMonitor,
 	type SyntheticMonitor,
 	type SyntheticMonitorRequest
-} from '$lib/synthetic-monitors-api';
+} from '#lib/synthetic-monitors-api.ts';
 
 export class SyntheticMonitorsState {
 	monitors = $state.raw<SyntheticMonitor[]>([]);

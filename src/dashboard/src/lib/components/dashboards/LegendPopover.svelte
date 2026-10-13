@@ -1,21 +1,21 @@
 <script lang="ts">
 	// Legend placement + per-series color editor for a Metrics panel (`DashboardPanel.
-	// legendPosition`/`seriesColors`, see `$lib/dashboards/legend.ts`) - same icon-triggered
+	// legendPosition`/`seriesColors`, see `#lib/dashboards/legend.ts`) - same icon-triggered
 	// mini-form shape as ThresholdsPopover.svelte, nothing saved until Apply. Only rendered by
 	// DashboardPanelCard.svelte while `editing` a panel whose visualization draws a legend.
 	//
 	// Lists the series the panel last fetched (`seriesKeys`, reported up by
 	// DashboardMetricsPanelBody) plus any saved override whose series isn't in the current
 	// result, so a stale override stays visible and can be reset rather than lingering unseen.
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { LEGEND_FORMAT_EXAMPLE, LEGEND_POSITIONS, type LegendPosition } from '$lib/dashboards/legend';
-	import { THRESHOLD_COLORS, thresholdColorValue, type ThresholdColor } from '$lib/dashboards/thresholds';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { LEGEND_FORMAT_EXAMPLE, LEGEND_POSITIONS, type LegendPosition } from '#lib/dashboards/legend.ts';
+	import { THRESHOLD_COLORS, thresholdColorValue, type ThresholdColor } from '#lib/dashboards/thresholds.ts';
 	import { thresholdColorLabel } from './threshold-color-label';
 	import ListIcon from '@lucide/svelte/icons/list';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		legendPosition,

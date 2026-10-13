@@ -5,10 +5,10 @@
 // same client-side connection helper the Logs Explorer already uses, so there's no
 // new backend surface at all - just a different front end for it.
 
-import { connectLiveTail, type LogEventDto, type LogFilter } from '$lib/api';
-import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+import { connectLiveTail, type LogEventDto, type LogFilter } from '#lib/api.ts';
+import { SEVERITY_BUCKETS, severityNumbersForBucket } from '#lib/logs/severity.ts';
 import type { TerminalCommand, TerminalHandle, TerminalLineKind } from '../types';
-import { formatRowTimestamp } from '$lib/time/format';
+import { formatRowTimestamp } from '#lib/time/format.ts';
 
 // Flags mirror Flare.Cli/Commands/TailCommand.cs's Settings 1:1 (same short/long
 // names, same repeatability) so anyone who knows the real CLI's `tail` already knows

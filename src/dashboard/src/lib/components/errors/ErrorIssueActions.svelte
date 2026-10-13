@@ -2,15 +2,15 @@
 	// Row menu of the exception-groups table: resolve / ignore (forever, for a while, or for N
 	// more occurrences) / reopen / assign - one `PUT /api/errors/issues` each (ADR-0121). Only
 	// rendered for users who can mutate; the API enforces Member/Admin independently.
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
-	import { errorsExplorerContext } from '$lib/errors/context';
-	import { authContext } from '$lib/auth/context';
+	import { errorsExplorerContext } from '#lib/errors/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import LinkIssueDialog from './LinkIssueDialog.svelte';
-	import { buildGitHubIssueUrl } from '$lib/errors/issue-links';
-	import type { ExceptionGroup } from '$lib/errors-api';
-	import * as m from '$lib/paraglide/messages';
+	import { buildGitHubIssueUrl } from '#lib/errors/issue-links.ts';
+	import type { ExceptionGroup } from '#lib/errors-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { group }: { group: ExceptionGroup } = $props();
 

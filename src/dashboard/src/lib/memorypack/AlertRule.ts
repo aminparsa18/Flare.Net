@@ -2,7 +2,7 @@
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertRule` field-for-field, in
 // declared order. Can't carry `[GenerateTypeScript]` itself: it has its own `DateTimeOffset`
 // `CreatedAt`/`UpdatedAt` and nests `LogFilter` (itself blocked - see
-// `$lib/memorypack/LogFilter.ts`'s header comment). `Threshold` (`AlertThreshold`) has
+// `#lib/memorypack/LogFilter.ts`'s header comment). `Threshold` (`AlertThreshold`) has
 // neither problem, so it's a real generated class, reused here directly.
 // `conditionKind`/`metricCondition`/`metricThresholdValue` were appended after every
 // pre-existing field (not inserted earlier) - see `AlertConditionKind`'s C#-side doc
@@ -18,16 +18,16 @@
 // `notificationBodyTemplate` were appended after `minDataPoints`, same reasoning (ADR-0052). `recoveryThreshold` was appended after `notificationBodyTemplate`, same
 // reasoning - see `AlertRule.RecoveryThreshold` (ADR-0076). `severity` was appended after `recoveryThreshold`, same reasoning (ADR-0077). `thresholdUnit` was appended after `severity`, same reasoning (ADR-0080). `labels` was appended after `thresholdUnit`, same reasoning (ADR-0084). `sloCondition` was appended after `labels`, same reasoning (ADR-0108).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { AlertThreshold } from '$lib/generated/memorypack/AlertThreshold.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { LogFilter } from '$lib/memorypack/LogFilter';
-import { MetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
-import { ExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
-import { AnomalyCondition } from '$lib/memorypack/AnomalyCondition';
-import { SloBurnRateCondition } from '$lib/memorypack/SloBurnRateCondition';
-import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { AlertThreshold } from '#lib/generated/memorypack/AlertThreshold.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
+import { MetricAlertCondition } from '#lib/memorypack/MetricAlertCondition.ts';
+import { ExceptionCountCondition } from '#lib/memorypack/ExceptionCountCondition.ts';
+import { AnomalyCondition } from '#lib/memorypack/AnomalyCondition.ts';
+import { SloBurnRateCondition } from '#lib/memorypack/SloBurnRateCondition.ts';
+import { readStringRecord, writeStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
 
 export class AlertRule {
 	id: string;

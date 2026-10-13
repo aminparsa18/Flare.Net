@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
+	import { withBase } from '#lib/paths.ts';
 	// Switches the /traces page between the trace list (search over individual traces)
 	// and the Services RED-metrics rollup (Rate/Errors/Duration aggregated by
 	// ServiceName) - folded into this page rather than given its own top-level route,
@@ -14,9 +14,9 @@
 	// Funnels is its own route (/traces/funnels - it has saved views of its own), so it's
 	// always a link. On that page there's no `onTabChange`, and Traces/Services become links
 	// back to /traces (`?tab=services` opens the Services tab there).
-	import { buttonVariants } from '$lib/components/ui/button';
-	import { cn } from '$lib/utils';
-	import * as m from '$lib/paraglide/messages';
+	import { buttonVariants } from '#lib/components/ui/button/index.ts';
+	import { cn } from '#lib/utils.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	type Tab = 'traces' | 'services';
 

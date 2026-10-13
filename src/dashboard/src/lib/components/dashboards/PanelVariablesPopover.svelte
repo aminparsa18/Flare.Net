@@ -7,12 +7,12 @@
 	// variable's definition or any other panel. Only rendered by DashboardPanelCard.svelte
 	// while `editing` and `variables.length > 0` - a variable-less dashboard, or a read-only
 	// viewer, has nothing here to opt out of.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import type { DashboardVariable } from '$lib/dashboards-api';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import type { DashboardVariable } from '#lib/dashboards-api.ts';
 	import FilterIcon from '@lucide/svelte/icons/filter';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		variables,

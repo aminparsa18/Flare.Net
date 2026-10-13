@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { safeHttpUrl, safeSupportUrl } from '$lib/safe-url';
+	import { safeHttpUrl, safeSupportUrl } from '#lib/safe-url.ts';
 	// Public page (see +layout.svelte's PUBLIC_ROUTES): the status page at /status/{slug}, readable without a
 	// session while an admin has it enabled (ADR-0158). Shows only display names, states and uptime.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getPublicStatus, subscribeToStatus, type PublicStatusPage, type StatusIncidentStatus, type StatusState } from '$lib/status-pages-api';
-	import { formatDateTime } from '$lib/time/format';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import * as m from '$lib/paraglide/messages';
+	import { getPublicStatus, subscribeToStatus, type PublicStatusPage, type StatusIncidentStatus, type StatusState } from '#lib/status-pages-api.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const slug = $derived(page.params.slug ?? '');
 	const REFRESH_MS = 60_000;

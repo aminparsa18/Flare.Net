@@ -1,17 +1,17 @@
 <script lang="ts">
 	// One node's, pod's, workload's or volume's drill-down charts - whichever KubernetesState
 	// has selected. Same small-charts layout as HostDetailSheet, reusing its HostMetricChart.
-	import * as Sheet from '$lib/components/ui/sheet';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import HostMetricChart from '$lib/components/hosts/HostMetricChart.svelte';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import HostMetricChart from '#lib/components/hosts/HostMetricChart.svelte';
 	import KubernetesWorkloadStatus from './KubernetesWorkloadStatus.svelte';
-	import { kubernetesContext } from '$lib/kubernetes/context';
-	import { formatBytes, formatCores, isReplicatedKind, phaseVariant } from '$lib/kubernetes/format';
-	import { buildKubernetesPodLogsHref } from '$lib/deep-links';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { kubernetesContext } from '#lib/kubernetes/context.ts';
+	import { formatBytes, formatCores, isReplicatedKind, phaseVariant } from '#lib/kubernetes/format.ts';
+	import { buildKubernetesPodLogsHref } from '#lib/deep-links.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const k8s = kubernetesContext.get();
 

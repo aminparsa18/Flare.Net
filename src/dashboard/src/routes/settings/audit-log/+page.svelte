@@ -3,11 +3,11 @@
 	// role, auth setting, ... and when. Newest first, keyset-paged with "Load more".
 	// Reachable from NavUserMenu's dropdown, like /ingest-keys.
 	import { onMount } from 'svelte';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import {
 		AUDIT_RESOURCE_TYPES,
@@ -17,9 +17,9 @@
 		type AuditChainVerification,
 		type AuditEvent,
 		type AuditExportFormat
-	} from '$lib/audit-api';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/audit-api.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const PAGE_SIZE = 100;
 

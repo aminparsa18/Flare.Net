@@ -7,9 +7,9 @@
 // `LogAttributeKeyInfo` itself has no such member, so it's a real generated class, reused
 // here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogAttributeKeyInfo } from '$lib/generated/memorypack/LogAttributeKeyInfo.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogAttributeKeyInfo } from '#lib/generated/memorypack/LogAttributeKeyInfo.ts';
 
 export class LogAttributeKeysResponse {
 	keys: (LogAttributeKeyInfo | null)[] | null;

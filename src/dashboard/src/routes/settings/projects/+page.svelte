@@ -2,21 +2,21 @@
 	// Admin-only project management (ADR-0123): a project is a named allow-list of service.name
 	// patterns plus per-project member roles. Reachable from Settings > Workspace.
 	import { onMount } from 'svelte';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import ProjectFormDialog from '$lib/components/projects/ProjectFormDialog.svelte';
-	import ProjectMembersDialog from '$lib/components/projects/ProjectMembersDialog.svelte';
-	import { deleteProject, listProjects, type Project } from '$lib/projects-api';
-	import { projects as projectStore } from '$lib/projects/store.svelte';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import ProjectFormDialog from '#lib/components/projects/ProjectFormDialog.svelte';
+	import ProjectMembersDialog from '#lib/components/projects/ProjectMembersDialog.svelte';
+	import { deleteProject, listProjects, type Project } from '#lib/projects-api.ts';
+	import { projects as projectStore } from '#lib/projects/store.svelte.ts';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let rows = $state<Project[]>([]);
 	let loading = $state(true);

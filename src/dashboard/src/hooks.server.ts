@@ -1,11 +1,11 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
-import { allowedOnStatusDomain, slugForHost } from '$lib/server/status-domains';
-import { paraglideMiddleware } from '$lib/paraglide/server';
+import { allowedOnStatusDomain, slugForHost } from '#lib/server/status-domains.ts';
+import { paraglideMiddleware } from '#lib/paraglide/server.js';
 import { dev } from '$app/env';
 import * as privateEnv from '$app/env/private';
 import { PUBLIC_API_URL } from '$app/env/public';
-import { addNonce, newNonce, readConfig, securityHeaders } from '$lib/server/security-headers';
+import { addNonce, newNonce, readConfig, securityHeaders } from '#lib/server/security-headers.ts';
 
 // This app SSRs its shell (adapter-node, no ssr=false anywhere - see vite.config.ts's
 // comment), so the locale has to be resolved on the server, not just in the client-side

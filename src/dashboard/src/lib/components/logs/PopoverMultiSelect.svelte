@@ -6,13 +6,13 @@
 </script>
 
 <script lang="ts">
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Command from '$lib/components/ui/command';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Command from '#lib/components/ui/command/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		label,

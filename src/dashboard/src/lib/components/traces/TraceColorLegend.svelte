@@ -2,10 +2,10 @@
 	// "Color by" menu + legend shared by the waterfall and flame graph. Each group lists its
 	// total self-time (time not covered by child spans) so the legend answers "which service
 	// / field value actually spent the trace's time", not just "which colors exist".
-	import { traceDetailContext } from '$lib/traces/trace-context';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import * as Select from '$lib/components/ui/select';
-	import * as m from '$lib/paraglide/messages';
+	import { traceDetailContext } from '#lib/traces/trace-context.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const detail = traceDetailContext.get();
 

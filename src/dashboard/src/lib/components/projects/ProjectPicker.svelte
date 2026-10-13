@@ -2,9 +2,9 @@
 	// Owning-project select for the dashboard / alert / SLO / saved-view / ingest-key forms
 	// (ADR-0123). Renders nothing on an instance with no projects (or none the caller can write
 	// to), so those forms look exactly as before until projects are adopted.
-	import * as Select from '$lib/components/ui/select';
-	import { projects } from '$lib/projects/store.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		value = $bindable<string | null>(null),

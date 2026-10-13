@@ -4,11 +4,11 @@
 // One JSON blob in localStorage, mirrored onto <html data-*> attributes that layout.css
 // keys off - and app.html replays the same attributes in an inline script before first
 // paint, so density/font size don't flash on load. Client-only for now, same as the other
-// display prefs ($lib/time/display-zone). Signed-in state also syncs to the server per user
+// display prefs (#lib/time/display-zone). Signed-in state also syncs to the server per user
 // (ADR-0110) so prefs follow the user across browsers; localStorage stays the pre-paint cache.
 import { browser } from '$app/env';
 import { setMode } from 'mode-watcher';
-import { createPrefsSync } from '$lib/prefs-sync';
+import { createPrefsSync } from '#lib/prefs-sync.ts';
 
 export const STORAGE_KEY = 'flare.appearance';
 

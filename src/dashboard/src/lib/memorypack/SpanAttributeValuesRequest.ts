@@ -2,13 +2,13 @@
 // generated. Mirrors `src/Flare.Api/Model/SpanAttributeValuesRequest.cs`'s
 // `SpanAttributeValuesRequest` field-for-field, in declared order. Can't carry
 // `[GenerateTypeScript]` itself because it nests `SpanFilter` (blocked - see
-// `$lib/memorypack/SpanFilter.ts`'s header comment). `bag` is a raw MemoryPack numeric
+// `#lib/memorypack/SpanFilter.ts`'s header comment). `bag` is a raw MemoryPack numeric
 // ordinal, same "convert at the api.ts mapping boundary" convention
-// `$lib/memorypack/SpanAttributeFilter.ts` documents for its own `bag`/`operator` members.
+// `#lib/memorypack/SpanAttributeFilter.ts` documents for its own `bag`/`operator` members.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { SpanFilter } from '$lib/memorypack/SpanFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { SpanFilter } from '#lib/memorypack/SpanFilter.ts';
 
 export class SpanAttributeValuesRequest {
 	filter: SpanFilter | null;

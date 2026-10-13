@@ -1,14 +1,14 @@
 <script lang="ts">
 	// "New version available" strip under AppNav, plus the release-notes dialog it (and the
-	// user menu's version line) opens - see $lib/version/update-notice.svelte.ts and ADR-0068.
+	// user menu's version line) opens - see #lib/version/update-notice.svelte.ts and ADR-0068.
 	// Mounted only while the app chrome shows, so /login never fetches /api/version.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { safeHttpUrl } from '$lib/safe-url';
-	import { notificationPrefs } from '$lib/notifications/prefs.svelte';
-	import { updateNotice } from '$lib/version/update-notice.svelte';
-	import { formatCalendarDay } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { safeHttpUrl } from '#lib/safe-url.ts';
+	import { notificationPrefs } from '#lib/notifications/prefs.svelte.ts';
+	import { updateNotice } from '#lib/version/update-notice.svelte.ts';
+	import { formatCalendarDay } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import XIcon from '@lucide/svelte/icons/x';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';

@@ -1,15 +1,15 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertTestResult`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
-// `EvaluatedAt` is a `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header
+// `EvaluatedAt` is a `DateTimeOffset` - see `#lib/memorypack/date-time-offset.ts`'s header
 // comment. `conditionKind`/`observedValue`/`noData` were appended after every pre-existing field,
 // same versioning reasoning as `AlertRule.ts`.
 // `baselineMean`/`zScore`/`baselineSampleCount` were appended after `noData`, same reasoning (ADR-0048).
 // `insufficientData`/`dataPointCount` were appended after `baselineSampleCount`, same reasoning (ADR-0050).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class AlertTestResult {
 	observedCount: bigint;

@@ -16,8 +16,8 @@
 // reason - the `In`/`NotIn` operators' multi-value operand (`SpanAttributeFilter.Values` in
 // the C# source).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class SpanAttributeFilter {
 	bag: number;

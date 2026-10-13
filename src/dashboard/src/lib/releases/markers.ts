@@ -1,7 +1,7 @@
 // Deploy markers drawn on the Logs volume chart and the Metrics chart (ADR-0182 follow-up, ADR-0185).
 // Pure placement helpers plus the loader; the SVG itself is components/releases/ReleaseMarkers.svelte.
 
-import { listReleases, type Release } from '$lib/releases-api';
+import { listReleases, type Release } from '#lib/releases-api.ts';
 
 /** More than this in one window is noise, not signal: the newest are kept. */
 export const MAX_RELEASE_MARKERS = 12;

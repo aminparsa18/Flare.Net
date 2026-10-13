@@ -2,9 +2,9 @@
 	// Edits a `key=value, key=value` label map as one text field (ADR-0084) - shared by the alert
 	// rule form (labels) and the maintenance-window form (label matchers). Keeps its own text so a
 	// half-typed value isn't reformatted under the cursor; reports the parsed map and validity up.
-	import { Input } from '$lib/components/ui/input';
-	import { formatLabels, parseLabels, type Labels } from '$lib/alerts/labels';
-	import * as m from '$lib/paraglide/messages';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { formatLabels, parseLabels, type Labels } from '#lib/alerts/labels.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		value,

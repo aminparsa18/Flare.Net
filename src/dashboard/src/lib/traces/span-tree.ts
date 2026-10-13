@@ -2,7 +2,7 @@
 // order) and TraceDetailState's span search (the order prev/next steps through matches),
 // so stepping always moves down the waterfall rather than jumping around by start time.
 
-import type { SpanDto } from '$lib/traces-api';
+import type { SpanDto } from '#lib/traces-api.ts';
 
 export interface SpanTreeRow {
 	span: SpanDto;

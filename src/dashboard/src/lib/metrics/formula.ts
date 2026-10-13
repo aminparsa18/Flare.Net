@@ -7,7 +7,7 @@
 // evaluateFormula (AST + one MetricQueryResponse per referenced letter -> joined MetricSeries).
 // State.svelte.ts owns fetching the per-letter MetricQueryResponses and wiring this together.
 
-import type { MetricSeries, MetricSeriesPoint } from '$lib/metrics-api';
+import type { MetricSeries, MetricSeriesPoint } from '#lib/metrics-api.ts';
 
 export type FormulaNode =
 	| { kind: 'num'; value: number }

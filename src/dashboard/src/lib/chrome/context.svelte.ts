@@ -9,7 +9,7 @@
 // layout - not this module - constructs ChromeVisibilityState and calls
 // setChromeVisibilityContext(); any descendant route reads it back with
 // getChromeVisibilityContext() and flips `.hidden` itself. Same generic
-// getContext/setContext-with-a-Symbol-key shape as `$lib/dashboards/context.ts`'s
+// getContext/setContext-with-a-Symbol-key shape as `#lib/dashboards/context.ts`'s
 // createContext - re-authored here rather than shared, same rationale that file gives (no
 // natural shared-utils home for a two-line helper yet).
 

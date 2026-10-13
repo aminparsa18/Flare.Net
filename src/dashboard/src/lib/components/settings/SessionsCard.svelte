@@ -1,13 +1,13 @@
 <script lang="ts">
 	// Active sessions for the signed-in user, with per-session revoke and sign-out-everywhere.
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { authContext } from '$lib/auth/context';
-	import { listSessions, revokeAllSessions, revokeSession, type UserSession } from '$lib/sessions-api';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { listSessions, revokeAllSessions, revokeSession, type UserSession } from '#lib/sessions-api.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 

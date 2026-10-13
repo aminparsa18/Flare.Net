@@ -1,12 +1,12 @@
 <script lang="ts">
 	// S3 archive (ADR-0156/0157): the saved settings form plus the worker's per-table export status.
 	import { onDestroy, onMount } from 'svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { getArchiveSettings, getArchiveStatus, type ArchiveSettings, type ArchiveStatus } from '$lib/telemetry-export-api';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { getArchiveSettings, getArchiveStatus, type ArchiveSettings, type ArchiveStatus } from '#lib/telemetry-export-api.ts';
 	import ArchiveSettingsForm from './ArchiveSettingsForm.svelte';
 	import ArchiveStatusTable from './ArchiveStatusTable.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const POLL_MS = 10000;
 

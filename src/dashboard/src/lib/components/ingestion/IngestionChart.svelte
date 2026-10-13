@@ -15,14 +15,14 @@
 	// exactly one concept at a time instead of implying all three share a unit - same
 	// "don't collapse ingress/egress measurements into one undifferentiated stream" split
 	// OpenTelemetry's own data-flow model uses between accepted/refused/exported counts.
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatBytes, formatCount, signalLabel } from '$lib/ingestion/format';
-	import type { IngestionBucketPoint, IngestionSignal } from '$lib/ingestion-api';
-	import * as m from '$lib/paraglide/messages';
-	import { formatChartTime } from '$lib/time/format';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { formatBytes, formatCount, signalLabel } from '#lib/ingestion/format.ts';
+	import type { IngestionBucketPoint, IngestionSignal } from '#lib/ingestion-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatChartTime } from '#lib/time/format.ts';
 
 	const ingestion = ingestionContext.get();
 

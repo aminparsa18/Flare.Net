@@ -1,13 +1,13 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/MetricModels.cs`'s `MetricSeriesPoint`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
-// `BucketStart` is a `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header
+// `BucketStart` is a `DateTimeOffset` - see `#lib/memorypack/date-time-offset.ts`'s header
 // comment. `bucketLowers`/`bucketUppers`/`bucketCounts` were appended for ADR-0085's heatmap
 // (null unless the request set `includeBuckets`).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class MetricSeriesPoint {
 	bucketStart: Date;

@@ -2,9 +2,9 @@
 // TracesExplorerState (the list page), same "one state class per route" convention as
 // the rest of this app; the two pages have no shared fields worth forcing together.
 
-import { getTrace, getTraceChildren, type SpanDto, type TraceDto } from '$lib/traces-api';
-import { buildSpanTree, spanMatchesSearch } from '$lib/traces/span-tree';
-import { COLOR_BY_SERVICE, colorByOptions, colorValue, computeColorGroups, type ColorBy } from '$lib/traces/span-colors';
+import { getTrace, getTraceChildren, type SpanDto, type TraceDto } from '#lib/traces-api.ts';
+import { buildSpanTree, spanMatchesSearch } from '#lib/traces/span-tree.ts';
+import { COLOR_BY_SERVICE, colorByOptions, colorValue, computeColorGroups, type ColorBy } from '#lib/traces/span-colors.ts';
 
 export class TraceDetailState {
 	trace = $state<TraceDto | null>(null);

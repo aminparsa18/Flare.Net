@@ -10,10 +10,10 @@
 // fresh on every invocation instead - always call those for display, never read `.label`
 // directly off these arrays (see MetricsToolbar.svelte/TracesToolbar.svelte for the
 // correct pattern).
-import * as m from '$lib/paraglide/messages';
-import { startOfDisplayDay, startOfDisplayWeek, WEEK_START_DAY } from '$lib/time/display-zone.svelte';
-import { formatTimestamp } from '$lib/time/format';
-import { regional } from '$lib/regional/prefs.svelte';
+import * as m from '#lib/paraglide/messages.js';
+import { startOfDisplayDay, startOfDisplayWeek, WEEK_START_DAY } from '#lib/time/display-zone.svelte.ts';
+import { formatTimestamp } from '#lib/time/format.ts';
+import { regional } from '#lib/regional/prefs.svelte.ts';
 
 export type TimeRangePreset =
 	| '5m'
@@ -115,7 +115,7 @@ export function resolveTimeRange(
 	}
 	if (preset === 'all') return { from: new Date(0).toISOString(), to: new Date().toISOString() };
 	// Calendar-relative presets start at midnight in the display time zone (see
-	// $lib/time/display-zone.svelte), not necessarily the browser's.
+	// #lib/time/display-zone.svelte), not necessarily the browser's.
 	if (preset === 'today') {
 		const to = new Date();
 		return { from: startOfDisplayDay(to).toISOString(), to: to.toISOString() };

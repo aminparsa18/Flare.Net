@@ -3,11 +3,11 @@
 // in declared order - same "no DateTimeOffset/JsonElement/IReadOnlyList member on its own,
 // but its only consumer (`LogFilter`) can't carry `[GenerateTypeScript]` either" reasoning
 // `AttributeFilter.ts`'s own header gives. `operator` is a raw MemoryPack numeric ordinal
-// (converted to string at `$lib/memorypack/LogFilter.ts`'s mapping boundary, via
-// `$lib/memorypack/enums.ts`'s `bodyJsonFilterOperatorToString`/`FromString`).
+// (converted to string at `#lib/memorypack/LogFilter.ts`'s mapping boundary, via
+// `#lib/memorypack/enums.ts`'s `bodyJsonFilterOperatorToString`/`FromString`).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class BodyJsonFilter {
 	path: string | null;

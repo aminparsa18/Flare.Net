@@ -2,13 +2,13 @@
 // generated. Mirrors `src/Flare.Api/Model/LogAttributeValuesRequest.cs`'s
 // `LogAttributeValuesRequest` field-for-field, in declared order. Can't carry
 // `[GenerateTypeScript]` itself because it nests `LogFilter` (blocked - see
-// `$lib/memorypack/LogFilter.ts`'s header comment). `bag` is a raw MemoryPack numeric
+// `#lib/memorypack/LogFilter.ts`'s header comment). `bag` is a raw MemoryPack numeric
 // ordinal, same "convert at the api.ts mapping boundary" convention `AttributeFilter.ts`
 // documents for its own `bag`/`operator` members.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogFilter } from '$lib/memorypack/LogFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
 
 export class LogAttributeValuesRequest {
 	filter: LogFilter | null;

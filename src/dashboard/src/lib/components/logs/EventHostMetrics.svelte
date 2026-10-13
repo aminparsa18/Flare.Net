@@ -4,10 +4,10 @@
 	// Reuses the Hosts page's drill-down query (POST /api/hosts/metrics, anchored with
 	// endUnixMs) and chart, so the figures mean exactly what they mean there - derived from
 	// OTel `hostmetrics`-receiver metrics keyed by `host.name`.
-	import HostMetricChart from '$lib/components/hosts/HostMetricChart.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { getHostMetrics, type HostMetricsPoint, type HostMetricsResponse } from '$lib/hosts-api';
-	import * as m from '$lib/paraglide/messages';
+	import HostMetricChart from '#lib/components/hosts/HostMetricChart.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { getHostMetrics, type HostMetricsPoint, type HostMetricsResponse } from '#lib/hosts-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	interface Props {
 		hostName: string;

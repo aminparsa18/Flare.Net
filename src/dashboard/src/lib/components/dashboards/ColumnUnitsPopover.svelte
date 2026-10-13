@@ -5,13 +5,13 @@
 	// "{request}/s" - whatever `resolveAxisScale` understands, anything else shown as a literal
 	// suffix); blank keeps the metric's own unit. The datalist only suggests common units.
 	// Only rendered by DashboardPanelCard.svelte while `editing` a Table-visualization panel.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { parseColumnUnits, type PanelReducer } from '$lib/dashboards/visualization';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { parseColumnUnits, type PanelReducer } from '#lib/dashboards/visualization.ts';
 	import { reducerLabel } from './panels/visualizations/labels';
 	import RulerIcon from '@lucide/svelte/icons/ruler';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		columnUnits,

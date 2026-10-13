@@ -3,13 +3,13 @@
 // default). Every count comes from /api/logs/attribute-values under the page's current
 // filter with that facet's own selection left out - see FacetDefinition.load.
 
-import { getLogAttributeValues, type AttributeBag, type LogFilter } from '$lib/api';
-import type { FacetDefinition, FacetOption } from '$lib/facets/types';
-import type { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
-import { selectedAttributeValues, withAttributeSelection, withoutAttributeSelection } from '$lib/facets/attribute-selection';
+import { getLogAttributeValues, type AttributeBag, type LogFilter } from '#lib/api.ts';
+import type { FacetDefinition, FacetOption } from '#lib/facets/types.ts';
+import type { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
+import { selectedAttributeValues, withAttributeSelection, withoutAttributeSelection } from '#lib/facets/attribute-selection.ts';
 import { SEVERITY_BUCKETS, severityBucketFor, severityBucketLabel, severityNumbersForBucket, type SeverityBucket } from './severity';
 import type { LogsExplorerState } from './state.svelte';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 /** Distinct values fetched per section - FacetSection shows the first few, the rest behind "Show more". */
 const FACET_LIMIT = 50;

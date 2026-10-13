@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
+	import { withBase } from '#lib/paths.ts';
 	// The Services tab's "Map" view - the aggregate, cross-trace counterpart to the
 	// trace-detail page's own ServiceMap.svelte. Same SvelteFlow + dagre (`layoutGraph`)
 	// pairing and the very same `ServiceMapNode.svelte` card, since `services-api.ts`
@@ -10,14 +10,14 @@
 	import { SvelteFlow, Background, Controls, type Edge } from '@xyflow/svelte';
 	import { goto } from '$app/navigation';
 	import '@xyflow/svelte/dist/style.css';
-	import type { ServiceDependencyGraph } from '$lib/services-api';
-	import type { ServiceMapFlowNode } from '$lib/traces/service-map-flow-types';
-	import { layoutGraph } from '$lib/resources/layout';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import ServiceMapNode from '$lib/components/traces/ServiceMapNode.svelte';
-	import * as Empty from '$lib/components/ui/empty';
-	import { servicesContext } from '$lib/services/context';
-	import * as m from '$lib/paraglide/messages';
+	import type { ServiceDependencyGraph } from '#lib/services-api.ts';
+	import type { ServiceMapFlowNode } from '#lib/traces/service-map-flow-types.ts';
+	import { layoutGraph } from '#lib/resources/layout.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import ServiceMapNode from '#lib/components/traces/ServiceMapNode.svelte';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { servicesContext } from '#lib/services/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { graph }: { graph: ServiceDependencyGraph | null } = $props();
 

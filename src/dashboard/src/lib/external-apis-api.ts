@@ -5,13 +5,13 @@
 // docs-internal/adr/0071-external-api-monitoring.md.
 //
 // MemoryPack over the wire, same shape as `messaging-api.ts`: both requests and every row
-// type are generated classes; the two responses are hand-written under `$lib/memorypack/`.
+// type are generated classes; the two responses are hand-written under `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { ExternalDomainsRequest as GeneratedDomainsRequest } from '$lib/generated/memorypack/ExternalDomainsRequest.js';
-import { ExternalDomainDetailRequest as GeneratedDetailRequest } from '$lib/generated/memorypack/ExternalDomainDetailRequest.js';
-import { ExternalDomainsResponse as GeneratedDomainsResponse } from '$lib/memorypack/ExternalDomainsResponse';
-import { ExternalDomainDetailResponse as GeneratedDetailResponse } from '$lib/memorypack/ExternalDomainDetailResponse';
+import { ExternalDomainsRequest as GeneratedDomainsRequest } from '#lib/generated/memorypack/ExternalDomainsRequest.ts';
+import { ExternalDomainDetailRequest as GeneratedDetailRequest } from '#lib/generated/memorypack/ExternalDomainDetailRequest.ts';
+import { ExternalDomainsResponse as GeneratedDomainsResponse } from '#lib/memorypack/ExternalDomainsResponse.ts';
+import { ExternalDomainDetailResponse as GeneratedDetailResponse } from '#lib/memorypack/ExternalDomainDetailResponse.ts';
 
 /** One external domain's outbound calls. Latencies are milliseconds. */
 export interface ExternalDomain {

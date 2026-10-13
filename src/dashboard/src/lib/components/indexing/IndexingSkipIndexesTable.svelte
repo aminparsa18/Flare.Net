@@ -9,12 +9,12 @@
 	// tables" summary line, which already give this table its context ("here's the detail
 	// behind that count") instead of presenting as a standalone "here's every index"
 	// inventory.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { indexingContext } from '$lib/indexing/context';
-	import { formatBytes } from '$lib/indexing/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import { formatBytes } from '#lib/indexing/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.get();
 </script>

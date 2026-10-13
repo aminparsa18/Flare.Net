@@ -1,19 +1,19 @@
 <script lang="ts">
 	// Session replay-lite (ADR-0192): the scheduled screenshots of one session behind a scrubber, with the span the
 	// app was in at that moment. Renders nothing when the session has no frames.
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import PauseIcon from '@lucide/svelte/icons/pause';
 	import SkipBackIcon from '@lucide/svelte/icons/skip-back';
 	import SkipForwardIcon from '@lucide/svelte/icons/skip-forward';
-	import type { AppSessionReplayState } from '$lib/app-sessions/replay.svelte';
-	import { eventAt } from '$lib/app-sessions/replay.svelte';
-	import { formatOffset } from '$lib/app-sessions/timeline.svelte';
-	import type { AppSessionTimelineEvent } from '$lib/app-sessions-api';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import type { AppSessionReplayState } from '#lib/app-sessions/replay.svelte.ts';
+	import { eventAt } from '#lib/app-sessions/replay.svelte.ts';
+	import { formatOffset } from '#lib/app-sessions/timeline.svelte.ts';
+	import type { AppSessionTimelineEvent } from '#lib/app-sessions-api.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { replay, events, origin }: { replay: AppSessionReplayState; events: AppSessionTimelineEvent[]; origin: number } = $props();
 

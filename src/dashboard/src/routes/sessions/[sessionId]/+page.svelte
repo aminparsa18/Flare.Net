@@ -2,21 +2,21 @@
 	// One client-app session's spans and errors in time order - see docs-internal/adr/0170-app-session-timeline.md.
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import ImageIcon from '@lucide/svelte/icons/image';
-	import { AppSessionTimelineState, formatOffset, barGeometry } from '$lib/app-sessions/timeline.svelte';
-	import { AppSessionReplayState } from '$lib/app-sessions/replay.svelte';
-	import ReplayPlayer from '$lib/components/sessions/ReplayPlayer.svelte';
-	import { buildSessionTracesHref } from '$lib/deep-links';
-	import { withBase } from '$lib/paths';
-	import { formatDateTime } from '$lib/time/format';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import * as m from '$lib/paraglide/messages';
+	import { AppSessionTimelineState, formatOffset, barGeometry } from '#lib/app-sessions/timeline.svelte.ts';
+	import { AppSessionReplayState } from '#lib/app-sessions/replay.svelte.ts';
+	import ReplayPlayer from '#lib/components/sessions/ReplayPlayer.svelte';
+	import { buildSessionTracesHref } from '#lib/deep-links.ts';
+	import { withBase } from '#lib/paths.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const state = new AppSessionTimelineState();
 	const replay = new AppSessionReplayState();

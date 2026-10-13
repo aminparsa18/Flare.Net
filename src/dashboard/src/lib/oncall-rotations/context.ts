@@ -1,4 +1,4 @@
-import { createContext } from '$lib/notification-channels/context';
+import { createContext } from '#lib/notification-channels/context.ts';
 import type { OnCallRotationsState } from './state.svelte';
 
 /** The settings page and the alerts page call `.set(new OnCallRotationsState())`; descendants call `.get()`. */

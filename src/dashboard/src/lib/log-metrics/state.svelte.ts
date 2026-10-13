@@ -1,8 +1,8 @@
 // Central reactive state for the Log metrics settings page - same shape as
-// `$lib/pipeline-rules/state.svelte.ts`, plus `draft`: a LogFilter carried over from the Logs
+// `#lib/pipeline-rules/state.svelte.ts`, plus `draft`: a LogFilter carried over from the Logs
 // explorer's "Create metric" action, used to pre-fill the create form.
 
-import type { LogFilter } from '$lib/api';
+import type { LogFilter } from '#lib/api.ts';
 import {
 	listLogMetrics,
 	createLogMetric,
@@ -10,7 +10,7 @@ import {
 	deleteLogMetric,
 	type LogMetric,
 	type LogMetricInput
-} from '$lib/log-metrics-api';
+} from '#lib/log-metrics-api.ts';
 
 export class LogMetricsState {
 	metrics = $state.raw<LogMetric[]>([]);

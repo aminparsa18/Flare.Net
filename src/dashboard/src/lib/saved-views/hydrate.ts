@@ -4,7 +4,7 @@
 // reflects into the URL" work Planning.md's v5 section flagged as separate, larger, and
 // still not started - see saved-views-api.ts's module comment for the full framing.
 
-import { getSavedView, type PageType, type SavedView } from '$lib/saved-views-api';
+import { getSavedView, type PageType, type SavedView } from '#lib/saved-views-api.ts';
 import type { ReadonlyURL } from '$app/state';
 
 /**

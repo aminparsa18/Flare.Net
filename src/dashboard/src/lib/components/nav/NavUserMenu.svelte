@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { stripBase, withBase } from '$lib/paths';
+	import { stripBase, withBase } from '#lib/paths.ts';
 	// Folds what used to be three separate top-level AppNav controls (theme toggle button,
 	// LanguageSwitcher's Select, and the raw auth status/logout block) into one dropdown -
 	// the page-link row was outgrowing the bar (see nav-links.ts's ever-growing list), and
 	// none of these three need to be one click away at all times the way the page links do.
 	// LanguageSwitcher.svelte's Select-based picker is gone; its locale-endonym convention
 	// moved here unchanged.
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as Command from '$lib/components/ui/command';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { authContext } from '$lib/auth/context';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import * as Command from '#lib/components/ui/command/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import { setMode, userPrefersMode } from 'mode-watcher';
-	import { getLocale, locales, type Locale } from '$lib/paraglide/runtime';
-	import * as m from '$lib/paraglide/messages';
+	import { getLocale, locales, type Locale } from '#lib/paraglide/runtime.js';
+	import * as m from '#lib/paraglide/messages.js';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PlugIcon from '@lucide/svelte/icons/plug';
 	import SunIcon from '@lucide/svelte/icons/sun';
@@ -21,14 +21,14 @@
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
 	import LanguagesIcon from '@lucide/svelte/icons/languages';
 	import GlobeIcon from '@lucide/svelte/icons/globe';
-	import { regional } from '$lib/regional/prefs.svelte';
-	import { displayTimeZone } from '$lib/time/display-zone.svelte';
-	import { browserTimeZone, timeZoneOptions } from '$lib/time/time-zone';
-	import { formatUtcOffset } from '$lib/time/format';
+	import { regional } from '#lib/regional/prefs.svelte.ts';
+	import { displayTimeZone } from '#lib/time/display-zone.svelte.ts';
+	import { browserTimeZone, timeZoneOptions } from '#lib/time/time-zone.ts';
+	import { formatUtcOffset } from '#lib/time/format.ts';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import { updateNotice } from '$lib/version/update-notice.svelte';
+	import { updateNotice } from '#lib/version/update-notice.svelte.ts';
 	import { page } from '$app/state';
 	import { navLinks } from './nav-links';
 	import type { Component } from 'svelte';

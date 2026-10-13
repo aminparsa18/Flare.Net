@@ -2,7 +2,7 @@
 // placement + per-series colors" item). Frontend-only, persisted inside the dashboard's
 // opaque `layoutJson` like `thresholds` - no backend/schema change.
 //
-// Overrides are keyed by `seriesLabel` from `$lib/dashboards/visualization` (service name +
+// Overrides are keyed by `seriesLabel` from `#lib/dashboards/visualization.ts` (service name +
 // every attribute), never a compacted display label - that one depends on which other series
 // happen to be in the result, so it isn't a stable identity. MetricChart formats its own
 // labels differently, so it looks overrides up through `seriesLabel` too, not its own.
@@ -10,7 +10,7 @@
 // Colors come from the thresholds' fixed named palette rather than free-form hex, for the same
 // reason that palette exists: every entry reads on both the light and dark chart backgrounds.
 
-import type { MetricSeries } from '$lib/metrics-api';
+import type { MetricSeries } from '#lib/metrics-api.ts';
 import { THRESHOLD_COLORS, thresholdColorValue, type ThresholdColor } from './thresholds';
 
 export type LegendPosition = 'bottom' | 'right' | 'hidden';

@@ -1,6 +1,6 @@
 // Central reactive state for the /errors page - grouped exceptions (type/message rollup)
 // plus the selected group's click-through occurrence drill-down. Mirrors
-// TracesExplorerState's shape (`$lib/traces/state.svelte.ts`): a class with `$state`
+// TracesExplorerState's shape (`#lib/traces/state.svelte.ts`): a class with `$state`
 // fields, provided via `errorsExplorerContext` rather than passed as props. No
 // polling/auto-refresh here (unlike ServicesState) - this is an investigate/browse view
 // over a chosen window, not a live snapshot; a manual refresh re-runs runSearch().
@@ -11,16 +11,16 @@ import {
 	type ExceptionFilter,
 	type ExceptionGroup,
 	type ExceptionOccurrencesResponse
-} from '$lib/errors-api';
-import { listOwnershipRules, replaceOwnershipRules } from '$lib/error-ownership-api';
-import { listSourceLinks } from '$lib/source-links-api';
-import { ownerFromRules, type OwnershipRule } from '$lib/errors/ownership';
-import type { SourceLinkConfig } from '$lib/errors/source-links';
-import { issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '$lib/error-issues-api';
-import type { ResourceAttributeFilter } from '$lib/services-api';
+} from '#lib/errors-api.ts';
+import { listOwnershipRules, replaceOwnershipRules } from '#lib/error-ownership-api.ts';
+import { listSourceLinks } from '#lib/source-links-api.ts';
+import { ownerFromRules, type OwnershipRule } from '#lib/errors/ownership.ts';
+import type { SourceLinkConfig } from '#lib/errors/source-links.ts';
+import { issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '#lib/error-issues-api.ts';
+import type { ResourceAttributeFilter } from '#lib/services-api.ts';
 import { browser } from '$app/env';
-import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
-import { buildErrorsDeepLinkHref, type ErrorsDeepLinkState } from '$lib/deep-links';
+import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '#lib/logs/time-range.ts';
+import { buildErrorsDeepLinkHref, type ErrorsDeepLinkState } from '#lib/deep-links.ts';
 
 export interface ErrorsFilterState {
 	timeRangePreset: TimeRangePreset;
@@ -122,7 +122,7 @@ export class ErrorsExplorerState {
 	#searchAbort: AbortController | null = null;
 	#occurrencesAbort: AbortController | null = null;
 
-	/** The window the current filter resolves to right now - public for `$lib/errors/facets.ts`, same as TracesExplorerState.currentRange. */
+	/** The window the current filter resolves to right now - public for `#lib/errors/facets.ts`, same as TracesExplorerState.currentRange. */
 	currentRange(): ResolvedTimeRange | null {
 		return resolveTimeRange(this.filter.timeRangePreset, this.filter.customRange ?? undefined);
 	}

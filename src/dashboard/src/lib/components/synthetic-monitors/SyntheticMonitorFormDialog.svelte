@@ -1,15 +1,15 @@
 <script lang="ts">
 	// Create/edit a synthetic monitor. Same Dialog + reset-on-open $effect shape as
 	// OnCallRotationFormDialog.svelte. Validation mirrors SyntheticMonitorRequest.Validate server-side.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { syntheticMonitorsContext } from '$lib/synthetic-monitors/context';
-	import type { SyntheticMonitorKind, SyntheticMonitorRequest } from '$lib/synthetic-monitors-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { syntheticMonitorsContext } from '#lib/synthetic-monitors/context.ts';
+	import type { SyntheticMonitorKind, SyntheticMonitorRequest } from '#lib/synthetic-monitors-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const monitors = syntheticMonitorsContext.get();
 

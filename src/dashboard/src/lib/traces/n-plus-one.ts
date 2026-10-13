@@ -3,7 +3,7 @@
 // (src/Flare.Api/Query/NPlusOneQueryBuilder.cs) - same statement normalization, same default
 // threshold - keep the two in step.
 
-import type { SpanDto } from '$lib/traces-api';
+import type { SpanDto } from '#lib/traces-api.ts';
 
 /** Mirrors `NPlusOneQueryBuilder.DefaultMinRepeats`. */
 export const DEFAULT_N_PLUS_ONE_MIN_REPEATS = 10;

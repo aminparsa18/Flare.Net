@@ -1,12 +1,12 @@
 <script lang="ts">
 	// Markdown editor for a `Text` panel - same icon-triggered popover shape as
 	// PanelDescriptionPopover.svelte, edit-mode only (see DashboardPanelCard.svelte).
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { TEXT_PANEL_MAX_LENGTH } from '$lib/dashboards/text-panel';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { TEXT_PANEL_MAX_LENGTH } from '#lib/dashboards/text-panel.ts';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		markdown,

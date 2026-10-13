@@ -3,9 +3,9 @@
 // `[GenerateTypeScript]` itself because its one member's type, `UserSummaryDto`, has a
 // `DateTimeOffset` member - see `UserSummaryDto.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { UserSummaryDto } from '$lib/memorypack/UserSummaryDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { UserSummaryDto } from '#lib/memorypack/UserSummaryDto.ts';
 
 export class UserListResponse {
 	users: (UserSummaryDto | null)[] | null;

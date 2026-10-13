@@ -1,16 +1,16 @@
 <script lang="ts">
 	// Create/edit an SLO. Same Dialog + reset-on-open $effect shape as MaintenanceWindowFormDialog.svelte;
 	// the client-side checks mirror SloRequest.Validate so Save can't submit what the API rejects.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
-	import { projects, projectIdForRequest } from '$lib/projects/store.svelte';
-	import { createSlo, updateSlo, SLO_LATENCY_LADDER_MS, type Slo, type SloKind } from '$lib/slos-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import ProjectPicker from '#lib/components/projects/ProjectPicker.svelte';
+	import { projects, projectIdForRequest } from '#lib/projects/store.svelte.ts';
+	import { createSlo, updateSlo, SLO_LATENCY_LADDER_MS, type Slo, type SloKind } from '#lib/slos-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		target,

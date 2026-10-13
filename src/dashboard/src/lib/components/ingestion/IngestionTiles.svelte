@@ -10,10 +10,10 @@
 	// rather than a separate description line, and the two window totals (requests/
 	// rejected) stay as bare counts, since "Window requests"/"Rejected" already say what
 	// they are without needing a unit suffix.
-	import * as Card from '$lib/components/ui/card';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatBytes, formatCount } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { formatBytes, formatCount } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const ingestion = ingestionContext.get();
 

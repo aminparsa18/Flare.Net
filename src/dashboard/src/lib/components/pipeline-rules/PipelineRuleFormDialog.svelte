@@ -2,20 +2,20 @@
 	// Create/edit pipeline rule. Same Dialog-not-Sheet shape AlertRuleFormDialog.svelte's
 	// own comment explains - a bounded form, not a detail viewer.
 	import { onMount } from 'svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Badge } from '$lib/components/ui/badge';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import { pipelineRulesContext } from '$lib/pipeline-rules/context';
-	import { previewDraftPipelineRule, type PipelineRuleRequest, type PipelineRuleAction, type RuleActionKind, type PipelineRulePreviewResult, type PipelineRulePreviewMatch } from '$lib/pipeline-rules-api';
-	import { aggregateLogs } from '$lib/api';
-	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import { pipelineRulesContext } from '#lib/pipeline-rules/context.ts';
+	import { previewDraftPipelineRule, type PipelineRuleRequest, type PipelineRuleAction, type RuleActionKind, type PipelineRulePreviewResult, type PipelineRulePreviewMatch } from '#lib/pipeline-rules-api.ts';
+	import { aggregateLogs } from '#lib/api.ts';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '#lib/logs/severity.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';

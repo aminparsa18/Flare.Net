@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { PipelineRulesState } from '$lib/pipeline-rules/state.svelte';
-	import { pipelineRulesContext } from '$lib/pipeline-rules/context';
-	import PipelineRuleTable from '$lib/components/pipeline-rules/PipelineRuleTable.svelte';
-	import PiiRedactionSettingCard from '$lib/components/pipeline-rules/PiiRedactionSettingCard.svelte';
-	import PipelineRuleFormDialog from '$lib/components/pipeline-rules/PipelineRuleFormDialog.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { PipelineRulesState } from '#lib/pipeline-rules/state.svelte.ts';
+	import { pipelineRulesContext } from '#lib/pipeline-rules/context.ts';
+	import PipelineRuleTable from '#lib/components/pipeline-rules/PipelineRuleTable.svelte';
+	import PiiRedactionSettingCard from '#lib/components/pipeline-rules/PiiRedactionSettingCard.svelte';
+	import PipelineRuleFormDialog from '#lib/components/pipeline-rules/PipelineRuleFormDialog.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const pipelineRules = pipelineRulesContext.set(new PipelineRulesState());
 

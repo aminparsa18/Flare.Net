@@ -2,23 +2,23 @@
 	// Admin-only section of /auth (ADR-0082). Role and enable/disable for a service account
 	// are already in UserTable (it lists every provider); this card adds creation plus
 	// Admin-issued tokens, which are the only way a service account gets a credential.
-	import * as Card from '$lib/components/ui/card';
-	import * as Table from '$lib/components/ui/table';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { usersContext } from '$lib/users/context';
-	import type { UserRole } from '$lib/auth-api';
-	import type { AccessToken } from '$lib/personal-access-tokens-api';
-	import { revokeAccessToken } from '$lib/personal-access-tokens-api';
-	import { createServiceAccount, createServiceAccountToken, listServiceAccountTokens } from '$lib/service-accounts-api';
-	import { formatDateTime } from '$lib/time/format';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { usersContext } from '#lib/users/context.ts';
+	import type { UserRole } from '#lib/auth-api.ts';
+	import type { AccessToken } from '#lib/personal-access-tokens-api.ts';
+	import { revokeAccessToken } from '#lib/personal-access-tokens-api.ts';
+	import { createServiceAccount, createServiceAccountToken, listServiceAccountTokens } from '#lib/service-accounts-api.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const users = usersContext.get();
 	const ROLES: UserRole[] = ['Viewer', 'Member', 'Admin'];

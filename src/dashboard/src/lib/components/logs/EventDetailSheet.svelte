@@ -1,21 +1,21 @@
 <script lang="ts">
-	import * as Sheet from '$lib/components/ui/sheet';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
-	import { severityVariant } from '$lib/logs/severity';
+	import { severityVariant } from '#lib/logs/severity.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
-	import { AROUND_DEFAULT_MS, aroundRange } from '$lib/time/around';
-	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
-	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
-	import { isEditableTarget, matchesCombo } from '$lib/keyboard/shortcuts';
-	import { logsExplorerContext } from '$lib/logs/context';
+	import { AROUND_DEFAULT_MS, aroundRange } from '#lib/time/around.ts';
+	import { explorerPrefs } from '#lib/explorer/prefs.svelte.ts';
+	import { keyboardPrefs } from '#lib/keyboard/prefs.svelte.ts';
+	import { isEditableTarget, matchesCombo } from '#lib/keyboard/shortcuts.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
 	import EventDetailBody from './EventDetailBody.svelte';
-	import * as m from '$lib/paraglide/messages';
-	import { formatTimestamp } from '$lib/time/format';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatTimestamp } from '#lib/time/format.ts';
 
 	const explorer = logsExplorerContext.get();
 

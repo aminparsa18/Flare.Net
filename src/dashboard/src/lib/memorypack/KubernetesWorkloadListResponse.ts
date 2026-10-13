@@ -3,9 +3,9 @@
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]`
 // itself: its list is an `IReadOnlyList<T>` (see ADR-0016) of a hand-written type.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { KubernetesWorkloadSummary } from '$lib/memorypack/KubernetesWorkloadSummary';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { KubernetesWorkloadSummary } from '#lib/memorypack/KubernetesWorkloadSummary.ts';
 
 export class KubernetesWorkloadListResponse {
 	kind: string;

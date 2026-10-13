@@ -1,5 +1,5 @@
 // Page-agnostic shape FacetSidebar.svelte renders - the Logs and Traces pages each build
-// their own list of these (`$lib/logs/facets.ts`, `$lib/traces/facets.ts`) from their
+// their own list of these (`#lib/logs/facets.ts`, `#lib/traces/facets.ts`) from their
 // explorer state, so the sidebar itself never knows about LogFilter vs SpanFilter.
 
 export interface FacetOption {

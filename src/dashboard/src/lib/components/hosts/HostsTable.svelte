@@ -1,16 +1,16 @@
 <script lang="ts">
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import ServerIcon from '@lucide/svelte/icons/server';
-	import { hostsContext } from '$lib/hosts/context';
-	import type { HostsSortColumn } from '$lib/hosts/state.svelte';
-	import { formatPercent } from '$lib/indexing/format';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import { hostsContext } from '#lib/hosts/context.ts';
+	import type { HostsSortColumn } from '#lib/hosts/state.svelte.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	const hosts = hostsContext.get();
 

@@ -2,17 +2,17 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { browser } from '$app/env';
-	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
-	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
-	import { parseStateDeepLinkParam } from '$lib/deep-links';
-	import MetricsToolbar from '$lib/components/metrics/MetricsToolbar.svelte';
-	import MetricPicker from '$lib/components/metrics/MetricPicker.svelte';
-	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
-	import FormulaBuilder from '$lib/components/metrics/FormulaBuilder.svelte';
-	import FormulaChart from '$lib/components/metrics/FormulaChart.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { MetricsExplorerState } from '#lib/metrics/state.svelte.ts';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import { resolveRequestedSavedView } from '#lib/saved-views/hydrate.ts';
+	import { resolveLastUsedSavedView } from '#lib/saved-views/last-used.ts';
+	import { parseStateDeepLinkParam } from '#lib/deep-links.ts';
+	import MetricsToolbar from '#lib/components/metrics/MetricsToolbar.svelte';
+	import MetricPicker from '#lib/components/metrics/MetricPicker.svelte';
+	import MetricChart from '#lib/components/metrics/MetricChart.svelte';
+	import FormulaBuilder from '#lib/components/metrics/FormulaBuilder.svelte';
+	import FormulaChart from '#lib/components/metrics/FormulaChart.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
 
@@ -27,7 +27,7 @@
 	// library" precedent VolumeChart/MetricChart/TraceWaterfall already set for charts.
 	// Persisted to localStorage (not the explorer's own filter state, which is about
 	// what's queried, not how it's laid out) so a chosen width survives reloads, same
-	// convention $lib/logs/recent-searches.ts already uses for a lightweight UI
+	// convention #lib/logs/recent-searches.ts already uses for a lightweight UI
 	// preference.
 	const STORAGE_KEY = 'flare.metrics.pickerWidth';
 	const MIN_WIDTH = 200;
@@ -69,8 +69,8 @@
 			// already loads names + re-selects the saved metric itself, so loadNames() below
 			// is only reached with no (or an invalid) view id.
 			// A bare visit restores the saved view last picked here instead
-			// ($lib/saved-views/last-used.ts) - never over a `?view=` link.
-			// A fired metric alert's `?state=` link ($lib/deep-links.ts) carries a whole
+			// (#lib/saved-views/last-used.ts) - never over a `?view=` link.
+			// A fired metric alert's `?state=` link (#lib/deep-links.ts) carries a whole
 			// saved-view state inline, so it restores through the same applySavedViewState path.
 			const requested = await resolveRequestedSavedView(page.url, 'Metrics');
 			const inlineState = requested ? null : parseStateDeepLinkParam(page.url);

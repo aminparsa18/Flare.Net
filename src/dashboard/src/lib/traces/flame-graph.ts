@@ -5,7 +5,7 @@
 // siblings fan out onto extra levels instead of being drawn on top of each other, and a
 // child always sits below its parent. Pure and DOM-free, same as critical-path.ts.
 
-import type { SpanDto } from '$lib/traces-api';
+import type { SpanDto } from '#lib/traces-api.ts';
 
 export interface FlameBar {
 	span: SpanDto;

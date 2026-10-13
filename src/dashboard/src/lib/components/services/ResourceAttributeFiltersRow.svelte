@@ -17,13 +17,13 @@
 	// reasoning the two sibling rows already document.
 	import { untrack } from 'svelte';
 	import { browser } from '$app/env';
-	import type { ResourceAttributeFilter } from '$lib/services-api';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
+	import type { ResourceAttributeFilter } from '#lib/services-api.ts';
+	import * as Accordion from '#lib/components/ui/accordion/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	interface Props {
 		filters: ResourceAttributeFilter[];

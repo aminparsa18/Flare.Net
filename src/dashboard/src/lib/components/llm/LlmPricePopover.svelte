@@ -1,11 +1,11 @@
 <script lang="ts">
 	// Admin-only editor for one model's price per million tokens (ADR-0101) - gated by the
 	// caller. Same icon-triggered mini-form shape as MetricMetadataOverridePopover.svelte.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		model,

@@ -2,26 +2,26 @@
 	// Client-app sessions, grouped from spans' `session.id` attribute (Flare.Maui stamps one per
 	// process start, ADR-0166) - see docs-internal/adr/0167-app-sessions-view.md.
 	import { onMount, onDestroy } from 'svelte';
-	import * as Select from '$lib/components/ui/select';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as Switch from '$lib/components/ui/switch';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import * as Switch from '#lib/components/ui/switch/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
-	import { withBase } from '$lib/paths';
-	import { AppSessionsState, APP_SESSIONS_WINDOW_PRESETS, type AppSessionsWindowPreset } from '$lib/app-sessions/state.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { crashFreePercent, framePercent } from '$lib/app-sessions-api';
-	import ReleaseHealthTrendChart from '$lib/components/sessions/ReleaseHealthTrendChart.svelte';
-	import { buildSessionTimelineHref } from '$lib/deep-links';
-	import { formatCount } from '$lib/ingestion/format';
-	import { formatDateTime } from '$lib/time/format';
-	import { formatAgo } from '$lib/components/metric-catalog/format';
-	import * as m from '$lib/paraglide/messages';
+	import { withBase } from '#lib/paths.ts';
+	import { AppSessionsState, APP_SESSIONS_WINDOW_PRESETS, type AppSessionsWindowPreset } from '#lib/app-sessions/state.svelte.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import { crashFreePercent, framePercent } from '#lib/app-sessions-api.ts';
+	import ReleaseHealthTrendChart from '#lib/components/sessions/ReleaseHealthTrendChart.svelte';
+	import { buildSessionTimelineHref } from '#lib/deep-links.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import { formatAgo } from '#lib/components/metric-catalog/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const sessions = new AppSessionsState();
 

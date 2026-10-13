@@ -2,22 +2,22 @@
 	// Frontend (ADR-0153): browser web vitals per service and the top JavaScript errors, from the
 	// existing metrics and errors queries - the signal conventions are ADR-0151's.
 	import { onDestroy, onMount } from 'svelte';
-	import * as Select from '$lib/components/ui/select';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { FrontendState, WEB_VITALS, pageLoads, rateVital, type VitalCell, type WebVital } from '$lib/frontend/state.svelte';
-	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '$lib/services/state.svelte';
-	import { formatCount } from '$lib/ingestion/format';
-	import { formatDateTime } from '$lib/time/format';
-	import { withBase } from '$lib/paths';
-	import * as m from '$lib/paraglide/messages';
+	import { FrontendState, WEB_VITALS, pageLoads, rateVital, type VitalCell, type WebVital } from '#lib/frontend/state.svelte.ts';
+	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import { withBase } from '#lib/paths.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const frontend = new FrontendState();
 

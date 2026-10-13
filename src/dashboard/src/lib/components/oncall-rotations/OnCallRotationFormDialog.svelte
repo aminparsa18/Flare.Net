@@ -1,18 +1,18 @@
 <script lang="ts">
 	// Create/edit an on-call rotation. Same Dialog + reset-on-open $effect shape as
 	// MaintenanceWindowFormDialog.svelte. The first-shift start is edited as wall-clock time in the
-	// browser's zone and converted to an instant on save (see $lib/time/time-zone.ts).
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { onCallRotationsContext } from '$lib/oncall-rotations/context';
-	import { notificationChannelsContext } from '$lib/notification-channels/context';
-	import { browserTimeZone, instantToZoned, timeZoneOptions, zonedToInstant } from '$lib/time/time-zone';
-	import type { OnCallRotationRequest } from '$lib/oncall-rotations-api';
-	import * as m from '$lib/paraglide/messages';
+	// browser's zone and converted to an instant on save (see #lib/time/time-zone.ts).
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { onCallRotationsContext } from '#lib/oncall-rotations/context.ts';
+	import { notificationChannelsContext } from '#lib/notification-channels/context.ts';
+	import { browserTimeZone, instantToZoned, timeZoneOptions, zonedToInstant } from '#lib/time/time-zone.ts';
+	import type { OnCallRotationRequest } from '#lib/oncall-rotations-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import XIcon from '@lucide/svelte/icons/x';

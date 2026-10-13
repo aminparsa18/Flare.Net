@@ -4,7 +4,7 @@
 	// members only (the people who can fix or delete a rule) and only when there is something
 	// to report, so it stays out of the way otherwise.
 	import { onMount } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import {
@@ -12,8 +12,8 @@
 		listMetricAttributeRules,
 		listUnmatchedMetricAttributeRules,
 		type MetricAttributeRule
-	} from '$lib/metric-attribute-rules-api';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/metric-attribute-rules-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let unmatched = $state<MetricAttributeRule[]>([]);
 	let hours = $state(24);

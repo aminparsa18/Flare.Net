@@ -6,9 +6,9 @@
 // own header comment). `ServiceMetrics` has no such member, so it's a real generated
 // class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ServiceMetrics } from '$lib/generated/memorypack/ServiceMetrics.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ServiceMetrics } from '#lib/generated/memorypack/ServiceMetrics.ts';
 
 export class ServiceOverviewResponse {
 	windowMinutes: number;

@@ -1,13 +1,13 @@
 <script lang="ts">
 	// One of the host drill-down sheet's four small charts - also the External APIs domain
 	// sheet's, which passes `onPointClick` to drill into one bucket's traces. Same hand-rolled SVG approach
-	// and $lib/metrics/axis.ts scaling as resources/HostTrendChart.svelte (this dashboard has
+	// and #lib/metrics/axis.ts scaling as resources/HostTrendChart.svelte (this dashboard has
 	// no charting library), but plotted against real time rather than array index, and with
 	// gaps where a bucket has no value - the server omits empty buckets and nulls a column
 	// with no data, and drawing straight through either would invent readings.
-	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
-	import * as m from '$lib/paraglide/messages';
-	import { formatTimeOfDay } from '$lib/time/format';
+	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '#lib/metrics/axis.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatTimeOfDay } from '#lib/time/format.ts';
 
 	interface Point {
 		time: number; // epoch ms

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ChoiceGroup from '$lib/components/settings/ChoiceGroup.svelte';
-	import { Button } from '$lib/components/ui/button';
+	import ChoiceGroup from '#lib/components/settings/ChoiceGroup.svelte';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import {
 		explorerPrefs,
 		type ExplorerPrefs,
@@ -11,15 +11,15 @@
 		type RowClickAction,
 		BUCKET_WIDTH_OPTIONS_SECONDS,
 		type LandingPage
-	} from '$lib/explorer/prefs.svelte';
-	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
-	import { pinnedAttributes, pinnedSpanAttributes } from '$lib/logs/pinned-attributes.svelte';
+	} from '#lib/explorer/prefs.svelte.ts';
+	import { formatBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
+	import { pinnedAttributes, pinnedSpanAttributes } from '#lib/logs/pinned-attributes.svelte.ts';
 	import { onMount } from 'svelte';
-	import { listDashboards, type DashboardSummary } from '$lib/dashboards-api';
-	import { getHomeDashboardId, setHomeDashboardId } from '$lib/dashboards/home-preference';
-	import { clearCollapsedFlags, clearRecentSearches, clearRecentCustomRanges, clearLastUsedViews } from '$lib/explorer/browser-state';
+	import { listDashboards, type DashboardSummary } from '#lib/dashboards-api.ts';
+	import { getHomeDashboardId, setHomeDashboardId } from '#lib/dashboards/home-preference.ts';
+	import { clearCollapsedFlags, clearRecentSearches, clearRecentCustomRanges, clearLastUsedViews } from '#lib/explorer/browser-state.ts';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const landingLabels: Record<LandingPage, () => string> = {
 		default: () => m.settingsExplorer_landingDefault(),

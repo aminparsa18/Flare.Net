@@ -1,5 +1,5 @@
 // Hand-written companion to MemoryPack's generated TypeScript runtime
-// ($lib/generated/memorypack/MemoryPackWriter.ts / MemoryPackReader.ts) - this file is NOT
+// (#lib/generated/memorypack/MemoryPackWriter.ts / MemoryPackReader.ts) - this file is NOT
 // itself generated. MemoryPack's C# side supports `DateTimeOffset` as a built-in type (no
 // custom formatter needed - see MemoryPack's README "Built-in supported types"), but its
 // TypeScript generator's member-type mapping only covers
@@ -7,7 +7,7 @@
 // `ConvertFromSymbol` in MemoryPack.Generator/TypeScriptMember.cs) - `DateTimeOffset` isn't
 // one of them, so any Flare.Api DTO with a `DateTimeOffset` member throws MEMPACK031 the
 // moment it's annotated `[GenerateTypeScript]`. Every hand-written class under
-// `$lib/memorypack/` that mirrors such a DTO calls the functions below at the right
+// `#lib/memorypack/` that mirrors such a DTO calls the functions below at the right
 // position instead of a generated `write`/`readDateTimeOffset` method.
 // (Upstream fix proposed: https://github.com/Cysharp/MemoryPack/pull/459 - not merged as
 // of this writing. If/when it lands, DTOs with a `DateTimeOffset` member can drop the
@@ -43,8 +43,8 @@
 // adjustment math is needed at all now (not even a fast-pathed one) - `offsetMinutes` is
 // carried through only as data, never used to compute the instant.
 
-import type { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import type { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import type { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import type { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 const unixEpochTicks = 621355968000000000n;
 const dateTimeMask = 0b00111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111n;

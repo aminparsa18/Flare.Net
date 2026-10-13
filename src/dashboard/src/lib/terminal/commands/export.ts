@@ -1,6 +1,6 @@
 // `export` - mimics flare.cli's ExportCommand.cs (dump a time range of log events, or an
 // incident bundle around one trace) by reusing the Logs Explorer's own existing export
-// pipeline ($lib/logs/export.ts - fetchAllForExport/eventsToBlob/exportFilename/downloadBlob),
+// pipeline (#lib/logs/export.ts - fetchAllForExport/eventsToBlob/exportFilename/downloadBlob),
 // the same one ExportDialog.svelte already drives - no new fetch/pagination code here.
 // Filter flags are identical to commands/search.ts's, reused from there rather than
 // duplicated.
@@ -15,11 +15,11 @@
 // --include-trace/--include-logs/--include-metrics build the same "incident bundle" zip the
 // CLI does (manifest.json + trace.json/logs.ndjson/metrics.json), via terminal/zip.ts.
 
-import type { LogFilter } from '$lib/api';
-import { downloadBlob, eventsToBlob, eventsToNdjson, exportFilename, fetchAllForExport, type ExportFormat } from '$lib/logs/export';
-import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
-import { getMetricNames, queryMetric } from '$lib/metrics-api';
-import { getTrace } from '$lib/traces-api';
+import type { LogFilter } from '#lib/api.ts';
+import { downloadBlob, eventsToBlob, eventsToNdjson, exportFilename, fetchAllForExport, type ExportFormat } from '#lib/logs/export.ts';
+import { pickBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
+import { getMetricNames, queryMetric } from '#lib/metrics-api.ts';
+import { getTrace } from '#lib/traces-api.ts';
 import type { TerminalCommand, TerminalWriter } from '../types';
 import { createZip, type ZipEntry } from '../zip';
 import { buildLogFilter, parseLogFilterArgs, parseSince, UsageError, type ParsedLogArgs } from './search';

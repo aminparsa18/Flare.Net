@@ -11,10 +11,10 @@
 	// Enter/comma (`onCommit`) adds the current draft as a chip and clears the draft,
 	// instead of replacing a single committed value.
 	import AttributeValueCombobox, { type AttributeValueSuggestion } from './AttributeValueCombobox.svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import { cn } from '$lib/utils';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { cn } from '#lib/utils.ts';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		values,

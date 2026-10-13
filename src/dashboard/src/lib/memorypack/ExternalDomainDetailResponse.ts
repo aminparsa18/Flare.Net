@@ -3,13 +3,13 @@
 // `ExternalDomainDetailResponse`, in declared order. Same `IReadOnlyList<T>` reason as
 // `ExternalDomainsResponse.ts`; every row type is generated.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ExternalEndpointStats } from '$lib/generated/memorypack/ExternalEndpointStats.js';
-import { ExternalStatusCodeCount } from '$lib/generated/memorypack/ExternalStatusCodeCount.js';
-import { ExternalCallerStats } from '$lib/generated/memorypack/ExternalCallerStats.js';
-import { ExternalErrorGroup } from '$lib/generated/memorypack/ExternalErrorGroup.js';
-import { ExternalSeriesPoint } from '$lib/generated/memorypack/ExternalSeriesPoint.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ExternalEndpointStats } from '#lib/generated/memorypack/ExternalEndpointStats.ts';
+import { ExternalStatusCodeCount } from '#lib/generated/memorypack/ExternalStatusCodeCount.ts';
+import { ExternalCallerStats } from '#lib/generated/memorypack/ExternalCallerStats.ts';
+import { ExternalErrorGroup } from '#lib/generated/memorypack/ExternalErrorGroup.ts';
+import { ExternalSeriesPoint } from '#lib/generated/memorypack/ExternalSeriesPoint.ts';
 
 export class ExternalDomainDetailResponse {
 	domain: string | null;

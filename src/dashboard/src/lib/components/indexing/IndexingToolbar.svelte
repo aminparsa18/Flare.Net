@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import { indexingContext } from '$lib/indexing/context';
-	import * as m from '$lib/paraglide/messages';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.get();
 </script>

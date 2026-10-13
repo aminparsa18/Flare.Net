@@ -4,8 +4,8 @@
 // `?view=` hydration (routes/+page.svelte, routes/traces/+page.svelte,
 // routes/metrics/+page.svelte) agree on it without duplicating the switch.
 
-import type { PageType } from '$lib/saved-views-api';
-import { withBase } from '$lib/paths';
+import type { PageType } from '#lib/saved-views-api.ts';
+import { withBase } from '#lib/paths.ts';
 
 /** Logs is the app's default route ('/'), not '/logs' - see AppNav.svelte's own `links` array. */
 export function pageTypeBasePath(pageType: PageType): string {

@@ -3,18 +3,18 @@
 	// (all optional, ANDed; at least one needed - see TraceFunnelQueryBuilder.ValidateSteps).
 	// Edits only change TraceFunnelState.steps; nothing runs until the Run button (see that
 	// class's header for why).
-	import { Button } from '$lib/components/ui/button';
-	import AttributeValueCombobox, { type AttributeValueSuggestion } from '$lib/components/logs/AttributeValueCombobox.svelte';
-	import SpanAttributeRowsEditor from '$lib/components/traces/SpanAttributeRowsEditor.svelte';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import AttributeValueCombobox, { type AttributeValueSuggestion } from '#lib/components/logs/AttributeValueCombobox.svelte';
+	import SpanAttributeRowsEditor from '#lib/components/traces/SpanAttributeRowsEditor.svelte';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import { traceFunnelContext } from '$lib/trace-funnels/context';
-	import type { EditableStep } from '$lib/trace-funnels/state.svelte';
-	import { isStepDefined } from '$lib/trace-funnels-api';
-	import { getSpanAttributeValues, type SpanAttributeBag, type SpanFilter, type SpanValuesField } from '$lib/traces-api';
-	import * as m from '$lib/paraglide/messages';
+	import { traceFunnelContext } from '#lib/trace-funnels/context.ts';
+	import type { EditableStep } from '#lib/trace-funnels/state.svelte.ts';
+	import { isStepDefined } from '#lib/trace-funnels-api.ts';
+	import { getSpanAttributeValues, type SpanAttributeBag, type SpanFilter, type SpanValuesField } from '#lib/traces-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const funnel = traceFunnelContext.get();
 

@@ -1,9 +1,9 @@
 <script lang="ts">
 	// Discoverability for the MCP endpoint (Flare.Api's /mcp): shows the URL and a ready-to-paste
 	// client command next to where users create the Bearer token it needs. Docs: how-to/connect-ai-assistants.
-	import { Button } from '$lib/components/ui/button';
-	import { API_BASE_URL } from '$lib/api';
-	import * as m from '$lib/paraglide/messages';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { API_BASE_URL } from '#lib/api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const url = $derived(`${API_BASE_URL.replace(/\/$/, '')}/mcp`);
 	const command = $derived(

@@ -2,10 +2,10 @@
 	// A workload's status badges - "ready of desired" for the replicated kinds, succeeded/
 	// failed/active for a Job, active jobs for a CronJob. Shared by the Workloads table and
 	// the workload drill-down sheet.
-	import { Badge } from '$lib/components/ui/badge';
-	import { isReplicatedKind, readyVariant } from '$lib/kubernetes/format';
-	import type { KubernetesWorkloadCounts, KubernetesWorkloadKind } from '$lib/kubernetes-api';
-	import * as m from '$lib/paraglide/messages';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { isReplicatedKind, readyVariant } from '#lib/kubernetes/format.ts';
+	import type { KubernetesWorkloadCounts, KubernetesWorkloadKind } from '#lib/kubernetes-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	interface Props {
 		kind: KubernetesWorkloadKind;

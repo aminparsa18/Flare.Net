@@ -2,16 +2,16 @@
 // generated. Mirrors `src/Flare.Api/Model/IngestionModels.cs`'s `IngestionStatsResponse`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
 // has its own `DateTimeOffset GeneratedAt` member and nests `IngestionBucketPoint`/
-// `IngestionErrorEntryDto` (both also hand-written) - see `$lib/memorypack/date-time-offset.ts`'s
+// `IngestionErrorEntryDto` (both also hand-written) - see `#lib/memorypack/date-time-offset.ts`'s
 // header comment. `Totals` (`IngestionStatsTotals`) has no DateTimeOffset/JsonElement member
 // so it's a real generated class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { IngestionStatsTotals } from '$lib/generated/memorypack/IngestionStatsTotals.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { IngestionBucketPoint } from '$lib/memorypack/IngestionBucketPoint';
-import { IngestionErrorEntryDto } from '$lib/memorypack/IngestionErrorEntryDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { IngestionStatsTotals } from '#lib/generated/memorypack/IngestionStatsTotals.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { IngestionBucketPoint } from '#lib/memorypack/IngestionBucketPoint.ts';
+import { IngestionErrorEntryDto } from '#lib/memorypack/IngestionErrorEntryDto.ts';
 
 export class IngestionStatsResponse {
 	generatedAt: Date;

@@ -1,13 +1,13 @@
 <script lang="ts">
 	// Create/edit a project: name, description and the service.name allow-list (ADR-0123).
 	// Same Dialog + reset-on-open $effect shape as SloFormDialog.svelte.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { createProject, updateProject, type Project } from '$lib/projects-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { createProject, updateProject, type Project } from '#lib/projects-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		target,

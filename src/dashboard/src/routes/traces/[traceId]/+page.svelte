@@ -1,29 +1,29 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
-	import { withBase } from '$lib/paths';
+	import { formatNumber } from '#lib/format/number.ts';
+	import { withBase } from '#lib/paths.ts';
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { TraceDetailState } from '$lib/traces/trace-state.svelte';
-	import { traceDetailContext } from '$lib/traces/trace-context';
-	import TraceWaterfall from '$lib/components/traces/TraceWaterfall.svelte';
-	import TraceFlameGraph from '$lib/components/traces/TraceFlameGraph.svelte';
-	import ServiceMap from '$lib/components/traces/ServiceMap.svelte';
-	import SpanDetailSheet from '$lib/components/traces/SpanDetailSheet.svelte';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as Alert from '$lib/components/ui/alert';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { cn } from '$lib/utils';
-	import { Input } from '$lib/components/ui/input';
+	import { TraceDetailState } from '#lib/traces/trace-state.svelte.ts';
+	import { traceDetailContext } from '#lib/traces/trace-context.ts';
+	import TraceWaterfall from '#lib/components/traces/TraceWaterfall.svelte';
+	import TraceFlameGraph from '#lib/components/traces/TraceFlameGraph.svelte';
+	import ServiceMap from '#lib/components/traces/ServiceMap.svelte';
+	import SpanDetailSheet from '#lib/components/traces/SpanDetailSheet.svelte';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import * as Alert from '#lib/components/ui/alert/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { cn } from '#lib/utils.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import DownloadIcon from '@lucide/svelte/icons/download';
-	import { downloadBlob, traceJsonFilename, traceToJson } from '$lib/traces/export';
+	import { downloadBlob, traceJsonFilename, traceToJson } from '#lib/traces/export.ts';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const detail = traceDetailContext.set(new TraceDetailState());
 

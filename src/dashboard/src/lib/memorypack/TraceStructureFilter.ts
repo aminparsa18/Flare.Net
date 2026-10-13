@@ -3,9 +3,9 @@
 // `TraceStructureFilter`, in declared order. Can't carry `[GenerateTypeScript]`:
 // `Conditions` is an `IReadOnlyList<T>` (see ADR-0016).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { TraceSpanCondition } from '$lib/memorypack/TraceSpanCondition';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { TraceSpanCondition } from '#lib/memorypack/TraceSpanCondition.ts';
 
 export class TraceStructureFilter {
 	conditions: (TraceSpanCondition | null)[] | null = null;

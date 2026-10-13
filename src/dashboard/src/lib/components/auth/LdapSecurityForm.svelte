@@ -4,17 +4,17 @@
 	// LDAP/LDAPS, mirroring EntraSecurityForm.svelte's shape. Unlike Entra, saved values
 	// take effect immediately - no restart needed (see LdapAuthEndpoints' remarks) - so
 	// the post-save banner just says "Saved," not "restart to apply."
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Switch } from '$lib/components/ui/switch';
-	import * as Select from '$lib/components/ui/select';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { ldapSettingsContext } from '$lib/ldap-settings/context';
-	import type { UserRole } from '$lib/auth-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { ldapSettingsContext } from '#lib/ldap-settings/context.ts';
+	import type { UserRole } from '#lib/auth-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const ldap = ldapSettingsContext.get();
 

@@ -4,7 +4,7 @@
 // data out, unit-testable on its own) - same separation ResourceGraph.svelte keeps
 // between its `$effect`'s SvelteFlow-specific node/edge shaping and the data it shapes.
 
-import type { SpanDto } from '$lib/traces-api';
+import type { SpanDto } from '#lib/traces-api.ts';
 
 export interface ServiceMapNode {
 	service: string;

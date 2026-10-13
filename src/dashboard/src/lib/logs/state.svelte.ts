@@ -3,8 +3,8 @@
 // svelte-best-practices skill ("use classes with $state fields... instead of stores",
 // "consider context instead of a shared module").
 
-import { regional } from '$lib/regional/prefs.svelte';
-import type { SpanFilter } from '$lib/traces-api';
+import { regional } from '#lib/regional/prefs.svelte.ts';
+import type { SpanFilter } from '#lib/traces-api.ts';
 import {
 	getLogAttributeValues,
 	searchLogs,
@@ -19,12 +19,12 @@ import {
 	type AttributeFilter,
 	type BodyJsonFilter,
 	type LogPostProcessFunction
-} from '$lib/api';
-import { findCaseSuggestions, applyCaseSuggestion as applyCaseSuggestionTo, type CaseSuggestion } from '$lib/case-suggestions';
+} from '#lib/api.ts';
+import { findCaseSuggestions, applyCaseSuggestion as applyCaseSuggestionTo, type CaseSuggestion } from '#lib/case-suggestions.ts';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from './time-range';
 import { addRecentSearch } from './recent-searches';
 import { normalizeBucketWidthSeconds } from './bucket-width';
-import { explorerPrefs } from '$lib/explorer/prefs.svelte';
+import { explorerPrefs } from '#lib/explorer/prefs.svelte.ts';
 
 const PAGE_SIZE = 100;
 
@@ -317,7 +317,7 @@ export class LogsExplorerState {
 	// LogEventDto - so $state.raw skips deep-proxying each event (and its three
 	// attribute-bag records) for zero fine-grained-reactivity benefit.
 	events = $state.raw<LogEventDto[]>([]);
-	/** "Did you mean..." case-variant replacements for an empty result - see `$lib/case-suggestions.ts`. */
+	/** "Did you mean..." case-variant replacements for an empty result - see `#lib/case-suggestions.ts`. */
 	caseSuggestions = $state.raw<CaseSuggestion[]>([]);
 	nextCursor = $state<string | null>(null);
 
@@ -1015,7 +1015,7 @@ export class LogsExplorerState {
 
 	/**
 	 * Arrival filter for the "View related logs" deep link from a Metrics chart (see
-	 * MetricChart.svelte / `$lib/deep-links.ts`, and `+page.svelte`'s onMount, which is
+	 * MetricChart.svelte / `#lib/deep-links.ts`, and `+page.svelte`'s onMount, which is
 	 * the only caller - parses the incoming `service`/`range`/`attrKey`/`attrValue` URL
 	 * params and lands here). Same "specific filter, not live, wholesale filter
 	 * reassignment" shape as `applySavedViewState`, and `attribute` is excluded from
@@ -1101,7 +1101,7 @@ export class LogsExplorerState {
 		}
 	}
 
-	/** Arrival hook for a `?context=`/`?ts=` permalink (see `$lib/deep-links.ts`) - +page.svelte's onMount is the only caller. */
+	/** Arrival hook for a `?context=`/`?ts=` permalink (see `#lib/deep-links.ts`) - +page.svelte's onMount is the only caller. */
 	openContextFromDeepLink(params: { eventId: string; timestamp: string }): void {
 		void this.openContext(params);
 	}

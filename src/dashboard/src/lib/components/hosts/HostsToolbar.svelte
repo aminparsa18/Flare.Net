@@ -1,11 +1,11 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
-	import { hostsContext } from '$lib/hosts/context';
-	import { HOSTS_WINDOW_PRESETS, type HostsWindowPreset } from '$lib/hosts/state.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { hostsContext } from '#lib/hosts/context.ts';
+	import { HOSTS_WINDOW_PRESETS, type HostsWindowPreset } from '#lib/hosts/state.svelte.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const hosts = hostsContext.get();
 

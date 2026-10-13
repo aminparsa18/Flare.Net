@@ -2,11 +2,11 @@
 	// Inline source for an exception's throw-site frame (ADR-0096). Fetched on demand - a click, not
 	// on render - because the dialog lists up to 50 occurrences and each fetch is a round trip to the
 	// repo host. Failures show the API's reason (typically "private repo, add a token").
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { getSourceSnippet, type SourceSnippet } from '$lib/source-links-api';
-	import type { FrameTarget } from '$lib/errors/source-links';
-	import * as m from '$lib/paraglide/messages';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { getSourceSnippet, type SourceSnippet } from '#lib/source-links-api.ts';
+	import type { FrameTarget } from '#lib/errors/source-links.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { serviceName, target }: { serviceName: string; target: FrameTarget } = $props();
 

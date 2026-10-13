@@ -6,10 +6,10 @@
 // localStorage is the cache; ./time/format.ts reads these on every call, so switching
 // re-renders every timestamp at once.
 import { browser } from '$app/env';
-import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
-import { createPrefsSync } from '$lib/prefs-sync';
-import { displayTimeZone } from '$lib/time/display-zone.svelte';
-import type { TimeRangePreset } from '$lib/logs/time-range';
+import { getLocale, setLocale, locales, type Locale } from '#lib/paraglide/runtime.js';
+import { createPrefsSync } from '#lib/prefs-sync.ts';
+import { displayTimeZone } from '#lib/time/display-zone.svelte.ts';
+import type { TimeRangePreset } from '#lib/logs/time-range.ts';
 
 export const STORAGE_KEY = 'flare.regional';
 

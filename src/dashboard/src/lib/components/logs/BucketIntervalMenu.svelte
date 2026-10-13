@@ -5,13 +5,13 @@
 	// buckets over the last-queried range are disabled; a saved choice that's since become
 	// too fine is raised by resolveBucketWidthSeconds instead, which is why the trigger
 	// shows the width actually used (`effectiveSeconds`), not just the stored choice.
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 	import {
 		BUCKET_WIDTH_OPTIONS_SECONDS,
 		formatBucketWidthSeconds,
 		isBucketWidthAllowed
-	} from '$lib/logs/bucket-width';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/logs/bucket-width.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		value,

@@ -1,8 +1,8 @@
 // Reactive state for the /sessions/[sessionId] timeline - one session's spans in start order, see
 // docs-internal/adr/0170-app-session-timeline.md. Loaded once per visit; no polling.
 
-import { safeImageDataUrl } from '$lib/safe-url';
-import { getAppSessionScreenshot,getAppSessionTimeline, type AppSessionTimeline } from '$lib/app-sessions-api';
+import { safeImageDataUrl } from '#lib/safe-url.ts';
+import { getAppSessionScreenshot,getAppSessionTimeline, type AppSessionTimeline } from '#lib/app-sessions-api.ts';
 
 export class AppSessionTimelineState {
 	timeline = $state.raw<AppSessionTimeline | null>(null);

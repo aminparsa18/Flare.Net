@@ -6,14 +6,14 @@
 	// individually instrument, plus a 7th row for the pull-based Prometheus scrape
 	// receiver (Metrics-only - Logs/Traces never scrape, so this isn't a full 3rd signal
 	// column the way gRPC/HTTP are).
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatBytes, formatCount, signalLabel } from '$lib/ingestion/format';
-	import type { IngestionProtocol, IngestionSignal } from '$lib/ingestion-api';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { formatBytes, formatCount, signalLabel } from '#lib/ingestion/format.ts';
+	import type { IngestionProtocol, IngestionSignal } from '#lib/ingestion-api.ts';
 	import RejectedTelemetryDialog from './RejectedTelemetryDialog.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// A function, not a static `.label` field - see time-range.ts's own remarks on why a
 	// module-scope const can't reflect a per-request/live-switched locale.

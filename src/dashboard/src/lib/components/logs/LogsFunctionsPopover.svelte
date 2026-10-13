@@ -7,15 +7,15 @@
 	// near-verbatim copy of MetricsFunctionsPopover rather than a shared generic component -
 	// see that file's own remarks for the value/windowSize input-coercion gotcha this copy
 	// inherits the fix for.
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import SquareFunctionIcon from '@lucide/svelte/icons/square-function';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
-	import type { LogPostProcessFunction, LogPostProcessFunctionType } from '$lib/api';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { LogPostProcessFunction, LogPostProcessFunctionType } from '#lib/api.ts';
 
 	let {
 		functions,

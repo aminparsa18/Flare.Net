@@ -6,10 +6,10 @@
 // is itself a primitive (confirmed by actually attaching the attribute here and hitting
 // `MEMPACK031` on `Urls` specifically, before switching to hand-writing it). `state`/`health`
 // are raw MemoryPack numeric ordinals (converted to string at `api.ts`'s module boundary via
-// `$lib/memorypack/enums.ts`'s `resourceStateToString`/`resourceHealthToString`).
+// `#lib/memorypack/enums.ts`'s `resourceStateToString`/`resourceHealthToString`).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class ResourceNodeDto {
 	id: string | null;

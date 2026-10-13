@@ -1,6 +1,6 @@
 // Which dashboard (if any) `/` loads instead of the Logs Explorer - Phase 3's
 // "set as home page" (docs-internal/planning/roadmap.md). Per-browser localStorage,
-// same shape as `$lib/logs/recent-searches.ts`'s own header comment: dashboards today
+// same shape as `#lib/logs/recent-searches.ts`'s own header comment: dashboards today
 // are global/unscoped (no per-user ownership - see DashboardModels.cs's remarks), so
 // there's no per-user server-side field to hang this off; a viewer-local preference is
 // also just plain simpler for something this low-stakes, and self-heals below if the

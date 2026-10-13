@@ -1,24 +1,24 @@
-import { appOrigin } from '$lib/paths';
+import { appOrigin } from '#lib/paths.ts';
 // Client for Flare.Api's auth endpoints (src/Flare.Api/Endpoints/AuthEndpoints.cs).
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack: every function here sends/receives `application/x-memorypack` (see
-// `$lib/api.ts`'s header comment) and decodes through the generated classes under
-// `$lib/generated/memorypack/` (regenerated from `src/Flare.Api/Model/AuthModels.cs` by
+// `#lib/api.ts`'s header comment) and decodes through the generated classes under
+// `#lib/generated/memorypack/` (regenerated from `src/Flare.Api/Model/AuthModels.cs` by
 // `dotnet build` - see package.json's `predev`/`prebuild`/`precheck`), not `res.json()`.
 // `UserRole` on the wire is MemoryPack's raw numeric ordinal, not the string name JSON's
-// `UseStringEnumConverter` used to send - `$lib/memorypack/enums.ts`'s `userRoleToString`/
+// `UseStringEnumConverter` used to send - `#lib/memorypack/enums.ts`'s `userRoleToString`/
 // `userRoleFromString` convert at this module's boundary so every exported interface below
 // (and every consumer outside `lib/`) is unchanged. `authProvider` is a plain C# `string`
 // already (never an enum server-side), so it round-trips with no conversion.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { AuthUserDto } from '$lib/generated/memorypack/AuthUserDto.js';
-import { LoginRequest } from '$lib/generated/memorypack/LoginRequest.js';
-import { LogoutResponse as GeneratedLogoutResponse } from '$lib/generated/memorypack/LogoutResponse.js';
-import { BootstrapStatusResponse as GeneratedBootstrapStatusResponse } from '$lib/generated/memorypack/BootstrapStatusResponse.js';
-import { userRoleToString, type UserRoleName } from '$lib/memorypack/enums';
-import * as m from '$lib/paraglide/messages';
+import { AuthUserDto } from '#lib/generated/memorypack/AuthUserDto.ts';
+import { LoginRequest } from '#lib/generated/memorypack/LoginRequest.ts';
+import { LogoutResponse as GeneratedLogoutResponse } from '#lib/generated/memorypack/LogoutResponse.ts';
+import { BootstrapStatusResponse as GeneratedBootstrapStatusResponse } from '#lib/generated/memorypack/BootstrapStatusResponse.ts';
+import { userRoleToString, type UserRoleName } from '#lib/memorypack/enums.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 export type UserRole = UserRoleName;
 

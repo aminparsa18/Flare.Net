@@ -2,7 +2,7 @@
 // (ADR-0192). The list of frame times is one small request; each image is fetched when it is first shown, and the
 // next one is prefetched while playing.
 
-import { getAppSessionReplay, getAppSessionReplayFrame, type AppSessionReplay } from '$lib/app-sessions-api';
+import { getAppSessionReplay, getAppSessionReplayFrame, type AppSessionReplay } from '#lib/app-sessions-api.ts';
 
 /** Playback speed: one frame per second, whatever the capture interval was. */
 export const REPLAY_FRAME_MS = 1_000;

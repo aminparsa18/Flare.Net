@@ -17,7 +17,7 @@ import type { IndexingStatsResponse, TableStorageInfo } from '../indexing-api';
 import { formatBytes, formatCount, formatPercent, formatRatio } from './format';
 import { computePartsHealth } from './health';
 import { averageDailyGrowth, type GrowthBreakdown } from './growth';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 export type StorageHealthTone = 'good' | 'warning' | 'unavailable';
 

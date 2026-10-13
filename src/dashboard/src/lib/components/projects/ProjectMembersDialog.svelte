@@ -1,22 +1,22 @@
 <script lang="ts">
 	// Per-project membership (ADR-0123): who belongs to a project and with which role. The role
 	// is independent of the user's global role and can only narrow it for project-owned objects.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import * as Table from '$lib/components/ui/table';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import {
 		listProjectMembers,
 		removeProjectMember,
 		setProjectMember,
 		type Project,
 		type ProjectMember
-	} from '$lib/projects-api';
-	import { listUsers, type UserSummary } from '$lib/users-api';
-	import type { UserRole } from '$lib/auth-api';
+	} from '#lib/projects-api.ts';
+	import { listUsers, type UserSummary } from '#lib/users-api.ts';
+	import type { UserRole } from '#lib/auth-api.ts';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { target, onclose }: { target: Project | null; onclose: () => void } = $props();
 

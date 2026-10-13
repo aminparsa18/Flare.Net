@@ -1,9 +1,9 @@
 // Icicle layout for a profile's merged call tree: one cell per frame, width proportional to
 // its `total`, stacked by depth under its parent. Pure and DOM-free, same as
-// $lib/traces/flame-graph.ts. Unlike a trace flame graph there is no time axis - siblings
+// #lib/traces/flame-graph.ts. Unlike a trace flame graph there is no time axis - siblings
 // are laid out side by side, heaviest first.
 
-import type { FlameGraphNode } from '$lib/profiles-api';
+import type { FlameGraphNode } from '#lib/profiles-api.ts';
 
 export interface ProfileCell {
 	node: FlameGraphNode;

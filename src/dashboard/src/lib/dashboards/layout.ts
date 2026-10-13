@@ -4,7 +4,7 @@
 // same "don't overlap what's already there" behavior, so it lives here once rather than
 // being duplicated inline in each dialog.
 
-import type { DashboardPanel, DashboardRow } from '$lib/dashboards-api';
+import type { DashboardPanel, DashboardRow } from '#lib/dashboards-api.ts';
 
 /** Columns in the dashboard grid (DashboardGrid.svelte's `GridStack.init({ column })`). */
 export const GRID_COLUMNS = 12;

@@ -1,5 +1,5 @@
-// Same generic typed-context helper as `$lib/hosts/context.ts` - re-authored here rather
-// than shared, same rationale `$lib/services/context.ts` gives.
+// Same generic typed-context helper as `#lib/hosts/context.ts` - re-authored here rather
+// than shared, same rationale `#lib/services/context.ts` gives.
 
 import { getContext, hasContext, setContext } from 'svelte';
 import type { KubernetesState } from './state.svelte';

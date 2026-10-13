@@ -2,12 +2,12 @@
 	// Per-service source repo editor for the /errors stack-trace links - Admin-only (gated by the
 	// caller), backed by SourceLinkEndpoints (ADR-0095). Same icon-triggered mini-form popover as
 	// ApdexThresholdPopover.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import LinkIcon from '@lucide/svelte/icons/link-2';
-	import type { SourceLinkConfig, SourceLinkProvider } from '$lib/errors/source-links';
-	import * as m from '$lib/paraglide/messages';
+	import type { SourceLinkConfig, SourceLinkProvider } from '#lib/errors/source-links.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		serviceName,

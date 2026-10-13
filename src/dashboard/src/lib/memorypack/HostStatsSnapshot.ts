@@ -4,11 +4,11 @@
 // `PerCoreUsagePercent` member is an `IReadOnlyList<double>` (see
 // `PipelineServiceBreakdown.ts`'s header comment for why `IReadOnlyList<T>` alone blocks
 // `[GenerateTypeScript]`) and it also has its own `DateTimeOffset? UpdatedAt` - see
-// `$lib/memorypack/date-time-offset.ts`'s header comment.
+// `#lib/memorypack/date-time-offset.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class HostStatsSnapshot {
 	available: boolean;

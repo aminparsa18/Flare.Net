@@ -1,10 +1,10 @@
 <script lang="ts">
 	// Attach (or replace) the tracker issue a group is linked to - a plain URL, validated
 	// server-side as http(s) (ADR-0195).
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { open = $bindable(false), current, onSave }: { open: boolean; current: string; onSave: (url: string) => Promise<void> } = $props();
 

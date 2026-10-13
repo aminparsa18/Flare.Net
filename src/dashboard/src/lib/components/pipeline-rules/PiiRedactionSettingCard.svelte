@@ -2,10 +2,10 @@
 	// Admin override of managed PII redaction (ADR-0199, ADR-0210). The API cannot see Ingest's own
 	// configuration, so the honest states are "follow configuration" / "force on" / "force off".
 	import { onMount } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { authContext } from '$lib/auth/context';
-	import { clearPiiRedaction, getPiiRedaction, setPiiRedaction, type PiiRedactionSetting } from '$lib/runtime-settings-api';
-	import * as m from '$lib/paraglide/messages';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { clearPiiRedaction, getPiiRedaction, setPiiRedaction, type PiiRedactionSetting } from '#lib/runtime-settings-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 

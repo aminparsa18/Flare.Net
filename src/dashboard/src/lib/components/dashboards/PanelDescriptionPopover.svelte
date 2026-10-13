@@ -3,11 +3,11 @@
 	// same "small icon-triggered popover with a mini form" shape as YAxisBoundsPopover.svelte.
 	// Edit-mode only (see DashboardPanelCard.svelte's own gating); the description itself is
 	// shown in both modes, as the info icon next to the panel title.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
 	import NotebookPenIcon from '@lucide/svelte/icons/notebook-pen';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		description,

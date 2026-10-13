@@ -1,6 +1,6 @@
 // "Host health" section: turns the raw HostStatsSnapshot numbers already on this panel
 // into verdicts - same "answer the actual question, don't just expose the number"
-// principle behind $lib/indexing/storage-health.ts, whose {tone, title, detail} shape and
+// principle behind #lib/indexing/storage-health.ts, whose {tone, title, detail} shape and
 // one-check-function-per-row structure this mirrors wholesale rather than inventing a new
 // pattern.
 //
@@ -17,7 +17,7 @@
 import { WARNING_THRESHOLD_PERCENT } from './thresholds';
 import { formatBytes } from '../ingestion/format';
 import type { HostStatsSnapshot, ResourceGraphSnapshot } from '../api';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 export type HostHealthTone = 'good' | 'warning';
 

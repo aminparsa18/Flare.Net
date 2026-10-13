@@ -1,5 +1,5 @@
-import * as m from '$lib/paraglide/messages';
-import type { AlertSeverity } from '$lib/alerts-api';
+import * as m from '#lib/paraglide/messages.js';
+import type { AlertSeverity } from '#lib/alerts-api.ts';
 
 /** Localized name of an alert rule's severity. */
 export function severityLabel(severity: AlertSeverity): string {

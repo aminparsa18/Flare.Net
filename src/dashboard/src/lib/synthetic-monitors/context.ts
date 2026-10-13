@@ -1,4 +1,4 @@
-import { createContext } from '$lib/notification-channels/context';
+import { createContext } from '#lib/notification-channels/context.ts';
 import type { SyntheticMonitorsState } from './state.svelte';
 
 /** The settings page calls `.set(new SyntheticMonitorsState())`; descendants call `.get()`. */

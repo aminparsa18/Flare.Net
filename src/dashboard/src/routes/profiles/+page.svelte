@@ -5,17 +5,17 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { withBase } from '$lib/paths';
-	import { getFlameGraph, getProfileTypes, type FlameGraphResponse, type ProfileTypeInfo } from '$lib/profiles-api';
-	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '$lib/services/state.svelte';
-	import ProfileFlameGraph from '$lib/components/profiles/ProfileFlameGraph.svelte';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { withBase } from '#lib/paths.ts';
+	import { getFlameGraph, getProfileTypes, type FlameGraphResponse, type ProfileTypeInfo } from '#lib/profiles-api.ts';
+	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
+	import ProfileFlameGraph from '#lib/components/profiles/ProfileFlameGraph.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const params = page.url.searchParams;
 	let windowPreset = $state<ServicesWindowPreset>((params.get('window') as ServicesWindowPreset) || '1h');

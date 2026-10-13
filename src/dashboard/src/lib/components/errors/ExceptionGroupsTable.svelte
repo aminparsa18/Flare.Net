@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { lazyNumberFormat } from '$lib/format/number';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { lazyNumberFormat } from '#lib/format/number.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import BugIcon from '@lucide/svelte/icons/bug';
-	import { errorsExplorerContext } from '$lib/errors/context';
-	import { authContext } from '$lib/auth/context';
+	import { errorsExplorerContext } from '#lib/errors/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import ErrorIssueStatus from './ErrorIssueStatus.svelte';
 	import ErrorIssueActions from './ErrorIssueActions.svelte';
-	import type { ErrorsSortColumn } from '$lib/errors/state.svelte';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import type { ErrorsSortColumn } from '#lib/errors/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	const errors = errorsExplorerContext.get();
 	const auth = authContext.get();

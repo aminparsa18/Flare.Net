@@ -3,9 +3,9 @@
 // in declared order. Can't carry `[GenerateTypeScript]`: `Attributes` is an
 // `IReadOnlyList<T>` (see ADR-0016).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { SpanAttributeFilter } from '$lib/memorypack/SpanAttributeFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { SpanAttributeFilter } from '#lib/memorypack/SpanAttributeFilter.ts';
 
 const MEMBER_COUNT = 6;
 

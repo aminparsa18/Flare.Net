@@ -2,22 +2,22 @@
 	// One SLO's drill-down: SLI vs target, the error budget burn-down over its window, the burn
 	// rate over the standard alerting windows, and the burn-rate alert rules that watch it (with a
 	// one-click way to create the standard fast/slow pair). See docs-internal/adr/0108-slo-error-budgets.md.
-	import * as Sheet from '$lib/components/ui/sheet';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
 	import BudgetChart from './BudgetChart.svelte';
-	import { authContext } from '$lib/auth/context';
-	import { getSloStatus, type Slo, type SloStatus } from '$lib/slos-api';
-	import { createAlertRule, deleteAlertRule, listAlertRules, listAlertRuleStatuses, type AlertRule, type AlertRuleStatus } from '$lib/alerts-api';
-	import { listNotificationChannels, type NotificationChannel } from '$lib/notification-channels-api';
-	import { BURN_ALERT_PRESETS, burnRateThreshold, formatBurnRate, formatWindow, type BurnAlertPreset } from '$lib/slos/burn-rate';
-	import { budgetSeries, formatBudget } from '$lib/slos/budget';
-	import { formatCount } from '$lib/ingestion/format';
-	import { withBase } from '$lib/paths';
-	import * as m from '$lib/paraglide/messages';
+	import { authContext } from '#lib/auth/context.ts';
+	import { getSloStatus, type Slo, type SloStatus } from '#lib/slos-api.ts';
+	import { createAlertRule, deleteAlertRule, listAlertRules, listAlertRuleStatuses, type AlertRule, type AlertRuleStatus } from '#lib/alerts-api.ts';
+	import { listNotificationChannels, type NotificationChannel } from '#lib/notification-channels-api.ts';
+	import { BURN_ALERT_PRESETS, burnRateThreshold, formatBurnRate, formatWindow, type BurnAlertPreset } from '#lib/slos/burn-rate.ts';
+	import { budgetSeries, formatBudget } from '#lib/slos/budget.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import { withBase } from '#lib/paths.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 

@@ -7,18 +7,18 @@
 	// settings only take effect after a Flare.Api restart (same OpenIdConnectOptions
 	// per-process caching reason - see OidcOpenIdConnectOptionsConfigurator's remarks) -
 	// deliberately not attempting to detect/poll for that, just saying so.
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Switch } from '$lib/components/ui/switch';
-	import * as Select from '$lib/components/ui/select';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { oidcSettingsContext } from '$lib/oidc-settings/context';
-	import type { UserRole } from '$lib/auth-api';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { oidcSettingsContext } from '#lib/oidc-settings/context.ts';
+	import type { UserRole } from '#lib/auth-api.ts';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const oidc = oidcSettingsContext.get();
 

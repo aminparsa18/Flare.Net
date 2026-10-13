@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
-	import type { CaseSuggestion } from '$lib/case-suggestions';
-	import * as m from '$lib/paraglide/messages';
+	import { formatNumber } from '#lib/format/number.ts';
+	import type { CaseSuggestion } from '#lib/case-suggestions.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { suggestions, onApply }: { suggestions: CaseSuggestion[]; onApply: (s: CaseSuggestion) => void } = $props();
 </script>

@@ -18,22 +18,22 @@
 	//   instead of linking to something that doesn't exist.
 	// - Service names are clickable for Logs/Traces, landing pre-filtered in that signal's
 	//   Explorer via the same deep-link mechanism MetricChart's "View related logs"/"View
-	//   traces" actions already use ($lib/deep-links.ts) - reused wholesale, not
+	//   traces" actions already use (#lib/deep-links.ts) - reused wholesale, not
 	//   reinvented. Metrics has no equivalent target: MetricPicker selects a specific
 	//   (metricName, serviceName) pair, and this table only knows the service, not which
 	//   metric - so Metrics service names stay plain text rather than linking to a picker
 	//   that still can't land on anything without a metric name to go with it.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatBytes, formatClockSkew, formatCount, signalLabel } from '$lib/ingestion/format';
-	import { CLOCK_SKEW_WARN_MS, clockSkewTone, type FlushStatusTone } from '$lib/ingestion/health';
-	import { INGESTION_WINDOW_PRESETS } from '$lib/ingestion/state.svelte';
-	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
-	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import type { IngestionSignal } from '$lib/ingestion-api';
-	import type { PipelineServiceEntry } from '$lib/pipeline-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { formatBytes, formatClockSkew, formatCount, signalLabel } from '#lib/ingestion/format.ts';
+	import { CLOCK_SKEW_WARN_MS, clockSkewTone, type FlushStatusTone } from '#lib/ingestion/health.ts';
+	import { INGESTION_WINDOW_PRESETS } from '#lib/ingestion/state.svelte.ts';
+	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '#lib/deep-links.ts';
+	import type { TimeRangePreset } from '#lib/logs/time-range.ts';
+	import type { IngestionSignal } from '#lib/ingestion-api.ts';
+	import type { PipelineServiceEntry } from '#lib/pipeline-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// Same tone-to-text-class convention as PipelineFlushHealthTable - only 'default'/
 	// 'warning' are ever produced by clockSkewTone, but typed against the full palette

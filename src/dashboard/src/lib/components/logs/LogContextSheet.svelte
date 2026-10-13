@@ -11,18 +11,18 @@
 	// SpanDurationNano (see its own remarks), so a Duration column here would just be a
 	// column of "—" - LogRow's existing `live` prop already means exactly "leave the
 	// Duration column out", it's just being reused for a second reason it happens to fit.
-	import * as Sheet from '$lib/components/ui/sheet';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
 	import LogRow from './LogRow.svelte';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { buildLogContextDeepLinkHref } from '$lib/deep-links';
-	import * as m from '$lib/paraglide/messages';
-	import { formatTimestamp } from '$lib/time/format';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { buildLogContextDeepLinkHref } from '#lib/deep-links.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatTimestamp } from '#lib/time/format.ts';
 
 	const explorer = logsExplorerContext.get();
 

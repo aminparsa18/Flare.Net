@@ -2,21 +2,21 @@
 	// Releases (ADR-0182): versions CI (or `flare releases mark`) has marked as deployed, with the
 	// exception groups each one introduced. The marking is a PUT from a pipeline; this page reads it.
 	import { onMount } from 'svelte';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { safeHttpUrl } from '$lib/safe-url';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { deleteRelease, getReleaseErrors, listReleases, type Release, type ReleaseErrors } from '$lib/releases-api';
-	import { buildServiceVersionErrorsHref } from '$lib/deep-links';
-	import { formatDateTime } from '$lib/time/format';
-	import { authContext } from '$lib/auth/context';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { safeHttpUrl } from '#lib/safe-url.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { deleteRelease, getReleaseErrors, listReleases, type Release, type ReleaseErrors } from '#lib/releases-api.ts';
+	import { buildServiceVersionErrorsHref } from '#lib/deep-links.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import RocketIcon from '@lucide/svelte/icons/rocket';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 

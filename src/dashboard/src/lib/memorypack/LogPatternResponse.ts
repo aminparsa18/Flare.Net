@@ -3,9 +3,9 @@
 // Can't carry `[GenerateTypeScript]` itself because its one member's type, `LogPatternRow`,
 // has `DateTimeOffset` members - see `LogPatternRow.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogPatternRow } from '$lib/memorypack/LogPatternRow';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogPatternRow } from '#lib/memorypack/LogPatternRow.ts';
 
 export class LogPatternResponse {
 	patterns: (LogPatternRow | null)[] | null;

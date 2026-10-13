@@ -3,9 +3,9 @@
 // timestamp, the same instant in the display zone, then one column per series labeled like
 // the legend. Values are raw (unscaled, no unit suffix); a bucket a series has no point in is
 // an empty cell.
-import { displayTimeZone } from '$lib/time/display-zone.svelte';
-import { formatDateTime } from '$lib/time/format';
-import { downloadBlob } from '$lib/logs/export';
+import { displayTimeZone } from '#lib/time/display-zone.svelte.ts';
+import { formatDateTime } from '#lib/time/format.ts';
+import { downloadBlob } from '#lib/logs/export.ts';
 import { slugify } from './state.svelte';
 import { toCsv } from './visualization';
 

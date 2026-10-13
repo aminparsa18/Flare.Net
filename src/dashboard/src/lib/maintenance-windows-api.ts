@@ -3,18 +3,18 @@
 // `docs-internal/adr/0055-alert-maintenance-windows.md`.
 //
 // MemoryPack over the wire, same shape as `notification-channels-api.ts`. Every type here is
-// hand-written (`$lib/memorypack/MaintenanceWindow*.ts`) - `DateTimeOffset`/`IReadOnlyList<T>`
-// members. `recurrence` converts through `$lib/memorypack/enums.ts`.
+// hand-written (`#lib/memorypack/MaintenanceWindow*.ts`) - `DateTimeOffset`/`IReadOnlyList<T>`
+// members. `recurrence` converts through `#lib/memorypack/enums.ts`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import {
 	maintenanceWindowRecurrenceFromString,
 	maintenanceWindowRecurrenceToString,
 	type MaintenanceWindowRecurrenceName
-} from '$lib/memorypack/enums';
-import { MaintenanceWindow as GeneratedMaintenanceWindow } from '$lib/memorypack/MaintenanceWindow';
-import { MaintenanceWindowRequest as GeneratedMaintenanceWindowRequest } from '$lib/memorypack/MaintenanceWindowRequest';
-import { MaintenanceWindowListResponse as GeneratedMaintenanceWindowListResponse } from '$lib/memorypack/MaintenanceWindowListResponse';
+} from '#lib/memorypack/enums.ts';
+import { MaintenanceWindow as GeneratedMaintenanceWindow } from '#lib/memorypack/MaintenanceWindow.ts';
+import { MaintenanceWindowRequest as GeneratedMaintenanceWindowRequest } from '#lib/memorypack/MaintenanceWindowRequest.ts';
+import { MaintenanceWindowListResponse as GeneratedMaintenanceWindowListResponse } from '#lib/memorypack/MaintenanceWindowListResponse.ts';
 
 export type MaintenanceWindowRecurrence = MaintenanceWindowRecurrenceName;
 

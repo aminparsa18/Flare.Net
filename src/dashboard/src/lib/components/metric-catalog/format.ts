@@ -1,8 +1,8 @@
 // Shared display helpers for the Metrics catalog table and its drill-down sheet.
 
-import { formatNumber } from '$lib/format/number';
-import type { MetricPointType } from '$lib/metrics-api';
-import * as m from '$lib/paraglide/messages';
+import { formatNumber } from '#lib/format/number.ts';
+import type { MetricPointType } from '#lib/metrics-api.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 // OTel names for the point types - technical terms, not translated (same as MetricPicker's
 // badge labels).

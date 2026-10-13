@@ -3,9 +3,9 @@
 // `ServiceDependencyRequest` field-for-field - same shape and same reason it can't carry
 // `[GenerateTypeScript]` as `ServiceOverviewRequest`.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ResourceAttributeFilter } from '$lib/generated/memorypack/ResourceAttributeFilter.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ResourceAttributeFilter } from '#lib/generated/memorypack/ResourceAttributeFilter.ts';
 
 export class ServiceDependencyRequest {
 	windowMinutes: number | null;

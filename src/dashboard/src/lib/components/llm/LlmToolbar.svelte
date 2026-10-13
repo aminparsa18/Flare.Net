@@ -1,13 +1,13 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import { llmContext } from '$lib/llm/context';
-	import { LLM_WINDOW_PRESETS, type LlmWindowPreset } from '$lib/llm/state.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { llmContext } from '#lib/llm/context.ts';
+	import { LLM_WINDOW_PRESETS, type LlmWindowPreset } from '#lib/llm/state.svelte.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const llm = llmContext.get();
 

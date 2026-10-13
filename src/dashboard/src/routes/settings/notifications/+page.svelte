@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { notificationPrefs } from '$lib/notifications/prefs.svelte';
-	import { browserNotificationsSupported } from '$lib/notifications/alert-watcher.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { notificationPrefs } from '#lib/notifications/prefs.svelte.ts';
+	import { browserNotificationsSupported } from '#lib/notifications/alert-watcher.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const rowClass = 'flex items-center justify-between gap-4 rounded-lg border p-3 text-sm';
 	const supported = browserNotificationsSupported();

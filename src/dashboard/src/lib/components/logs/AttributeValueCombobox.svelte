@@ -15,7 +15,7 @@
 	// cross-page reuse convention `PopoverMultiSelect.svelte` (this directory) already
 	// establishes, since the two pages' attribute-filter builders are otherwise identical.
 	//
-	// Deliberately not built on `$lib/components/ui/command` (bits-ui's Command primitive):
+	// Deliberately not built on `#lib/components/ui/command/index.ts` (bits-ui's Command primitive):
 	// that component owns its own search-text state and client-side substring filtering,
 	// neither of which fits here - the "search text" and the row's committed `value` need
 	// to be the exact same string (a plain, always-editable input), and filtering is
@@ -23,10 +23,10 @@
 	// minimal hand-rolled dropdown, anchored to the input via ordinary CSS (`relative` +
 	// `absolute`), sidesteps also having to fight a portal-positioned popover's focus-trap
 	// behavior mid-keystroke.
-	import { Input } from '$lib/components/ui/input';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { cn } from '$lib/utils';
-	import * as m from '$lib/paraglide/messages';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { cn } from '#lib/utils.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		value,

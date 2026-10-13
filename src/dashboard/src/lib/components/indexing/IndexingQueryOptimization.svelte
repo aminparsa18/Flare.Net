@@ -12,11 +12,11 @@
 	// queries benefited from data skipping") - see Planning.md's "Later" section for why:
 	// ClickHouse doesn't expose that as reliable, always-on telemetry the way query_log's
 	// duration/count already are, and a made-up number would be worse than none.
-	import * as Card from '$lib/components/ui/card';
-	import { indexingContext } from '$lib/indexing/context';
-	import { formatCount, formatMs } from '$lib/indexing/format';
-	import { latencyClass } from '$lib/indexing/health';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import { formatCount, formatMs } from '#lib/indexing/format.ts';
+	import { latencyClass } from '#lib/indexing/health.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.get();
 

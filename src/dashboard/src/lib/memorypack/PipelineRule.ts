@@ -2,15 +2,15 @@
 // generated. Mirrors `src/Flare.Api/Model/PipelineRuleModels.cs`'s `PipelineRule`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself: it has
 // its own `DateTimeOffset` `CreatedAt`/`UpdatedAt` and nests `LogFilter` (itself blocked -
-// see `$lib/memorypack/LogFilter.ts`'s header comment) and `IReadOnlyList<PipelineRuleAction>`
+// see `#lib/memorypack/LogFilter.ts`'s header comment) and `IReadOnlyList<PipelineRuleAction>`
 // (a list, same reason blocks the generator here even though `PipelineRuleAction` itself
-// *is* generated - see `$lib/generated/memorypack/PipelineRuleAction.ts`).
+// *is* generated - see `#lib/generated/memorypack/PipelineRuleAction.ts`).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { PipelineRuleAction } from '$lib/generated/memorypack/PipelineRuleAction.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { LogFilter } from '$lib/memorypack/LogFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { PipelineRuleAction } from '#lib/generated/memorypack/PipelineRuleAction.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
 
 export class PipelineRule {
 	id: string;

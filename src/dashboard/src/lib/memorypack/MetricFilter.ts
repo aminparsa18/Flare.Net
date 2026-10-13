@@ -1,14 +1,14 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/MetricModels.cs`'s `MetricFilter` field-for-field,
 // in declared order. Can't carry `[GenerateTypeScript]` itself because `From`/`To` are
-// `DateTimeOffset?` - see `$lib/memorypack/date-time-offset.ts`'s header comment.
+// `DateTimeOffset?` - see `#lib/memorypack/date-time-offset.ts`'s header comment.
 // `MetricAttributeFilter` has no such problem, so it's a real generated class, reused here
 // directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricAttributeFilter } from '$lib/generated/memorypack/MetricAttributeFilter.js';
-import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricAttributeFilter } from '#lib/generated/memorypack/MetricAttributeFilter.ts';
+import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class MetricFilter {
 	from: Date | null;

@@ -7,8 +7,8 @@
 // receiver's own default collection interval is 60s; polling faster would mostly re-fetch
 // identical numbers.
 
-import { getHostMetrics, listHosts, type HostMetricsResponse, type HostSummary } from '$lib/hosts-api';
-import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
+import { getHostMetrics, listHosts, type HostMetricsResponse, type HostSummary } from '#lib/hosts-api.ts';
+import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 // Same five presets as the Services tab - the server clamps both to the same 5m-24h range
 // (HostInventoryQueryBuilder.MinWindowMinutes/MaxWindowMinutes), so reusing its presets

@@ -4,7 +4,7 @@
 //
 // MemoryPack's TypeScript generator encodes a C# enum as its raw numeric ordinal (`const
 // enum UserRole { Admin = 0, Member = 1, Viewer = 2 }` - see
-// `$lib/generated/memorypack/UserRole.ts`), never its member name - unlike the JSON path,
+// `#lib/generated/memorypack/UserRole.ts`), never its member name - unlike the JSON path,
 // which used `UseStringEnumConverter` to put the name itself on the wire. Every one of
 // this dashboard's ~20 components that reads a role/status/kind field does so as a string
 // literal, not a number, and none of those components are in this migration's scope (only
@@ -16,12 +16,12 @@
 // literal the JSON path always produced, and return the same public interface shape this
 // module already exported - zero change needed outside `lib/`.
 
-import { UserRole } from '$lib/generated/memorypack/UserRole.js';
-import { IngestionSignal } from '$lib/generated/memorypack/IngestionSignal.js';
-import { ThresholdComparator } from '$lib/generated/memorypack/ThresholdComparator.js';
-import { MetricPointType } from '$lib/generated/memorypack/MetricPointType.js';
-import { MetricPostProcessFunctionType } from '$lib/generated/memorypack/MetricPostProcessFunctionType.js';
-import { LogPostProcessFunctionType } from '$lib/generated/memorypack/LogPostProcessFunctionType.js';
+import { UserRole } from '#lib/generated/memorypack/UserRole.ts';
+import { IngestionSignal } from '#lib/generated/memorypack/IngestionSignal.ts';
+import { ThresholdComparator } from '#lib/generated/memorypack/ThresholdComparator.ts';
+import { MetricPointType } from '#lib/generated/memorypack/MetricPointType.ts';
+import { MetricPostProcessFunctionType } from '#lib/generated/memorypack/MetricPostProcessFunctionType.ts';
+import { LogPostProcessFunctionType } from '#lib/generated/memorypack/LogPostProcessFunctionType.ts';
 
 /** Matches `AuthModels.cs`'s `Flare.Identity.Users.UserRole` member order exactly - see that file's remarks on why renaming a member is a schema/claims-breaking change, not just a rename (so this order is exactly as stable as the enum itself). */
 const USER_ROLE_NAMES = ['Admin', 'Member', 'Viewer'] as const;
@@ -49,7 +49,7 @@ export function ingestionSignalFromString(value: IngestionSignalName): Ingestion
 	return INGESTION_SIGNAL_NAMES.indexOf(value) as IngestionSignal;
 }
 
-/** Matches `IngestionModels.cs`'s `IngestionProtocol` member order. Not itself MemoryPack-TS-generated (no generated type references it - `IngestionBucketPoint`, its only consumer, is hand-written), so this is a plain hand-coded ordinal mapping, not paired with a `$lib/generated/memorypack/IngestionProtocol.js` import the way `IngestionSignal` above is. */
+/** Matches `IngestionModels.cs`'s `IngestionProtocol` member order. Not itself MemoryPack-TS-generated (no generated type references it - `IngestionBucketPoint`, its only consumer, is hand-written), so this is a plain hand-coded ordinal mapping, not paired with a `#lib/generated/memorypack/IngestionProtocol.js` import the way `IngestionSignal` above is. */
 const INGESTION_PROTOCOL_NAMES = ['Grpc', 'Http', 'Scrape'] as const;
 
 export type IngestionProtocolName = (typeof INGESTION_PROTOCOL_NAMES)[number];
@@ -238,7 +238,7 @@ export function anomalyDirectionFromString(value: AnomalyDirectionName): number 
 	return ANOMALY_DIRECTION_NAMES.indexOf(value);
 }
 
-/** Matches `NotificationChannelModels.cs`'s `NotificationChannelType` member order. Unlike `AlertConditionKindName` above, this one *is* MemoryPack-TS-generated (`$lib/generated/memorypack/NotificationChannelType.ts`) - this plain string/int converter pair exists anyway so `notification-channels-api.ts`'s plain `NotificationChannel`/`NotificationChannelRequest` interfaces can carry a readable string union, same "plain type at the app boundary, generated numeric enum only at the wire boundary" convention `thresholdComparatorToString`/`FromString` already set for a generated enum. */
+/** Matches `NotificationChannelModels.cs`'s `NotificationChannelType` member order. Unlike `AlertConditionKindName` above, this one *is* MemoryPack-TS-generated (`#lib/generated/memorypack/NotificationChannelType.ts`) - this plain string/int converter pair exists anyway so `notification-channels-api.ts`'s plain `NotificationChannel`/`NotificationChannelRequest` interfaces can carry a readable string union, same "plain type at the app boundary, generated numeric enum only at the wire boundary" convention `thresholdComparatorToString`/`FromString` already set for a generated enum. */
 const NOTIFICATION_CHANNEL_TYPE_NAMES = ['Webhook', 'Telegram', 'Email', 'PagerDuty', 'Teams', 'Discord', 'Jira', 'IncidentIo', 'JsmOps'] as const;
 
 export type NotificationChannelTypeName = (typeof NOTIFICATION_CHANNEL_TYPE_NAMES)[number];
@@ -264,7 +264,7 @@ export function metricAlertAggregationFromString(value: MetricAlertAggregationNa
 	return METRIC_ALERT_AGGREGATION_NAMES.indexOf(value);
 }
 
-/** Matches `PipelineRuleModels.cs`'s `RuleActionKind` member order. Unlike `AlertConditionKindName` above, this one *is* MemoryPack-TS-generated (`$lib/generated/memorypack/RuleActionKind.ts`) - this plain string/int converter pair exists anyway so `pipeline-rules-api.ts`'s plain `PipelineRuleAction` interface can carry a readable string union, same "plain type at the app boundary, generated numeric enum only at the wire boundary" convention `notificationChannelTypeToString`/`FromString` already set. */
+/** Matches `PipelineRuleModels.cs`'s `RuleActionKind` member order. Unlike `AlertConditionKindName` above, this one *is* MemoryPack-TS-generated (`#lib/generated/memorypack/RuleActionKind.ts`) - this plain string/int converter pair exists anyway so `pipeline-rules-api.ts`'s plain `PipelineRuleAction` interface can carry a readable string union, same "plain type at the app boundary, generated numeric enum only at the wire boundary" convention `notificationChannelTypeToString`/`FromString` already set. */
 const RULE_ACTION_KIND_NAMES = ['ExtractRegex', 'RedactRegex', 'ParseJson'] as const;
 
 export type RuleActionKindName = (typeof RULE_ACTION_KIND_NAMES)[number];

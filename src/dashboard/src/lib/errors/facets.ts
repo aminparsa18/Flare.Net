@@ -1,19 +1,19 @@
 // The /errors page's facet sidebar sections (FacetSidebar.svelte): Service, then one
 // section per chosen resource attribute. Counts are exception events (what the groups
 // table's Occurrences column counts), from `POST /api/errors/facet-values`. See
-// `$lib/traces/facets.ts` for the Traces counterpart.
+// `#lib/traces/facets.ts` for the Traces counterpart.
 //
 // Resource-attribute sections are single-select: ExceptionFilter.ResourceAttributes is
 // equality-only (see ResourceAttributeFilter.cs), so one key can hold one value. Picking a
 // value sets that key's filter chip in the resource-attribute row; picking another
 // replaces it.
 
-import { getExceptionFacetValues, type ExceptionFilter } from '$lib/errors-api';
-import type { FacetDefinition } from '$lib/facets/types';
-import type { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
-import type { ResourceAttributeFilter } from '$lib/services-api';
+import { getExceptionFacetValues, type ExceptionFilter } from '#lib/errors-api.ts';
+import type { FacetDefinition } from '#lib/facets/types.ts';
+import type { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
+import type { ResourceAttributeFilter } from '#lib/services-api.ts';
 import type { ErrorsExplorerState } from './state.svelte';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 const FACET_LIMIT = 50;
 

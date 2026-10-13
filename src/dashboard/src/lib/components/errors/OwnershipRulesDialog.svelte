@@ -2,18 +2,18 @@
 	// Editor for the ordered ownership rules (ADR-0195): glob on a service name or exception type
 	// -> owner username. First match wins; an explicit assignee always beats a rule. Edited as a
 	// draft and saved as one list.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { errorsExplorerContext } from '$lib/errors/context';
-	import { parseCodeowners, type OwnershipKind, type OwnershipRule } from '$lib/errors/ownership';
-	import * as m from '$lib/paraglide/messages';
+	import { errorsExplorerContext } from '#lib/errors/context.ts';
+	import { parseCodeowners, type OwnershipKind, type OwnershipRule } from '#lib/errors/ownership.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { open = $bindable(false) }: { open: boolean } = $props();
 

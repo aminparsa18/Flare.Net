@@ -5,11 +5,11 @@
 // `MetricCatalogRelatedMetric` are real generated classes; `MetricCatalogAttributeInfo` is
 // hand-written alongside this file.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricCatalogServiceInfo } from '$lib/generated/memorypack/MetricCatalogServiceInfo.js';
-import { MetricCatalogRelatedMetric } from '$lib/generated/memorypack/MetricCatalogRelatedMetric.js';
-import { MetricCatalogAttributeInfo } from '$lib/memorypack/MetricCatalogAttributeInfo';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricCatalogServiceInfo } from '#lib/generated/memorypack/MetricCatalogServiceInfo.ts';
+import { MetricCatalogRelatedMetric } from '#lib/generated/memorypack/MetricCatalogRelatedMetric.ts';
+import { MetricCatalogAttributeInfo } from '#lib/memorypack/MetricCatalogAttributeInfo.ts';
 
 export class MetricCatalogDetailResponse {
 	metricName: string;

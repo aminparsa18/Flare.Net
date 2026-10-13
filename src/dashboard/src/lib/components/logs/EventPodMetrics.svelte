@@ -4,10 +4,10 @@
 	// `kubeletstats` receiver (POST /api/pods/metrics) over a window centred on the log,
 	// plus CPU/memory as a % of the pod's limits when the collector sends those opt-in
 	// metrics - the "against its limits" view is the one that explains throttling/OOM kills.
-	import HostMetricChart from '$lib/components/hosts/HostMetricChart.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { getPodMetrics, type PodMetricsPoint, type PodMetricsResponse } from '$lib/pods-api';
-	import * as m from '$lib/paraglide/messages';
+	import HostMetricChart from '#lib/components/hosts/HostMetricChart.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { getPodMetrics, type PodMetricsPoint, type PodMetricsResponse } from '#lib/pods-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	interface Props {
 		podName: string;

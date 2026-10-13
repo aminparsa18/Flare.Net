@@ -1,13 +1,13 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/MetricModels.cs`'s `MetricAttributeKeysRequest`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
-// nests `MetricFilter` (blocked - see `$lib/memorypack/MetricFilter.ts`'s header comment).
+// nests `MetricFilter` (blocked - see `#lib/memorypack/MetricFilter.ts`'s header comment).
 // `type` is a raw MemoryPack numeric ordinal (converted to string at `metrics-api.ts`'s
-// module boundary via `$lib/memorypack/enums.ts`'s `metricPointTypeFromString`).
+// module boundary via `#lib/memorypack/enums.ts`'s `metricPointTypeFromString`).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricFilter } from '$lib/memorypack/MetricFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricFilter } from '#lib/memorypack/MetricFilter.ts';
 
 export class MetricAttributeKeysRequest {
 	metricName: string | null;

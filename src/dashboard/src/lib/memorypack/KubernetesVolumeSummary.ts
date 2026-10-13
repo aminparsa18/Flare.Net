@@ -1,11 +1,11 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/KubernetesWorkloadModels.cs`'s `KubernetesVolumeSummary`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]`
-// itself because it has a `DateTimeOffset` member - see `$lib/memorypack/date-time-offset.ts`.
+// itself because it has a `DateTimeOffset` member - see `#lib/memorypack/date-time-offset.ts`.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class KubernetesVolumeSummary {
 	volumeName: string;

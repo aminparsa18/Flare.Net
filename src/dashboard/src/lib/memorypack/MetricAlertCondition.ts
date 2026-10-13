@@ -1,14 +1,14 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `MetricAlertCondition`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
-// nests `MetricFilter` (blocked - see `$lib/memorypack/MetricFilter.ts`'s header comment).
+// nests `MetricFilter` (blocked - see `#lib/memorypack/MetricFilter.ts`'s header comment).
 // `type`/`aggregation` are plain numbers, not imported generated enums - see
-// `$lib/memorypack/enums.ts`'s `AlertConditionKindName`/`MetricAlertAggregationName` remarks
+// `#lib/memorypack/enums.ts`'s `AlertConditionKindName`/`MetricAlertAggregationName` remarks
 // for why.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricFilter } from '$lib/memorypack/MetricFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricFilter } from '#lib/memorypack/MetricFilter.ts';
 
 export class MetricAlertCondition {
 	metricName: string | null;

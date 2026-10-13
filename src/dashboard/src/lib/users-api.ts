@@ -5,17 +5,17 @@
 // `SetUserRoleRequest`/`SetUserDisabledRequest` have no DateTimeOffset/JsonElement member,
 // so they use real generated classes; the response type, `UserSummaryDto`/`UserListResponse`,
 // has a `DateTimeOffset CreatedAt` field MemoryPack's TypeScript generator can't map (see
-// `$lib/memorypack/UserSummaryDto.ts`'s header comment), so those two are hand-written
+// `#lib/memorypack/UserSummaryDto.ts`'s header comment), so those two are hand-written
 // instead - the first fully migrated "blocked" file, proving that pattern end-to-end
 // against a live server (see the investigation doc's Phase 2 live e2e section).
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import type { AuthProvider, UserRole } from './auth-api';
-import { userRoleFromString, userRoleToString } from '$lib/memorypack/enums';
-import { UserSummaryDto } from '$lib/memorypack/UserSummaryDto';
-import { UserListResponse } from '$lib/memorypack/UserListResponse';
-import { SetUserRoleRequest } from '$lib/generated/memorypack/SetUserRoleRequest.js';
-import { SetUserDisabledRequest } from '$lib/generated/memorypack/SetUserDisabledRequest.js';
+import { userRoleFromString, userRoleToString } from '#lib/memorypack/enums.ts';
+import { UserSummaryDto } from '#lib/memorypack/UserSummaryDto.ts';
+import { UserListResponse } from '#lib/memorypack/UserListResponse.ts';
+import { SetUserRoleRequest } from '#lib/generated/memorypack/SetUserRoleRequest.ts';
+import { SetUserDisabledRequest } from '#lib/generated/memorypack/SetUserDisabledRequest.ts';
 
 export interface UserSummary {
 	id: string;

@@ -1,5 +1,5 @@
-import type { LogFilter } from '$lib/api';
-import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
+import type { LogFilter } from '#lib/api.ts';
+import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '#lib/logs/severity.ts';
 
 /** Fields ingest ignores (`PipelineRuleConditionMatcher` evaluates a single log, not a time range or a trace). Dropped from a saved condition. */
 const IGNORED_FIELDS = ['from', 'to', 'traceId', 'spanId'] as const;

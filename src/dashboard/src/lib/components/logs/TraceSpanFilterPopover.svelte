@@ -1,13 +1,13 @@
 <script lang="ts">
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { emptyTraceSpanFilter, isTraceSpanFilterActive } from '$lib/logs/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { emptyTraceSpanFilter, isTraceSpanFilterActive } from '#lib/logs/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// "Logs from traces where a `payments` span errored or took > 2s" - the explorer's
 	// LogFilter.traceSpanFilter. Every edit applies immediately, same as the other toolbar

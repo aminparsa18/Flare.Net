@@ -3,12 +3,12 @@
 	// icon-triggered mini-form shape as ColumnUnitsPopover.svelte. Blank keeps auto
 	// (magnitude-based) formatting; 0-6 pins the fraction digits everywhere the panel
 	// formats a value. Only rendered by DashboardPanelCard.svelte while `editing`.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { parseDecimals } from '$lib/metrics/axis';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { parseDecimals } from '#lib/metrics/axis.ts';
 	import HashIcon from '@lucide/svelte/icons/hash';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		decimals,

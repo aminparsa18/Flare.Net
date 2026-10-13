@@ -2,23 +2,23 @@
 	// Create/edit a managed OTLP forwarding target (ADR-0157). Mounted only while open, so the form state
 	// initialises once from `target` instead of being re-synced by an effect. Header values arrive masked;
 	// leaving a masked value untouched keeps the stored one (NotificationSecrets server-side).
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Input } from '$lib/components/ui/input';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import type { IngestApiKeyDto } from '$lib/ingest-keys-api';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import type { IngestApiKeyDto } from '#lib/ingest-keys-api.ts';
 	import {
 		TELEMETRY_SIGNALS,
 		saveForwardingTarget,
 		type ForwardingTarget,
 		type ForwardingTargetRequest,
 		type TelemetrySignal
-	} from '$lib/telemetry-export-api';
-	import { formatHeaderLines, parseHeaderLines, parseList } from '$lib/telemetry-export/format';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/telemetry-export-api.ts';
+	import { formatHeaderLines, parseHeaderLines, parseList } from '#lib/telemetry-export/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		target,

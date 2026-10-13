@@ -1,22 +1,22 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/LogAggregateRequest.cs`'s `LogAggregateRequest`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
-// nests `LogFilter` (blocked - see `$lib/memorypack/LogFilter.ts`'s header comment).
+// nests `LogFilter` (blocked - see `#lib/memorypack/LogFilter.ts`'s header comment).
 // `groupBy` is a raw MemoryPack numeric ordinal (converted to string at `api.ts`'s module
-// boundary via `$lib/memorypack/enums.ts`'s `logAggregateGroupByFromString`).
+// boundary via `#lib/memorypack/enums.ts`'s `logAggregateGroupByFromString`).
 // `postProcessFunctions` was appended after every pre-existing field for ADR-0041's
 // post-processing chain, same versioning convention `MetricQueryRequest.ts`'s own
 // `postProcessFunctions` append documents - `LogPostProcessFunction` itself has no
 // DateTimeOffset/nesting problem, so it's a real generated class
-// (`$lib/generated/memorypack/LogPostProcessFunction.js`), reused here directly.
+// (`#lib/generated/memorypack/LogPostProcessFunction.ts`), reused here directly.
 // `groupByAttributeBag`/`groupByAttributeKey` were appended after that, same convention -
-// the bag is a raw `AttributeBag` ordinal (`$lib/memorypack/enums.ts`'s
+// the bag is a raw `AttributeBag` ordinal (`#lib/memorypack/enums.ts`'s
 // `attributeBagFromString`). `groupByBodyJsonPath` was appended last the same way.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogFilter } from '$lib/memorypack/LogFilter';
-import { LogPostProcessFunction } from '$lib/generated/memorypack/LogPostProcessFunction.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
+import { LogPostProcessFunction } from '#lib/generated/memorypack/LogPostProcessFunction.ts';
 
 export class LogAggregateRequest {
 	filter: LogFilter | null;

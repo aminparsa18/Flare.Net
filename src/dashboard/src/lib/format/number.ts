@@ -1,8 +1,8 @@
 // The one place numbers are formatted for display. Follows Settings > Regional > Number format
-// ($lib/regional): "auto" keeps the browser's own locale (what `toLocaleString()` did before), the
+// (#lib/regional): "auto" keeps the browser's own locale (what `toLocaleString()` did before), the
 // others pin a separator style. Formatters are cached per locale + options, and `formatNumber`
 // reads the setting on every call, so templates/$derived re-render when it changes.
-import { regional } from '$lib/regional/prefs.svelte';
+import { regional } from '#lib/regional/prefs.svelte.ts';
 
 const cache = new Map<string, Intl.NumberFormat>();
 

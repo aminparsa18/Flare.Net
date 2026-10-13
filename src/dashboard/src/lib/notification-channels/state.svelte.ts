@@ -1,5 +1,5 @@
 // Central reactive state for the Notification Channels page - mirrors AlertsState's shape
-// (`$lib/alerts/state.svelte.ts`): a class with `$state` fields, provided via
+// (`#lib/alerts/state.svelte.ts`): a class with `$state` fields, provided via
 // `notificationChannelsContext` rather than passed as props. Create/edit/delete, same
 // shape as alert rules (unlike access tokens, which are create-only) - plus a "send test"
 // action, mirroring the alert form's own send-test button but scoped to one channel with
@@ -13,7 +13,7 @@ import {
 	sendTestNotificationChannel,
 	type NotificationChannel,
 	type NotificationChannelRequest
-} from '$lib/notification-channels-api';
+} from '#lib/notification-channels-api.ts';
 
 export class NotificationChannelsState {
 	channels = $state.raw<NotificationChannel[]>([]);

@@ -1,5 +1,5 @@
 // Central reactive state for the Metrics page - mirrors TracesExplorerState's shape
-// (`$lib/traces/state.svelte.ts`): a class with `$state` fields, provided via
+// (`#lib/traces/state.svelte.ts`): a class with `$state` fields, provided via
 // `metricsExplorerContext` rather than passed as props. No live-tail here either, same
 // "the chart is the value, not a firehose" reasoning traces/spans already established.
 //
@@ -10,8 +10,8 @@
 // With `filter.compareEnabled` on, the series query becomes two parallel /query calls
 // (current + previous period) - see runQuery's own remarks.
 
-import { regional } from '$lib/regional/prefs.svelte';
-import { explorerPrefs } from '$lib/explorer/prefs.svelte';
+import { regional } from '#lib/regional/prefs.svelte.ts';
+import { explorerPrefs } from '#lib/explorer/prefs.svelte.ts';
 import {
 	getMetricNames,
 	isHistogramType,
@@ -24,9 +24,9 @@ import {
 	type MetricPointType,
 	type MetricPostProcessFunction,
 	type MetricSeries
-} from '$lib/metrics-api';
-import { resolveTimeRange, rangeSeconds, previousPeriod, shiftRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
-import { resolveBucketWidthSeconds, normalizeBucketWidthSeconds } from '$lib/logs/bucket-width';
+} from '#lib/metrics-api.ts';
+import { resolveTimeRange, rangeSeconds, previousPeriod, shiftRange, type TimeRangePreset, type ResolvedTimeRange } from '#lib/logs/time-range.ts';
+import { resolveBucketWidthSeconds, normalizeBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
 import { parseFormula, evaluateFormula, collectRefs } from './formula';
 import { parseYAxisScale, type YAxisScale } from './axis';
 
@@ -69,7 +69,7 @@ export interface MetricsFilterState {
 	 * result on the same x-axis as "N ago", e.g. exactly 7 days back regardless of the
 	 * displayed range's own width. Distinct from `compareEnabled`, whose shift is always
 	 * derived from the displayed range's own duration ("one full period back") - see
-	 * `shiftRange`/`previousPeriod` in `$lib/logs/time-range.ts` for the two different
+	 * `shiftRange`/`previousPeriod` in `#lib/logs/time-range.ts` for the two different
 	 * shift computations this drives in `runQuery`. Mutually exclusive with
 	 * `compareEnabled` - see `setTimeShiftSeconds`/`setCompareEnabled`'s own remarks, only
 	 * one overlay line at a time. `null` = off. Same "real display preference, not a

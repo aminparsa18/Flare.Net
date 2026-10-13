@@ -8,12 +8,12 @@
 	// Thresholds are value rules, and values are the X axis here, so a bin takes the color of
 	// the first rule matching its midpoint rather than drawing a horizontal line - "red above
 	// 500 ms" turns the slow tail red.
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
-	import { SERIES_COLOR_VARS } from '$lib/metrics/chart-colors';
-	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
-	import { histogramBins, type VizSeries } from '$lib/dashboards/visualization';
-	import * as m from '$lib/paraglide/messages';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '#lib/metrics/axis.ts';
+	import { SERIES_COLOR_VARS } from '#lib/metrics/chart-colors.ts';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '#lib/dashboards/thresholds.ts';
+	import { histogramBins, type VizSeries } from '#lib/dashboards/visualization.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		series,

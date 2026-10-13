@@ -1,25 +1,25 @@
 <script lang="ts">
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { RangeCalendar } from '$lib/components/ui/range-calendar';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { RangeCalendar } from '#lib/components/ui/range-calendar/index.ts';
 	import type { DateValue } from '@internationalized/date';
-	import { displayTimeZone } from '$lib/time/display-zone.svelte';
+	import { displayTimeZone } from '#lib/time/display-zone.svelte.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { logsExplorerContext } from '$lib/logs/context';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
 	import {
 		TIME_RANGE_PRESETS,
 		LOG_ONLY_TIME_RANGE_PRESETS,
 		presetLabel,
 		formatCustomRangeLabel,
 		type TimeRangePreset
-	} from '$lib/logs/time-range';
-	import { Input } from '$lib/components/ui/input';
-	import { AROUND_WINDOWS_MS, AROUND_DEFAULT_MS, aroundRange, parseAroundTime } from '$lib/time/around';
-	import { instantToZoned } from '$lib/time/time-zone';
-	import { loadRecentRanges, pushRecentRange, type RecentRange } from '$lib/logs/recent-custom-ranges';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/logs/time-range.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { AROUND_WINDOWS_MS, AROUND_DEFAULT_MS, aroundRange, parseAroundTime } from '#lib/time/around.ts';
+	import { instantToZoned } from '#lib/time/time-zone.ts';
+	import { loadRecentRanges, pushRecentRange, type RecentRange } from '#lib/logs/recent-custom-ranges.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = logsExplorerContext.get();
 

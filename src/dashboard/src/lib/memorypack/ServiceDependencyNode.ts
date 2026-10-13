@@ -6,8 +6,8 @@
 // TypeScript-generation type, the same way `ServiceOverviewResponse`'s list-of-object
 // member blocks it there - see that file's own header comment).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class ServiceDependencyNode {
 	service: string | null;

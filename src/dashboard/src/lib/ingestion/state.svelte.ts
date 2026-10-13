@@ -13,9 +13,9 @@
 // firehoses (logs) - this is a periodic aggregate refresh, the same idiom
 // AlertEvaluationWorker/ClickHouseFlushWorker use server-side, just client-side here.
 
-import { getIngestionStats, type IngestionProtocol, type IngestionSignal, type IngestionStatsResponse } from '$lib/ingestion-api';
-import { getPipelineStats, type PipelineStatsResponse } from '$lib/pipeline-api';
-import * as m from '$lib/paraglide/messages';
+import { getIngestionStats, type IngestionProtocol, type IngestionSignal, type IngestionStatsResponse } from '#lib/ingestion-api.ts';
+import { getPipelineStats, type PipelineStatsResponse } from '#lib/pipeline-api.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 export type IngestionWindowPreset = '15m' | '1h' | '6h' | '24h';
 

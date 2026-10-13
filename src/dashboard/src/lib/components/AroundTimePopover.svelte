@@ -2,14 +2,14 @@
 	// "Around a time…" control for the preset-only Metrics/Traces toolbars: paste or pick one
 	// timestamp (display time zone) plus a ± window, and onApply gets the resulting range.
 	// The Logs toolbar embeds the same flow inside its own TimeRangePicker popover.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import CrosshairIcon from '@lucide/svelte/icons/crosshair';
-	import { displayTimeZone } from '$lib/time/display-zone.svelte';
-	import { instantToZoned } from '$lib/time/time-zone';
-	import { AROUND_WINDOWS_MS, AROUND_DEFAULT_MS, aroundRange, parseAroundTime } from '$lib/time/around';
-	import * as m from '$lib/paraglide/messages';
+	import { displayTimeZone } from '#lib/time/display-zone.svelte.ts';
+	import { instantToZoned } from '#lib/time/time-zone.ts';
+	import { AROUND_WINDOWS_MS, AROUND_DEFAULT_MS, aroundRange, parseAroundTime } from '#lib/time/around.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { onApply }: { onApply: (range: { from: Date; to: Date }) => void } = $props();
 

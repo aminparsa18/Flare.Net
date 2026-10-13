@@ -1,11 +1,11 @@
 // Per-browser facet sidebar preferences (open/closed + which attribute facets are shown),
-// one instance per page. localStorage for the same reason `$lib/logs/pinned-attributes`
+// one instance per page. localStorage for the same reason `#lib/logs/pinned-attributes.svelte.ts`
 // gives: there's no server-side user settings store, and a layout preference like this
 // doesn't warrant one. Deliberately not part of a saved view - a view reproduces *what is
 // filtered*, not how the sidebar is arranged.
 import { browser } from '$app/env';
 import type { AttributeFacetRef } from './types';
-import { explorerPrefs } from '$lib/explorer/prefs.svelte';
+import { explorerPrefs } from '#lib/explorer/prefs.svelte.ts';
 
 interface StoredPrefs {
 	open?: unknown;

@@ -3,9 +3,9 @@
 // carry `[GenerateTypeScript]` itself because its one member's type, `MetricSeries`, is
 // hand-written - see `MetricSeries.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricSeries } from '$lib/memorypack/MetricSeries';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricSeries } from '#lib/memorypack/MetricSeries.ts';
 
 export class MetricQueryResponse {
 	series: (MetricSeries | null)[] | null;

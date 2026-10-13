@@ -10,7 +10,7 @@
 import type { IngestionBucketPoint, IngestionSignal, IngestionStatsResponse } from '../ingestion-api';
 import type { PipelineFlushHealth, PipelineStatsResponse, PipelineStreamHealth } from '../pipeline-api';
 import { formatAge, formatCount, signalLabel } from './format';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 export type IngestionHealthLevel = 'healthy' | 'degraded' | 'down';
 

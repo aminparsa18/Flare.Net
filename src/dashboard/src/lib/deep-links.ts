@@ -17,7 +17,7 @@ import type { SpanAttributeBag, SpanAttributeFilter, TraceSpanCondition } from '
 import type { ExternalEndpointSource } from './external-apis-api';
 import type { TracesSavedViewState } from './traces/state.svelte';
 import type { LogsSavedViewState } from './logs/state.svelte';
-import { withBase } from '$lib/paths';
+import { withBase } from '#lib/paths.ts';
 import type { ReadonlyURL } from '$app/state';
 
 export interface DeepLinkTarget {

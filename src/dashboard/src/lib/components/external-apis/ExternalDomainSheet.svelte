@@ -4,24 +4,24 @@
 	// buildExternalCallTracesHref for how an endpoint turns back into a span filter - and a
 	// chart click to the calls in that one bucket.
 	import { goto } from '$app/navigation';
-	import * as Sheet from '$lib/components/ui/sheet';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import SortableHead from './SortableHead.svelte';
-	import HostMetricChart from '$lib/components/hosts/HostMetricChart.svelte';
-	import { externalApisContext } from '$lib/external-apis/context';
-	import { errorRate, type ExternalEndpointSortColumn } from '$lib/external-apis/state.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { buildExternalCallTracesHref, type ExternalCallTarget, type ExternalCallWindow } from '$lib/deep-links';
-	import type { ExternalSeriesPoint } from '$lib/external-apis-api';
-	import { formatPercent } from '$lib/indexing/format';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { formatRequestRate } from '$lib/services/format';
-	import { formatCount } from '$lib/ingestion/format';
-	import { formatAgo } from '$lib/components/metric-catalog/format';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import HostMetricChart from '#lib/components/hosts/HostMetricChart.svelte';
+	import { externalApisContext } from '#lib/external-apis/context.ts';
+	import { errorRate, type ExternalEndpointSortColumn } from '#lib/external-apis/state.svelte.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import { buildExternalCallTracesHref, type ExternalCallTarget, type ExternalCallWindow } from '#lib/deep-links.ts';
+	import type { ExternalSeriesPoint } from '#lib/external-apis-api.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { formatRequestRate } from '#lib/services/format.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import { formatAgo } from '#lib/components/metric-catalog/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const externalApis = externalApisContext.get();
 

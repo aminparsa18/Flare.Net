@@ -1,10 +1,10 @@
 <script lang="ts">
 	// Nav-bar project switcher (ADR-0123). Filters config lists to one project (plus instance-wide
 	// objects); hidden until the caller belongs to at least one project.
-	import * as Select from '$lib/components/ui/select';
-	import { projects } from '$lib/projects/store.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { projects } from '#lib/projects/store.svelte.ts';
 	import FolderIcon from '@lucide/svelte/icons/folder';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 </script>
 
 {#if projects.mine.length > 0}

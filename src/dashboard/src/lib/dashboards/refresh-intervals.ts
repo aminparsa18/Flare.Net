@@ -12,7 +12,7 @@
 // `label` is deliberately NOT stored here, same reasoning TIME_RANGE_PRESETS's own
 // header comment gives - call refreshIntervalLabel() fresh on every render instead of
 // caching a `.label` string that would go stale on a later locale switch.
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 export type RefreshInterval = 'off' | '15s' | '30s' | '1m' | '5m';
 

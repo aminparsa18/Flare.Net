@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { LogEventDto } from '$lib/api';
-	import { Badge } from '$lib/components/ui/badge';
+	import type { LogEventDto } from '#lib/api.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import AnsiText from './AnsiText.svelte';
-	import { displayBody, extractBodyPath, parseJsonBody } from '$lib/logs/json-body';
-	import { severityVariant } from '$lib/logs/severity';
-	import { formatDurationNano } from '$lib/traces/duration';
+	import { displayBody, extractBodyPath, parseJsonBody } from '#lib/logs/json-body.ts';
+	import { severityVariant } from '#lib/logs/severity.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
 	// Fixed-width MM-DD HH:mm:ss.SSS - this is a monospace column (font-mono below) that
-	// mustn't jitter row to row; see $lib/time/format.
-	import { formatRowTimestamp } from '$lib/time/format';
+	// mustn't jitter row to row; see #lib/time/format.
+	import { formatRowTimestamp } from '#lib/time/format.ts';
 
 	let {
 		event,

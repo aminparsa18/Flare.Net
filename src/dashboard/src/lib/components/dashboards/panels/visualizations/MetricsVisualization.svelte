@@ -1,24 +1,24 @@
 <script lang="ts">
 	// A Metrics panel's non-line visualizations (DashboardPanel.visualization - see
-	// `$lib/dashboards/visualization.ts`). Reads the same per-panel MetricsExplorerState
+	// `#lib/dashboards/visualization.ts`). Reads the same per-panel MetricsExplorerState
 	// DashboardMetricsPanelBody already runs the query through - single-metric `series` or
 	// Formula mode's `formulaSeries` - so switching visualization never changes or re-runs the
 	// query, it only redraws the result already fetched. The loading/error/empty states mirror
 	// MetricChart's/FormulaChart's own.
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
-	import type { LegendPosition } from '$lib/dashboards/legend';
-	import { parseDecimals } from '$lib/metrics/axis';
-	import { heatmapGrid, parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelStacking, type PanelVisualization } from '$lib/dashboards/visualization';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import type { PanelThreshold, ThresholdColor } from '#lib/dashboards/thresholds.ts';
+	import type { LegendPosition } from '#lib/dashboards/legend.ts';
+	import { parseDecimals } from '#lib/metrics/axis.ts';
+	import { heatmapGrid, parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelStacking, type PanelVisualization } from '#lib/dashboards/visualization.ts';
 	import BarVisualization from './BarVisualization.svelte';
 	import ValueVisualization from './ValueVisualization.svelte';
 	import PieVisualization from './PieVisualization.svelte';
 	import TableVisualization from './TableVisualization.svelte';
 	import HistogramVisualization from './HistogramVisualization.svelte';
 	import HeatmapVisualization from './HeatmapVisualization.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		visualization,

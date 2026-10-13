@@ -2,15 +2,15 @@
 	// Settings > Workspace > Status pages (Admin): publish a read-only page of monitor and SLO health at
 	// /status/{slug}. Self-contained - a handful of pages needs no shared state class. ADR-0158.
 	import { onMount } from 'svelte';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Switch } from '$lib/components/ui/switch';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
 	import {
 		createStatusPage,
 		deleteStatusPage,
@@ -20,13 +20,13 @@
 		type StatusPage,
 		type StatusPageComponent,
 		type StatusPageRequest
-	} from '$lib/status-pages-api';
+	} from '#lib/status-pages-api.ts';
 	import IncidentsDialog from './IncidentsDialog.svelte';
-	import { listSyntheticMonitors } from '$lib/synthetic-monitors-api';
-	import { listSlos } from '$lib/slos-api';
-	import { listNotificationChannels } from '$lib/notification-channels-api';
-	import { withBase } from '$lib/paths';
-	import * as m from '$lib/paraglide/messages';
+	import { listSyntheticMonitors } from '#lib/synthetic-monitors-api.ts';
+	import { listSlos } from '#lib/slos-api.ts';
+	import { listNotificationChannels } from '#lib/notification-channels-api.ts';
+	import { withBase } from '#lib/paths.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';

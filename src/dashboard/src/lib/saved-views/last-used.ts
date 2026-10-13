@@ -1,7 +1,7 @@
 // Which saved view (if any) each explorer - Logs/Traces/Metrics - restores on a bare
 // visit, so reopening the page picks up the saved search the user was last working in
 // instead of the hardcoded defaults. Per-browser localStorage, same shape and reasoning
-// as `$lib/dashboards/home-preference.ts`'s "set as home page": a low-stakes viewer-local
+// as `#lib/dashboards/home-preference.ts`'s "set as home page": a low-stakes viewer-local
 // preference with no server-side field to hang it off.
 //
 // Only an explicit pick from the page's saved-view menu (or saving a new one) records
@@ -10,7 +10,7 @@
 // toolbar's "Clear filters" forgets it, and a deleted view self-heals: the delete paths
 // clear it directly, and resolveLastUsedSavedView drops an id that no longer resolves.
 import { browser } from '$app/env';
-import { listSavedViews, type PageType, type SavedView } from '$lib/saved-views-api';
+import { listSavedViews, type PageType, type SavedView } from '#lib/saved-views-api.ts';
 
 const PAGE_TYPES: readonly PageType[] = ['Logs', 'Traces', 'Metrics', 'Funnels'];
 

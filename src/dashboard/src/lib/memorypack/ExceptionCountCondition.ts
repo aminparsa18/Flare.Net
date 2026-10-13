@@ -1,12 +1,12 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `ExceptionCountCondition`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
-// nests `ExceptionFilter` (blocked - see `$lib/memorypack/ExceptionFilter.ts`'s header
+// nests `ExceptionFilter` (blocked - see `#lib/memorypack/ExceptionFilter.ts`'s header
 // comment, itself nullable-`DateTimeOffset`-blocked).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ExceptionFilter } from '$lib/memorypack/ExceptionFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ExceptionFilter } from '#lib/memorypack/ExceptionFilter.ts';
 
 export class ExceptionCountCondition {
 	exceptionType: string | null;

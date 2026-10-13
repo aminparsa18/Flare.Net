@@ -3,7 +3,7 @@
 // same call as `metric-attribute-rules-api.ts`. PUT/DELETE are Admin-only server-side.
 
 import { API_BASE_URL, apiFetch } from './api';
-import type { SourceLinkConfig } from '$lib/errors/source-links';
+import type { SourceLinkConfig } from '#lib/errors/source-links.ts';
 
 const BASE = `${API_BASE_URL}/api/source-links`;
 

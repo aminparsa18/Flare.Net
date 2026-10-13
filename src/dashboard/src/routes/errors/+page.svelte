@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { parseErrorsStateDeepLinkParam } from '$lib/deep-links';
-	import { ErrorsExplorerState } from '$lib/errors/state.svelte';
-	import { authContext } from '$lib/auth/context';
-	import { errorsExplorerContext } from '$lib/errors/context';
-	import ErrorsToolbar from '$lib/components/errors/ErrorsToolbar.svelte';
-	import ResourceAttributeFiltersRow from '$lib/components/services/ResourceAttributeFiltersRow.svelte';
-	import ExceptionGroupsTable from '$lib/components/errors/ExceptionGroupsTable.svelte';
-	import ExceptionOccurrenceDialog from '$lib/components/errors/ExceptionOccurrenceDialog.svelte';
-	import FacetSidebar from '$lib/components/facets/FacetSidebar.svelte';
-	import { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
-	import { DEFAULT_ERROR_ATTRIBUTE_FACETS, ERROR_FACET_BAGS, errorFacetDefinitions, errorFacetReloadKey } from '$lib/errors/facets';
-	import * as m from '$lib/paraglide/messages';
+	import { parseErrorsStateDeepLinkParam } from '#lib/deep-links.ts';
+	import { ErrorsExplorerState } from '#lib/errors/state.svelte.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { errorsExplorerContext } from '#lib/errors/context.ts';
+	import ErrorsToolbar from '#lib/components/errors/ErrorsToolbar.svelte';
+	import ResourceAttributeFiltersRow from '#lib/components/services/ResourceAttributeFiltersRow.svelte';
+	import ExceptionGroupsTable from '#lib/components/errors/ExceptionGroupsTable.svelte';
+	import ExceptionOccurrenceDialog from '#lib/components/errors/ExceptionOccurrenceDialog.svelte';
+	import FacetSidebar from '#lib/components/facets/FacetSidebar.svelte';
+	import { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
+	import { DEFAULT_ERROR_ATTRIBUTE_FACETS, ERROR_FACET_BAGS, errorFacetDefinitions, errorFacetReloadKey } from '#lib/errors/facets.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const errors = errorsExplorerContext.set(new ErrorsExplorerState());
 
@@ -28,7 +28,7 @@
 	const facetBagOptions = [{ value: 'Resource' as const, label: m.attributeFilters_bagResource() }];
 
 	onMount(() => {
-		// A fired exception alert's `?state=` link ($lib/deep-links.ts) scopes the page to
+		// A fired exception alert's `?state=` link (#lib/deep-links.ts) scopes the page to
 		// the rule's type, services and evaluated window instead of the default last hour.
 		const deepLink = parseErrorsStateDeepLinkParam(page.url);
 		void (deepLink ? errors.applyDeepLinkState(deepLink) : errors.runSearch());

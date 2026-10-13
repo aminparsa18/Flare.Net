@@ -5,15 +5,15 @@
 //
 // MemoryPack throughout (see `ingest-keys-api.ts`'s header comment for the general
 // shape): `CreateAccessTokenRequest` has no DateTimeOffset/JsonElement member, so it uses
-// a real generated class (`$lib/generated/memorypack/CreateAccessTokenRequest.js`); every
+// a real generated class (`#lib/generated/memorypack/CreateAccessTokenRequest.ts`); every
 // response nests `AccessTokenDto` (`CreatedAt`/`ExpiresAt`/`LastUsedAt`/`RevokedAt` are
-// `DateTimeOffset`/`DateTimeOffset?`), so those are hand-written under `$lib/memorypack/`.
+// `DateTimeOffset`/`DateTimeOffset?`), so those are hand-written under `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { CreateAccessTokenRequest as GeneratedCreateAccessTokenRequest } from '$lib/generated/memorypack/CreateAccessTokenRequest.js';
-import { CreateAccessTokenResponse as GeneratedCreateAccessTokenResponse } from '$lib/memorypack/CreateAccessTokenResponse';
-import { AccessTokenListResponse as GeneratedAccessTokenListResponse } from '$lib/memorypack/AccessTokenListResponse';
-import type { AccessTokenDto as GeneratedAccessTokenDto } from '$lib/memorypack/AccessTokenDto';
+import { CreateAccessTokenRequest as GeneratedCreateAccessTokenRequest } from '#lib/generated/memorypack/CreateAccessTokenRequest.ts';
+import { CreateAccessTokenResponse as GeneratedCreateAccessTokenResponse } from '#lib/memorypack/CreateAccessTokenResponse.ts';
+import { AccessTokenListResponse as GeneratedAccessTokenListResponse } from '#lib/memorypack/AccessTokenListResponse.ts';
+import type { AccessTokenDto as GeneratedAccessTokenDto } from '#lib/memorypack/AccessTokenDto.ts';
 
 export interface AccessToken {
 	id: string;

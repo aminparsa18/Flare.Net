@@ -1,5 +1,5 @@
 // Central reactive state for the /auth page's Reverse proxy card - mirrors
-// LdapSettingsState's shape ($lib/ldap-settings/state.svelte.ts): a class with $state
+// LdapSettingsState's shape (#lib/ldap-settings/state.svelte.ts): a class with $state
 // fields, provided via proxyAuthSettingsContext (context.ts) rather than passed as props.
 
 import {
@@ -7,7 +7,7 @@ import {
 	saveProxyAuthSettings,
 	type ProxyAuthSettings,
 	type SaveProxyAuthSettingsRequest
-} from '$lib/proxy-auth-settings-api';
+} from '#lib/proxy-auth-settings-api.ts';
 
 export class ProxyAuthSettingsState {
 	settings = $state.raw<ProxyAuthSettings | null>(null);

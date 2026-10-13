@@ -4,10 +4,10 @@
 // same reasons `PipelineRule.ts` documents (nests `LogFilter` and an
 // `IReadOnlyList<PipelineRuleAction>`).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { PipelineRuleAction } from '$lib/generated/memorypack/PipelineRuleAction.js';
-import { LogFilter } from '$lib/memorypack/LogFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { PipelineRuleAction } from '#lib/generated/memorypack/PipelineRuleAction.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
 
 export class PipelineRuleRequest {
 	name: string | null;

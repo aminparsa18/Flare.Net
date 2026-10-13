@@ -10,13 +10,13 @@
 	// queue size + lag seconds from system.replicas, shown as "—" rather than a false "in
 	// sync" when replicationInfoAvailable is false. Keeper quorum health is still
 	// deliberately out of scope for this cut.
-	import * as Card from '$lib/components/ui/card';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { indexingContext } from '$lib/indexing/context';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { indexingContext } from '#lib/indexing/context.ts';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.get();
 

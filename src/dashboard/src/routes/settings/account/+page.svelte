@@ -2,16 +2,16 @@
 	// Account & security: password change for local accounts (POST /api/auth/password; SSO
 	// accounts have no Flare-managed password, so that card is hidden for them), active
 	// sessions, and a data export.
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import SessionsCard from '$lib/components/settings/SessionsCard.svelte';
-	import DataExportCard from '$lib/components/settings/DataExportCard.svelte';
-	import PreferencesBackupCard from '$lib/components/settings/PreferencesBackupCard.svelte';
-	import { authContext } from '$lib/auth/context';
-	import { changeOwnPassword } from '$lib/users-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import SessionsCard from '#lib/components/settings/SessionsCard.svelte';
+	import DataExportCard from '#lib/components/settings/DataExportCard.svelte';
+	import PreferencesBackupCard from '#lib/components/settings/PreferencesBackupCard.svelte';
+	import { authContext } from '#lib/auth/context.ts';
+	import { changeOwnPassword } from '#lib/users-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 	const isLocal = $derived(auth.currentUser?.authProvider === 'Local');

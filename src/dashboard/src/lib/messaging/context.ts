@@ -1,4 +1,4 @@
-// Same generic typed-context helper as `$lib/hosts/context.ts` - re-authored here rather
+// Same generic typed-context helper as `#lib/hosts/context.ts` - re-authored here rather
 // than shared, same rationale that file gives.
 
 import { getContext, hasContext, setContext } from 'svelte';

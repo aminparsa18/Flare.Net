@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { IndexingState } from '$lib/indexing/state.svelte';
-	import { indexingContext } from '$lib/indexing/context';
-	import IndexingToolbar from '$lib/components/indexing/IndexingToolbar.svelte';
-	import IndexingSummaryTiles from '$lib/components/indexing/IndexingSummaryTiles.svelte';
-	import IndexingClusterStatus from '$lib/components/indexing/IndexingClusterStatus.svelte';
-	import IndexingStorageHealth from '$lib/components/indexing/IndexingStorageHealth.svelte';
-	import IndexingGrowthChart from '$lib/components/indexing/IndexingGrowthChart.svelte';
-	import IndexingTablesTable from '$lib/components/indexing/IndexingTablesTable.svelte';
-	import IndexingQueryOptimization from '$lib/components/indexing/IndexingQueryOptimization.svelte';
-	import IndexingSkipIndexesTable from '$lib/components/indexing/IndexingSkipIndexesTable.svelte';
-	import IndexingPromotedAttributes from '$lib/components/indexing/IndexingPromotedAttributes.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { IndexingState } from '#lib/indexing/state.svelte.ts';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import IndexingToolbar from '#lib/components/indexing/IndexingToolbar.svelte';
+	import IndexingSummaryTiles from '#lib/components/indexing/IndexingSummaryTiles.svelte';
+	import IndexingClusterStatus from '#lib/components/indexing/IndexingClusterStatus.svelte';
+	import IndexingStorageHealth from '#lib/components/indexing/IndexingStorageHealth.svelte';
+	import IndexingGrowthChart from '#lib/components/indexing/IndexingGrowthChart.svelte';
+	import IndexingTablesTable from '#lib/components/indexing/IndexingTablesTable.svelte';
+	import IndexingQueryOptimization from '#lib/components/indexing/IndexingQueryOptimization.svelte';
+	import IndexingSkipIndexesTable from '#lib/components/indexing/IndexingSkipIndexesTable.svelte';
+	import IndexingPromotedAttributes from '#lib/components/indexing/IndexingPromotedAttributes.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.set(new IndexingState());
 

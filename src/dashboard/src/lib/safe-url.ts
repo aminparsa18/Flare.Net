@@ -1,6 +1,6 @@
 // Defence-in-depth URL guards for values that originate from telemetry or ingest clients. The CSP is the
 // primary backstop; these keep the same values harmless if it is off (FLARE_CSP=off) or stripped by a proxy.
-import { safeHttpUrl } from '$lib/dashboards/markdown';
+import { safeHttpUrl } from '#lib/dashboards/markdown.ts';
 
 export { safeHttpUrl };
 

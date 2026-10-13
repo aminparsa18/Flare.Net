@@ -5,16 +5,16 @@
 	// existing precedent in this dashboard (ingest API keys' equivalent reveal-once flow
 	// only exists in the terminal modal, as plain text - see terminal/commands/apikey.ts),
 	// so it's original to this component.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { accessTokensContext } from '$lib/access-tokens/context';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { accessTokensContext } from '#lib/access-tokens/context.ts';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const tokens = accessTokensContext.get();
 

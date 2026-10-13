@@ -3,16 +3,16 @@
 	// docs-internal/adr/0025-dashboard-variables.md) - opened from ManageVariablesDialog.svelte,
 	// driven by `viewer.variableFormTarget` the same "'new' | existing target | null" shape
 	// DashboardsState.formTarget already establishes for dashboards themselves.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import * as Select from '$lib/components/ui/select';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import type { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
-	import type { DashboardAttributeBag, DashboardVariable, DashboardVariableSourceKind, DashboardVariableTarget } from '$lib/dashboards-api';
-	import { compileValueRegex } from '$lib/dashboards/variables';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import type { DashboardViewerState } from '#lib/dashboards/viewer.svelte.ts';
+	import type { DashboardAttributeBag, DashboardVariable, DashboardVariableSourceKind, DashboardVariableTarget } from '#lib/dashboards-api.ts';
+	import { compileValueRegex } from '#lib/dashboards/variables.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { viewer }: { viewer: DashboardViewerState } = $props();
 

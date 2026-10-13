@@ -1,11 +1,11 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/SpanSearchRequest.cs`'s `SpanSearchRequest`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
-// nests `SpanFilter` (blocked - see `$lib/memorypack/SpanFilter.ts`'s header comment).
+// nests `SpanFilter` (blocked - see `#lib/memorypack/SpanFilter.ts`'s header comment).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { SpanFilter } from '$lib/memorypack/SpanFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { SpanFilter } from '#lib/memorypack/SpanFilter.ts';
 
 export class SpanSearchRequest {
 	filter: SpanFilter | null;

@@ -17,15 +17,15 @@
 	// needs the stream's own PEL to already have pending entries - a worker that's stopped
 	// reading entirely never populates that) - computeFlushStatus's hasRecentTraffic param,
 	// fed from this table's own bucket data, is what makes that distinction possible.
-	import * as Table from '$lib/components/ui/table';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatAge, formatCount, secondsSince, signalLabel } from '$lib/ingestion/format';
-	import { computeFlushStatus, hasRecentArrivals, type FlushStatusTone } from '$lib/ingestion/health';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { formatAge, formatCount, secondsSince, signalLabel } from '#lib/ingestion/format.ts';
+	import { computeFlushStatus, hasRecentArrivals, type FlushStatusTone } from '#lib/ingestion/health.ts';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import CircleXIcon from '@lucide/svelte/icons/circle-x';
 	import MinusIcon from '@lucide/svelte/icons/minus';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const ingestion = ingestionContext.get();
 

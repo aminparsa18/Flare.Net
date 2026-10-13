@@ -4,20 +4,20 @@
 	// inline delete per row. A Logs-only reskin of the shared saved-views/ViewsMenu.svelte
 	// (same underlying /api/views data, pageType "Logs" hardcoded) - Traces/Metrics keep
 	// using the generic ViewsMenu unchanged.
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Command from '$lib/components/ui/command';
-	import { Button } from '$lib/components/ui/button';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Command from '#lib/components/ui/command/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import SaveSearchDialog from './SaveSearchDialog.svelte';
-	import { projects } from '$lib/projects/store.svelte';
-	import { listSavedViews, deleteSavedView, type SavedView } from '$lib/saved-views-api';
-	import { forgetLastUsedViewId, setLastUsedViewId } from '$lib/saved-views/last-used';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import { listSavedViews, deleteSavedView, type SavedView } from '#lib/saved-views-api.ts';
+	import { forgetLastUsedViewId, setLastUsedViewId } from '#lib/saved-views/last-used.ts';
 	import StarIcon from '@lucide/svelte/icons/star';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import SaveIcon from '@lucide/svelte/icons/save';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		currentState,

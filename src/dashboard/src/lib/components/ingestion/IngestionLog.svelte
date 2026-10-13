@@ -17,15 +17,15 @@
 	// squeezes this section below its content's actual size and lets that content visually
 	// overflow on top of Pipeline health below it instead of properly reserving room for it.
 	// The table now caps its own height and scrolls internally instead.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { protocolLabel, signalLabel } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
-	import { formatTimestamp } from '$lib/time/format';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { protocolLabel, signalLabel } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatTimestamp } from '#lib/time/format.ts';
 
 	const ingestion = ingestionContext.get();
 

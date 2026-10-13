@@ -1,9 +1,9 @@
 <script lang="ts">
 	// Crash-free session rate over time, one line per app version (ADR-0189). Plain SVG: a handful of
 	// lines and a hover readout don't need the metrics chart machinery.
-	import type { ReleaseHealthTrend } from '$lib/app-sessions-api';
-	import { buildTrendSeries, trendAxisMin } from '$lib/app-sessions/trend';
-	import { formatChartTime } from '$lib/time/format';
+	import type { ReleaseHealthTrend } from '#lib/app-sessions-api.ts';
+	import { buildTrendSeries, trendAxisMin } from '#lib/app-sessions/trend.ts';
+	import { formatChartTime } from '#lib/time/format.ts';
 
 	let { trend }: { trend: ReleaseHealthTrend } = $props();
 

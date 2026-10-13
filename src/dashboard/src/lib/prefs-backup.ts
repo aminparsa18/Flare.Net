@@ -2,7 +2,7 @@
 // Preferences live in localStorage under `flare.*` keys; five of them (appearance, regional,
 // explorer, keyboard, notifications) are also per-user server documents (ADR-0110) that win over
 // localStorage on the next load, so an import must push those back to the server as well.
-import { createPrefsSync } from '$lib/prefs-sync';
+import { createPrefsSync } from '#lib/prefs-sync.ts';
 
 const PREFIX = 'flare.';
 const FORMAT = 'flare-preferences';

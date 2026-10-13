@@ -6,35 +6,35 @@
 	// hover state) - the genuinely new part is multiple simultaneous lines instead of
 	// one bar series, so see this file's own remarks for what that changes.
 	import { fade } from 'svelte/transition';
-	import { animateHeight } from '$lib/actions/animate-height';
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import * as Select from '$lib/components/ui/select';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Button } from '$lib/components/ui/button';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import { METRIC_SWITCH_FADE_MS } from '$lib/metrics/state.svelte';
-	import { axisFraction, formatAtScale, formatAutoScaled, logAxisTicks, niceAxisTicks, resolveAxisScale, type YAxisScale } from '$lib/metrics/axis';
-	import { SERIES_COLOR_VARS, seriesColor } from '$lib/metrics/chart-colors';
-	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
-	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
-	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
-	import { previousPeriodLabel, resolveTimeRange, previousPeriod, shiftRange } from '$lib/logs/time-range';
-	import { isHistogramType, type MetricSeries } from '$lib/metrics-api';
-	import { areaPath, stackExtent, stackLines, topEdgePath } from '$lib/dashboards/stacking';
-	import type { PanelStacking } from '$lib/dashboards/visualization';
+	import { animateHeight } from '#lib/actions/animate-height.ts';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import { METRIC_SWITCH_FADE_MS } from '#lib/metrics/state.svelte.ts';
+	import { axisFraction, formatAtScale, formatAutoScaled, logAxisTicks, niceAxisTicks, resolveAxisScale, type YAxisScale } from '#lib/metrics/axis.ts';
+	import { SERIES_COLOR_VARS, seriesColor } from '#lib/metrics/chart-colors.ts';
+	import { formatBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
+	import BucketIntervalMenu from '#lib/components/logs/BucketIntervalMenu.svelte';
+	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '#lib/deep-links.ts';
+	import { previousPeriodLabel, resolveTimeRange, previousPeriod, shiftRange } from '#lib/logs/time-range.ts';
+	import { isHistogramType, type MetricSeries } from '#lib/metrics-api.ts';
+	import { areaPath, stackExtent, stackLines, topEdgePath } from '#lib/dashboards/stacking.ts';
+	import type { PanelStacking } from '#lib/dashboards/visualization.ts';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
 	import ChartCsvButton from './ChartCsvButton.svelte';
-	import { downloadTimeSeriesCsv } from '$lib/dashboards/chart-csv';
-	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
-	import { formatSeriesLabel, legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
-	import { seriesLabel as seriesColorKey } from '$lib/dashboards/visualization';
-	import * as m from '$lib/paraglide/messages';
-	import { formatChartTime } from '$lib/time/format';
-	import { fractionInBuckets, loadReleases, placeMarkers } from '$lib/releases/markers';
-	import type { Release } from '$lib/releases-api';
-	import ReleaseMarkers from '$lib/components/releases/ReleaseMarkers.svelte';
+	import { downloadTimeSeriesCsv } from '#lib/dashboards/chart-csv.ts';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '#lib/dashboards/thresholds.ts';
+	import { formatSeriesLabel, legendLayout, seriesColorOverride, type LegendPosition } from '#lib/dashboards/legend.ts';
+	import { seriesLabel as seriesColorKey } from '#lib/dashboards/visualization.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatChartTime } from '#lib/time/format.ts';
+	import { fractionInBuckets, loadReleases, placeMarkers } from '#lib/releases/markers.ts';
+	import type { Release } from '#lib/releases-api.ts';
+	import ReleaseMarkers from '#lib/components/releases/ReleaseMarkers.svelte';
 
 	const explorer = metricsExplorerContext.get();
 
@@ -61,7 +61,7 @@
 	// `filter.yAxisScale` and shows its Log toggle in the header.
 	//
 	// legendPosition/seriesColors: a dashboard panel's legend placement and per-series color
-	// overrides (DashboardPanel.legendPosition/seriesColors, `$lib/dashboards/legend.ts`).
+	// overrides (DashboardPanel.legendPosition/seriesColors, `#lib/dashboards/legend.ts`).
 	// Overrides are keyed by visualization.ts's `seriesLabel` (imported as seriesColorKey), not
 	// this file's own differently-formatted seriesLabel, so one key works across every
 	// visualization. Only Gauge/Sum series lines take an override - histogram percentile and
@@ -299,7 +299,7 @@
 	const overlayActive = $derived(compareActive || timeShiftActive);
 
 	// "View related logs"/"View traces" - cross-links into Logs/Traces pre-filtered to
-	// this metric's service and the explorer's current time range (see $lib/deep-links.ts),
+	// this metric's service and the explorer's current time range (see #lib/deep-links.ts),
 	// so Metrics -> Logs -> Traces reads as one system rather than three unrelated pages.
 	// The Logs link also narrows to a specific attribute, but only when it's unambiguous:
 	// exactly one series charted, with exactly one attribute (e.g. dotnet.exceptions
@@ -960,7 +960,7 @@
 	// compare lines - a small delta) but real for Sum/Gauge with several series (a
 	// wrapped multi-row legend + a "+N more series" note collapsing down to a plain
 	// 2-line "Current"/"Previous" legend - a much bigger one). `use:animateHeight` below
-	// (see `$lib/actions/animate-height.ts`) smooths that resize - passed FADE_MS*2, the
+	// (see `#lib/actions/animate-height.ts`) smooths that resize - passed FADE_MS*2, the
 	// same duration the out+in fade sequence takes, so the box finishes resizing right as
 	// the new content finishes fading in, not mid-fade or well after it.
 </script>

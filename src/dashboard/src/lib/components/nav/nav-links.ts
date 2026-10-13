@@ -2,8 +2,8 @@
 // gating - extracted out of AppNav.svelte so CommandPalette.svelte's "Navigate" group
 // can reuse the exact same list (including the gating) instead of re-deriving it.
 
-import type { AuthState } from '$lib/auth/state.svelte';
-import * as m from '$lib/paraglide/messages';
+import type { AuthState } from '#lib/auth/state.svelte.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 export interface NavLink {
 	href: string;

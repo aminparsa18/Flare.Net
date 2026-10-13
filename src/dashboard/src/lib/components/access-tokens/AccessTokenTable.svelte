@@ -1,18 +1,18 @@
 <script lang="ts">
 	// Mirrors AlertRuleTable.svelte's header-button + Table/Empty/Badge composition -
 	// same "New X" button both above the table and inside the empty state.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { accessTokensContext } from '$lib/access-tokens/context';
-	import type { AccessToken } from '$lib/personal-access-tokens-api';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge, type BadgeVariant } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { accessTokensContext } from '#lib/access-tokens/context.ts';
+	import type { AccessToken } from '#lib/personal-access-tokens-api.ts';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	const tokens = accessTokensContext.get();
 

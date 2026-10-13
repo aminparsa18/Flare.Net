@@ -4,9 +4,9 @@
 // `[GenerateTypeScript]` itself because of its `IReadOnlyList<PromotedAttributeInfo>`
 // member - see `PipelineServiceBreakdown.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { PromotedAttributeInfo } from '$lib/generated/memorypack/PromotedAttributeInfo.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { PromotedAttributeInfo } from '#lib/generated/memorypack/PromotedAttributeInfo.ts';
 
 export class PromotedAttributesResponse {
 	attributes: (PromotedAttributeInfo | null)[] | null;

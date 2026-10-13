@@ -3,8 +3,8 @@
 // Hand-written because `Traces` is an `IReadOnlyList<T>` (see ADR-0016); `TraceFunnelTrace`
 // itself is generated. Response-only, so deserialize-only.
 
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { TraceFunnelTrace } from '$lib/generated/memorypack/TraceFunnelTrace.js';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { TraceFunnelTrace } from '#lib/generated/memorypack/TraceFunnelTrace.ts';
 
 export class TraceFunnelTracesResponse {
 	traces: (TraceFunnelTrace | null)[] | null = null;

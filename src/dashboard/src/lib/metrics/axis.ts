@@ -1,4 +1,4 @@
-import { formatNumber, lazyNumberFormat } from '$lib/format/number';
+import { formatNumber, lazyNumberFormat } from '#lib/format/number.ts';
 // Y-axis scale + tick generation for MetricChart. Two concerns live here:
 //
 //  1. Unit-aware value formatting, derived from the OTel/UCUM unit string a producer

@@ -6,8 +6,8 @@
 // Values are read when an explorer's state is constructed, so a change applies from the next
 // page load; saved views and deep links keep carrying their own values.
 import { browser } from '$app/env';
-import { createPrefsSync } from '$lib/prefs-sync';
-import { BUCKET_WIDTH_OPTIONS_SECONDS, normalizeBucketWidthSeconds } from '$lib/logs/bucket-width';
+import { createPrefsSync } from '#lib/prefs-sync.ts';
+import { BUCKET_WIDTH_OPTIONS_SECONDS, normalizeBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
 
 export const STORAGE_KEY = 'flare.explorer';
 

@@ -1,7 +1,7 @@
 // Server-side per-user preference documents (ADR-0110): GET/PUT /api/me/preferences/{key}.
 // Shared by the appearance and regional stores. localStorage stays each store's pre-paint
 // cache; this only moves the document to and from the server, best-effort.
-import { API_BASE_URL, apiFetch } from '$lib/api';
+import { API_BASE_URL, apiFetch } from '#lib/api.ts';
 
 const PUSH_DELAY_MS = 500;
 

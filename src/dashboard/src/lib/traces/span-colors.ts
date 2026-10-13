@@ -3,8 +3,8 @@
 // and the legend reports each group's total self-time. Pure and DOM-free, same as
 // critical-path.ts and flame-graph.ts.
 
-import type { SpanDto } from '$lib/traces-api';
-import { SERIES_COLOR_VARS } from '$lib/metrics/chart-colors';
+import type { SpanDto } from '#lib/traces-api.ts';
+import { SERIES_COLOR_VARS } from '#lib/metrics/chart-colors.ts';
 
 /** `'service'`, or `'span:<key>'` / `'resource:<key>'` for an attribute. */
 export type ColorBy = string;

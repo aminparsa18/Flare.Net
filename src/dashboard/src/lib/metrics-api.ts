@@ -6,8 +6,8 @@
 // `MetricAttributeFilter`/`MetricNameInfo`/`MetricNamesResponse`/`MetricAttributeKeyInfo`/
 // `MetricAttributeKeysResponse` have no DateTimeOffset/JsonElement/IReadOnlyList-of-object
 // member and use real generated classes; everything nesting `MetricFilter` (`DateTimeOffset?`
-// members) or `MetricSeriesPoint` (`DateTimeOffset`) is hand-written (`$lib/memorypack/`).
-// `type` converts through `$lib/memorypack/enums.ts`'s `metricPointTypeToString`/`FromString`.
+// members) or `MetricSeriesPoint` (`DateTimeOffset`) is hand-written (`#lib/memorypack/`).
+// `type` converts through `#lib/memorypack/enums.ts`'s `metricPointTypeToString`/`FromString`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import {
@@ -18,20 +18,20 @@ import {
 	type MetricHavingOperatorName,
 	metricPostProcessFunctionTypeFromString,
 	type MetricPostProcessFunctionTypeName
-} from '$lib/memorypack/enums';
-import { MetricFilter as GeneratedMetricFilter } from '$lib/memorypack/MetricFilter';
-import { MetricNamesRequest as GeneratedMetricNamesRequest } from '$lib/memorypack/MetricNamesRequest';
-import { MetricNamesResponse as GeneratedMetricNamesResponse } from '$lib/memorypack/MetricNamesResponse';
-import { MetricAttributeKeysRequest as GeneratedMetricAttributeKeysRequest } from '$lib/memorypack/MetricAttributeKeysRequest';
-import { MetricAttributeKeysResponse as GeneratedMetricAttributeKeysResponse } from '$lib/memorypack/MetricAttributeKeysResponse';
-import { MetricQueryRequest as GeneratedMetricQueryRequest } from '$lib/memorypack/MetricQueryRequest';
-import { MetricQueryResponse as GeneratedMetricQueryResponse } from '$lib/memorypack/MetricQueryResponse';
-import { MetricAttributeFilter as GeneratedMetricAttributeFilter } from '$lib/generated/memorypack/MetricAttributeFilter.js';
-import { MetricPostProcessFunction as GeneratedMetricPostProcessFunction } from '$lib/generated/memorypack/MetricPostProcessFunction.js';
-import type { MetricNameInfo as GeneratedMetricNameInfo } from '$lib/generated/memorypack/MetricNameInfo.js';
-import type { MetricAttributeKeyInfo as GeneratedMetricAttributeKeyInfo } from '$lib/generated/memorypack/MetricAttributeKeyInfo.js';
-import type { MetricSeries as GeneratedMetricSeries } from '$lib/memorypack/MetricSeries';
-import type { MetricSeriesPoint as GeneratedMetricSeriesPoint } from '$lib/memorypack/MetricSeriesPoint';
+} from '#lib/memorypack/enums.ts';
+import { MetricFilter as GeneratedMetricFilter } from '#lib/memorypack/MetricFilter.ts';
+import { MetricNamesRequest as GeneratedMetricNamesRequest } from '#lib/memorypack/MetricNamesRequest.ts';
+import { MetricNamesResponse as GeneratedMetricNamesResponse } from '#lib/memorypack/MetricNamesResponse.ts';
+import { MetricAttributeKeysRequest as GeneratedMetricAttributeKeysRequest } from '#lib/memorypack/MetricAttributeKeysRequest.ts';
+import { MetricAttributeKeysResponse as GeneratedMetricAttributeKeysResponse } from '#lib/memorypack/MetricAttributeKeysResponse.ts';
+import { MetricQueryRequest as GeneratedMetricQueryRequest } from '#lib/memorypack/MetricQueryRequest.ts';
+import { MetricQueryResponse as GeneratedMetricQueryResponse } from '#lib/memorypack/MetricQueryResponse.ts';
+import { MetricAttributeFilter as GeneratedMetricAttributeFilter } from '#lib/generated/memorypack/MetricAttributeFilter.ts';
+import { MetricPostProcessFunction as GeneratedMetricPostProcessFunction } from '#lib/generated/memorypack/MetricPostProcessFunction.ts';
+import type { MetricNameInfo as GeneratedMetricNameInfo } from '#lib/generated/memorypack/MetricNameInfo.ts';
+import type { MetricAttributeKeyInfo as GeneratedMetricAttributeKeyInfo } from '#lib/generated/memorypack/MetricAttributeKeyInfo.ts';
+import type { MetricSeries as GeneratedMetricSeries } from '#lib/memorypack/MetricSeries.ts';
+import type { MetricSeriesPoint as GeneratedMetricSeriesPoint } from '#lib/memorypack/MetricSeriesPoint.ts';
 
 // ---- Shared filter shape (MetricFilter.cs) ---------------------------------
 

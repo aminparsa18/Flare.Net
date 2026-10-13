@@ -7,16 +7,16 @@
 	// coloring the same as an actual failure. Reuses computeReceiverStatus (ingestion/
 	// health.ts) and the same status icon/tone vocabulary PipelineFlushHealthTable already
 	// established, rather than a third slightly-different status treatment on this page.
-	import * as Table from '$lib/components/ui/table';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatCount } from '$lib/ingestion/format';
-	import { computeReceiverStatus, type FlushStatusTone } from '$lib/ingestion/health';
-	import type { IngestionProtocol } from '$lib/ingestion-api';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import { computeReceiverStatus, type FlushStatusTone } from '#lib/ingestion/health.ts';
+	import type { IngestionProtocol } from '#lib/ingestion-api.ts';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import CircleXIcon from '@lucide/svelte/icons/circle-x';
 	import MinusIcon from '@lucide/svelte/icons/minus';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const ingestion = ingestionContext.get();
 

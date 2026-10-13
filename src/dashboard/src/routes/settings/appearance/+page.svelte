@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { setMode, userPrefersMode } from 'mode-watcher';
-	import ChoiceGroup from '$lib/components/settings/ChoiceGroup.svelte';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Button } from '$lib/components/ui/button';
-	import { appearance } from '$lib/appearance/prefs.svelte';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
+	import ChoiceGroup from '#lib/components/settings/ChoiceGroup.svelte';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { appearance } from '#lib/appearance/prefs.svelte.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
 	import PanelTopIcon from '@lucide/svelte/icons/panel-top';
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
-	import { ACCENTS } from '$lib/appearance/prefs.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { ACCENTS } from '#lib/appearance/prefs.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const SWATCH: Record<string, string> = {
 		blue: 'oklch(0.55 0.2 255)',
