@@ -38,7 +38,7 @@ Dashboard:
 | `FLARE_CSP` | on | `off` drops only the CSP. |
 | `FLARE_CSP_FRAME_ANCESTORS` | `'none'` | Who may embed the dashboard, e.g. `'self' https://wiki.example.com`. |
 | `FLARE_CSP_CONNECT_SRC` | empty | Extra `connect-src` sources, space separated. |
-| `FLARE_CSP_IMG_SRC` | empty | Extra `img-src` sources (images already allow `https:`). |
+| `FLARE_CSP_IMG_SRC` | empty | Extra `img-src` sources (images are limited to same-origin and `data:`/`blob:`, plus `https:` on the public `/status/*` page for its logo). |
 | `FLARE_HSTS_MAX_AGE` | `15552000` | `0` disables HSTS. |
 | `FLARE_HSTS_INCLUDE_SUBDOMAINS` | `false` | Adds `includeSubDomains`. |
 

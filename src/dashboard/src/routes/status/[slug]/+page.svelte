@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { safeHttpUrl, safeSupportUrl } from '$lib/safe-url';
 	// Public page (see +layout.svelte's PUBLIC_ROUTES): the status page at /status/{slug}, readable without a
 	// session while an admin has it enabled (ADR-0158). Shows only display names, states and uptime.
 	import { onMount } from 'svelte';
@@ -108,8 +109,8 @@
 		<p class="text-destructive m-auto text-sm">{error}</p>
 	{:else if status}
 		<header class="flex flex-col gap-1 {accent ? 'border-l-4 pl-3' : ''}" style={accent ? 'border-color: var(--status-accent)' : undefined}>
-			{#if status.logoUrl}
-				<img src={status.logoUrl} alt="" class="mb-2 max-h-12 w-auto max-w-48 self-start object-contain" referrerpolicy="no-referrer" />
+			{#if safeHttpUrl(status.logoUrl)}
+				<img src={safeHttpUrl(status.logoUrl)} alt="" class="mb-2 max-h-12 w-auto max-w-48 self-start object-contain" referrerpolicy="no-referrer" />
 			{/if}
 			<h1 class="text-2xl font-semibold">{status.title}</h1>
 			{#if status.description}
@@ -219,8 +220,8 @@
 
 		<footer class="text-muted-foreground flex flex-wrap items-center justify-between gap-2 text-xs">
 			<span>{m.statusPublic_updated({ time: formatDateTime(status.generatedAt) })}</span>
-			{#if status.supportUrl}
-				<a href={status.supportUrl} class="underline underline-offset-2" rel="noopener noreferrer">{m.statusPublic_contactSupport()}</a>
+			{#if safeSupportUrl(status.supportUrl)}
+				<a href={safeSupportUrl(status.supportUrl)} class="underline underline-offset-2" rel="noopener noreferrer">{m.statusPublic_contactSupport()}</a>
 			{/if}
 		</footer>
 	{/if}

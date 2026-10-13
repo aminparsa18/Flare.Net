@@ -4,6 +4,7 @@
 	// Mounted only while the app chrome shows, so /login never fetches /api/version.
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { safeHttpUrl } from '$lib/safe-url';
 	import { notificationPrefs } from '$lib/notifications/prefs.svelte';
 	import { updateNotice } from '$lib/version/update-notice.svelte';
 	import { formatCalendarDay } from '$lib/time/format';
@@ -68,7 +69,7 @@
 				<p class="text-sm text-muted-foreground">{m.updateNotice_noNotes()}</p>
 			{/if}
 			<Dialog.Footer>
-				<Button variant="outline" href={release.url} target="_blank" rel="noopener noreferrer">
+				<Button variant="outline" href={safeHttpUrl(release.url) ?? undefined} target="_blank" rel="noopener noreferrer">
 					<ExternalLinkIcon />
 					{m.updateNotice_viewOnGitHub()}
 				</Button>

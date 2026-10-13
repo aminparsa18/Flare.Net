@@ -6,6 +6,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
+	import { safeHttpUrl } from '$lib/safe-url';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { deleteRelease, getReleaseErrors, listReleases, type Release, type ReleaseErrors } from '$lib/releases-api';
@@ -152,8 +153,8 @@
 							</Table.Cell>
 							<Table.Cell class="text-muted-foreground">{formatDateTime(release.deployedAt)}</Table.Cell>
 							<Table.Cell class="font-mono text-xs">
-								{#if release.url}
-									<a href={release.url} target="_blank" rel="noopener noreferrer" class="underline-offset-2 hover:underline">
+								{#if safeHttpUrl(release.url)}
+									<a href={safeHttpUrl(release.url)} target="_blank" rel="noopener noreferrer" class="underline-offset-2 hover:underline">
 										{release.commit ? release.commit.slice(0, 8) : release.url}
 									</a>
 								{:else}

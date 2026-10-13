@@ -56,12 +56,15 @@ export function buildCsp(
 	cfg: SecurityHeadersConfig,
 	nonce: string,
 	requestOrigin: string,
-	apiUrl: string | undefined
+	apiUrl: string | undefined,
+	remoteImages = false
 ): string {
 	const api = apiOrigin(apiUrl);
 	// 'self' does not reliably cover ws(s) on the same origin in every browser, so the live-tail socket is spelled out.
 	const connect = ["'self'", wsOrigin(requestOrigin), ...(api ? [api, wsOrigin(api)] : []), cfg.extraConnectSrc];
-	const img = ["'self'", 'data:', 'blob:', 'https:', cfg.extraImgSrc];
+	// Only the public status page loads a remote image (its admin-set logo). Everywhere else images are same-origin or
+	// data:/blob:, so telemetry-derived <img> sources cannot reach an arbitrary host and leak the viewer's IP.
+	const img = ["'self'", 'data:', 'blob:', ...(remoteImages ? ['https:'] : []), cfg.extraImgSrc];
 	return [
 		"default-src 'self'",
 		// Every inline <script> gets the nonce via transformPageChunk (see addNonce); nothing else may execute.
@@ -86,13 +89,13 @@ export function addNonce(html: string, nonce: string): string {
 
 export function securityHeaders(
 	cfg: SecurityHeadersConfig,
-	opts: { isHttps: boolean; nonce: string; requestOrigin: string; apiUrl: string | undefined }
+	opts: { isHttps: boolean; nonce: string; requestOrigin: string; apiUrl: string | undefined; remoteImages?: boolean }
 ): [string, string][] {
 	const headers: [string, string][] = [
 		['X-Content-Type-Options', 'nosniff'],
 		['Referrer-Policy', 'same-origin']
 	];
-	if (cfg.csp) headers.push(['Content-Security-Policy', buildCsp(cfg, opts.nonce, opts.requestOrigin, opts.apiUrl)]);
+	if (cfg.csp) headers.push(['Content-Security-Policy', buildCsp(cfg, opts.nonce, opts.requestOrigin, opts.apiUrl, opts.remoteImages)]);
 	if (opts.isHttps && cfg.hstsMaxAge > 0) {
 		headers.push([
 			'Strict-Transport-Security',

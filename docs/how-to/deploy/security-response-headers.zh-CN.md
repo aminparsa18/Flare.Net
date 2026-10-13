@@ -38,7 +38,7 @@ Flare.Api（`Security__Headers__*`）：
 | `FLARE_CSP` | 开启 | `off` 仅去掉 CSP。 |
 | `FLARE_CSP_FRAME_ANCESTORS` | `'none'` | 谁可以嵌入仪表板，例如 `'self' https://wiki.example.com`。 |
 | `FLARE_CSP_CONNECT_SRC` | 空 | 额外的 `connect-src` 来源，以空格分隔。 |
-| `FLARE_CSP_IMG_SRC` | 空 | 额外的 `img-src` 来源（图片已允许 `https:`）。 |
+| `FLARE_CSP_IMG_SRC` | 空 | 额外的 `img-src` 来源（图片仅限同源和 `data:`/`blob:`，公开的 `/status/*` 页面为显示徽标另允许 `https:`）。 |
 | `FLARE_HSTS_MAX_AGE` | `15552000` | `0` 禁用 HSTS。 |
 | `FLARE_HSTS_INCLUDE_SUBDOMAINS` | `false` | 添加 `includeSubDomains`。 |
 

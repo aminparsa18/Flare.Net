@@ -3,6 +3,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import type { ResourceState, ResourceHealth } from '$lib/api';
 	import type { FlareResourceNode } from './types';
+	import { safeHttpUrl } from '$lib/safe-url';
 	import DatabaseIcon from '@lucide/svelte/icons/database';
 	import ServerIcon from '@lucide/svelte/icons/server';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
@@ -67,7 +68,7 @@
 		<div class="mt-2 flex flex-col gap-1">
 			{#each node.urls as url (url)}
 				<a
-					href={url}
+					href={safeHttpUrl(url) ?? undefined}
 					target="_blank"
 					rel="noreferrer"
 					class="text-primary flex items-center gap-1 truncate text-xs hover:underline"
