@@ -67,9 +67,9 @@ public sealed class CredentialExpiryWorker(
         foreach (var key in await ingestKeys.ListAsync(cancellationToken))
         {
             if (key.RevokedAt is null && key.ExpiresAt is { } expiresAt
-                && await TryClaimAsync(db, "ingest-key", key.Id, expiresAt, now, settings.WarnDays) is not null)
+                && await TryClaimAsync(db, "ingest-key", key.Id, expiresAt, now, settings.WarnDays) is { } claim)
             {
-                await SendAsync(CredentialExpiryPolicy.BuildRule("Ingest key", key.Name, null, key.Id, expiresAt, now, publicUrl, "/settings/ingest-keys"), targets, now, cancellationToken);
+                await SendAsync(db, claim, CredentialExpiryPolicy.BuildRule("Ingest key", key.Name, null, key.Id, expiresAt, now, publicUrl, "/settings/ingest-keys"), targets, now, cancellationToken);
             }
         }
 
@@ -80,29 +80,35 @@ public sealed class CredentialExpiryWorker(
                 continue;
             }
 
-            if (await TryClaimAsync(db, "pat", token.Id, expiresAt, now, settings.WarnDays) is null)
+            if (await TryClaimAsync(db, "pat", token.Id, expiresAt, now, settings.WarnDays) is not { } claim)
             {
                 continue;
             }
 
             var owner = (await users.FindByIdAsync(token.UserId, cancellationToken))?.Username;
-            await SendAsync(CredentialExpiryPolicy.BuildRule("Personal access token", token.Name, owner, token.Id, expiresAt, now, publicUrl, "/settings/access-tokens"), targets, now, cancellationToken);
+            await SendAsync(db, claim, CredentialExpiryPolicy.BuildRule("Personal access token", token.Name, owner, token.Id, expiresAt, now, publicUrl, "/settings/access-tokens"), targets, now, cancellationToken);
         }
     }
 
-    /// <summary>Returns the threshold when a warning is due and this process won the right to send it; otherwise null.</summary>
-    private static async Task<int?> TryClaimAsync(IDatabase db, string kind, Guid id, DateTimeOffset expiresAt, DateTimeOffset now, List<int> warnDays)
+    /// <summary>Returns the dedup key when a warning is due and this process won the right to send it; otherwise null.</summary>
+    private static async Task<RedisKey?> TryClaimAsync(IDatabase db, string kind, Guid id, DateTimeOffset expiresAt, DateTimeOffset now, List<int> warnDays)
     {
         if (CredentialExpiryPolicy.DueThreshold(expiresAt, now, warnDays) is not { } threshold)
         {
             return null;
         }
 
-        var claimed = await db.StringSetAsync(CredentialExpiryPolicy.DedupKey(kind, id, expiresAt, threshold), "1", DedupTtl, When.NotExists);
-        return claimed ? threshold : null;
+        RedisKey dedupKey = CredentialExpiryPolicy.DedupKey(kind, id, expiresAt, threshold);
+        if (!await db.StringSetAsync(dedupKey, "1", DedupTtl, When.NotExists))
+        {
+            return null;
+        }
+
+        return dedupKey;
     }
 
-    private async Task SendAsync(Model.AlertRule rule, IReadOnlyList<Model.NotificationChannel> targets, DateTimeOffset now, CancellationToken cancellationToken)
+    /// <summary>Sends the warning; when no channel accepted it the claim is released so the next check retries instead of losing the warning for the rest of the threshold.</summary>
+    private async Task SendAsync(IDatabase db, RedisKey claim, Model.AlertRule rule, IReadOnlyList<Model.NotificationChannel> targets, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var results = await notifier.SendAllAsync(rule, targets, 0, now, cancellationToken);
         for (var i = 0; i < results.Count; i++)
@@ -111,6 +117,11 @@ public sealed class CredentialExpiryWorker(
             {
                 logger.LogWarning("Credential expiry warning '{Title}' to channel '{Channel}' failed: {Error}", rule.NotificationTitleTemplate, targets[i].Name, results[i].Error);
             }
+        }
+
+        if (!results.Any(r => r.Success))
+        {
+            await db.KeyDeleteAsync(claim);
         }
     }
 }
