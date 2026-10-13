@@ -16,7 +16,7 @@
 	// inputs debounce (300ms) - same "typing shouldn't fire a request per keystroke"
 	// reasoning the two sibling rows already document.
 	import { untrack } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import type { ResourceAttributeFilter } from '$lib/services-api';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import { Input } from '$lib/components/ui/input';

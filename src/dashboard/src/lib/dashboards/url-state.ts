@@ -11,6 +11,7 @@
 import type { DashboardVariable } from '$lib/dashboards-api';
 import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
 import { defaultSelection } from './variables';
+import type { ReadonlyURLSearchParams } from '$app/state';
 
 const VAR_PREFIX = 'var-';
 const RANGE_PARAM = 'range';
@@ -27,7 +28,7 @@ export interface DashboardUrlState {
 	variableValues: Record<string, string[]>;
 }
 
-export function parseDashboardUrlState(search: URLSearchParams, variables: DashboardVariable[]): DashboardUrlState {
+export function parseDashboardUrlState(search: ReadonlyURLSearchParams, variables: DashboardVariable[]): DashboardUrlState {
 	const rawRange = search.get(RANGE_PARAM);
 	const range = rawRange && OVERRIDE_PRESETS.has(rawRange) ? (rawRange as TimeRangePreset) : null;
 
@@ -45,13 +46,13 @@ export function parseDashboardUrlState(search: URLSearchParams, variables: Dashb
 
 /** Only state that differs from the dashboard's own defaults is written, keeping links short. */
 export function buildDashboardUrlSearch(
-	current: URLSearchParams,
+	current: ReadonlyURLSearchParams,
 	range: TimeRangePreset | null,
 	variables: DashboardVariable[],
 	variableValues: Record<string, string[]>,
 	defaultRange: TimeRangePreset | null = null
 ): string {
-	const next = new URLSearchParams(current);
+	const next = new URLSearchParams(current.toString());
 	for (const key of [...next.keys()]) {
 		if (key === RANGE_PARAM || key.startsWith(VAR_PREFIX)) next.delete(key);
 	}

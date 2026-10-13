@@ -3,7 +3,7 @@
 // `$lib/saved-views/last-used.ts`: a low-stakes viewer-local convenience with no
 // server-side field to hang it off. Shared across Logs/Traces/Metrics (one key) since an
 // incident window is the same wall-clock span whichever explorer is looking at it.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 const STORAGE_KEY = 'flare.recentCustomRanges';
 export const MAX_RECENT_RANGES = 5;

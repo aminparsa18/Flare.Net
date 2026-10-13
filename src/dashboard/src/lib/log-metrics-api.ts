@@ -6,6 +6,7 @@
 // gets camelCase JSON. `condition` is the shared `LogFilter` wire shape from `$lib/api`.
 
 import { API_BASE_URL, apiFetch, type LogFilter } from './api';
+import type { ReadonlyURL } from '$app/state';
 
 export interface LogMetric {
 	id: string;
@@ -103,7 +104,7 @@ export function buildLogMetricDraftHref(filter: LogFilter, base: (path: string) 
 }
 
 /** Parses the draft filter out of the page URL; null when absent or malformed. */
-export function parseLogMetricDraft(url: URL): LogFilter | null {
+export function parseLogMetricDraft(url: ReadonlyURL): LogFilter | null {
 	if (url.searchParams.get('new') !== '1') return null;
 	const raw = url.searchParams.get(LOG_METRIC_DRAFT_PARAM);
 	if (!raw) return {};

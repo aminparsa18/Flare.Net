@@ -1,9 +1,10 @@
-import { error, redirect, type Handle } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
 import { allowedOnStatusDomain, slugForHost } from '$lib/server/status-domains';
 import { paraglideMiddleware } from '$lib/paraglide/server';
-import { dev } from '$app/environment';
-import { env } from '$env/dynamic/public';
-import { env as privateEnv } from '$env/dynamic/private';
+import { dev } from '$app/env';
+import * as privateEnv from '$app/env/private';
+import { PUBLIC_API_URL } from '$app/env/public';
 import { addNonce, newNonce, readConfig, securityHeaders } from '$lib/server/security-headers';
 
 // This app SSRs its shell (adapter-node, no ssr=false anywhere - see vite.config.ts's
@@ -27,8 +28,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const withHeaders = security.enabled && !dev;
 	const nonce = newNonce();
 
-	const response = await paraglideMiddleware(event.request, ({ request, locale }) => {
-		event.request = request;
+	const response = await paraglideMiddleware(event.request, ({ locale }) => {
+		// Paraglide's callback `request` only differs from event.request when the URL locale strategy is in use
+		// (it delocalizes `/fr/about`); this app's strategy is cookie/preferredLanguage/baseLocale, so there is
+		// nothing to hand on, and SvelteKit 3 made `event.request` read-only anyway.
 		return resolve(event, {
 			// replaceAll, not replace: a plain .replace() only swaps the first match in the
 			// whole document, and app.html's own explanatory comment about this placeholder
@@ -49,7 +52,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			isHttps: proto === 'https',
 			nonce,
 			requestOrigin: `${proto}://${event.url.host}`,
-			apiUrl: env.PUBLIC_API_URL,
+			apiUrl: PUBLIC_API_URL,
 			remoteImages: event.url.pathname.startsWith('/status/')
 		})) {
 			// Only on responses that do not already carry the header (an endpoint may have chosen its own).

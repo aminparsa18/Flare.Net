@@ -18,7 +18,7 @@
 // interfaces and calls `res.json()` exactly as before; check that module's own header
 // comment for its current state.
 
-import { env } from '$env/dynamic/public';
+import { PUBLIC_API_URL } from '$app/env/public';
 import type { SpanFilter } from '$lib/traces-api';
 import {
 	logAggregateGroupByFromString,
@@ -57,7 +57,7 @@ import { HostStatsSnapshot as GeneratedHostStatsSnapshot } from '$lib/memorypack
 import { HostStatsHistoryPoint as GeneratedHostStatsHistoryPoint } from '$lib/memorypack/HostStatsHistoryPoint';
 
 /** Falls back to Flare.Api's fixed standalone dev port (see src/Flare.Api/Properties/launchSettings.json). */
-export const API_BASE_URL = env.PUBLIC_API_URL ?? 'http://localhost:5085';
+export const API_BASE_URL = PUBLIC_API_URL ?? 'http://localhost:5085';
 
 /** `Accept`/`Content-Type` value that opts a request in to Flare.Api's MemoryPack encoding (see `Flare.Api/Json/ApiSerialization.cs`) instead of its unconditional JSON default (ADR-0015). */
 export const MEMORYPACK_CONTENT_TYPE = 'application/x-memorypack';

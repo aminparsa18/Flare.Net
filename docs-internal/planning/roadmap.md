@@ -126,12 +126,9 @@ folders are where "what happened and why" actually lives.
     - **Secrets at rest beyond notification channels.** [ADR-0205](../adr/0205-encrypt-notification-secrets-at-rest.md)
       stops at notification channels. Audit and extend it to telemetry-export config, source-link tokens and the
       SSO/LDAP/OIDC client secrets and bind passwords (first confirm whether those are already encrypted).
-    - **Dashboard XSS review follow-ups (low risk; no exploitable telemetry-driven XSS was found).**
-      The `href`, screenshot `data:` URL and `mailto:` guards shipped (`src/lib/safe-url.ts`), and `img-src` allows `https:` only on `/status/*`. Still open:
-      - `npm audit` is down to six low-severity findings, all from `cookie` <0.7.0 under `@sveltejs/kit` 2.x. The only fix
-        npm offers is the SvelteKit 3 major upgrade, so it waits for that migration.
-      - Not reviewed: form actions (there are no `+server.ts` files today). The built output was checked: CSP, nonce
-        and `nosniff` are on `/login`, `/status/*` and 404 responses.
+    - **Move the dashboard from the `$lib` alias to `#lib` subpath imports.** SvelteKit 3 removed `$lib`; `vite.config.ts`
+      keeps it through the deprecated `kit.alias` option, which SvelteKit will drop in a later major. `#lib` needs an
+      explicit file extension on every import (about 800 files use `$lib/`), so do it as a mechanical codemod.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.

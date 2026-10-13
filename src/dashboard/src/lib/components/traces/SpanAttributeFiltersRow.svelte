@@ -14,7 +14,7 @@
 	// whenever a row's committed shape actually changes. Bag/operator dropdowns and
 	// add/remove commit immediately; key/value text inputs debounce (300ms), same
 	// reasoning AttributeFiltersRow.svelte documents for its own identical fields.
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { tracesExplorerContext } from '$lib/traces/context';
 	import { getSpanAttributeValues, type SpanAttributeBag, type SpanAttributeFilter, type SpanAttributeFilterOperator } from '$lib/traces-api';
 	import * as Accordion from '$lib/components/ui/accordion';

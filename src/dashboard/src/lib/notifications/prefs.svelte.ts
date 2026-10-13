@@ -5,7 +5,7 @@
 //
 // Browser notification *permission* is per browser and can't sync; `browserAlerts` only records
 // that this user wants them, and the watcher (alert-watcher.svelte.ts) still checks permission.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { createPrefsSync } from '$lib/prefs-sync';
 
 export const STORAGE_KEY = 'flare.notifications';

@@ -5,7 +5,7 @@
 // there's no per-user server-side field to hang this off; a viewer-local preference is
 // also just plain simpler for something this low-stakes, and self-heals below if the
 // chosen dashboard is later deleted.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 const STORAGE_KEY = 'flare.dashboards.homeId';
 

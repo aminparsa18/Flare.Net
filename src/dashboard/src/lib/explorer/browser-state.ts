@@ -1,7 +1,7 @@
 // Clears the small per-browser conveniences listed under Settings > Explorer. Each one is a
 // plain localStorage key (or key family) owned by the feature that writes it; this only
 // removes them, so the feature falls back to its default on next use.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 function removeMatching(test: (key: string) => boolean): void {
 	if (!browser) return;

@@ -91,10 +91,10 @@
 	function open(slo: Slo | null): void {
 		selected = slo;
 		// Keep the URL shareable (the burn-rate alert notifications link here).
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		if (slo) url.searchParams.set('slo', slo.id);
 		else url.searchParams.delete('slo');
-		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+		goto(url, { replaceState: true, reset: false });
 	}
 
 	async function onSaved(slo: Slo): Promise<void> {

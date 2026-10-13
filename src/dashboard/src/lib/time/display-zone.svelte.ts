@@ -4,7 +4,7 @@
 // all read it, so switching re-renders every timestamp on the page at once.
 //
 // Cached in localStorage and synced per user through $lib/regional (ADR-0110).
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { browserTimeZone, instantToZoned, zonedToInstant } from './time-zone';
 
 const STORAGE_KEY = 'flare.display.timeZone';

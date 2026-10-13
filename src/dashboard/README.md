@@ -1,6 +1,6 @@
 # Flare Dashboard
 
-The SPA frontend for [Flare](../../docs/explanation/architecture.md) — SvelteKit 2 (Svelte 5, runes) + Tailwind 4 + shadcn-svelte (`mira` style).
+The SPA frontend for [Flare](../../docs/explanation/architecture.md) — SvelteKit 3 (Svelte 5, runes) + Tailwind 4 + shadcn-svelte (`mira` style).
 
 Talks to `Flare.Api` over plain HTTP/WebSocket (see `src/lib/api.ts`); no server-side rendering of log data is planned, so this stays a straightforward client-rendered app.
 
@@ -20,7 +20,7 @@ npm run build
 npm run preview
 ```
 
-`vite.config.ts` uses `@sveltejs/adapter-node` — picked as part of the `docker-compose.yml` v1 roadmap item (see the repo root's `docker-compose.yml` and this project's `Dockerfile`). Has to be a real Node server, not `adapter-static`: `PUBLIC_API_URL` (`src/lib/api.ts`) is read via `$env/dynamic/public`, resolved per-request at runtime, not baked in at build time.
+`vite.config.ts` uses `@sveltejs/adapter-node` — picked as part of the `docker-compose.yml` v1 roadmap item (see the repo root's `docker-compose.yml` and this project's `Dockerfile`). Has to be a real Node server, not `adapter-static`: `PUBLIC_API_URL` (`src/lib/api.ts`) is a runtime (non-static) variable declared in `src/env.ts` and read via `$app/env/public`, not baked in at build time.
 
 ## Internationalization
 

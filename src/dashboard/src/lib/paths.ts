@@ -5,15 +5,22 @@
 // Everything that emits or reads an in-app path goes through these two helpers; with no
 // base path configured both are the identity function.
 
-import { base } from '$app/paths';
+import { resolve } from '$app/paths';
+
+// SvelteKit 3 no longer exports `base`; resolving the empty pathname yields `${base}/`. Read lazily because on
+// the server resolve() needs an active request when `paths.relative` is on (it is off, see vite.config.ts).
+function basePath(): string {
+	return (resolve as (pathname: string) => string)('').replace(/\/$/, '');
+}
 
 /** Prefixes an in-app, root-relative path ("/traces?x=1") with the configured base path. */
 export function withBase(path: string): string {
-	return path.startsWith('/') ? `${base}${path}` : path;
+	return path.startsWith('/') ? `${basePath()}${path}` : path;
 }
 
 /** The inverse for `page.url.pathname` - route-relative again, so it compares against "/traces". */
 export function stripBase(pathname: string): string {
+	const base = basePath();
 	if (base && (pathname === base || pathname.startsWith(`${base}/`))) {
 		return pathname.slice(base.length) || '/';
 	}
@@ -22,5 +29,5 @@ export function stripBase(pathname: string): string {
 
 /** This window's origin plus the base path - what an SSO round trip should return to. */
 export function appOrigin(): string {
-	return `${window.location.origin}${base}`;
+	return `${window.location.origin}${basePath()}`;
 }

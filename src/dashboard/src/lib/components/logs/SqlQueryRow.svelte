@@ -11,7 +11,7 @@
 	// and explicit Run only - no reactive $effect re-running it on every filter/keystroke
 	// change, matching Seq's own SQL bar and avoiding a query per keystroke.
 	import { tick } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { runLogQlQuery, type LogAggregateBucket, type LogQlQueryResponse } from '$lib/api';
 	import { resolveTimeRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';

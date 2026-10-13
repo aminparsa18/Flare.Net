@@ -18,6 +18,7 @@ import type { ExternalEndpointSource } from './external-apis-api';
 import type { TracesSavedViewState } from './traces/state.svelte';
 import type { LogsSavedViewState } from './logs/state.svelte';
 import { withBase } from '$lib/paths';
+import type { ReadonlyURL } from '$app/state';
 
 export interface DeepLinkTarget {
 	serviceName: string;
@@ -62,7 +63,7 @@ export interface ParsedLogsDeepLink {
 }
 
 /** Parses `+page.svelte`'s (root, Logs) deep-link params - null when this isn't a deep-link arrival (a direct visit, bookmark, or `?view=` saved view - checked first by the caller). */
-export function parseLogsDeepLinkParams(url: URL): ParsedLogsDeepLink | null {
+export function parseLogsDeepLinkParams(url: ReadonlyURL): ParsedLogsDeepLink | null {
 	const service = url.searchParams.get('service');
 	const range = url.searchParams.get('range');
 	if (!service || !isTimeRangePreset(range)) return null;
@@ -88,7 +89,7 @@ export interface ParsedTracesDeepLink {
 }
 
 /** Parses `traces/+page.svelte`'s deep-link params - null when this isn't a deep-link arrival. */
-export function parseTracesDeepLinkParams(url: URL): ParsedTracesDeepLink | null {
+export function parseTracesDeepLinkParams(url: ReadonlyURL): ParsedTracesDeepLink | null {
 	const service = url.searchParams.get('service');
 	const range = url.searchParams.get('range');
 	if (!service || !isTimeRangePreset(range)) return null;
@@ -163,7 +164,7 @@ export function buildLogContextDeepLinkHref(event: { eventId: string; timestamp:
 }
 
 /** Parses `+page.svelte`'s (root, Logs) `?context=`/`?ts=` params - null when this isn't a context-permalink arrival (checked alongside `?view=`/the Metrics deep link, all mutually exclusive). */
-export function parseLogContextDeepLinkParams(url: URL): ParsedLogContextDeepLink | null {
+export function parseLogContextDeepLinkParams(url: ReadonlyURL): ParsedLogContextDeepLink | null {
 	const eventId = url.searchParams.get('context');
 	const timestamp = url.searchParams.get('ts');
 	if (!eventId || !timestamp) return null;
@@ -181,7 +182,7 @@ export function parseLogContextDeepLinkParams(url: URL): ParsedLogContextDeepLin
 // BuildMatchingLogsUrl's remarks on Telegram Markdown.
 
 /** Decodes a page's `?state=` param - null when absent or undecodable (a truncated/hand-edited link falls back to the page's normal default, same as an invalid `?view=`). */
-export function parseStateDeepLinkParam(url: URL): unknown | null {
+export function parseStateDeepLinkParam(url: ReadonlyURL): unknown | null {
 	const encoded = url.searchParams.get('state');
 	if (!encoded) return null;
 	try {
@@ -455,7 +456,7 @@ export function buildErrorsDeepLinkHref(state: ErrorsDeepLinkState): string {
 }
 
 /** Parses `errors/+page.svelte`'s `?state=` param, defensively narrowed - null when absent, undecodable, or missing the fields a scoped view needs. */
-export function parseErrorsStateDeepLinkParam(url: URL): ErrorsDeepLinkState | null {
+export function parseErrorsStateDeepLinkParam(url: ReadonlyURL): ErrorsDeepLinkState | null {
 	const s = parseStateDeepLinkParam(url) as Partial<{
 		customRange: { from: string; to: string };
 		services: string[];
@@ -482,7 +483,7 @@ export function parseErrorsStateDeepLinkParam(url: URL): ErrorsDeepLinkState | n
 }
 
 /** Parses `routes/alerts/+page.svelte`'s deep-link params - null when this isn't a deep-link arrival (a direct visit, or the unrelated `?rule=<id>` history deep-link, checked separately by the caller). */
-export function parseAlertDeepLinkParams(url: URL): AlertPanelDraft | null {
+export function parseAlertDeepLinkParams(url: ReadonlyURL): AlertPanelDraft | null {
 	const kind = url.searchParams.get('kind');
 	if (kind !== 'LogCount' && kind !== 'MetricThreshold') return null;
 	const name = url.searchParams.get('name') ?? '';

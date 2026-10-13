@@ -8,7 +8,7 @@
 // list that resets on every page load isn't useful), and there's exactly one reader
 // (CommandPalette, which re-reads fresh on every open, same "fetch fresh" pattern as
 // SavedSearchesMenu/loadViews) - no in-app reactivity to wire up.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 const STORAGE_KEY = 'flare.logs.recentSearches';
 

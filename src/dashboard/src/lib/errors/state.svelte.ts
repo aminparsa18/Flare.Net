@@ -18,7 +18,7 @@ import { ownerFromRules, type OwnershipRule } from '$lib/errors/ownership';
 import type { SourceLinkConfig } from '$lib/errors/source-links';
 import { issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '$lib/error-issues-api';
 import type { ResourceAttributeFilter } from '$lib/services-api';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { buildErrorsDeepLinkHref, type ErrorsDeepLinkState } from '$lib/deep-links';
 

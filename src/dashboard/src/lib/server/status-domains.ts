@@ -1,7 +1,7 @@
 // Maps the Host of a request to the status page published on it (ADR-0165). Server-only: the dashboard asks the
 // API, which serves GET /api/public/status/domain/{host} from one cached map of every domain.
-import { env as privateEnv } from '$env/dynamic/private';
-import { env as publicEnv } from '$env/dynamic/public';
+import { API_INTERNAL_URL } from '$app/env/private';
+import { PUBLIC_API_URL } from '$app/env/public';
 
 const TTL_MS = 30_000;
 // Hosts come from the request, so an attacker can make up as many as they like; cap what we remember.
@@ -15,7 +15,7 @@ export async function slugForHost(host: string, fetchFn: typeof fetch = fetch): 
 	if (hit && hit.expires > Date.now()) return hit.slug;
 
 	// API_INTERNAL_URL is for deployments where the dashboard reaches the API at a different address than browsers do.
-	const base = privateEnv.API_INTERNAL_URL || publicEnv.PUBLIC_API_URL || 'http://localhost:5085';
+	const base = API_INTERNAL_URL || PUBLIC_API_URL || 'http://localhost:5085';
 	let slug: string | null = null;
 	try {
 		const res = await fetchFn(`${base.replace(/\/$/, '')}/api/public/status/domain/${encodeURIComponent(key)}`, {

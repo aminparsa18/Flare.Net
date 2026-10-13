@@ -15,7 +15,7 @@
 	// add/remove commit immediately; key/value text inputs debounce (300ms), same
 	// "typing shouldn't fire a request per keystroke" reasoning LogsToolbar's search box
 	// already documents.
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { getLogAttributeValues, type AttributeBag, type AttributeFilter, type AttributeFilterOperator } from '$lib/api';
 	import * as Accordion from '$lib/components/ui/accordion';

@@ -4,10 +4,12 @@
 // never scrolls), then marks <html data-report-ready> so the renderer knows when to start waiting for the charts.
 // Pure and DOM-light so the flag can be read from any component without threading a prop through the grid.
 
+import type { ReadonlyURLSearchParams } from '$app/state';
+
 export const REPORT_PARAM = 'report';
 const READY_ATTRIBUTE = 'reportReady';
 
-export function isReportSearch(search: URLSearchParams): boolean {
+export function isReportSearch(search: ReadonlyURLSearchParams): boolean {
 	return search.get(REPORT_PARAM) === '1';
 }
 

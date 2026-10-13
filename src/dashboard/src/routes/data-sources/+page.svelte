@@ -8,7 +8,7 @@
 	// first), plus one Metrics tab for Flare.Ingest's native Prometheus scrape receiver -
 	// see catalog.ts's own doc comment for why that one item lives here instead of a
 	// second page.
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { API_BASE_URL } from '$lib/api';
 	import { buildCategories } from '$lib/data-sources/catalog';
 	import CodeBlock from '$lib/components/data-sources/CodeBlock.svelte';

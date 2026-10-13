@@ -16,7 +16,7 @@
 	// defaults open) - this is a supplementary view most deployments won't have a numeric
 	// attribute for yet, so it shouldn't claim vertical space above the log table until
 	// opened once.
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { mode } from 'mode-watcher';
 	import {
 		getLogAttributeKeys,
