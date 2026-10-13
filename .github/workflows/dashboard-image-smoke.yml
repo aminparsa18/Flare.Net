@@ -1,0 +1,61 @@
+# Builds the dashboard image and actually serves it - the only check that exercises
+# apply-base-path.mjs + adapter-node 6's build-time asset table together. docker-publish.yml
+# builds the image but never runs it, which is how a stale Content-Length (rewritten JS/CSS
+# served with the pre-rewrite size) reached main. Runs on PRs too, since that is where the
+# image's inputs (src/dashboard, plus Flare.Api's types for the MemoryPack codegen stage) change.
+
+name: Dashboard image smoke test
+
+on:
+  pull_request:
+    paths:
+      - 'src/dashboard/**'
+      - 'src/Flare.Api/**'
+      - 'src/Flare.Identity/**'
+      - 'src/Flare.Mcp/**'
+      - 'src/Flare.ServiceDefaults/**'
+      - 'scripts/smoke-dashboard-assets.mjs'
+      - '.github/workflows/dashboard-image-smoke.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/dashboard/**'
+      - 'scripts/smoke-dashboard-assets.mjs'
+      - '.github/workflows/dashboard-image-smoke.yml'
+
+concurrency:
+  group: dashboard-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build dashboard image
+        run: docker build -f src/dashboard/Dockerfile -t flare-dashboard:smoke .
+
+      # "" = served at the root (the default), /flare = a sub-path; the second exercises the
+      # placeholder rewrite and the static-dir move, the first the root-hosting branch.
+      - name: Serve and check assets
+        run: |
+          set -euo pipefail
+          for base in "" "/flare"; do
+            echo "::group::FLARE_BASE_PATH='${base}'"
+            docker run -d --name dash -p 3000:3000 -e "FLARE_BASE_PATH=${base}" flare-dashboard:smoke
+            for i in $(seq 1 30); do
+              curl -fsS -o /dev/null "http://127.0.0.1:3000${base}/" && break
+              [ "$i" = 30 ] && { docker logs dash; exit 1; }
+              sleep 1
+            done
+            rm -rf client && docker cp dash:/app/build-runtime/client ./client
+            node scripts/smoke-dashboard-assets.mjs --url http://127.0.0.1:3000 --base "${base}" --dir ./client \
+              || { docker logs dash; exit 1; }
+            docker rm -f dash
+            echo "::endgroup::"
+          done
