@@ -29,7 +29,7 @@ Authorization is checked only when the socket opens. `LiveTail__MaxSocketLifetim
 
 Live-tail regexes run in linear time (`RegexOptions.NonBacktracking`). Lookarounds and backreferences are rejected when the filter is submitted, so a saved view that uses them stops working in live tail and needs rewriting. Search and aggregate queries are unaffected.
 
-The connection caps and filter limits are untuned defaults. Host stats and the resource graph apply `MaxConnectionsPerUser`, `MaxConnections` and `MaxClientMessageBytes` too, each endpoint with its own bucket, so they cannot starve live tail. Their inbound frames are discarded, so only the socket count and the message size matter.
+The defaults assume one live-tail socket per open dashboard tab, plus one host-stats and one resource-graph socket on the Resources page, so 10 per user covers a power user with several tabs. A stale socket from a closed tab frees its slot when the server notices the disconnect or at `MaxSocketLifetime`. Raise `MaxConnectionsPerUser` if users see 429 on reconnect, and `MaxConnections` if you have more than about 20 concurrent users. The filter limits are well above what the dashboard produces; raise them only for scripted clients. Host stats and the resource graph apply `MaxConnectionsPerUser`, `MaxConnections` and `MaxClientMessageBytes` too, each endpoint with its own bucket, so they cannot starve live tail. Their inbound frames are discarded, so only the socket count and the message size matter.
 
 ## Related
 

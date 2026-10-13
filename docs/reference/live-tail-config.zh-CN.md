@@ -29,7 +29,7 @@ live-tail WebSocket 端点（`GET /api/logs/tail`、主机统计、资源图）�
 
 live-tail 的正则表达式以线性时间运行（`RegexOptions.NonBacktracking`）。提交过滤器时会拒绝环视和反向引用，因此使用它们的已保存视图在 live-tail 中将不再可用，需要改写。搜索和聚合查询不受影响。
 
-连接上限和过滤器限制是未经调优的默认值。主机统计和资源图同样应用 `MaxConnectionsPerUser`、`MaxConnections` 和 `MaxClientMessageBytes`，每个端点各用独立计数，因此不会挤占 live-tail。它们收到的入站帧会被丢弃，所以只有套接字数量和消息大小有意义。
+默认值假定每个打开的仪表板标签页一个 live-tail 套接字，加上 Resources 页面上各一个主机统计和资源图套接字，因此每用户 10 个足以覆盖开多个标签页的重度用户。已关闭标签页遗留的套接字会在服务器发现断开或到达 `MaxSocketLifetime` 时释放名额。如果用户在重连时遇到 429，请提高 `MaxConnectionsPerUser`；并发用户超过约 20 个时请提高 `MaxConnections`。过滤器限制远高于仪表板实际产生的值，仅在脚本化客户端需要时再提高。主机统计和资源图同样应用 `MaxConnectionsPerUser`、`MaxConnections` 和 `MaxClientMessageBytes`，每个端点各用独立计数，因此不会挤占 live-tail。它们收到的入站帧会被丢弃，所以只有套接字数量和消息大小有意义。
 
 ## 相关
 

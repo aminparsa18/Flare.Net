@@ -123,11 +123,6 @@ folders are where "what happened and why" actually lives.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time
   redaction rules, ingest-key allowlists and TTL retention are already shipped). In rough priority order:
   - **Threat-model findings to fix first** (from [the threat model](../threat-model.md); each was confirmed in code):
-    - **WebSocket hardening** (triaged in this order; live-tail, host stats and resource graph, in
-      [`Flare.Api/Endpoints`](../../src/Flare.Api/Endpoints)):
-      - **Follow-ups to the shipped live-tail limits, Origin check and regex guard** (code in `LiveTail/` and
-        `Endpoints/WebSocketOriginGuard.cs`):
-        - The 10 per user, 200 total and filter limits are untuned defaults.
     - **ClickHouse published with a default password.** `docker-compose.yml` publishes `8123` with the default password
       `flare`. Bind to `127.0.0.1` by default (opt in to wider exposure) and have the installer generate a random
       password.
