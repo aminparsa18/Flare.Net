@@ -24,10 +24,8 @@ namespace Flare.Api.Model;
 /// richer operator set is there as precedent if a real need for it shows up here too.
 /// <para>
 /// No <see cref="DateTimeOffset"/>/<see cref="System.Text.Json.JsonElement"/>/list member,
-/// so this carries <c>[GenerateTypeScript]</c> - same eligibility as
-/// <see cref="ExternalCallGroup"/>/<see cref="DatabaseCallGroup"/> despite living inside a
-/// hand-written parent list (<c>Flare.Api.csproj</c>'s MemoryPack TypeScript codegen
-/// comment).
+/// so this carries <c>[GenerateTypeScript]</c> (see <c>Flare.Api.csproj</c>'s MemoryPack
+/// TypeScript codegen comment).
 /// </para>
 /// </remarks>
 [MemoryPackable]

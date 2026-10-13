@@ -6,12 +6,12 @@
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import type { UserRole } from './auth-api';
 import { userRoleFromString, userRoleToString } from '#lib/memorypack/enums.ts';
-import { UserSummaryDto } from '#lib/memorypack/UserSummaryDto.ts';
+import { UserSummaryDto } from '#lib/generated/memorypack/UserSummaryDto.ts';
 import { CreateServiceAccountRequest } from '#lib/generated/memorypack/CreateServiceAccountRequest.ts';
 import { CreateAccessTokenRequest } from '#lib/generated/memorypack/CreateAccessTokenRequest.ts';
-import { CreateAccessTokenResponse } from '#lib/memorypack/CreateAccessTokenResponse.ts';
-import { AccessTokenListResponse } from '#lib/memorypack/AccessTokenListResponse.ts';
-import type { AccessTokenDto } from '#lib/memorypack/AccessTokenDto.ts';
+import { CreateAccessTokenResponse } from '#lib/generated/memorypack/CreateAccessTokenResponse.ts';
+import { AccessTokenListResponse } from '#lib/generated/memorypack/AccessTokenListResponse.ts';
+import type { AccessTokenDto } from '#lib/generated/memorypack/AccessTokenDto.ts';
 import type { UserSummary } from './users-api';
 import type { AuthProvider } from './auth-api';
 import type { AccessToken, CreateAccessTokenResponse as CreatedToken } from './personal-access-tokens-api';
@@ -19,7 +19,7 @@ import type { AccessToken, CreateAccessTokenResponse as CreatedToken } from './p
 function toAccessToken(dto: AccessTokenDto): AccessToken {
 	return {
 		id: dto.id,
-		name: dto.name,
+		name: dto.name ?? '',
 		createdAt: dto.createdAt.toISOString(),
 		expiresAt: dto.expiresAt?.toISOString() ?? null,
 		lastUsedAt: dto.lastUsedAt?.toISOString() ?? null,
@@ -54,7 +54,7 @@ export async function createServiceAccount(name: string, role: UserRole): Promis
 	if (dto == null) throw new Error('Empty response body decoding UserSummaryDto.');
 	return {
 		id: dto.id,
-		username: dto.username,
+		username: dto.username ?? '',
 		role: userRoleToString(dto.role),
 		authProvider: dto.authProvider as AuthProvider,
 		isDisabled: dto.isDisabled,

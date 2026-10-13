@@ -4,16 +4,14 @@
 // `hostmetrics`-receiver metrics - see HostInventoryQueryBuilder.cs for which metric feeds
 // which column.
 //
-// MemoryPack over the wire, same shape as `services-api.ts`: both request types have no
-// DateTimeOffset/list member and are real generated classes; every response carries a
-// DateTimeOffset (`HostSummary.LastSeen`/`HostMetricsPoint.BucketStart`) inside an
-// IReadOnlyList, so those are hand-written under `#lib/memorypack/`.
+// MemoryPack over the wire, same shape as `services-api.ts`: every wire class is
+// generated (`#lib/generated/memorypack/`).
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { HostListRequest as GeneratedHostListRequest } from '#lib/generated/memorypack/HostListRequest.ts';
 import { HostMetricsRequest as GeneratedHostMetricsRequest } from '#lib/generated/memorypack/HostMetricsRequest.ts';
-import { HostListResponse as GeneratedHostListResponse } from '#lib/memorypack/HostListResponse.ts';
-import { HostMetricsResponse as GeneratedHostMetricsResponse } from '#lib/memorypack/HostMetricsResponse.ts';
+import { HostListResponse as GeneratedHostListResponse } from '#lib/generated/memorypack/HostListResponse.ts';
+import { HostMetricsResponse as GeneratedHostMetricsResponse } from '#lib/generated/memorypack/HostMetricsResponse.ts';
 
 /** Utilization figures are percentages (0-100) averaged over the window; null = the host sent no data for that metric (e.g. the filesystem scraper is off), never 0. */
 export interface HostSummary {
@@ -79,7 +77,7 @@ export async function listHosts(windowMinutes: number, filter: HostListFilter, s
 		hosts: (dto.hosts ?? [])
 			.filter((h) => h != null)
 			.map((h) => ({
-				hostName: h.hostName,
+				hostName: h.hostName ?? '',
 				osType: h.osType,
 				cpuPercent: h.cpuPercent,
 				memoryPercent: h.memoryPercent,
@@ -111,7 +109,7 @@ export async function getHostMetrics(hostName: string, windowMinutes: number, si
 		throw new Error('Empty response body decoding HostMetricsResponse.');
 	}
 	return {
-		hostName: dto.hostName,
+		hostName: dto.hostName ?? '',
 		windowMinutes: dto.windowMinutes,
 		bucketWidthSeconds: dto.bucketWidthSeconds,
 		points: (dto.points ?? [])

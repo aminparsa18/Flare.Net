@@ -4,20 +4,16 @@
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape.
-// `PipelineStreamHealth`/`PipelineServiceEntry` have no DateTimeOffset/JsonElement member
-// and use real generated classes; `PipelineFlushHealth` (DateTimeOffset?),
-// `PipelineServiceBreakdown` (an `IReadOnlyList<T>` member - see that hand-written file's
-// header comment), and the top-level `PipelineStatsResponse` are hand-written
-// (`#lib/memorypack/`). `signal` converts through `#lib/memorypack/enums.ts`'s
+// Every wire class is generated (`#lib/generated/memorypack/`). `signal` converts through `#lib/memorypack/enums.ts`'s
 // `ingestionSignalToString`, same enum `ingestion-api.ts` exports as `IngestionSignal`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders } from './api';
 import type { IngestionSignal } from './ingestion-api';
 import { ingestionSignalToString } from '#lib/memorypack/enums.ts';
-import { PipelineStatsResponse as GeneratedPipelineStatsResponse } from '#lib/memorypack/PipelineStatsResponse.ts';
+import { PipelineStatsResponse as GeneratedPipelineStatsResponse } from '#lib/generated/memorypack/PipelineStatsResponse.ts';
 import type { PipelineStreamHealth as GeneratedPipelineStreamHealth } from '#lib/generated/memorypack/PipelineStreamHealth.ts';
-import type { PipelineFlushHealth as GeneratedPipelineFlushHealth } from '#lib/memorypack/PipelineFlushHealth.ts';
-import type { PipelineServiceBreakdown as GeneratedPipelineServiceBreakdown } from '#lib/memorypack/PipelineServiceBreakdown.ts';
+import type { PipelineFlushHealth as GeneratedPipelineFlushHealth } from '#lib/generated/memorypack/PipelineFlushHealth.ts';
+import type { PipelineServiceBreakdown as GeneratedPipelineServiceBreakdown } from '#lib/generated/memorypack/PipelineServiceBreakdown.ts';
 import type { PipelineServiceEntry as GeneratedPipelineServiceEntry } from '#lib/generated/memorypack/PipelineServiceEntry.ts';
 
 export interface PipelineStreamHealth {

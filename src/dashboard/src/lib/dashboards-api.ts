@@ -4,7 +4,8 @@
 // Same MemoryPack shape as `saved-views-api.ts` (see that file's header comment for the
 // general convention): `Dashboard`/`DashboardRequest` carry the opaque `JsonElement
 // LayoutJson` blob MemoryPack has no native mapping for, on top of `DateTimeOffset`
-// `createdAt`/`updatedAt` - both hand-written companions (`#lib/memorypack/Dashboard.ts`).
+// `createdAt`/`updatedAt` - hand-written companions (`#lib/memorypack/Dashboard*.ts`), the
+// only wire classes left that the generator can't emit.
 //
 // `layoutJson` stays deliberately typed as `DashboardLayout` (this module's own shape, not
 // generated) on the wire - Flare.Api never interprets it (round-trips it as an opaque

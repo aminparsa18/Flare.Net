@@ -4,6 +4,7 @@ namespace Flare.Api.Model;
 
 /// <summary>One entry of a span's <c>Events</c> Nested column - a timestamped annotation.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SpanEventDto
 {
     public required DateTimeOffset Timestamp { get; init; }
@@ -19,6 +20,7 @@ public sealed partial record SpanEventDto
 /// <see cref="SpanEventDto"/>, a link carries no timestamp of its own.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SpanLinkDto
 {
     /// <summary>Lower-hex trace id of the linked-to span.</summary>
@@ -50,6 +52,7 @@ public sealed partial record SpanLinkDto
 /// <see cref="SpanFilter.StatusCodes"/>'s remarks for why.
 /// </remarks>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SpanDto
 {
     public required string TraceId { get; init; }
