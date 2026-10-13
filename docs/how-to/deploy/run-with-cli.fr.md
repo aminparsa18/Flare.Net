@@ -35,6 +35,19 @@ dotnet tool install --global Flare.Cli
 > `dotnet tool install -g flare` directement, cela échoue avec une erreur
 > « introuvable » ; utilisez la commande ci-dessus.
 
+Pas de SDK .NET ? Installez plutôt la version autonome depuis npm
+(macOS arm64/x64, Linux arm64/x64, Windows x64 ; Node 18+) :
+
+```sh
+npm install --global @apardev/flare-cli
+# ou, sans installer : npx @apardev/flare-cli doctor
+```
+
+Les deux voies donnent la même commande `flare`, à la même version. Choisissez-en
+une : si les deux sont installées, la première dans votre `PATH` l'emporte. Ne
+lancez pas l'installation avec `--omit=optional` — le binaire est livré dans un
+paquet optionnel propre à chaque plateforme.
+
 ## Étapes
 
 ```sh

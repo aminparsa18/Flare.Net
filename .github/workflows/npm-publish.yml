@@ -1,0 +1,128 @@
+# Publishes the Flare CLI to npm as @apardev/flare-cli (launcher) plus one binary package per
+# platform (@apardev/flare-cli-darwin-arm64, -darwin-x64, -linux-arm64, -linux-x64, -win32-x64).
+# See src/Flare.Cli.Npm/README.md and ADR-0214.
+#
+# Shares the `flare-cli-v*.*.*` tag with nuget-publish.yml on purpose: one tag releases the same
+# CLI version through both routes, and the npm version is always the Flare.Cli.csproj <Version>.
+#
+# Auth is npm trusted publishing (OIDC), no NPM_TOKEN. npm only lets you attach a trusted publisher
+# to a package that already exists, so the very first release of each of the six packages is a manual
+# `npm publish --access public` from a logged-in maintainer; after that, add this workflow
+# (npm-publish.yml, environment `release`) as the trusted publisher on every package.
+#
+# macOS binaries are built on a macOS runner: arm64 macOS refuses to run an unsigned binary and only
+# the macOS SDK host applies the ad-hoc signature. Linux and Windows cross-publish from Ubuntu.
+
+name: npm Publish
+
+on:
+  push:
+    tags:
+      - 'flare-cli-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and stage everything, but do not publish (no tag needed)'
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { rid: osx-arm64, os: macos-latest }
+          - { rid: osx-x64, os: macos-latest }
+          - { rid: linux-x64, os: ubuntu-latest }
+          - { rid: linux-arm64, os: ubuntu-latest }
+          - { rid: win-x64, os: ubuntu-latest }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate tag matches project version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION=$(node src/Flare.Cli.Npm/scripts/build.mjs version)
+          if [ "flare-cli-v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match Flare.Cli.csproj Version ($VERSION)"
+            exit 1
+          fi
+
+      - name: Publish binary and stage package
+        run: node src/Flare.Cli.Npm/scripts/build.mjs platform --rid ${{ matrix.rid }} --out dist
+
+      # tar, not upload-artifact on the folder: artifacts drop the exec bit, and a non-executable
+      # binary in a root-owned global install cannot be repaired by the launcher at run time.
+      - name: Archive staged package
+        run: tar -C dist/packages -cf platform-${{ matrix.rid }}.tar .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: platform-${{ matrix.rid }}
+          path: platform-${{ matrix.rid }}.tar
+          retention-days: 3
+
+  publish:
+    name: Publish to npm
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write # npm trusted publishing + provenance
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24' # npm >= 11.5.1 is required for trusted publishing
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: platform-*
+          path: staged
+          merge-multiple: true
+
+      - name: Extract platform packages
+        run: |
+          mkdir -p dist/packages
+          for t in staged/*.tar; do tar -C dist/packages -xf "$t"; done
+          node src/Flare.Cli.Npm/scripts/build.mjs main --out dist
+          ls dist/packages
+
+      # Cheap guard that the launcher and the staged packages agree, before anything is published.
+      - name: Check launcher package map
+        run: |
+          for p in dist/packages/flare-cli-*; do
+            name=$(node -p "require('./$p/package.json').name")
+            grep -q "'$name'" src/Flare.Cli.Npm/launcher/flare.js || { echo "::error::$name missing from launcher PLATFORM_PACKAGES"; exit 1; }
+          done
+
+      - name: Publish (platform packages first, launcher last)
+        if: startsWith(github.ref, 'refs/tags/') || inputs.dry_run == false
+        run: |
+          for p in dist/packages/flare-cli-* dist/packages/flare-cli; do
+            name=$(node -p "require('./$p/package.json').name")
+            version=$(node -p "require('./$p/package.json').version")
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version already published, skipping"
+              continue
+            fi
+            (cd "$p" && npm publish)
+          done
+
+      - name: Dry run (pack only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.dry_run != false }}
+        run: |
+          for p in dist/packages/flare-cli-* dist/packages/flare-cli; do
+            (cd "$p" && npm pack --dry-run)
+          done

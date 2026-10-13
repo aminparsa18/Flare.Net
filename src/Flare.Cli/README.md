@@ -3,6 +3,9 @@
 > Package ID `Flare.Cli`, not `flare` - that id is already taken on nuget.org (an old,
 > unrelated, unlisted package). The installed command is still `flare`:
 > `dotnet tool install --global Flare.Cli`, then `flare start`.
+>
+> No .NET SDK? The same CLI ships self-contained on npm: `npm install --global @apardev/flare-cli`
+> (see `src/Flare.Cli.Npm/`).
 
 A global .NET tool that manages a **standing, standalone** [Flare](https://github.com/aminparsa18/Flare.Net)
 instance - the same non-Aspire Docker stack `docker compose up` brings up in the

@@ -1,0 +1,19 @@
+{
+  "name": "@apardev/flare-cli",
+  "version": "0.0.0",
+  "description": "Flare CLI - lifecycle manager for a standalone, self-hosted Flare observability stack. Self-contained, no .NET SDK required.",
+  "license": "MIT",
+  "author": "Amin Parsa",
+  "homepage": "https://github.com/aminparsa18/Flare.Net",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aminparsa18/Flare.Net.git",
+    "directory": "src/Flare.Cli.Npm"
+  },
+  "keywords": ["flare", "cli", "opentelemetry", "observability", "logs", "traces", "metrics", "docker"],
+  "bin": { "flare": "bin/flare.js" },
+  "files": ["bin/flare.js", "README.md", "LICENSE"],
+  "engines": { "node": ">=18" },
+  "publishConfig": { "access": "public", "provenance": true },
+  "optionalDependencies": {}
+}
