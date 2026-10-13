@@ -79,6 +79,8 @@ import CloudIcon from '@lucide/svelte/icons/cloud';
 import AntennaIcon from '@lucide/svelte/icons/antenna';
 // Dapr's own logo, vendored as a currentColor component (lucide has no brand logos).
 import DaprIcon from '#lib/components/data-sources/DaprIcon.svelte';
+// Orleans' own logo, vendored the same way.
+import OrleansIcon from '#lib/components/data-sources/OrleansIcon.svelte';
 
 export interface GuideStep {
 	heading: string;
@@ -965,6 +967,55 @@ dapr.io/config: flare`
 				}
 			]
 		},
+		orleans: {
+			id: 'orleans',
+			title: m.dataSourceCatalog_orleansTitle(),
+			icon: OrleansIcon,
+			intro: m.dataSourceCatalog_orleansIntro(),
+			steps: [
+				{
+					heading: m.dataSourceCatalog_orleansStep1Heading(),
+					body: m.dataSourceCatalog_orleansStep1Body(),
+					code: {
+						text: 'dotnet add package OpenTelemetry.Extensions.Hosting\ndotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol'
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_orleansStep2Heading(),
+					body: m.dataSourceCatalog_orleansStep2Body(),
+					code: {
+						label: 'Program.cs',
+						text: `using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+var flare = new Uri("${ep.grpcUri}");
+
+builder.UseOrleans(silo => silo.AddActivityPropagation());
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("your-silo"))
+    .WithTracing(t => t
+        .AddSource(Orleans.Diagnostics.ActivitySources.ApplicationGrainActivitySourceName)
+        .AddOtlpExporter(o => o.Endpoint = flare))
+    .WithMetrics(m => m
+        .AddMeter("Microsoft.Orleans")
+        .AddOtlpExporter(o => o.Endpoint = flare));
+
+builder.Logging.AddOpenTelemetry(l => l.AddOtlpExporter(o => o.Endpoint = flare));`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_orleansStep3Heading(),
+					body: m.dataSourceCatalog_orleansStep3Body()
+				},
+				{
+					heading: m.dataSourceCatalog_orleansStep4Heading(),
+					body: m.dataSourceCatalog_orleansStep4Body()
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: m.dataSourceCatalog_customTitle(),
@@ -1019,7 +1070,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 		{
 			id: 'languages',
 			label: m.dataSourceCatalog_categoryLanguages(),
-			itemIds: ['dotnet', 'python', 'nodejs', 'java', 'go']
+			itemIds: ['dotnet', 'orleans', 'python', 'nodejs', 'java', 'go']
 		},
 		{ id: 'devops', label: m.dataSourceCatalog_categoryDevops(), itemIds: ['jenkins', 'ansible', 'terraform', 'github-actions'] },
 		{ id: 'custom', label: m.dataSourceCatalog_categoryCustom(), itemIds: ['custom'] }

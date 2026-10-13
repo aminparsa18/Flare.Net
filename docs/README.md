@@ -54,6 +54,7 @@ the full rule set on what goes where.
 
 - [Send browser telemetry to Flare](how-to/instrument/send-browser-telemetry.md)
 - [Send telemetry from a .NET MAUI app to Flare](how-to/instrument/send-maui-telemetry.md)
+- [Send telemetry from an Orleans app to Flare](how-to/instrument/send-orleans-telemetry.md)
 
 *Monitor infrastructure and services*
 

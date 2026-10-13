@@ -56,6 +56,7 @@
 
 - [Отправить телеметрию браузера во Flare](how-to/instrument/send-browser-telemetry.ru.md)
 - [Отправить телеметрию из приложения .NET MAUI во Flare](how-to/instrument/send-maui-telemetry.ru.md)
+- [Отправка телеметрии приложения Orleans во Flare](how-to/instrument/send-orleans-telemetry.ru.md)
 
 *Мониторинг инфраструктуры и сервисов*
 
