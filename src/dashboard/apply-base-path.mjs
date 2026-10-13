@@ -8,6 +8,7 @@
 // with ("" = served at the root). Called from server.js on every start, from the pristine
 // build/ each time, so changing the env var and restarting always works - nothing is
 // rewritten in place.
+import { createHash } from 'node:crypto';
 import { brotliCompressSync, gzipSync } from 'node:zlib';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -69,4 +70,36 @@ export function applyBasePath(buildDir, outDir, basePath) {
 		for (const entry of readdirSync(from)) renameSync(join(from, entry), join(outDir, 'client', entry));
 		rmSync(from, { recursive: true });
 	}
+
+	refreshAssetTables(outDir, basePath);
+}
+
+/**
+ * adapter-node 6 serves a closed set of files recorded at build time and sends the recorded
+ * `size`/`etag` (plus the .gz/.br sizes) verbatim - it never re-stats the file. Rewriting the
+ * placeholder changes those files' length, so without this the client gets a Content-Length
+ * longer than the body (truncated JS/CSS, a broken page). The tables live in adapter-node.js as
+ * `export const assets = JSON.parse("...")` (and `prerendered_assets`); recompute each entry
+ * from what is now on disk. The etag is adapter-node's own scheme: sha256 of the content, base64url.
+ */
+function refreshAssetTables(outDir, basePath) {
+	const entryFile = join(outDir, 'adapter-node.js');
+	let source = readFileSync(entryFile, 'utf8');
+	for (const [name, dir] of [['assets', 'client'], ['prerendered_assets', 'prerendered']]) {
+		const pattern = new RegExp(`export const ${name} = JSON\\.parse\\((".*")\\);`);
+		const match = pattern.exec(source);
+		if (!match) throw new Error(`adapter-node.js: could not find the "${name}" asset table - adapter-node's output format changed.`);
+		const table = JSON.parse(JSON.parse(match[1]));
+		for (const [, entry] of table.entries) {
+			const file = join(outDir, dir, basePath, entry.file);
+			const content = readFileSync(file);
+			entry.size = content.length;
+			entry.etag = createHash('sha256').update(content).digest('base64url');
+			if (entry.gz !== undefined) entry.gz = statSync(`${file}.gz`).size;
+			if (entry.br !== undefined) entry.br = statSync(`${file}.br`).size;
+		}
+		const literal = JSON.stringify(JSON.stringify(table));
+		source = source.slice(0, match.index) + `export const ${name} = JSON.parse(${literal});` + source.slice(match.index + match[0].length);
+	}
+	writeFileSync(entryFile, source);
 }
