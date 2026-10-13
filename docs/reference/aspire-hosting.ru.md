@@ -42,7 +42,7 @@ IResourceBuilder<FlareResource> AddFlare(
 | `WithApiPort(int)` / `WithDashboardPort(int)` | Порты хоста API запросов / панели управления. Обычные проксируемые HTTP-конечные точки Aspire. |
 | `WithIngestImage(string)` / `WithApiImage(string)` / `WithDashboardImage(string)` | Имя образа/реестра (не тег — его по-прежнему предоставляет `imageTag`) — для использования в локальной разработке с образами, собранными через `docker compose build`, вместо Docker Hub. |
 | `WithApiKey(IResourceBuilder<ParameterResource>)` | Передайте результат `AddParameter` с `secret: true`, чтобы потребовать от вызывающих OTLP предъявления ключа API приёма данных. Не вызван = приём данных остаётся анонимным. Нет автоматического сквозного распространения: проекту, вызывающему `AddFlareOtlpExporter`, всё равно нужно передать то же сырое значение в собственный делегат `configureSettings: s => s.ApiKey = ...`. |
-| `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | Переопределяет привязанные к `localhost` URL, обращённые к браузеру (`PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0`). Нужно только при фактической публикации/развёртывании — см. [Публикация на Kubernetes/Docker Compose](#deployment-facts) ниже. |
+| `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | Переопределяет привязанные к `localhost` URL, обращённые к браузеру (`PUBLIC_API_URL`/`Cors__AllowedOrigins__0`). Нужно только при фактической публикации/развёртывании — см. [Публикация на Kubernetes/Docker Compose](#deployment-facts) ниже. |
 | `WithPersistentStorage(clickHouseVolume, redisVolume, identityVolume)` | Связывает три результата `kubernetesEnvironment.AddPersistentVolume(...)` (каждый с любыми нужными вам `WithStorageClass`/`WithCapacity`/`WithAccessMode`) с хранилищем ClickHouse/Redis/базы данных идентификации — см. [раздел про Kubernetes](#kubernetes) ниже. Требует подавления `ASPIRECOMPUTE002` (то же требование, что несёт и сам `AddPersistentVolume`) — по этой причине метод помечен как `[Experimental("ASPIRECOMPUTE002")]`. |
 
 > **Ломающее изменение в `0.3.2`:** до этой версии всё вышеперечисленное
@@ -62,7 +62,7 @@ AppHost, содержащего Flare, — сами шаги см. в
 
 - `publicApiUrl`/`publicDashboardUrl` по умолчанию не установлены —
   `aspire run` предполагает, что браузер находится на той же машине, и
-  направляет `PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0` на
+  направляет `PUBLIC_API_URL`/`Cors__AllowedOrigins__0` на
   `localhost`. Оставленные неустановленными, Aspire фиксирует их как
   плейсхолдеры `.env.{environment}`, которые вы заполняете реальными
   развёрнутыми URL по каждой среде.
@@ -144,8 +144,7 @@ AppHost, содержащего Flare, — сами шаги см. в
     исследования. Не полагайтесь на то, что увидите его; считайте этот
     документ источником истины вместо этого.
 - `publicApiUrl`/`publicDashboardUrl` так же обязательны, как и для
-  Docker Compose — оставленные неустановленными, `PUBLIC_API_URL`/
-  `ORIGIN` панели управления/`Cors__AllowedOrigins__0` у `api` разрешаются
+  Docker Compose — оставленные неустановленными, `PUBLIC_API_URL` панели управления/`Cors__AllowedOrigins__0` у `api` разрешаются
   в собственные внутрикластерные DNS-имена Service Kubernetes (например,
   `http://flare-api-service:8080`), недоступные из внешнего браузера.
 - **`ImagePullPolicy.Always`** установлена на образах ingest/api/dashboard

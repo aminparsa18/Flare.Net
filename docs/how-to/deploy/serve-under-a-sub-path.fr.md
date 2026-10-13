@@ -37,7 +37,6 @@ réglage : `FLARE_BASE_PATH`.
      dashboard:
        environment:
          FLARE_BASE_PATH: /flare
-         ORIGIN: https://example.com
          PUBLIC_API_URL: https://example.com/flare
    ```
 
