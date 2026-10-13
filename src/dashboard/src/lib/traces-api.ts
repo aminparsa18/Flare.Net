@@ -4,7 +4,7 @@
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape. Every type in
 // this file nests a `DateTimeOffset` member somewhere (`SpanDto.StartTime`/`EndTime`/
 // `IngestedAt`, `SpanEventDto.Timestamp`, `SpanFilter.From`/`To`), so all are hand-written
-// (`$lib/memorypack/`). `bag` converts through `$lib/memorypack/enums.ts`'s
+// (`#lib/memorypack/`). `bag` converts through `#lib/memorypack/enums.ts`'s
 // `spanAttributeBagToString`/`FromString`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
@@ -15,19 +15,19 @@ import {
 	type SpanAttributeBagName,
 	type SpanValuesFieldName,
 	type SpanAttributeFilterOperatorName
-} from '$lib/memorypack/enums';
-import { SpanFilter as GeneratedSpanFilter } from '$lib/memorypack/SpanFilter';
-import { SpanAttributeFilter as GeneratedSpanAttributeFilter } from '$lib/memorypack/SpanAttributeFilter';
-import { TraceSpanCondition as GeneratedTraceSpanCondition } from '$lib/memorypack/TraceSpanCondition';
-import { TraceStructureFilter as GeneratedTraceStructureFilter } from '$lib/memorypack/TraceStructureFilter';
-import { SpanSearchRequest as GeneratedSpanSearchRequest } from '$lib/memorypack/SpanSearchRequest';
-import { SpanSearchResponse as GeneratedSpanSearchResponse } from '$lib/memorypack/SpanSearchResponse';
-import { TraceDto as GeneratedTraceDto } from '$lib/memorypack/TraceDto';
-import type { SpanDto as GeneratedSpanDto } from '$lib/memorypack/SpanDto';
-import type { SpanEventDto as GeneratedSpanEventDto } from '$lib/memorypack/SpanEventDto';
-import type { SpanLinkDto as GeneratedSpanLinkDto } from '$lib/memorypack/SpanLinkDto';
-import { SpanAttributeValuesRequest as GeneratedSpanAttributeValuesRequest } from '$lib/memorypack/SpanAttributeValuesRequest';
-import { SpanAttributeValuesResponse as GeneratedSpanAttributeValuesResponse } from '$lib/memorypack/SpanAttributeValuesResponse';
+} from '#lib/memorypack/enums.ts';
+import { SpanFilter as GeneratedSpanFilter } from '#lib/memorypack/SpanFilter.ts';
+import { SpanAttributeFilter as GeneratedSpanAttributeFilter } from '#lib/memorypack/SpanAttributeFilter.ts';
+import { TraceSpanCondition as GeneratedTraceSpanCondition } from '#lib/memorypack/TraceSpanCondition.ts';
+import { TraceStructureFilter as GeneratedTraceStructureFilter } from '#lib/memorypack/TraceStructureFilter.ts';
+import { SpanSearchRequest as GeneratedSpanSearchRequest } from '#lib/memorypack/SpanSearchRequest.ts';
+import { SpanSearchResponse as GeneratedSpanSearchResponse } from '#lib/memorypack/SpanSearchResponse.ts';
+import { TraceDto as GeneratedTraceDto } from '#lib/memorypack/TraceDto.ts';
+import type { SpanDto as GeneratedSpanDto } from '#lib/memorypack/SpanDto.ts';
+import type { SpanEventDto as GeneratedSpanEventDto } from '#lib/memorypack/SpanEventDto.ts';
+import type { SpanLinkDto as GeneratedSpanLinkDto } from '#lib/memorypack/SpanLinkDto.ts';
+import { SpanAttributeValuesRequest as GeneratedSpanAttributeValuesRequest } from '#lib/memorypack/SpanAttributeValuesRequest.ts';
+import { SpanAttributeValuesResponse as GeneratedSpanAttributeValuesResponse } from '#lib/memorypack/SpanAttributeValuesResponse.ts';
 
 // ---- Shared filter shape (SpanFilter.cs) -----------------------------------
 
@@ -359,7 +359,7 @@ export async function getTraceChildren(traceId: string, spanId: string, signal?:
 
 // ---- POST /api/spans/attribute-values (SpanAttributeValuesRequest.cs) -----------------
 // Value autocomplete for SpanAttributeFiltersRow.svelte's value input - the Traces page's
-// equivalent of `$lib/api.ts`'s `getLogAttributeValues`. Every distinct value observed for
+// equivalent of `#lib/api.ts`'s `getLogAttributeValues`. Every distinct value observed for
 // one caller-chosen bag+key, most-observed first, optionally narrowed by `prefix`.
 
 export type SpanValuesField = SpanValuesFieldName;

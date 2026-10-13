@@ -1,6 +1,6 @@
 // `alerts` - mimics flare.cli's AlertsCommand.cs (a branch off `alerts`, same as the real
 // CLI): list / history / test / send-test / export / import, each calling the matching
-// existing $lib/alerts-api.ts function (all already exactly the /api/alerts/* endpoints the
+// existing #lib/alerts-api.ts function (all already exactly the /api/alerts/* endpoints the
 // CLI hits, no new backend surface).
 //
 // Where a browser can't do what the CLI does, the divergence is the destination of the
@@ -16,9 +16,9 @@ import {
 	testAlertRule,
 	type AlertRule,
 	type AnomalyCondition
-} from '$lib/alerts-api';
-import { downloadBlob } from '$lib/logs/export';
-import { formatTimeOfDay } from '$lib/time/format';
+} from '#lib/alerts-api.ts';
+import { downloadBlob } from '#lib/logs/export.ts';
+import { formatTimeOfDay } from '#lib/time/format.ts';
 import type { TerminalCommand, TerminalWriter } from '../types';
 import { formatG4, formatNumber, formatTable } from './table';
 import { UsageError } from './usage-error';

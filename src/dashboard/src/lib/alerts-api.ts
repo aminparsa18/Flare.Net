@@ -5,8 +5,8 @@
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape.
 // `AlertThreshold` has no DateTimeOffset/JsonElement/IReadOnlyList member and uses a real
 // generated class; every other type here nests `LogFilter` and/or has its own
-// `DateTimeOffset` member, so all are hand-written (`$lib/memorypack/`).
-// `comparator`/`condition` convert through `$lib/memorypack/enums.ts`/`LogFilter.ts`'s
+// `DateTimeOffset` member, so all are hand-written (`#lib/memorypack/`).
+// `comparator`/`condition` convert through `#lib/memorypack/enums.ts`/`LogFilter.ts`'s
 // helpers, same reasoning `auth-api.ts` documents for `UserRole`. `conditionKind`/
 // `aggregation`/`metricCondition.type` follow the same pattern, added for metric-threshold
 // alerting (see `docs-internal/adr/0020-metric-threshold-alerting.md`) - `metricCondition`
@@ -56,23 +56,23 @@ import {
 	anomalyDirectionFromString,
 	anomalyDirectionToString,
 	type AnomalyDirectionName,
-} from '$lib/memorypack/enums';
-import { logFilterFromPlain, logFilterToPlain } from '$lib/memorypack/LogFilter';
+} from '#lib/memorypack/enums.ts';
+import { logFilterFromPlain, logFilterToPlain } from '#lib/memorypack/LogFilter.ts';
 import { toGeneratedMetricFilter, fromGeneratedMetricFilter, type MetricFilter, type MetricPointType } from './metrics-api';
-import { AlertThreshold as GeneratedAlertThreshold } from '$lib/generated/memorypack/AlertThreshold.js';
-import { AlertChannelResult as GeneratedAlertChannelResult } from '$lib/generated/memorypack/AlertChannelResult.js';
-import { AlertRule as GeneratedAlertRule } from '$lib/memorypack/AlertRule';
-import { AlertRuleRequest as GeneratedAlertRuleRequest } from '$lib/memorypack/AlertRuleRequest';
-import { AlertRuleListResponse as GeneratedAlertRuleListResponse } from '$lib/memorypack/AlertRuleListResponse';
-import { AlertHistoryResponse as GeneratedAlertHistoryResponse } from '$lib/memorypack/AlertHistoryResponse';
-import { AlertTestResult as GeneratedAlertTestResult } from '$lib/memorypack/AlertTestResult';
-import type { AlertHistoryEntry as GeneratedAlertHistoryEntry } from '$lib/memorypack/AlertHistoryEntry';
-import { AlertNotificationTestResult as GeneratedAlertNotificationTestResult } from '$lib/generated/memorypack/AlertNotificationTestResult.js';
-import { AlertNotificationPreview as GeneratedAlertNotificationPreview } from '$lib/generated/memorypack/AlertNotificationPreview.js';
-import { MetricAlertCondition as GeneratedMetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
-import { ExceptionCountCondition as GeneratedExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
-import { AnomalyCondition as GeneratedAnomalyCondition } from '$lib/memorypack/AnomalyCondition';
-import { SloBurnRateCondition as GeneratedSloBurnRateCondition } from '$lib/memorypack/SloBurnRateCondition';
+import { AlertThreshold as GeneratedAlertThreshold } from '#lib/generated/memorypack/AlertThreshold.ts';
+import { AlertChannelResult as GeneratedAlertChannelResult } from '#lib/generated/memorypack/AlertChannelResult.ts';
+import { AlertRule as GeneratedAlertRule } from '#lib/memorypack/AlertRule.ts';
+import { AlertRuleRequest as GeneratedAlertRuleRequest } from '#lib/memorypack/AlertRuleRequest.ts';
+import { AlertRuleListResponse as GeneratedAlertRuleListResponse } from '#lib/memorypack/AlertRuleListResponse.ts';
+import { AlertHistoryResponse as GeneratedAlertHistoryResponse } from '#lib/memorypack/AlertHistoryResponse.ts';
+import { AlertTestResult as GeneratedAlertTestResult } from '#lib/memorypack/AlertTestResult.ts';
+import type { AlertHistoryEntry as GeneratedAlertHistoryEntry } from '#lib/memorypack/AlertHistoryEntry.ts';
+import { AlertNotificationTestResult as GeneratedAlertNotificationTestResult } from '#lib/generated/memorypack/AlertNotificationTestResult.ts';
+import { AlertNotificationPreview as GeneratedAlertNotificationPreview } from '#lib/generated/memorypack/AlertNotificationPreview.ts';
+import { MetricAlertCondition as GeneratedMetricAlertCondition } from '#lib/memorypack/MetricAlertCondition.ts';
+import { ExceptionCountCondition as GeneratedExceptionCountCondition } from '#lib/memorypack/ExceptionCountCondition.ts';
+import { AnomalyCondition as GeneratedAnomalyCondition } from '#lib/memorypack/AnomalyCondition.ts';
+import { SloBurnRateCondition as GeneratedSloBurnRateCondition } from '#lib/memorypack/SloBurnRateCondition.ts';
 import { type ExceptionFilter, toGeneratedExceptionFilter, fromGeneratedExceptionFilter } from './errors-api';
 
 // ---- Shared shapes (AlertModels.cs) ---------------------------------------

@@ -1,8 +1,8 @@
 <script lang="ts">
 	// A flare.cli-*styled* command surface over this dashboard's own APIs - not a real
-	// shell, no process execution, no host access. Every command in $lib/terminal
+	// shell, no process execution, no host access. Every command in #lib/terminal
 	// reaches an already-authenticated dashboard API the same way clicking around the
-	// UI would; see $lib/terminal/registry.ts for how new commands slot in.
+	// UI would; see #lib/terminal/registry.ts for how new commands slot in.
 	//
 	// Self-contained trigger + Dialog in one component (same shape as
 	// PatternsModal.svelte), not the lifted-state pattern AppNav/CommandPalette use for
@@ -14,12 +14,12 @@
 	// prompt/input pinned at the bottom outside the scrolling output rather than boxed
 	// separately below it.
 	import { tick, onDestroy } from 'svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import TerminalIcon from '@lucide/svelte/icons/terminal';
-	import { resolveCommand, parseCommandLine } from '$lib/terminal/registry';
-	import type { TerminalHandle, TerminalLine, TerminalLineKind } from '$lib/terminal/types';
-	import * as m from '$lib/paraglide/messages';
+	import { resolveCommand, parseCommandLine } from '#lib/terminal/registry.ts';
+	import type { TerminalHandle, TerminalLine, TerminalLineKind } from '#lib/terminal/types.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let open = $state(false);
 	let lines = $state<TerminalLine[]>([]);

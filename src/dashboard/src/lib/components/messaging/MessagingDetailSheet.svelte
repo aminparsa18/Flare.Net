@@ -1,17 +1,17 @@
 <script lang="ts">
-	import * as Sheet from '$lib/components/ui/sheet';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { messagingContext } from '$lib/messaging/context';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { buildTracesDeepLinkHref } from '$lib/deep-links';
-	import { formatPercent } from '$lib/indexing/format';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { formatRequestRate } from '$lib/services/format';
-	import { formatBytes, formatCount } from '$lib/ingestion/format';
-	import type { MessagingServiceStats } from '$lib/messaging-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { messagingContext } from '#lib/messaging/context.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import { buildTracesDeepLinkHref } from '#lib/deep-links.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { formatRequestRate } from '#lib/services/format.ts';
+	import { formatBytes, formatCount } from '#lib/ingestion/format.ts';
+	import type { MessagingServiceStats } from '#lib/messaging-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const messaging = messagingContext.get();
 

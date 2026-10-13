@@ -6,14 +6,14 @@
 	// growing: storage/rows/ingestion) and breakdown toggle (which signal: total/logs/
 	// traces/metrics) replace the multi-table legend - still lets someone isolate "is it
 	// traces specifically blowing up," just one axis at a time instead of all at once.
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Button } from '$lib/components/ui/button';
-	import { indexingContext } from '$lib/indexing/context';
-	import { formatBytes, formatCount } from '$lib/indexing/format';
-	import { matchesBreakdown, type GrowthBreakdown } from '$lib/indexing/growth';
-	import * as m from '$lib/paraglide/messages';
-	import { formatCalendarDay } from '$lib/time/format';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import { formatBytes, formatCount } from '#lib/indexing/format.ts';
+	import { matchesBreakdown, type GrowthBreakdown } from '#lib/indexing/growth.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatCalendarDay } from '#lib/time/format.ts';
 
 	const indexing = indexingContext.get();
 

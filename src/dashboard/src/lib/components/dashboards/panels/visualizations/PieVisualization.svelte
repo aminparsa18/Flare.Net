@@ -7,13 +7,13 @@
 	// metric's unit in the legend and tooltip.
 	//
 	// The legend sits beside the pie unless the panel's `legendPosition` says otherwise, and a
-	// `seriesColors` override beats the rank color for its slice (see `$lib/dashboards/legend.ts`).
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { rankColor, SERIES_COLOR_VARS } from '$lib/metrics/chart-colors';
-	import { formatValue, pieSlicePath, pieSlices } from '$lib/dashboards/visualization';
-	import { seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
-	import type { ThresholdColor } from '$lib/dashboards/thresholds';
-	import * as m from '$lib/paraglide/messages';
+	// `seriesColors` override beats the rank color for its slice (see `#lib/dashboards/legend.ts`).
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { rankColor, SERIES_COLOR_VARS } from '#lib/metrics/chart-colors.ts';
+	import { formatValue, pieSlicePath, pieSlices } from '#lib/dashboards/visualization.ts';
+	import { seriesColorOverride, type LegendPosition } from '#lib/dashboards/legend.ts';
+	import type { ThresholdColor } from '#lib/dashboards/thresholds.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		entries,

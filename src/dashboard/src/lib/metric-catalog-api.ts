@@ -8,18 +8,18 @@
 // MemoryPack over the wire, same shape as `hosts-api.ts`: both requests and the per-row
 // entry/service/related types are real generated classes (timestamps travel as epoch ms to
 // keep them generatable); the responses and `MetricCatalogAttributeInfo` carry an
-// IReadOnlyList, so those are hand-written under `$lib/memorypack/`.
+// IReadOnlyList, so those are hand-written under `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { metricPointTypeFromString, metricPointTypeToString } from '$lib/memorypack/enums';
+import { metricPointTypeFromString, metricPointTypeToString } from '#lib/memorypack/enums.ts';
 import type { MetricPointType } from './metrics-api';
-import { MetricCatalogRequest as GeneratedMetricCatalogRequest } from '$lib/generated/memorypack/MetricCatalogRequest.js';
-import { MetricCatalogDetailRequest as GeneratedMetricCatalogDetailRequest } from '$lib/generated/memorypack/MetricCatalogDetailRequest.js';
-import { MetricCatalogResponse as GeneratedMetricCatalogResponse } from '$lib/memorypack/MetricCatalogResponse';
-import { MetricCatalogDetailResponse as GeneratedMetricCatalogDetailResponse } from '$lib/memorypack/MetricCatalogDetailResponse';
-import { MetricCatalogInspectRequest as GeneratedMetricCatalogInspectRequest } from '$lib/generated/memorypack/MetricCatalogInspectRequest.js';
-import { MetricCatalogInspectResponse as GeneratedMetricCatalogInspectResponse } from '$lib/memorypack/MetricCatalogInspectResponse';
-import { SetMetricMetadataOverrideRequest as GeneratedSetMetricMetadataOverrideRequest } from '$lib/generated/memorypack/SetMetricMetadataOverrideRequest.js';
+import { MetricCatalogRequest as GeneratedMetricCatalogRequest } from '#lib/generated/memorypack/MetricCatalogRequest.ts';
+import { MetricCatalogDetailRequest as GeneratedMetricCatalogDetailRequest } from '#lib/generated/memorypack/MetricCatalogDetailRequest.ts';
+import { MetricCatalogResponse as GeneratedMetricCatalogResponse } from '#lib/memorypack/MetricCatalogResponse.ts';
+import { MetricCatalogDetailResponse as GeneratedMetricCatalogDetailResponse } from '#lib/memorypack/MetricCatalogDetailResponse.ts';
+import { MetricCatalogInspectRequest as GeneratedMetricCatalogInspectRequest } from '#lib/generated/memorypack/MetricCatalogInspectRequest.ts';
+import { MetricCatalogInspectResponse as GeneratedMetricCatalogInspectResponse } from '#lib/memorypack/MetricCatalogInspectResponse.ts';
+import { SetMetricMetadataOverrideRequest as GeneratedSetMetricMetadataOverrideRequest } from '#lib/generated/memorypack/SetMetricMetadataOverrideRequest.ts';
 
 export interface MetricCatalogEntry {
 	metricName: string;

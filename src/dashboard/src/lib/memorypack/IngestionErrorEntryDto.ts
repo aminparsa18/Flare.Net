@@ -1,13 +1,13 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/IngestionModels.cs`'s `IngestionErrorEntryDto`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
-// `Timestamp` is a `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header
+// `Timestamp` is a `DateTimeOffset` - see `#lib/memorypack/date-time-offset.ts`'s header
 // comment. `Signal`/`Protocol` are plain C# `string`s here (not the `IngestionSignal`/
 // `IngestionProtocol` enums), so they round-trip with no conversion.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class IngestionErrorEntryDto {
 	timestamp: Date;

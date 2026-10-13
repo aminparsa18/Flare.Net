@@ -16,17 +16,17 @@
 	// "typing shouldn't fire a request per keystroke" reasoning LogsToolbar's search box
 	// already documents.
 	import { browser } from '$app/env';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { getLogAttributeValues, type AttributeBag, type AttributeFilter, type AttributeFilterOperator } from '$lib/api';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import * as Select from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { getLogAttributeValues, type AttributeBag, type AttributeFilter, type AttributeFilterOperator } from '#lib/api.ts';
+	import * as Accordion from '#lib/components/ui/accordion/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import AttributeValueCombobox, { type AttributeValueSuggestion } from './AttributeValueCombobox.svelte';
 	import AttributeValueListInput from './AttributeValueListInput.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = logsExplorerContext.get();
 

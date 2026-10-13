@@ -1,7 +1,7 @@
 // Localized display names for panel visualizations/reducers - functions, not a lookup
 // object built once, so a live locale switch is reflected (see time-range.ts's remarks).
-import type { PanelReducer, PanelStacking, PanelVisualization } from '$lib/dashboards/visualization';
-import * as m from '$lib/paraglide/messages';
+import type { PanelReducer, PanelStacking, PanelVisualization } from '#lib/dashboards/visualization.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 export function visualizationLabel(visualization: PanelVisualization): string {
 	switch (visualization) {

@@ -1,4 +1,4 @@
-// Same generic typed-context helper as `$lib/pipeline-rules/context.ts`.
+// Same generic typed-context helper as `#lib/pipeline-rules/context.ts`.
 
 import { getContext, hasContext, setContext } from 'svelte';
 import type { LogMetricsState } from './state.svelte';

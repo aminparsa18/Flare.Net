@@ -3,8 +3,8 @@
 // declared order. Can't carry `[GenerateTypeScript]`: `Attributes` is an `IReadOnlyList<T>`
 // (see ADR-0016). Request-only, so serialize-only.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { SpanAttributeFilter } from '$lib/memorypack/SpanAttributeFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { SpanAttributeFilter } from '#lib/memorypack/SpanAttributeFilter.ts';
 
 export class TraceFunnelStep {
 	serviceName: string | null = null;

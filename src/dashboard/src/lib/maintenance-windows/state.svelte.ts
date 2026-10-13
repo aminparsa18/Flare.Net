@@ -1,5 +1,5 @@
 // Central reactive state for the alerts page's Maintenance tab - same shape as
-// NotificationChannelsState (`$lib/notification-channels/state.svelte.ts`), minus send-test.
+// NotificationChannelsState (`#lib/notification-channels/state.svelte.ts`), minus send-test.
 
 import {
 	listMaintenanceWindows,
@@ -8,9 +8,9 @@ import {
 	deleteMaintenanceWindow,
 	type MaintenanceWindow,
 	type MaintenanceWindowRequest
-} from '$lib/maintenance-windows-api';
-import type { AlertRule } from '$lib/alerts-api';
-import { labelsMatch } from '$lib/alerts/labels';
+} from '#lib/maintenance-windows-api.ts';
+import type { AlertRule } from '#lib/alerts-api.ts';
+import { labelsMatch } from '#lib/alerts/labels.ts';
 
 export class MaintenanceWindowsState {
 	windows = $state.raw<MaintenanceWindow[]>([]);

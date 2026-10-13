@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
+	import { withBase } from '#lib/paths.ts';
 	// The exception-groups table row's click-through drill-down - sample occurrences
 	// (service, timestamp, a link to the existing /traces/{traceId} waterfall route) plus
 	// each occurrence's own stack trace. Opened by clicking a row in ExceptionGroupsTable;
@@ -8,22 +8,22 @@
 	// happens in ErrorsExplorerState.selectGroup, not here (unlike that dialog, which owns
 	// its own fetch effect) since this page has nowhere else selectedGroup would be read
 	// from.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Badge } from '$lib/components/ui/badge';
-	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import StackTraceViewer from '#lib/components/logs/StackTraceViewer.svelte';
 	import SourceLinkPopover from './SourceLinkPopover.svelte';
 	import SourceSnippet from './SourceSnippet.svelte';
 	import ExplainException from './ExplainException.svelte';
-	import { getAiEnabled } from '$lib/ai-api';
-	import { errorsExplorerContext } from '$lib/errors/context';
-	import { authContext } from '$lib/auth/context';
-	import { createFrameLinker, firstFrameTarget, type SourceLinkConfig } from '$lib/errors/source-links';
-	import { deleteSourceLink, listSourceLinks, setSourceLink } from '$lib/source-links-api';
-	import * as m from '$lib/paraglide/messages';
-	import { formatTimestamp } from '$lib/time/format';
+	import { getAiEnabled } from '#lib/ai-api.ts';
+	import { errorsExplorerContext } from '#lib/errors/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { createFrameLinker, firstFrameTarget, type SourceLinkConfig } from '#lib/errors/source-links.ts';
+	import { deleteSourceLink, listSourceLinks, setSourceLink } from '#lib/source-links-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatTimestamp } from '#lib/time/format.ts';
 
 	const errors = errorsExplorerContext.get();
 

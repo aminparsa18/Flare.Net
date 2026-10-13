@@ -3,10 +3,10 @@
 	// owns its own listener. Bare keys are ignored while typing in a field or while a dialog or
 	// sheet is open; the Logs-only actions do nothing off the Logs page.
 	import { goto } from '$app/navigation';
-	import { withBase } from '$lib/paths';
-	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
-	import { firesInFields, isEditableTarget, matchesCombo, type ShortcutAction } from '$lib/keyboard/shortcuts';
-	import { activeLogsExplorer } from '$lib/logs/active-explorer.svelte';
+	import { withBase } from '#lib/paths.ts';
+	import { keyboardPrefs } from '#lib/keyboard/prefs.svelte.ts';
+	import { firesInFields, isEditableTarget, matchesCombo, type ShortcutAction } from '#lib/keyboard/shortcuts.ts';
+	import { activeLogsExplorer } from '#lib/logs/active-explorer.svelte.ts';
 
 	const ROUTES: Partial<Record<ShortcutAction, string>> = {
 		showShortcuts: '/settings/keyboard',

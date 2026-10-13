@@ -1,4 +1,4 @@
-// Same generic typed-context helper as `$lib/saved-views/context.ts`/`$lib/logs/context.ts` -
+// Same generic typed-context helper as `#lib/saved-views/context.ts`/`#lib/logs/context.ts` -
 // re-authored here rather than shared, same rationale those files already give (no natural
 // shared-utils home for a two-line helper yet).
 

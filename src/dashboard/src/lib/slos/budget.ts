@@ -1,4 +1,4 @@
-import type { SloSeriesPoint } from '$lib/slos-api';
+import type { SloSeriesPoint } from '#lib/slos-api.ts';
 
 export interface BudgetPoint {
 	timeUnixMs: number;

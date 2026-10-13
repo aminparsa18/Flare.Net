@@ -1,5 +1,5 @@
 // Central reactive state for the Alerts page - mirrors LogsExplorerState's shape
-// (`$lib/logs/state.svelte.ts`): a class with `$state` fields, provided via
+// (`#lib/logs/state.svelte.ts`): a class with `$state` fields, provided via
 // `alertsContext` (context.ts) rather than passed as props, per this repo's
 // svelte-best-practices skill.
 
@@ -14,8 +14,8 @@ import {
 	type AlertRuleStatus,
 	type AlertRuleRequest,
 	type AlertHistoryEntry
-} from '$lib/alerts-api';
-import type { AlertPanelDraft } from '$lib/deep-links';
+} from '#lib/alerts-api.ts';
+import type { AlertPanelDraft } from '#lib/deep-links.ts';
 
 export class AlertsState {
 	rules = $state.raw<AlertRule[]>([]);
@@ -34,7 +34,7 @@ export class AlertsState {
 	saveError = $state<string | null>(null);
 
 	/**
-	 * A pending "Create alert from panel" draft (see `$lib/deep-links.ts`'s
+	 * A pending "Create alert from panel" draft (see `#lib/deep-links.ts`'s
 	 * `AlertPanelDraft`/`parseAlertDeepLinkParams`) - deliberately *not* `$state`. It's a
 	 * one-shot handoff to AlertRuleFormDialog's own reset effect (consumed, then nulled
 	 * out, the first time `formTarget` becomes `'new'`); if this were reactive state, that

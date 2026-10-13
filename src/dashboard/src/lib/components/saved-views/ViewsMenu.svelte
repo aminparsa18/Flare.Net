@@ -4,18 +4,18 @@
 	// view..." action (opens SaveViewDialog). Generic over which explorer it's wired to
 	// via `currentState`/`applyState`, since Logs/Traces/Metrics each have their own
 	// state-class shape and (for Metrics) an async applySavedViewState.
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Command from '$lib/components/ui/command';
-	import { Button } from '$lib/components/ui/button';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Command from '#lib/components/ui/command/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
 	import SaveViewDialog from './SaveViewDialog.svelte';
-	import { projects } from '$lib/projects/store.svelte';
-	import { listSavedViews, type PageType, type SavedView } from '$lib/saved-views-api';
-	import { setLastUsedViewId } from '$lib/saved-views/last-used';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import { listSavedViews, type PageType, type SavedView } from '#lib/saved-views-api.ts';
+	import { setLastUsedViewId } from '#lib/saved-views/last-used.ts';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import SaveIcon from '@lucide/svelte/icons/save';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		pageType,
@@ -58,7 +58,7 @@
 	}
 
 	// Saving captures the current state, so the page is now "in" that view - remember it
-	// the same as picking it (see $lib/saved-views/last-used.ts).
+	// the same as picking it (see #lib/saved-views/last-used.ts).
 	function handleSaved(view: SavedView): void {
 		setLastUsedViewId(pageType, view.id);
 		void loadViews();

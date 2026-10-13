@@ -8,14 +8,14 @@
 	// palette registration, none of which belong in an authoring dialog. See
 	// docs-internal/adr/0024-custom-dashboards-phase2-editor.md.
 	import { onMount, onDestroy } from 'svelte';
-	import { LogsExplorerState } from '$lib/logs/state.svelte';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import TimeRangePicker from '$lib/components/logs/TimeRangePicker.svelte';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import VolumeChart from '$lib/components/logs/VolumeChart.svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
-	import * as m from '$lib/paraglide/messages';
+	import { LogsExplorerState } from '#lib/logs/state.svelte.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import TimeRangePicker from '#lib/components/logs/TimeRangePicker.svelte';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import VolumeChart from '#lib/components/logs/VolumeChart.svelte';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '#lib/logs/severity.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
 	explorer.live = false; // this is a query-authoring preview, not a live tail

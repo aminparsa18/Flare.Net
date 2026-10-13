@@ -4,8 +4,8 @@
 // No polling, same as ExternalApisState: every load aggregates the window's model-call spans
 // live, so it's an on-demand view with a manual refresh.
 
-import { getLlmModels, resetLlmModelPrice, setLlmModelPrice, type LlmModel } from '$lib/llm-api';
-import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
+import { getLlmModels, resetLlmModelPrice, setLlmModelPrice, type LlmModel } from '#lib/llm-api.ts';
+import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 export type LlmWindowPreset = ServicesWindowPreset;
 export const LLM_WINDOW_PRESETS = SERVICES_WINDOW_PRESETS;

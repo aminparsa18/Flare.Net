@@ -2,11 +2,11 @@
 // generated. Mirrors `src/Flare.Api/Model/PersonalAccessTokenModels.cs`'s `AccessTokenDto`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
 // `CreatedAt`/`ExpiresAt`/`LastUsedAt`/`RevokedAt` are `DateTimeOffset`/`DateTimeOffset?` -
-// see `$lib/memorypack/date-time-offset.ts`'s header comment.
+// see `#lib/memorypack/date-time-offset.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, readNullableDateTimeOffset, writeDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, readNullableDateTimeOffset, writeDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class AccessTokenDto {
 	id: string;

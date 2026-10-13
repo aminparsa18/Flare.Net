@@ -5,12 +5,12 @@
 	// DashboardPanelCard.svelte's own gating). Edits a local draft of the ordered rule list;
 	// nothing is saved until Apply, since every save is a full dashboard PUT.
 	//
-	// Row order *is* precedence (first match wins - see `$lib/dashboards/thresholds.ts`), so
+	// Row order *is* precedence (first match wins - see `#lib/dashboards/thresholds.ts`), so
 	// rows get explicit move up/down buttons rather than leaving order implicit.
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import {
 		THRESHOLD_COLORS,
 		THRESHOLD_OPERATORS,
@@ -18,14 +18,14 @@
 		type PanelThreshold,
 		type ThresholdColor,
 		type ThresholdOperator
-	} from '$lib/dashboards/thresholds';
+	} from '#lib/dashboards/thresholds.ts';
 	import { thresholdColorLabel } from './threshold-color-label';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		thresholds,

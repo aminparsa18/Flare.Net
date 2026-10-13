@@ -1,8 +1,8 @@
 // Display helpers shared by the Kubernetes page's tables and drill-down sheets.
 
-import { formatAutoScaled } from '$lib/metrics/axis';
-import type { BadgeVariant } from '$lib/components/ui/badge';
-import type { KubernetesWorkloadCounts, KubernetesWorkloadKind } from '$lib/kubernetes-api';
+import { formatAutoScaled } from '#lib/metrics/axis.ts';
+import type { BadgeVariant } from '#lib/components/ui/badge/index.ts';
+import type { KubernetesWorkloadCounts, KubernetesWorkloadKind } from '#lib/kubernetes-api.ts';
 
 /** CPU in Kubernetes' own notation: millicores under one core ("250m"), cores above ("1.50"). */
 export function formatCores(cores: number): string {

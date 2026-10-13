@@ -1,16 +1,16 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/LogFilter.cs`'s `LogFilter` field-for-field, in
 // declared order. Can't carry `[GenerateTypeScript]` itself because `From`/`To` are
-// `DateTimeOffset?` - see `$lib/memorypack/date-time-offset.ts`'s header comment. Shared by
+// `DateTimeOffset?` - see `#lib/memorypack/date-time-offset.ts`'s header comment. Shared by
 // every client file that reuses `LogFilter` as a nested member (`alerts-api.ts`'s
 // `AlertRule.condition`, `metrics-api.ts`'s equivalent `MetricFilter`, `api.ts`'s own Logs
 // endpoints), same "one filter DSL, several consumers" shape the JSON-era types had.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { AttributeFilter } from '$lib/memorypack/AttributeFilter';
-import { BodyJsonFilter } from '$lib/memorypack/BodyJsonFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { AttributeFilter } from '#lib/memorypack/AttributeFilter.ts';
+import { BodyJsonFilter } from '#lib/memorypack/BodyJsonFilter.ts';
 import {
 	attributeBagFromString,
 	attributeBagToString,
@@ -18,10 +18,10 @@ import {
 	attributeFilterOperatorToString,
 	bodyJsonFilterOperatorFromString,
 	bodyJsonFilterOperatorToString
-} from '$lib/memorypack/enums';
-import { SpanFilter } from '$lib/memorypack/SpanFilter';
-import { toGeneratedSpanFilter } from '$lib/traces-api';
-import type { LogFilter as PlainLogFilter } from '$lib/api';
+} from '#lib/memorypack/enums.ts';
+import { SpanFilter } from '#lib/memorypack/SpanFilter.ts';
+import { toGeneratedSpanFilter } from '#lib/traces-api.ts';
+import type { LogFilter as PlainLogFilter } from '#lib/api.ts';
 
 export class LogFilter {
 	from: Date | null;
@@ -142,7 +142,7 @@ export class LogFilter {
 	}
 }
 
-/** Converts this module's wire class to `$lib/api.ts`'s plain `LogFilter` interface - the shape every existing consumer (Svelte components, other `-api.ts` modules) already uses. */
+/** Converts this module's wire class to `#lib/api.ts`'s plain `LogFilter` interface - the shape every existing consumer (Svelte components, other `-api.ts` modules) already uses. */
 export function logFilterToPlain(dto: LogFilter): PlainLogFilter {
 	return {
 		from: dto.from?.toISOString(),
@@ -193,7 +193,7 @@ export function logFilterToPlain(dto: LogFilter): PlainLogFilter {
 	};
 }
 
-/** Converts `$lib/api.ts`'s plain `LogFilter` interface to this module's wire class, for encoding a request. */
+/** Converts `#lib/api.ts`'s plain `LogFilter` interface to this module's wire class, for encoding a request. */
 export function logFilterFromPlain(filter: PlainLogFilter | undefined): LogFilter {
 	const dto = new LogFilter();
 	if (filter == null) return dto;

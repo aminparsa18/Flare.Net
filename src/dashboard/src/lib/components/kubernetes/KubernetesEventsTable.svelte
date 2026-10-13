@@ -1,13 +1,13 @@
 <script lang="ts">
-	// Event logs from the collector's k8sobjects receiver - see $lib/kubernetes/events.ts.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	// Event logs from the collector's k8sobjects receiver - see #lib/kubernetes/events.ts.
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import BellIcon from '@lucide/svelte/icons/bell';
-	import { kubernetesContext } from '$lib/kubernetes/context';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import { kubernetesContext } from '#lib/kubernetes/context.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const k8s = kubernetesContext.get();
 

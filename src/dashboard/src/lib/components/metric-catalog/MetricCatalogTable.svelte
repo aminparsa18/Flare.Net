@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { formatNumber } from '#lib/format/number.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import ChartLineIcon from '@lucide/svelte/icons/chart-line';
-	import { metricCatalogContext } from '$lib/metric-catalog/context';
-	import type { MetricCatalogSortColumn } from '$lib/metric-catalog/state.svelte';
-	import { formatCount } from '$lib/ingestion/format';
-	import { formatDateTime } from '$lib/time/format';
+	import { metricCatalogContext } from '#lib/metric-catalog/context.ts';
+	import type { MetricCatalogSortColumn } from '#lib/metric-catalog/state.svelte.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
 	import { TYPE_LABEL, cardinalityClass, formatAgo } from './format';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const catalog = metricCatalogContext.get();
 

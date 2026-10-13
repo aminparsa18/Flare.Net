@@ -1,15 +1,15 @@
 <script lang="ts">
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as Popover from '$lib/components/ui/popover';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import { indexingContext } from '$lib/indexing/context';
-	import { formatBytes, formatCount, formatRatio, formatTableGrowth } from '$lib/indexing/format';
-	import { computePartsHealth, HIGH_FRAGMENTATION_PARTS } from '$lib/indexing/health';
-	import * as m from '$lib/paraglide/messages';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import { formatBytes, formatCount, formatRatio, formatTableGrowth } from '#lib/indexing/format.ts';
+	import { computePartsHealth, HIGH_FRAGMENTATION_PARTS } from '#lib/indexing/health.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.get();
 

@@ -10,9 +10,9 @@
 // hand-writing it. `PipelineServiceEntry` itself has no such member, so it's a real
 // generated class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { PipelineServiceEntry } from '$lib/generated/memorypack/PipelineServiceEntry.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { PipelineServiceEntry } from '#lib/generated/memorypack/PipelineServiceEntry.ts';
 
 export class PipelineServiceBreakdown {
 	signal: number;

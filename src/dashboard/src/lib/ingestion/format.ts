@@ -2,9 +2,9 @@
 // byte formatter anywhere else in the dashboard to reuse (every other page counts events,
 // never bytes).
 
-import { lazyNumberFormat } from '$lib/format/number';
+import { lazyNumberFormat } from '#lib/format/number.ts';
 import type { IngestionProtocol, IngestionSignal } from '../ingestion-api';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 // Short protocol label, e.g. for a "Logs · gRPC" filter badge - distinct from the longer
 // "gRPC :4317"/"Prometheus scrape" receiver-row labels IngestionReceivers.svelte/
@@ -70,7 +70,7 @@ export function formatBytes(n: number): string {
 	const value = n / 1024 ** exponent;
 	// Every scaled unit already rounds (toFixed) - bytes themselves didn't, which was
 	// invisible as long as every caller only ever passed whole byte counts, but a rate
-	// (bytes/sec, see $lib/resources/format.ts's formatByteRate) is a division result and
+	// (bytes/sec, see #lib/resources/format.ts's formatByteRate) is a division result and
 	// can land under 1024 with a long fractional tail ("349.68019997311455 B/s") without
 	// this.
 	return `${exponent === 0 ? Math.round(value) : value.toFixed(value < 10 ? 1 : 0)} ${BYTE_UNITS[exponent]}`;

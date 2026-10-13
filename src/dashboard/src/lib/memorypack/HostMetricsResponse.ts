@@ -3,9 +3,9 @@
 // in declared order. Can't carry `[GenerateTypeScript]` itself: `Points` is an
 // `IReadOnlyList<T>` (see ADR-0016) of `HostMetricsPoint`, which is hand-written too.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { HostMetricsPoint } from '$lib/memorypack/HostMetricsPoint';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { HostMetricsPoint } from '#lib/memorypack/HostMetricsPoint.ts';
 
 export class HostMetricsResponse {
 	hostName: string;

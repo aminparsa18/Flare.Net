@@ -9,7 +9,7 @@
 // HIGH_FRAGMENTATION_PARTS below - so "high fragmentation" isn't a made-up style choice,
 // it's "this table is approaching ClickHouse's own insert-throttling point."
 
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 export type PartsHealthTone = 'good' | 'warning';
 

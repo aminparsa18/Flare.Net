@@ -6,12 +6,12 @@
 // already blocks `[GenerateTypeScript]`, independent of DateTimeOffset).
 // `PipelineStreamHealth` has neither problem, so it's a real generated class reused here.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { PipelineStreamHealth } from '$lib/generated/memorypack/PipelineStreamHealth.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { PipelineFlushHealth } from '$lib/memorypack/PipelineFlushHealth';
-import { PipelineServiceBreakdown } from '$lib/memorypack/PipelineServiceBreakdown';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { PipelineStreamHealth } from '#lib/generated/memorypack/PipelineStreamHealth.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { PipelineFlushHealth } from '#lib/memorypack/PipelineFlushHealth.ts';
+import { PipelineServiceBreakdown } from '#lib/memorypack/PipelineServiceBreakdown.ts';
 
 export class PipelineStatsResponse {
 	generatedAt: Date;

@@ -2,12 +2,12 @@
 	// Row action on the alerts table: mutes one rule for a quick duration (or until a date)
 	// by creating a one-off maintenance window scoped to it - no new storage (ADR-0055).
 	// While the rule is muted the same slot becomes an Unmute button.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
-	import type { AlertRule } from '$lib/alerts-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { maintenanceWindowsContext } from '#lib/maintenance-windows/context.ts';
+	import type { AlertRule } from '#lib/alerts-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
 	import BellRingIcon from '@lucide/svelte/icons/bell-ring';
 

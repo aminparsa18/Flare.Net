@@ -1,12 +1,12 @@
 <script lang="ts">
 	// Download this browser's display preferences as JSON, or restore them from such a file.
 	// Import overwrites matching preferences and reloads so every store re-reads its state.
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { downloadBlob } from '$lib/logs/export';
-	import { exportPrefs, importPrefs, parsePrefsBackup } from '$lib/prefs-backup';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { downloadBlob } from '#lib/logs/export.ts';
+	import { exportPrefs, importPrefs, parsePrefsBackup } from '#lib/prefs-backup.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let fileInput = $state<HTMLInputElement>();
 	let busy = $state(false);

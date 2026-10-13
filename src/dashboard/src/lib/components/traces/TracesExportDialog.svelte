@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
+	import { formatNumber } from '#lib/format/number.ts';
 	// Exports the Traces explorer's list as CSV or NDJSON with a chosen column subset. Same
 	// two-decision shape as logs/ExportDialog.svelte (which rows, which format) plus the
-	// columns; the pipeline lives in `$lib/traces/export.ts`.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Spinner } from '$lib/components/ui/spinner';
+	// columns; the pipeline lives in `#lib/traces/export.ts`.
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import DownloadIcon from '@lucide/svelte/icons/download';
-	import { tracesExplorerContext } from '$lib/traces/context';
+	import { tracesExplorerContext } from '#lib/traces/context.ts';
 	import {
 		DEFAULT_TRACE_EXPORT_COLUMNS,
 		TRACE_EXPORT_COLUMNS,
@@ -18,9 +18,9 @@
 		tracesToBlob,
 		type TraceExportFormat,
 		type TraceExportScope
-	} from '$lib/traces/export';
-	import type { SpanDto } from '$lib/traces-api';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/traces/export.ts';
+	import type { SpanDto } from '#lib/traces-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = tracesExplorerContext.get();
 

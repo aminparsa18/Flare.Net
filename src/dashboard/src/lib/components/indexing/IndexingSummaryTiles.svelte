@@ -9,12 +9,12 @@
 	// Storage keeps its spot but grows a disk-headroom line: self-hosted deployments have
 	// no "configured limit" the way a SaaS plan would, so system.disks' real total/free
 	// stands in for one instead of a made-up quota.
-	import * as Card from '$lib/components/ui/card';
-	import { indexingContext } from '$lib/indexing/context';
-	import { formatBytes, formatCount, formatMs, formatPercent } from '$lib/indexing/format';
-	import { latencyClass } from '$lib/indexing/health';
-	import { averageDailyGrowth } from '$lib/indexing/growth';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import { formatBytes, formatCount, formatMs, formatPercent } from '#lib/indexing/format.ts';
+	import { latencyClass } from '#lib/indexing/health.ts';
+	import { averageDailyGrowth } from '#lib/indexing/growth.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.get();
 
@@ -44,7 +44,7 @@
 	// 30-day series the growth chart plots, rather than just yesterday's total - one quiet
 	// or one unusually heavy day alone would be a noisy headline number. Shared with the
 	// growth chart's own aggregation and Storage health's cross-signal check - see
-	// $lib/indexing/growth.ts.
+	// #lib/indexing/growth.ts.
 	const growthPerDay = $derived.by(() => {
 		const stats = indexing.stats;
 		if (!stats?.growthAvailable || stats.growth.length === 0) return null;

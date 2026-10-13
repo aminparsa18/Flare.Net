@@ -3,10 +3,10 @@
 // `MetricCatalogInspectResponse`, in declared order. Can't carry `[GenerateTypeScript]`: two
 // `IReadOnlyList<T>` members (see ADR-0016).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricInspectBucket } from '$lib/generated/memorypack/MetricInspectBucket.js';
-import { MetricInspectSeries } from '$lib/memorypack/MetricInspectSeries';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricInspectBucket } from '#lib/generated/memorypack/MetricInspectBucket.ts';
+import { MetricInspectSeries } from '#lib/memorypack/MetricInspectSeries.ts';
 
 export class MetricCatalogInspectResponse {
 	metricName: string | null;

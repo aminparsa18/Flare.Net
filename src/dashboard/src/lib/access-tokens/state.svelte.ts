@@ -1,11 +1,11 @@
 // Central reactive state for the Access Tokens page - mirrors SavedViewsState's shape
-// (`$lib/saved-views/state.svelte.ts`): a class with `$state` fields, provided via
+// (`#lib/saved-views/state.svelte.ts`): a class with `$state` fields, provided via
 // accessTokensContext rather than passed as props. Narrower than AlertsState: there's no
 // "edit" flow (a token is immutable once created - only name/expiry are ever set, and
 // only at creation), so create + revoke are the only mutations, same as ingest API keys'
 // own create/revoke-only shape (PersonalAccessTokenEndpoints.cs).
 
-import { createAccessToken, listAccessTokens, revokeAccessToken, type AccessToken } from '$lib/personal-access-tokens-api';
+import { createAccessToken, listAccessTokens, revokeAccessToken, type AccessToken } from '#lib/personal-access-tokens-api.ts';
 
 export class AccessTokensState {
 	tokens = $state.raw<AccessToken[]>([]);

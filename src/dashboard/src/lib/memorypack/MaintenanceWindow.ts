@@ -5,9 +5,9 @@
 // `AlertRule.ts` are hand-written. `recurrence` is the raw `MaintenanceWindowRecurrence`
 // ordinal and `daysOfWeek` raw `System.DayOfWeek` ordinals (0 = Sunday). Decode-only.
 
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, readNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { readStringRecord, type StringRecord } from '$lib/memorypack/string-record';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, readNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { readStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
 
 export class MaintenanceWindow {
 	id: string;

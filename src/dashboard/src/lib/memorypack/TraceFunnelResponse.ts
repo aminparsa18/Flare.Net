@@ -3,8 +3,8 @@
 // declared order. Hand-written because `Steps` is an `IReadOnlyList<T>` (see ADR-0016);
 // `TraceFunnelStepResult` itself is generated. Response-only, so deserialize-only.
 
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { TraceFunnelStepResult } from '$lib/generated/memorypack/TraceFunnelStepResult.js';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { TraceFunnelStepResult } from '#lib/generated/memorypack/TraceFunnelStepResult.ts';
 
 export class TraceFunnelResponse {
 	windowMinutes = 0;

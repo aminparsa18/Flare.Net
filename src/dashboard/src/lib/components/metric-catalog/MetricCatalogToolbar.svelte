@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
-	import * as Select from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
+	import { withBase } from '#lib/paths.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import { metricCatalogContext } from '$lib/metric-catalog/context';
-	import { METRIC_CATALOG_WINDOW_PRESETS, type MetricCatalogWindowPreset } from '$lib/metric-catalog/state.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { formatCount } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
+	import { metricCatalogContext } from '#lib/metric-catalog/context.ts';
+	import { METRIC_CATALOG_WINDOW_PRESETS, type MetricCatalogWindowPreset } from '#lib/metric-catalog/state.svelte.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const catalog = metricCatalogContext.get();
 

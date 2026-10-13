@@ -5,11 +5,11 @@
 	// traffic, the fleet-wide request rate, the fleet-wide error rate (request-weighted,
 	// not a plain average of each service's own rate - see totals below), and whichever
 	// single service has the worst p99 tail latency.
-	import * as Card from '$lib/components/ui/card';
-	import { servicesContext } from '$lib/services/context';
-	import { formatMs, formatPercent } from '$lib/indexing/format';
-	import { formatRequestRate } from '$lib/services/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { servicesContext } from '#lib/services/context.ts';
+	import { formatMs, formatPercent } from '#lib/indexing/format.ts';
+	import { formatRequestRate } from '#lib/services/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const services = servicesContext.get();
 

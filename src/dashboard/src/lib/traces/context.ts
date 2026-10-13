@@ -1,4 +1,4 @@
-// Same generic typed-context helper as `$lib/logs/context.ts`/`$lib/alerts/context.ts` -
+// Same generic typed-context helper as `#lib/logs/context.ts`/`#lib/alerts/context.ts` -
 // re-authored here rather than shared, same rationale those two files already give (no
 // natural shared-utils home for a two-line helper yet).
 

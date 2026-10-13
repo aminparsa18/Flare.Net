@@ -33,12 +33,12 @@
 	// indicator, defeating "one global time range driving every panel" (roadmap design
 	// note) - see VolumeChart.svelte's own remarks on the prop.
 	import { onMount, untrack } from 'svelte';
-	import { LogsExplorerState, type LogsSavedViewState } from '$lib/logs/state.svelte';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import VolumeChart from '$lib/components/logs/VolumeChart.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import { attributesForLogsPanel, type ResolvedVariableOverrides } from '$lib/dashboards/variables';
+	import { LogsExplorerState, type LogsSavedViewState } from '#lib/logs/state.svelte.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import VolumeChart from '#lib/components/logs/VolumeChart.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import type { TimeRangePreset } from '#lib/logs/time-range.ts';
+	import { attributesForLogsPanel, type ResolvedVariableOverrides } from '#lib/dashboards/variables.ts';
 
 	let {
 		query,

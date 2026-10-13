@@ -4,14 +4,14 @@
 	// ClickHouse feels it. A sub-route of /metrics rather than a panel of the explorer: the
 	// explorer charts one metric, this audits all of them.
 	import { onMount, onDestroy } from 'svelte';
-	import { MetricCatalogState } from '$lib/metric-catalog/state.svelte';
-	import { metricCatalogContext } from '$lib/metric-catalog/context';
-	import MetricCatalogToolbar from '$lib/components/metric-catalog/MetricCatalogToolbar.svelte';
-	import MetricCatalogTable from '$lib/components/metric-catalog/MetricCatalogTable.svelte';
-	import MetricAttributeRulesUnmatched from '$lib/components/metric-catalog/MetricAttributeRulesUnmatched.svelte';
-	import { authContext } from '$lib/auth/context';
-	import MetricCatalogDetailSheet from '$lib/components/metric-catalog/MetricCatalogDetailSheet.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { MetricCatalogState } from '#lib/metric-catalog/state.svelte.ts';
+	import { metricCatalogContext } from '#lib/metric-catalog/context.ts';
+	import MetricCatalogToolbar from '#lib/components/metric-catalog/MetricCatalogToolbar.svelte';
+	import MetricCatalogTable from '#lib/components/metric-catalog/MetricCatalogTable.svelte';
+	import MetricAttributeRulesUnmatched from '#lib/components/metric-catalog/MetricAttributeRulesUnmatched.svelte';
+	import { authContext } from '#lib/auth/context.ts';
+	import MetricCatalogDetailSheet from '#lib/components/metric-catalog/MetricCatalogDetailSheet.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 	const catalog = metricCatalogContext.set(new MetricCatalogState());

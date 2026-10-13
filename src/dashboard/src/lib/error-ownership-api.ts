@@ -2,7 +2,7 @@
 // ordered rule list is read and replaced as one document. Plain JSON, like `error-issues-api.ts`.
 
 import { API_BASE_URL, apiFetch } from './api';
-import type { OwnershipRule } from '$lib/errors/ownership';
+import type { OwnershipRule } from '#lib/errors/ownership.ts';
 
 const URL = `${API_BASE_URL}/api/errors/ownership-rules`;
 

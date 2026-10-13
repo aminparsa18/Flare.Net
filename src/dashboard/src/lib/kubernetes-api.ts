@@ -9,25 +9,25 @@
 //
 // MemoryPack over the wire, same shape as `hosts-api.ts`: the requests are generated
 // classes; the responses carry a DateTimeOffset inside an IReadOnlyList, so they're
-// hand-written under `$lib/memorypack/`.
+// hand-written under `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { KubernetesNodeListRequest as GeneratedNodeListRequest } from '$lib/generated/memorypack/KubernetesNodeListRequest.js';
-import { KubernetesNodeMetricsRequest as GeneratedNodeMetricsRequest } from '$lib/generated/memorypack/KubernetesNodeMetricsRequest.js';
-import { KubernetesPodListRequest as GeneratedPodListRequest } from '$lib/generated/memorypack/KubernetesPodListRequest.js';
-import { KubernetesNodeListResponse as GeneratedNodeListResponse } from '$lib/memorypack/KubernetesNodeListResponse';
-import { KubernetesNodeMetricsResponse as GeneratedNodeMetricsResponse } from '$lib/memorypack/KubernetesNodeMetricsResponse';
-import { KubernetesPodListResponse as GeneratedPodListResponse } from '$lib/memorypack/KubernetesPodListResponse';
-import { KubernetesWorkloadListRequest as GeneratedWorkloadListRequest } from '$lib/generated/memorypack/KubernetesWorkloadListRequest.js';
-import { KubernetesWorkloadMetricsRequest as GeneratedWorkloadMetricsRequest } from '$lib/generated/memorypack/KubernetesWorkloadMetricsRequest.js';
-import { KubernetesNamespaceListRequest as GeneratedNamespaceListRequest } from '$lib/generated/memorypack/KubernetesNamespaceListRequest.js';
-import { KubernetesVolumeListRequest as GeneratedVolumeListRequest } from '$lib/generated/memorypack/KubernetesVolumeListRequest.js';
-import { KubernetesVolumeMetricsRequest as GeneratedVolumeMetricsRequest } from '$lib/generated/memorypack/KubernetesVolumeMetricsRequest.js';
-import { KubernetesWorkloadListResponse as GeneratedWorkloadListResponse } from '$lib/memorypack/KubernetesWorkloadListResponse';
-import { KubernetesWorkloadMetricsResponse as GeneratedWorkloadMetricsResponse } from '$lib/memorypack/KubernetesWorkloadMetricsResponse';
-import { KubernetesNamespaceListResponse as GeneratedNamespaceListResponse } from '$lib/memorypack/KubernetesNamespaceListResponse';
-import { KubernetesVolumeListResponse as GeneratedVolumeListResponse } from '$lib/memorypack/KubernetesVolumeListResponse';
-import { KubernetesVolumeMetricsResponse as GeneratedVolumeMetricsResponse } from '$lib/memorypack/KubernetesVolumeMetricsResponse';
+import { KubernetesNodeListRequest as GeneratedNodeListRequest } from '#lib/generated/memorypack/KubernetesNodeListRequest.ts';
+import { KubernetesNodeMetricsRequest as GeneratedNodeMetricsRequest } from '#lib/generated/memorypack/KubernetesNodeMetricsRequest.ts';
+import { KubernetesPodListRequest as GeneratedPodListRequest } from '#lib/generated/memorypack/KubernetesPodListRequest.ts';
+import { KubernetesNodeListResponse as GeneratedNodeListResponse } from '#lib/memorypack/KubernetesNodeListResponse.ts';
+import { KubernetesNodeMetricsResponse as GeneratedNodeMetricsResponse } from '#lib/memorypack/KubernetesNodeMetricsResponse.ts';
+import { KubernetesPodListResponse as GeneratedPodListResponse } from '#lib/memorypack/KubernetesPodListResponse.ts';
+import { KubernetesWorkloadListRequest as GeneratedWorkloadListRequest } from '#lib/generated/memorypack/KubernetesWorkloadListRequest.ts';
+import { KubernetesWorkloadMetricsRequest as GeneratedWorkloadMetricsRequest } from '#lib/generated/memorypack/KubernetesWorkloadMetricsRequest.ts';
+import { KubernetesNamespaceListRequest as GeneratedNamespaceListRequest } from '#lib/generated/memorypack/KubernetesNamespaceListRequest.ts';
+import { KubernetesVolumeListRequest as GeneratedVolumeListRequest } from '#lib/generated/memorypack/KubernetesVolumeListRequest.ts';
+import { KubernetesVolumeMetricsRequest as GeneratedVolumeMetricsRequest } from '#lib/generated/memorypack/KubernetesVolumeMetricsRequest.ts';
+import { KubernetesWorkloadListResponse as GeneratedWorkloadListResponse } from '#lib/memorypack/KubernetesWorkloadListResponse.ts';
+import { KubernetesWorkloadMetricsResponse as GeneratedWorkloadMetricsResponse } from '#lib/memorypack/KubernetesWorkloadMetricsResponse.ts';
+import { KubernetesNamespaceListResponse as GeneratedNamespaceListResponse } from '#lib/memorypack/KubernetesNamespaceListResponse.ts';
+import { KubernetesVolumeListResponse as GeneratedVolumeListResponse } from '#lib/memorypack/KubernetesVolumeListResponse.ts';
+import { KubernetesVolumeMetricsResponse as GeneratedVolumeMetricsResponse } from '#lib/memorypack/KubernetesVolumeMetricsResponse.ts';
 
 /** Usage figures are window averages; null = no data for that metric (never 0). */
 export interface KubernetesNodeSummary {

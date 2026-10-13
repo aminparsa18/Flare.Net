@@ -7,8 +7,8 @@
 // real exporter, but is handled defensively (falls into the Trace bucket's badge
 // treatment) rather than throwing.
 
-import type { BadgeVariant } from '$lib/components/ui/badge';
-import * as m from '$lib/paraglide/messages';
+import type { BadgeVariant } from '#lib/components/ui/badge/index.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 export type SeverityBucketId = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'unspecified';
 

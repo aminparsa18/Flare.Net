@@ -1,6 +1,6 @@
 // The last few custom absolute ranges applied from the time picker, so an incident window
 // doesn't have to be re-entered on every page. Per-browser localStorage, same reasoning as
-// `$lib/saved-views/last-used.ts`: a low-stakes viewer-local convenience with no
+// `#lib/saved-views/last-used.ts`: a low-stakes viewer-local convenience with no
 // server-side field to hang it off. Shared across Logs/Traces/Metrics (one key) since an
 // incident window is the same wall-clock span whichever explorer is looking at it.
 import { browser } from '$app/env';

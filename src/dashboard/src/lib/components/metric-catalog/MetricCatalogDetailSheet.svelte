@@ -1,24 +1,24 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
-	import * as Sheet from '$lib/components/ui/sheet';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { formatNumber } from '#lib/format/number.ts';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChartLineIcon from '@lucide/svelte/icons/chart-line';
-	import { metricCatalogContext } from '$lib/metric-catalog/context';
-	import { authContext } from '$lib/auth/context';
+	import { metricCatalogContext } from '#lib/metric-catalog/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import MetricInspectPanel from './MetricInspectPanel.svelte';
 	import MetricAttributeRulesSection from './MetricAttributeRulesSection.svelte';
 	import MetricDashboardUsageSection from './MetricDashboardUsageSection.svelte';
 	import MetricMetadataOverridePopover from './MetricMetadataOverridePopover.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { buildMetricsExplorerHref } from '$lib/deep-links';
-	import { formatCount } from '$lib/ingestion/format';
-	import { formatPercent } from '$lib/indexing/format';
-	import { formatDateTime } from '$lib/time/format';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import { buildMetricsExplorerHref } from '#lib/deep-links.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
 	import { TYPE_LABEL, cardinalityClass, formatAgo } from './format';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const catalog = metricCatalogContext.get();
 	const auth = authContext.get();

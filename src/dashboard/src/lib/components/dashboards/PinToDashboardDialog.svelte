@@ -5,16 +5,16 @@
 	// SaveSearchDialog/SaveViewDialog already use to create a SavedView) and appends it
 	// as a new panel on an existing or brand-new dashboard. Generic over `panelType`, used
 	// from LogsToolbar/MetricsToolbar/TracesToolbar alike.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { listDashboards, createDashboard, updateDashboard, type DashboardSummary, type PanelType } from '$lib/dashboards-api';
-	import { nextPanelPosition, panelsInRow } from '$lib/dashboards/layout';
-	import { authContext } from '$lib/auth/context';
-	import { projects } from '$lib/projects/store.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { listDashboards, createDashboard, updateDashboard, type DashboardSummary, type PanelType } from '#lib/dashboards-api.ts';
+	import { nextPanelPosition, panelsInRow } from '#lib/dashboards/layout.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-	import { formatAge, secondsSince } from '$lib/ingestion/format';
+	import { formatAge, secondsSince } from '#lib/ingestion/format.ts';
 	import type { FlareProducerNode } from './types';
 	import ActivityIcon from '@lucide/svelte/icons/activity';
 

@@ -4,12 +4,12 @@
 	// as a shared link, so the result shows up as ordinary editable chips. On demand only, and
 	// hidden unless an admin configured a model.
 	import { onMount } from 'svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import { generateNlFilter, getAiEnabled, type NlFilterResponse } from '$lib/ai-api';
-	import * as m from '$lib/paraglide/messages';
+	import { generateNlFilter, getAiEnabled, type NlFilterResponse } from '#lib/ai-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		target,

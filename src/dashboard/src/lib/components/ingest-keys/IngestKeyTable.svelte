@@ -3,14 +3,14 @@
 	// two usage columns (current UTC minute / UTC day, ADR-0051) showing each count against
 	// its cap when one is enforced - the numbers come from the same Redis counters
 	// Flare.Ingest enforces against, so "at cap" here means exports are being rejected.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { ingestKeysContext } from '$lib/ingest-keys/context';
-	import type { IngestApiKeyDto } from '$lib/ingest-keys-api';
-	import { formatBytes, formatCount } from '$lib/ingestion/format';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { ingestKeysContext } from '#lib/ingest-keys/context.ts';
+	import type { IngestApiKeyDto } from '#lib/ingest-keys-api.ts';
+	import { formatBytes, formatCount } from '#lib/ingestion/format.ts';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import FolderInputIcon from '@lucide/svelte/icons/folder-input';
@@ -18,9 +18,9 @@
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import CalendarPlusIcon from '@lucide/svelte/icons/calendar-plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import { projects } from '$lib/projects/store.svelte';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	const keys = ingestKeysContext.get();
 

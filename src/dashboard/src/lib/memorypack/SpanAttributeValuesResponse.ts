@@ -2,13 +2,13 @@
 // generated. Mirrors `src/Flare.Api/Model/SpanAttributeValuesRequest.cs`'s
 // `SpanAttributeValuesResponse`. Can't carry `[GenerateTypeScript]` itself: its `Values`
 // member is an `IReadOnlyList<SpanAttributeValueInfo>` - see
-// `$lib/memorypack/LogAttributeKeysResponse.ts`'s header comment for why that alone blocks
+// `#lib/memorypack/LogAttributeKeysResponse.ts`'s header comment for why that alone blocks
 // `[GenerateTypeScript]`. `SpanAttributeValueInfo` itself has no such member, so it's a real
 // generated class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { SpanAttributeValueInfo } from '$lib/generated/memorypack/SpanAttributeValueInfo.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { SpanAttributeValueInfo } from '#lib/generated/memorypack/SpanAttributeValueInfo.ts';
 
 export class SpanAttributeValuesResponse {
 	values: (SpanAttributeValueInfo | null)[] | null;

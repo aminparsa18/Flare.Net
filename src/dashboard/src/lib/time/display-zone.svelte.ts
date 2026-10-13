@@ -3,7 +3,7 @@
 // named IANA zone. Picked from the user menu (NavUserMenu.svelte); ./format.ts's formatters
 // all read it, so switching re-renders every timestamp on the page at once.
 //
-// Cached in localStorage and synced per user through $lib/regional (ADR-0110).
+// Cached in localStorage and synced per user through #lib/regional (ADR-0110).
 import { browser } from '$app/env';
 import { browserTimeZone, instantToZoned, zonedToInstant } from './time-zone';
 
@@ -36,7 +36,7 @@ function load(): DisplayTimeZone {
 class DisplayTimeZoneSetting {
 	zone = $state<DisplayTimeZone>(load());
 
-	/** Called after a user-initiated change; $lib/regional wires this to server sync. */
+	/** Called after a user-initiated change; #lib/regional wires this to server sync. */
 	onChange: (() => void) | undefined;
 
 	/** The concrete IANA zone `zone` stands for - resolves 'local' to the browser's. */

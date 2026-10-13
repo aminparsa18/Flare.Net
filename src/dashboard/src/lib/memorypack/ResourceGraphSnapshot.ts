@@ -5,12 +5,12 @@
 // hand-written - see their own header comments). `ResourceEdgeDto` has neither problem, so
 // it's a real generated class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ResourceEdgeDto } from '$lib/generated/memorypack/ResourceEdgeDto.js';
-import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { ResourceNodeDto } from '$lib/memorypack/ResourceNodeDto';
-import { ProducerServiceDto } from '$lib/memorypack/ProducerServiceDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ResourceEdgeDto } from '#lib/generated/memorypack/ResourceEdgeDto.ts';
+import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { ResourceNodeDto } from '#lib/memorypack/ResourceNodeDto.ts';
+import { ProducerServiceDto } from '#lib/memorypack/ProducerServiceDto.ts';
 
 export class ResourceGraphSnapshot {
 	available: boolean;

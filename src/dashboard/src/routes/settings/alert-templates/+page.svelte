@@ -2,12 +2,12 @@
 	// Settings > Notification templates (ADR-0148): named, reusable alert wording that rules pick
 	// by reference. Local state rather than a context - nothing else on this page shares it.
 	import { onMount } from 'svelte';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import AlertTemplateFormDialog from '$lib/components/alert-templates/AlertTemplateFormDialog.svelte';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import AlertTemplateFormDialog from '#lib/components/alert-templates/AlertTemplateFormDialog.svelte';
 	import {
 		listAlertTemplates,
 		createAlertTemplate,
@@ -15,8 +15,8 @@
 		deleteAlertTemplate,
 		type AlertTemplate,
 		type AlertTemplateRequest
-	} from '$lib/alert-templates-api';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/alert-templates-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';

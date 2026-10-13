@@ -5,12 +5,12 @@
 	// can't acknowledge anything.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { withBase } from '$lib/paths';
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { AckLinkError, getAckLink, redeemAckLink, type AckLinkInfo } from '$lib/alerts-api';
-	import * as m from '$lib/paraglide/messages';
+	import { withBase } from '#lib/paths.ts';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { AckLinkError, getAckLink, redeemAckLink, type AckLinkInfo } from '#lib/alerts-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const token = $derived(page.url.searchParams.get('token') ?? '');
 	let info = $state<AckLinkInfo | null>(null);

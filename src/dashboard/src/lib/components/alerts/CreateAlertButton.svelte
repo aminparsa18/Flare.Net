@@ -4,11 +4,11 @@
 	// (the alerts page opens AlertRuleFormDialog prefilled), so the drafting path is shared.
 	// Hidden for a Viewer, same as every other mutating control - /alerts would 403 on submit.
 	import { goto } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button';
-	import { authContext } from '$lib/auth/context';
-	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '$lib/deep-links';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '#lib/deep-links.ts';
 	import BellPlusIcon from '@lucide/svelte/icons/bell-plus';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { draft }: { draft: () => AlertPanelDraft | null } = $props();
 

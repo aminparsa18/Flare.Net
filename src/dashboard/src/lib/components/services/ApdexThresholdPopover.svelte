@@ -4,11 +4,11 @@
 	// Same "small icon-triggered popover with a mini form" shape as
 	// PanelVariablesPopover.svelte, the closest existing precedent for a per-row settings
 	// affordance in this codebase - see docs-internal/adr/0032-apdex-score-per-service.md.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import SettingsIcon from '@lucide/svelte/icons/settings-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		serviceName,

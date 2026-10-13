@@ -3,10 +3,10 @@
 	// an order ID, a tenant) instead of a pick from a list. Commits on Enter or blur rather
 	// than every keystroke, since each commit re-runs every applicable panel's query; an empty
 	// box means "All" (this variable doesn't narrow anything), same as the dropdown variables.
-	import { Input } from '$lib/components/ui/input';
-	import type { DashboardVariable } from '$lib/dashboards-api';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import type { DashboardVariable } from '#lib/dashboards-api.ts';
 	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		variable,

@@ -2,16 +2,16 @@
 	// The drill-down's "Inspect" view: a few series' raw samples, how time aggregation reduces
 	// each to one value per bucket, and how space aggregation merges the series - see
 	// MetricInspectReducer.cs for the rules this displays.
-	import * as Select from '$lib/components/ui/select';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { metricCatalogContext } from '$lib/metric-catalog/context';
-	import { METRIC_INSPECT_BUCKETS, METRIC_INSPECT_WINDOWS } from '$lib/metric-catalog/state.svelte';
-	import type { MetricInspectSample, MetricInspectSampleKind, MetricInspectSeries } from '$lib/metric-catalog-api';
-	import { formatTimeOfDay } from '$lib/time/format';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { metricCatalogContext } from '#lib/metric-catalog/context.ts';
+	import { METRIC_INSPECT_BUCKETS, METRIC_INSPECT_WINDOWS } from '#lib/metric-catalog/state.svelte.ts';
+	import type { MetricInspectSample, MetricInspectSampleKind, MetricInspectSeries } from '#lib/metric-catalog-api.ts';
+	import { formatTimeOfDay } from '#lib/time/format.ts';
 	import { formatContribution, formatSampleValue } from './format';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const ALL_SERVICES = '__all__';
 

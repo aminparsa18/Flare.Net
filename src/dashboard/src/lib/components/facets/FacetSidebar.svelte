@@ -2,19 +2,19 @@
 	// Collapsible facet filter sidebar shared by the Logs and Traces pages: one
 	// FacetSection per facet (values + counts, click to filter), plus an "Add attribute"
 	// form for user-chosen attribute facets. Page-agnostic - each page hands in its own
-	// FacetDefinition list (`$lib/logs/facets.ts` / `$lib/traces/facets.ts`) and its
+	// FacetDefinition list (`#lib/logs/facets.ts` / `#lib/traces/facets.ts`) and its
 	// FacetSidebarPrefs instance.
 	import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
 	import PanelLeftOpenIcon from '@lucide/svelte/icons/panel-left-open';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import * as Select from '$lib/components/ui/select';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
 	import FacetSection from './FacetSection.svelte';
-	import type { FacetDefinition } from '$lib/facets/types';
-	import type { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import type { FacetDefinition } from '#lib/facets/types.ts';
+	import type { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		facets,

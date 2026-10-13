@@ -7,10 +7,10 @@
 // `ExternalCallGroup`/`DatabaseCallGroup` have no such member, so both are real generated
 // classes, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ExternalCallGroup } from '$lib/generated/memorypack/ExternalCallGroup.js';
-import { DatabaseCallGroup } from '$lib/generated/memorypack/DatabaseCallGroup.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ExternalCallGroup } from '#lib/generated/memorypack/ExternalCallGroup.ts';
+import { DatabaseCallGroup } from '#lib/generated/memorypack/DatabaseCallGroup.ts';
 
 export class ServiceCallBreakdownResponse {
 	service: string | null;

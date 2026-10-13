@@ -2,8 +2,8 @@
 // docs-internal/adr/0167-app-sessions-view.md. No polling: each load aggregates the window's
 // spans live, so it is an on-demand view with a manual refresh, like /external-apis.
 
-import { getAppPerformance, getAppSessions, getReleaseHealth, getReleaseHealthTrend, type AppPerformance, type AppSession, type ReleaseHealthTrend, type ReleaseHealthVersion } from '$lib/app-sessions-api';
-import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
+import { getAppPerformance, getAppSessions, getReleaseHealth, getReleaseHealthTrend, type AppPerformance, type AppSession, type ReleaseHealthTrend, type ReleaseHealthVersion } from '#lib/app-sessions-api.ts';
+import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 export type AppSessionsWindowPreset = ServicesWindowPreset;
 export const APP_SESSIONS_WINDOW_PRESETS = SERVICES_WINDOW_PRESETS;

@@ -5,26 +5,26 @@
 	// package.json but unused anywhere in this app and isn't a good fit for a strictly
 	// time-axis layout), the same "hand-roll it, no charting library" precedent
 	// VolumeChart.svelte already set for this dashboard.
-	import type { SpanDto, SpanEventDto } from '$lib/traces-api';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { traceDetailContext } from '$lib/traces/trace-context';
-	import { computeCriticalPath } from '$lib/traces/critical-path';
-	import { detectNPlusOne } from '$lib/traces/n-plus-one';
+	import type { SpanDto, SpanEventDto } from '#lib/traces-api.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { traceDetailContext } from '#lib/traces/trace-context.ts';
+	import { computeCriticalPath } from '#lib/traces/critical-path.ts';
+	import { detectNPlusOne } from '#lib/traces/n-plus-one.ts';
 	import DatabaseZapIcon from '@lucide/svelte/icons/database-zap';
-	import type { SpanTreeRow } from '$lib/traces/span-tree';
-	import { kindIcon, kindLabel } from '$lib/traces/status';
+	import type { SpanTreeRow } from '#lib/traces/span-tree.ts';
+	import { kindIcon, kindLabel } from '#lib/traces/status.ts';
 	import TraceColorLegend from './TraceColorLegend.svelte';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import TimerIcon from '@lucide/svelte/icons/timer';
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronsDownUpIcon from '@lucide/svelte/icons/chevrons-down-up';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 	import { onMount, tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { formatTimeOfDay } from '$lib/time/format';
+	import { formatTimeOfDay } from '#lib/time/format.ts';
 
 	const detail = traceDetailContext.get();
 
@@ -98,7 +98,7 @@
 		for (const row of tree) if (row.descendants > 0) collapsed.add(row.span.spanId);
 	}
 
-	// Same pre-order list the span search steps through - see $lib/traces/span-tree.ts.
+	// Same pre-order list the span search steps through - see #lib/traces/span-tree.ts.
 	const tree = $derived(detail.spanTree);
 
 	const hasNesting = $derived(tree.some((row) => row.descendants > 0));
@@ -444,7 +444,7 @@
 									<!-- Critical-path spans render at full color/opacity; everything else fades
 									     back so the handful of spans that actually determined the trace's end
 									     time stand out from the ones that just ran alongside them (see
-									     $lib/traces/critical-path.ts). -->
+									     #lib/traces/critical-path.ts). -->
 									<div
 										data-waterfall-bar={span.spanId}
 										class="{detail.colorOf(span) ? '' : 'bg-muted-foreground/50'} absolute top-0 h-full min-w-[2px] rounded-sm {criticalSpanIds.has(

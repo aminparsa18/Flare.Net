@@ -1,15 +1,15 @@
 <script lang="ts">
-	// Picker for the built-in dashboard templates (see $lib/dashboards/templates.ts and
+	// Picker for the built-in dashboard templates (see #lib/dashboards/templates.ts and
 	// docs-internal/adr/0088-built-in-dashboard-templates.md). Installing creates an ordinary
 	// editable dashboard and lands on it, same "land on what you just made" UX as Duplicate/Import.
 	import { goto } from '$app/navigation';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { dashboardsContext } from '$lib/dashboards/context';
-	import { dashboardPath } from '$lib/dashboards/page-paths';
-	import { DASHBOARD_TEMPLATES, templatePanelCount, type DashboardTemplate } from '$lib/dashboards/templates';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { dashboardsContext } from '#lib/dashboards/context.ts';
+	import { dashboardPath } from '#lib/dashboards/page-paths.ts';
+	import { DASHBOARD_TEMPLATES, templatePanelCount, type DashboardTemplate } from '#lib/dashboards/templates.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 

@@ -3,13 +3,13 @@
 	// caller. Same icon-triggered mini-form shape as ApdexThresholdPopover.svelte. A blank
 	// field means "show what the instrumentation sent", so each field overrides on its own.
 	// "Chart as a counter" (ADR-0066) is offered only for a Gauge - it's what it changes.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		unit,

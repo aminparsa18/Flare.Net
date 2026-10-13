@@ -4,9 +4,9 @@
 // `DateTimeOffset`/`IReadOnlyList<T>` reasons as `MaintenanceWindow.ts`. Serialize-only: the
 // dashboard never decodes a request.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { writeDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { writeDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { writeStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
 
 export class MaintenanceWindowRequest {
 	name: string | null = null;

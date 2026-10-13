@@ -2,7 +2,7 @@
 // generated. Mirrors `src/Flare.Api/Model/DashboardModels.cs`'s `Dashboard` field-for-field,
 // in declared order. Can't carry `[GenerateTypeScript]` itself for the same two reasons
 // `SavedView.ts`'s header comment gives: `CreatedAt`/`UpdatedAt` are `DateTimeOffset`
-// (see `$lib/memorypack/date-time-offset.ts`), and `LayoutJson` is a
+// (see `#lib/memorypack/date-time-offset.ts`), and `LayoutJson` is a
 // `System.Text.Json.JsonElement`, round-tripped server-side through the same
 // `JsonElementMemoryPackFormatter` `SavedView.State` uses - this file mirrors that exact
 // wire format (`JSON.stringify`/`JSON.parse` around a plain MemoryPack string).
@@ -16,9 +16,9 @@
 //
 // `tags` (ADR-0089) follows `ownerUserId` for the same reason.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class Dashboard {
 	id: string;

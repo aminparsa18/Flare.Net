@@ -4,8 +4,8 @@
 // `outcome` is the raw `TraceFunnelOutcome` ordinal (see `traceFunnelOutcomeFromString`).
 // Request-only, so serialize-only.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { TraceFunnelStep } from '$lib/memorypack/TraceFunnelStep';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { TraceFunnelStep } from '#lib/memorypack/TraceFunnelStep.ts';
 
 export class TraceFunnelTracesRequest {
 	windowMinutes: number | null = null;

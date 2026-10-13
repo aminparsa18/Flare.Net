@@ -9,13 +9,13 @@
 	// see catalog.ts's own doc comment for why that one item lives here instead of a
 	// second page.
 	import { browser } from '$app/env';
-	import { API_BASE_URL } from '$lib/api';
-	import { buildCategories } from '$lib/data-sources/catalog';
-	import CodeBlock from '$lib/components/data-sources/CodeBlock.svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { cn } from '$lib/utils.js';
+	import { API_BASE_URL } from '#lib/api.ts';
+	import { buildCategories } from '#lib/data-sources/catalog.ts';
+	import CodeBlock from '#lib/components/data-sources/CodeBlock.svelte';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { cn } from '#lib/utils.ts';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// window.location.hostname is a correct guess for the common case (docker-compose:
 	// dashboard/api/ingest all on one host, different ports - see docker-compose.yml)

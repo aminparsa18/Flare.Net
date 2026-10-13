@@ -6,18 +6,18 @@
 // have no DateTimeOffset/JsonElement/IReadOnlyList member and use real generated classes;
 // `StorageGrowthPoint` (DateTimeOffset), `IndexingStatsResponse`, and `ClusterStatusResponse`
 // (both IReadOnlyList-of-object members - see `PipelineServiceBreakdown.ts`'s header comment
-// for why that alone blocks `[GenerateTypeScript]`) are hand-written (`$lib/memorypack/`).
+// for why that alone blocks `[GenerateTypeScript]`) are hand-written (`#lib/memorypack/`).
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type AttributeBag } from './api';
-import { IndexingStatsResponse as GeneratedIndexingStatsResponse } from '$lib/memorypack/IndexingStatsResponse';
-import { ClusterStatusResponse as GeneratedClusterStatusResponse } from '$lib/memorypack/ClusterStatusResponse';
-import type { TableStorageInfo as GeneratedTableStorageInfo } from '$lib/generated/memorypack/TableStorageInfo.js';
-import type { SkipIndexInfo as GeneratedSkipIndexInfo } from '$lib/generated/memorypack/SkipIndexInfo.js';
-import type { StorageGrowthPoint as GeneratedStorageGrowthPoint } from '$lib/memorypack/StorageGrowthPoint';
-import type { ClusterNodeInfo as GeneratedClusterNodeInfo } from '$lib/generated/memorypack/ClusterNodeInfo.js';
-import { PromotedAttributesResponse as GeneratedPromotedAttributesResponse } from '$lib/memorypack/PromotedAttributesResponse';
-import { PromoteAttributeRequest as GeneratedPromoteAttributeRequest } from '$lib/generated/memorypack/PromoteAttributeRequest.js';
-import { attributeBagFromString, attributeBagToString } from '$lib/memorypack/enums';
+import { IndexingStatsResponse as GeneratedIndexingStatsResponse } from '#lib/memorypack/IndexingStatsResponse.ts';
+import { ClusterStatusResponse as GeneratedClusterStatusResponse } from '#lib/memorypack/ClusterStatusResponse.ts';
+import type { TableStorageInfo as GeneratedTableStorageInfo } from '#lib/generated/memorypack/TableStorageInfo.ts';
+import type { SkipIndexInfo as GeneratedSkipIndexInfo } from '#lib/generated/memorypack/SkipIndexInfo.ts';
+import type { StorageGrowthPoint as GeneratedStorageGrowthPoint } from '#lib/memorypack/StorageGrowthPoint.ts';
+import type { ClusterNodeInfo as GeneratedClusterNodeInfo } from '#lib/generated/memorypack/ClusterNodeInfo.ts';
+import { PromotedAttributesResponse as GeneratedPromotedAttributesResponse } from '#lib/memorypack/PromotedAttributesResponse.ts';
+import { PromoteAttributeRequest as GeneratedPromoteAttributeRequest } from '#lib/generated/memorypack/PromoteAttributeRequest.ts';
+import { attributeBagFromString, attributeBagToString } from '#lib/memorypack/enums.ts';
 
 export interface TableStorageInfo {
 	tableName: string;

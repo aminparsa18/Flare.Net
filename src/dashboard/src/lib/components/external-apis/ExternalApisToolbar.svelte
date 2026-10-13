@@ -1,13 +1,13 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import { externalApisContext } from '$lib/external-apis/context';
-	import { EXTERNAL_APIS_WINDOW_PRESETS, type ExternalApisWindowPreset } from '$lib/external-apis/state.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { externalApisContext } from '#lib/external-apis/context.ts';
+	import { EXTERNAL_APIS_WINDOW_PRESETS, type ExternalApisWindowPreset } from '#lib/external-apis/state.svelte.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const externalApis = externalApisContext.get();
 

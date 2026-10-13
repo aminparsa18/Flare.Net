@@ -1,15 +1,15 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
-	import TracesViewTabs from '$lib/components/traces/TracesViewTabs.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import ViewsMenu from '#lib/components/saved-views/ViewsMenu.svelte';
+	import TracesViewTabs from '#lib/components/traces/TracesViewTabs.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import PlayIcon from '@lucide/svelte/icons/play';
-	import { traceFunnelContext } from '$lib/trace-funnels/context';
-	import { FUNNEL_WINDOW_PRESETS, type FunnelWindowPreset } from '$lib/trace-funnels/state.svelte';
-	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { traceFunnelContext } from '#lib/trace-funnels/context.ts';
+	import { FUNNEL_WINDOW_PRESETS, type FunnelWindowPreset } from '#lib/trace-funnels/state.svelte.ts';
+	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const funnel = traceFunnelContext.get();
 </script>

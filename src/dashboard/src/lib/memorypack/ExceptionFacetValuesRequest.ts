@@ -5,9 +5,9 @@
 // ordinal, converted at the `errors-api.ts` boundary - same convention as
 // `SpanAttributeValuesRequest.ts`.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ExceptionFilter } from '$lib/memorypack/ExceptionFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ExceptionFilter } from '#lib/memorypack/ExceptionFilter.ts';
 
 export class ExceptionFacetValuesRequest {
 	filter: ExceptionFilter | null;

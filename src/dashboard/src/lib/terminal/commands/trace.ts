@@ -1,16 +1,16 @@
 // `trace` - mimics flare.cli's TraceCommand.cs (single-trace waterfall) by calling the
 // same GET /api/traces/{traceId} the dashboard's own trace-detail page uses (getTrace()
-// from $lib/traces-api.ts), rather than any new backend surface - same
+// from #lib/traces-api.ts), rather than any new backend surface - same
 // "already-authenticated dashboard API, different front end" shape as commands/tail.ts.
 // Tree-building/bar-positioning math is a direct port of TraceWaterfall.svelte's own
 // `rows`/`barStyle` $derived - the same port TraceCommand.cs's C# already carries, kept
 // here too since this terminal shares no code with the CLI. No critical-path highlighting
 // or service-map here either, matching TraceCommand.cs's own current scope.
 
-import { getTrace, type SpanDto } from '$lib/traces-api';
-import { formatDurationNano } from '$lib/traces/duration';
+import { getTrace, type SpanDto } from '#lib/traces-api.ts';
+import { formatDurationNano } from '#lib/traces/duration.ts';
 import type { TerminalCommand, TerminalLineKind } from '../types';
-import { formatTimeOfDay } from '$lib/time/format';
+import { formatTimeOfDay } from '#lib/time/format.ts';
 
 const LABEL_WIDTH = 46;
 const BAR_WIDTH = 36;

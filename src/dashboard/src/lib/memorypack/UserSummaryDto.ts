@@ -3,18 +3,18 @@
 // in the exact same declared order (MemoryPack's wire format is positional, not keyed - see
 // this file's `serializeCore`/`deserializeCore`, which follow the identical
 // writeObjectHeader/tryReadObjectHeader + per-field version-tolerant shape MemoryPack's own
-// generator emits, e.g. `$lib/generated/memorypack/AuthUserDto.ts`). Can't carry
+// generator emits, e.g. `#lib/generated/memorypack/AuthUserDto.ts`). Can't carry
 // `[GenerateTypeScript]` itself because `CreatedAt` is a `DateTimeOffset` - MemoryPack's
-// TypeScript generator has no mapping for it (see `$lib/memorypack/date-time-offset.ts`'s
+// TypeScript generator has no mapping for it (see `#lib/memorypack/date-time-offset.ts`'s
 // header comment for the full explanation and the wire format this hand-writes against).
 //
 // If `UserModels.cs`'s `UserSummaryDto` ever gains/removes/reorders a member, this file
 // must be updated by hand to match - there is no compiler/generator to catch drift the way
 // there is for the 6 dashboard client files that use real generated classes.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class UserSummaryDto {
 	id: string;

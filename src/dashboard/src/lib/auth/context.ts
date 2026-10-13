@@ -1,4 +1,4 @@
-// Same generic typed-context helper as `$lib/indexing/context.ts`/`$lib/metrics/context.ts` -
+// Same generic typed-context helper as `#lib/indexing/context.ts`/`#lib/metrics/context.ts` -
 // re-authored here rather than shared, same rationale those already give (no natural
 // shared-utils home for a two-line helper yet).
 

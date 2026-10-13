@@ -1,22 +1,22 @@
 <script lang="ts">
-	import { lazyNumberFormat } from '$lib/format/number';
+	import { lazyNumberFormat } from '#lib/format/number.ts';
 	import { browser } from '$app/env';
-	import { aggregateLogs, type LogAggregateBucket } from '$lib/api';
-	import type { VolumeGroupBy } from '$lib/logs/state.svelte';
-	import { resolveBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
+	import { aggregateLogs, type LogAggregateBucket } from '#lib/api.ts';
+	import type { VolumeGroupBy } from '#lib/logs/state.svelte.ts';
+	import { resolveBucketWidthSeconds, formatBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
 	import BucketIntervalMenu from './BucketIntervalMenu.svelte';
-	import ChartCsvButton from '$lib/components/metrics/ChartCsvButton.svelte';
-	import { downloadTimeSeriesCsv } from '$lib/dashboards/chart-csv';
-	import { resolveTimeRange, shiftRange } from '$lib/logs/time-range';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import * as Tooltip from '$lib/components/ui/tooltip';
+	import ChartCsvButton from '#lib/components/metrics/ChartCsvButton.svelte';
+	import { downloadTimeSeriesCsv } from '#lib/dashboards/chart-csv.ts';
+	import { resolveTimeRange, shiftRange } from '#lib/logs/time-range.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import * as Accordion from '#lib/components/ui/accordion/index.ts';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
-	import { formatAxisTime, formatChartTime } from '$lib/time/format';
-	import { fractionInRange, loadReleases, placeMarkers } from '$lib/releases/markers';
-	import type { Release } from '$lib/releases-api';
-	import ReleaseMarkers from '$lib/components/releases/ReleaseMarkers.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatAxisTime, formatChartTime } from '#lib/time/format.ts';
+	import { fractionInRange, loadReleases, placeMarkers } from '#lib/releases/markers.ts';
+	import type { Release } from '#lib/releases-api.ts';
+	import ReleaseMarkers from '#lib/components/releases/ReleaseMarkers.svelte';
 
 	const explorer = logsExplorerContext.get();
 
@@ -48,7 +48,7 @@
 	const LIVE_TRAILING_WINDOW_MS = 60 * 60 * 1000; // matches LogFilterSqlBuilder.DefaultLookback (1h) so live mode's window feels consistent with the unfiltered-search default
 
 	// The collapse/expand toggle is a single-item shadcn/bits-ui Accordion (see
-	// $lib/components/ui/accordion) rather than a hand-rolled collapsed boolean +
+	// #lib/components/ui/accordion) rather than a hand-rolled collapsed boolean +
 	// custom animation - open/close animation, keyboard handling, and aria wiring all
 	// come from the primitive itself. "" is bits-ui's own closed-accordion value for
 	// type="single"; VOLUME_ITEM is this section's (only) open value.

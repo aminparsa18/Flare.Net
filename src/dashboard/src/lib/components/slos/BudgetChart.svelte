@@ -2,9 +2,9 @@
 	// The error budget remaining across the SLO window: 100% at the top, 0% (spent) as a dashed
 	// line, overspend shown below it. A plain SVG area chart - one series, no interaction beyond
 	// the end-point label, so it doesn't need the metrics chart machinery.
-	import type { BudgetPoint } from '$lib/slos/budget';
-	import { formatBudget } from '$lib/slos/budget';
-	import { formatDateTimeMinutes } from '$lib/time/format';
+	import type { BudgetPoint } from '#lib/slos/budget.ts';
+	import { formatBudget } from '#lib/slos/budget.ts';
+	import { formatDateTimeMinutes } from '#lib/time/format.ts';
 
 	let { points }: { points: BudgetPoint[] } = $props();
 

@@ -1,11 +1,11 @@
 <script lang="ts">
 	// Dry-run of Ingest's managed PII redaction (ADR-0199): scans recent logs or spans and shows what it would mask.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { previewPiiRedaction, previewSpanPiiRedaction, scanForPii, type PiiScanResult, type PiiSpanPreviewResult, type PipelineRulePreviewResult, type PipelineRulePreviewMatch } from '$lib/pipeline-rules-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { previewPiiRedaction, previewSpanPiiRedaction, scanForPii, type PiiScanResult, type PiiSpanPreviewResult, type PipelineRulePreviewResult, type PipelineRulePreviewMatch } from '#lib/pipeline-rules-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 

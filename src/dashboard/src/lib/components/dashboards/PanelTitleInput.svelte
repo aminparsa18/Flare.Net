@@ -1,16 +1,16 @@
 <script lang="ts">
 	// DashboardPanelCard's click-to-edit title field, plus `$`-triggered suggestions of the
 	// dashboard's variables - picking one inserts its `$name`/`${name}` reference (see
-	// `resolvePanelTitle` in $lib/dashboards/variables.ts) at the caret. Same hand-rolled
+	// `resolvePanelTitle` in #lib/dashboards/variables.ts) at the caret. Same hand-rolled
 	// dropdown and mousedown-before-blur trick AttributeValueCombobox.svelte documents, except
 	// `position: fixed` rather than `absolute`: the panel sits inside gridstack's
 	// `overflow: hidden` item, which would clip an absolutely positioned list.
 	import { tick } from 'svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { cn } from '$lib/utils';
-	import { titleReferenceAtCaret, variableReference } from '$lib/dashboards/variables';
-	import type { DashboardVariable } from '$lib/dashboards-api';
-	import * as m from '$lib/paraglide/messages';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { cn } from '#lib/utils.ts';
+	import { titleReferenceAtCaret, variableReference } from '#lib/dashboards/variables.ts';
+	import type { DashboardVariable } from '#lib/dashboards-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		value = $bindable(),

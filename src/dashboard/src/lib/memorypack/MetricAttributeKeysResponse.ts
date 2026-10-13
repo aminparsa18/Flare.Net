@@ -5,9 +5,9 @@
 // comment for why that alone blocks `[GenerateTypeScript]`. `MetricAttributeKeyInfo` itself
 // has no such member, so it's a real generated class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricAttributeKeyInfo } from '$lib/generated/memorypack/MetricAttributeKeyInfo.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricAttributeKeyInfo } from '#lib/generated/memorypack/MetricAttributeKeyInfo.ts';
 
 export class MetricAttributeKeysResponse {
 	keys: (MetricAttributeKeyInfo | null)[] | null;

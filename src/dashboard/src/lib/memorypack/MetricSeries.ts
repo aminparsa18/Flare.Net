@@ -3,12 +3,12 @@
 // in declared order. Can't carry `[GenerateTypeScript]` itself because its `Points` member's
 // type, `MetricSeriesPoint`, has a `DateTimeOffset` member - see `MetricSeriesPoint.ts`'s
 // header comment. `Attributes` (`IReadOnlyDictionary<string, string>`) decodes into a plain
-// `Record<string, string>` - see `$lib/memorypack/string-record.ts`'s header comment.
+// `Record<string, string>` - see `#lib/memorypack/string-record.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricSeriesPoint } from '$lib/memorypack/MetricSeriesPoint';
-import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricSeriesPoint } from '#lib/memorypack/MetricSeriesPoint.ts';
+import { readStringRecord, writeStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
 
 export class MetricSeries {
 	serviceName: string | null;

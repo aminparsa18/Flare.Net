@@ -4,10 +4,10 @@
 	// so a mail scanner that fetches the URL can't confirm or unsubscribe anyone.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
 	import {
 		getSubscriptionInfo,
 		getSubscriptionPreferences,
@@ -16,8 +16,8 @@
 		type SubscriptionAction,
 		type SubscriptionInfo,
 		type SubscriptionPreferences
-	} from '$lib/status-pages-api';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/status-pages-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const action = $derived<SubscriptionAction | 'preferences' | null>(
 		page.params.action === 'confirm' || page.params.action === 'unsubscribe' || page.params.action === 'preferences' ? page.params.action : null

@@ -2,14 +2,14 @@
 	// Edits one key's ingestion limits (ADR-0051): an on/off toggle plus four independently
 	// optional caps - events and bytes, per UTC minute and per UTC day. An empty field means
 	// "no cap", matching the backend's null. Byte caps take a unit (KB/MB/GB, 1024-based like
-	// $lib/ingestion/format.ts's formatBytes) so a daily cap doesn't have to be typed in raw bytes.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { ingestKeysContext } from '$lib/ingest-keys/context';
-	import * as m from '$lib/paraglide/messages';
+	// #lib/ingestion/format.ts's formatBytes) so a daily cap doesn't have to be typed in raw bytes.
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { ingestKeysContext } from '#lib/ingest-keys/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const keys = ingestKeysContext.get();
 

@@ -3,18 +3,18 @@
 	// components/metrics/MetricChart.svelte's hand-rolled SVG mechanics (this dashboard has
 	// no charting library - hand-rolling is the established precedent), trimmed to a single
 	// line since only one metric is ever plotted at a time (see MAX_SERIES/legend remarks
-	// there for the multi-line case this doesn't need). Reuses $lib/metrics/axis.ts
+	// there for the multi-line case this doesn't need). Reuses #lib/metrics/axis.ts
 	// unchanged for Y-axis scaling/formatting - it already handles both unit shapes this
 	// needs: '%' for CPU/Memory/Disk (peak-scaled ticks, e.g. 0/10/20/30% on a mostly-idle
 	// host - same "scale to observed peak, not a hardcoded 0-100 domain" convention
 	// MetricChart already uses everywhere else) and 'By/s' for Network (its rate-unit
 	// branch already splits numerator/denominator and picks KB/MB/GB automatically).
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Button } from '$lib/components/ui/button';
-	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
-	import type { HostStatsHistoryPoint } from '$lib/api';
-	import * as m from '$lib/paraglide/messages';
-	import { formatChartTime } from '$lib/time/format';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '#lib/metrics/axis.ts';
+	import type { HostStatsHistoryPoint } from '#lib/api.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatChartTime } from '#lib/time/format.ts';
 
 	let { history }: { history: HostStatsHistoryPoint[] } = $props();
 

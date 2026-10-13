@@ -2,12 +2,12 @@
 	// Data retention (ADR-0143/0144/0145): per-signal TTLs, the cold tier, per-resource rules.
 	// ClickHouse applies a change asynchronously, so while one is pending the page polls.
 	import { onDestroy, onMount } from 'svelte';
-	import * as Card from '$lib/components/ui/card';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import RetentionSignalCard from '$lib/components/retention/RetentionSignalCard.svelte';
-	import { getRetention, setRetention, type RetentionResponse, type RetentionRule } from '$lib/retention-api';
-	import { formatBytes } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import RetentionSignalCard from '#lib/components/retention/RetentionSignalCard.svelte';
+	import { getRetention, setRetention, type RetentionResponse, type RetentionRule } from '#lib/retention-api.ts';
+	import { formatBytes } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let data = $state.raw<RetentionResponse | null>(null);
 	let loadError = $state<string | null>(null);

@@ -9,7 +9,7 @@
 	// CPU/Memory get a meter bar per the dataviz skill's "Meter" contract: the fill carries
 	// severity (accent -> warning -> danger) and the unfilled track is a lighter step of
 	// that same hue, so state reads across the whole bar, not just the fill. Same 90%/75%
-	// severity thresholds $lib/components/indexing/IndexingSummaryTiles.svelte's disk-usage
+	// severity thresholds #lib/components/indexing/IndexingSummaryTiles.svelte's disk-usage
 	// card already established for this dashboard, kept in sync rather than invented fresh.
 	// Disk/Uptime stay plain numbers - not every stat needs a bar, and a fixed 100% wouldn't
 	// take an operator's total-disk decision, unlike CPU/Memory where "how much headroom is
@@ -20,25 +20,25 @@
 	// don't need to show this as a giant card." Per-core CPU is an expandable accordion
 	// under the CPU tile rather than a separate detail view/route - same reasoning, this
 	// panel already *is* the detail view for anything host-related.
-	import * as Card from '$lib/components/ui/card';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '$lib/components/ui/empty';
-	import { formatBytes } from '$lib/ingestion/format';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Accordion from '#lib/components/ui/accordion/index.ts';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '#lib/components/ui/empty/index.ts';
+	import { formatBytes } from '#lib/ingestion/format.ts';
 	import {
 		formatByteUsage,
 		formatUptime,
 		formatByteRate,
 		formatByteGrowthPerDay,
 		formatPacketRate
-	} from '$lib/resources/format';
-	import { WARNING_THRESHOLD_PERCENT, CRITICAL_THRESHOLD_PERCENT } from '$lib/resources/thresholds';
-	import { computeHostHealth } from '$lib/resources/host-health';
-	import { resourcesContext } from '$lib/resources/context';
-	import HostTrendChart from '$lib/resources/HostTrendChart.svelte';
-	import HostHealth from '$lib/resources/HostHealth.svelte';
-	import type { HostStatsHistoryPoint, HostStatsSnapshot } from '$lib/api';
+	} from '#lib/resources/format.ts';
+	import { WARNING_THRESHOLD_PERCENT, CRITICAL_THRESHOLD_PERCENT } from '#lib/resources/thresholds.ts';
+	import { computeHostHealth } from '#lib/resources/host-health.ts';
+	import { resourcesContext } from '#lib/resources/context.ts';
+	import HostTrendChart from '#lib/resources/HostTrendChart.svelte';
+	import HostHealth from '#lib/resources/HostHealth.svelte';
+	import type { HostStatsHistoryPoint, HostStatsSnapshot } from '#lib/api.ts';
 	import CpuIcon from '@lucide/svelte/icons/cpu';
 	import MemoryStickIcon from '@lucide/svelte/icons/memory-stick';
 	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
@@ -46,7 +46,7 @@
 	import ActivityIcon from '@lucide/svelte/icons/activity';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { snapshot, history }: { snapshot: HostStatsSnapshot | null; history: HostStatsHistoryPoint[] } = $props();
 

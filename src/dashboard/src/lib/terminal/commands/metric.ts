@@ -1,16 +1,16 @@
 // `metric` - mimics flare.cli's MetricCommand.cs (single-metric chart) by calling the same
 // POST /api/metrics/names + POST /api/metrics/query the dashboard's own Metrics page uses
-// (getMetricNames()/queryMetric() from $lib/metrics-api.ts), rather than any new backend
+// (getMetricNames()/queryMetric() from #lib/metrics-api.ts), rather than any new backend
 // surface - same "already-authenticated dashboard API, different front end" shape as
 // commands/tail.ts/traces.ts/trace.ts. Renders ASCII sparklines instead of MetricChart's
 // SVG lines, but - unlike MetricCommand.cs's own necessarily-simplified C# port - reuses
-// this dashboard's real $lib/metrics/axis.ts and $lib/logs/bucket-width.ts helpers
+// this dashboard's real #lib/metrics/axis.ts and #lib/logs/bucket-width.ts helpers
 // directly for unit formatting/bucket-width picking, so values read with the exact same
 // ms<->s/B<->MB scaling the chart itself uses, not a "declared unit as-is" approximation.
 
-import { effectiveResultType, getMetricNames, isHistogramType, queryMetric, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
-import { pickBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
-import { resolveAxisScale, formatAtScale } from '$lib/metrics/axis';
+import { effectiveResultType, getMetricNames, isHistogramType, queryMetric, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '#lib/metrics-api.ts';
+import { pickBucketWidthSeconds, formatBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
+import { resolveAxisScale, formatAtScale } from '#lib/metrics/axis.ts';
 import type { TerminalCommand, TerminalWriter } from '../types';
 import { parseSince } from './metrics';
 

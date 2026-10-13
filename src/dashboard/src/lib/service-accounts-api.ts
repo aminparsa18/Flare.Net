@@ -5,13 +5,13 @@
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import type { UserRole } from './auth-api';
-import { userRoleFromString, userRoleToString } from '$lib/memorypack/enums';
-import { UserSummaryDto } from '$lib/memorypack/UserSummaryDto';
-import { CreateServiceAccountRequest } from '$lib/generated/memorypack/CreateServiceAccountRequest.js';
-import { CreateAccessTokenRequest } from '$lib/generated/memorypack/CreateAccessTokenRequest.js';
-import { CreateAccessTokenResponse } from '$lib/memorypack/CreateAccessTokenResponse';
-import { AccessTokenListResponse } from '$lib/memorypack/AccessTokenListResponse';
-import type { AccessTokenDto } from '$lib/memorypack/AccessTokenDto';
+import { userRoleFromString, userRoleToString } from '#lib/memorypack/enums.ts';
+import { UserSummaryDto } from '#lib/memorypack/UserSummaryDto.ts';
+import { CreateServiceAccountRequest } from '#lib/generated/memorypack/CreateServiceAccountRequest.ts';
+import { CreateAccessTokenRequest } from '#lib/generated/memorypack/CreateAccessTokenRequest.ts';
+import { CreateAccessTokenResponse } from '#lib/memorypack/CreateAccessTokenResponse.ts';
+import { AccessTokenListResponse } from '#lib/memorypack/AccessTokenListResponse.ts';
+import type { AccessTokenDto } from '#lib/memorypack/AccessTokenDto.ts';
 import type { UserSummary } from './users-api';
 import type { AuthProvider } from './auth-api';
 import type { AccessToken, CreateAccessTokenResponse as CreatedToken } from './personal-access-tokens-api';

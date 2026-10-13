@@ -10,17 +10,17 @@
 	// affordance in DashboardPanelCard.svelte. Collapsing works in both modes - see
 	// DashboardViewerState.toggleRowCollapsed for when that's saved.
 	import type { Snippet } from 'svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import type { DashboardRow } from '$lib/dashboards-api';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import type { DashboardRow } from '#lib/dashboards-api.ts';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		row,

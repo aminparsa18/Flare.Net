@@ -6,17 +6,17 @@
 	// closely: no secret field (nothing to mask here), no restart-required banner -
 	// settings take effect on the very next login attempt, same as LDAP's (see
 	// ProxyAuthSettingsEndpoints' remarks).
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Switch } from '$lib/components/ui/switch';
-	import * as Select from '$lib/components/ui/select';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { proxyAuthSettingsContext } from '$lib/proxy-auth-settings/context';
-	import type { UserRole } from '$lib/auth-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { proxyAuthSettingsContext } from '#lib/proxy-auth-settings/context.ts';
+	import type { UserRole } from '#lib/auth-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const proxyAuth = proxyAuthSettingsContext.get();
 

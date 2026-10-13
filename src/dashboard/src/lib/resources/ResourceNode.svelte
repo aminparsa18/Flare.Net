@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import type { ResourceState, ResourceHealth } from '$lib/api';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import type { ResourceState, ResourceHealth } from '#lib/api.ts';
 	import type { FlareResourceNode } from './types';
-	import { safeHttpUrl } from '$lib/safe-url';
+	import { safeHttpUrl } from '#lib/safe-url.ts';
 	import DatabaseIcon from '@lucide/svelte/icons/database';
 	import ServerIcon from '@lucide/svelte/icons/server';
 	import InboxIcon from '@lucide/svelte/icons/inbox';

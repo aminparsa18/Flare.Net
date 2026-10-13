@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { getMetricDashboardUsage, type MetricDashboardUsage } from '$lib/metric-catalog-api';
-	import { dashboardPath } from '$lib/dashboards/page-paths';
-	import * as m from '$lib/paraglide/messages';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { getMetricDashboardUsage, type MetricDashboardUsage } from '#lib/metric-catalog-api.ts';
+	import { dashboardPath } from '#lib/dashboards/page-paths.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { metricName }: { metricName: string } = $props();
 

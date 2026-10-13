@@ -22,12 +22,12 @@
 	import { GridStack, type GridStackNode } from 'gridstack';
 	import 'gridstack/dist/gridstack.min.css';
 	import DashboardPanelCard from './DashboardPanelCard.svelte';
-	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
-	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
-	import type { LegendPosition } from '$lib/dashboards/legend';
-	import type { PanelReducer, PanelStacking, PanelVisualization } from '$lib/dashboards/visualization';
-	import type { YAxisScale } from '$lib/metrics/axis';
+	import type { DashboardPanel, DashboardRow, DashboardVariable } from '#lib/dashboards-api.ts';
+	import type { TimeRangePreset } from '#lib/logs/time-range.ts';
+	import type { PanelThreshold, ThresholdColor } from '#lib/dashboards/thresholds.ts';
+	import type { LegendPosition } from '#lib/dashboards/legend.ts';
+	import type { PanelReducer, PanelStacking, PanelVisualization } from '#lib/dashboards/visualization.ts';
+	import type { YAxisScale } from '#lib/metrics/axis.ts';
 
 	let {
 		panels,

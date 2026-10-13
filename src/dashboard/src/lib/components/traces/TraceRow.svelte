@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
-	import type { SpanDto } from '$lib/traces-api';
-	import { Badge } from '$lib/components/ui/badge';
-	import { statusVariant, statusLabel, rolledUpStatusCode } from '$lib/traces/status';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { formatRowTimestamp } from '$lib/time/format';
+	import { withBase } from '#lib/paths.ts';
+	import type { SpanDto } from '#lib/traces-api.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { statusVariant, statusLabel, rolledUpStatusCode } from '#lib/traces/status.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { formatRowTimestamp } from '#lib/time/format.ts';
 
 	let { trace }: { trace: SpanDto } = $props();
 

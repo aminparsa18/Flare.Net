@@ -2,12 +2,12 @@
 	// Row action on the alerts table for a firing rule: acknowledge the incident or snooze
 	// re-notifications for a while (ADR-0124). Once acked/snoozed the same slot becomes a
 	// Clear button.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { alertsContext } from '$lib/alerts/context';
-	import { ackAlertRule, clearAlertAck, snoozeAlertRule, type AlertRule, type AlertRuleStatus } from '$lib/alerts-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { alertsContext } from '#lib/alerts/context.ts';
+	import { ackAlertRule, clearAlertAck, snoozeAlertRule, type AlertRule, type AlertRuleStatus } from '#lib/alerts-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import BellMinusIcon from '@lucide/svelte/icons/bell-minus';
 	import CheckCheckIcon from '@lucide/svelte/icons/check-check';
 

@@ -3,9 +3,9 @@
 // Can't carry `[GenerateTypeScript]` itself because its `Key` member's type,
 // `IngestApiKeyDto`, has a `DateTimeOffset` member - see `IngestApiKeyDto.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { IngestApiKeyDto } from '$lib/memorypack/IngestApiKeyDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { IngestApiKeyDto } from '#lib/memorypack/IngestApiKeyDto.ts';
 
 export class CreateIngestApiKeyResponse {
 	key: IngestApiKeyDto | null;

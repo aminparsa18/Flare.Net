@@ -3,9 +3,9 @@
 // carry `[GenerateTypeScript]` itself because its one member's type, `AlertHistoryEntry`,
 // has a `DateTimeOffset` member - see `AlertHistoryEntry.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { AlertHistoryEntry } from '$lib/memorypack/AlertHistoryEntry';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { AlertHistoryEntry } from '#lib/memorypack/AlertHistoryEntry.ts';
 
 export class AlertHistoryResponse {
 	events: (AlertHistoryEntry | null)[] | null;

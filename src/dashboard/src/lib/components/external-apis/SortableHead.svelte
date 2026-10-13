@@ -1,7 +1,7 @@
 <script lang="ts">
 	// A sortable table header cell - the same button/chevron markup MessagingTable inlines,
 	// shared here because the External APIs page has two sortable tables.
-	import * as Table from '$lib/components/ui/table';
+	import * as Table from '#lib/components/ui/table/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';

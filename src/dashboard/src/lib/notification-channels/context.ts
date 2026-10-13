@@ -1,4 +1,4 @@
-// Same generic typed-context helper as `$lib/access-tokens/context.ts` - re-authored here
+// Same generic typed-context helper as `#lib/access-tokens/context.ts` - re-authored here
 // rather than shared, per that file's own comment on why (no shared "context utils"
 // module yet for a two-line helper).
 

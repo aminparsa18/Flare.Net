@@ -3,21 +3,21 @@
 	// The form edits service/level/search directly; every other LogFilter field carried over
 	// from the Logs explorer (attribute filters, scopes, ...) is kept untouched in `extra`.
 	import { onMount } from 'svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Badge } from '$lib/components/ui/badge';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import { logMetricsContext } from '$lib/log-metrics/context';
-	import { extraFieldNames, stripIgnored, suggestMetricName } from '$lib/log-metrics/format';
-	import { MAX_GROUP_BY_KEYS, previewLogMetric, type LogMetricPreview } from '$lib/log-metrics-api';
-	import { aggregateLogs, type LogFilter } from '$lib/api';
-	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
-	import { formatCount } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import { logMetricsContext } from '#lib/log-metrics/context.ts';
+	import { extraFieldNames, stripIgnored, suggestMetricName } from '#lib/log-metrics/format.ts';
+	import { MAX_GROUP_BY_KEYS, previewLogMetric, type LogMetricPreview } from '#lib/log-metrics-api.ts';
+	import { aggregateLogs, type LogFilter } from '#lib/api.ts';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '#lib/logs/severity.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import XIcon from '@lucide/svelte/icons/x';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 

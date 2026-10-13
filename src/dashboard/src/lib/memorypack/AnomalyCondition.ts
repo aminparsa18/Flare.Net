@@ -2,10 +2,10 @@
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AnomalyCondition`
 // field-for-field, in declared order. Deliberately hand-written (the C# type carries no
 // `[GenerateTypeScript]`) so `source`/`seasonality`/`direction` stay plain ints converted
-// through `$lib/memorypack/enums.ts`'s name/int helpers, same as `AlertRule.conditionKind`.
+// through `#lib/memorypack/enums.ts`'s name/int helpers, same as `AlertRule.conditionKind`.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class AnomalyCondition {
 	source: number;

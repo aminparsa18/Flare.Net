@@ -2,16 +2,16 @@
 // Operation and Duration from built-in span columns, then one section per chosen span
 // attribute. Counts are traces (root spans), matching what TraceList shows - every
 // filter on this page applies to the root span row, so the facets do too. See
-// `$lib/logs/facets.ts` for the Logs counterpart.
+// `#lib/logs/facets.ts` for the Logs counterpart.
 
-import { getSpanAttributeValues, type SpanAttributeBag, type SpanFilter, type SpanValuesField } from '$lib/traces-api';
-import type { FacetDefinition, FacetOption } from '$lib/facets/types';
-import type { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
-import { selectedAttributeValues, withAttributeSelection, withoutAttributeSelection } from '$lib/facets/attribute-selection';
+import { getSpanAttributeValues, type SpanAttributeBag, type SpanFilter, type SpanValuesField } from '#lib/traces-api.ts';
+import type { FacetDefinition, FacetOption } from '#lib/facets/types.ts';
+import type { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
+import { selectedAttributeValues, withAttributeSelection, withoutAttributeSelection } from '#lib/facets/attribute-selection.ts';
 import { DURATION_BUCKET_LOWER_BOUNDS_NANO, durationBucketLabel } from './duration-buckets';
 import { kindLabel, statusLabel } from './status';
 import type { TracesExplorerState } from './state.svelte';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 const FACET_LIMIT = 50;
 

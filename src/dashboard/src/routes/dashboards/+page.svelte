@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { DashboardsState } from '$lib/dashboards/state.svelte';
-	import { dashboardsContext } from '$lib/dashboards/context';
-	import DashboardTable from '$lib/components/dashboards/DashboardTable.svelte';
-	import DashboardFormDialog from '$lib/components/dashboards/DashboardFormDialog.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { DashboardsState } from '#lib/dashboards/state.svelte.ts';
+	import { dashboardsContext } from '#lib/dashboards/context.ts';
+	import DashboardTable from '#lib/components/dashboards/DashboardTable.svelte';
+	import DashboardFormDialog from '#lib/components/dashboards/DashboardFormDialog.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const dashboards = dashboardsContext.set(new DashboardsState());
 

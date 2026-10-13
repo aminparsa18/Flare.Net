@@ -4,9 +4,9 @@
 // one member's type, `NotificationChannel`, is hand-written - see
 // `NotificationChannel.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { NotificationChannel } from '$lib/memorypack/NotificationChannel';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { NotificationChannel } from '#lib/memorypack/NotificationChannel.ts';
 
 export class NotificationChannelListResponse {
 	channels: (NotificationChannel | null)[] | null;

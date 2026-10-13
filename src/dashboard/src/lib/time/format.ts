@@ -1,7 +1,7 @@
 // The one place every displayed timestamp is formatted - tables, log/trace rows, detail
 // sheets, chart axes/tooltips, the terminal. Everything renders in the display time zone
 // (./display-zone.svelte.ts), and in the user's chosen clock (24h by default) and date order
-// (ISO by default) from $lib/regional - one choice applied everywhere, so two screens side by
+// (ISO by default) from #lib/regional - one choice applied everywhere, so two screens side by
 // side never show the same instant two different ways.
 //
 // Built from wall-clock parts rather than toLocaleString: the numeric shapes below
@@ -12,8 +12,8 @@
 //
 // Callers inside a template/$derived re-run automatically when the zone changes, since
 // every function here reads displayTimeZone.zone.
-import { getLocale } from '$lib/paraglide/runtime';
-import { regional } from '$lib/regional/prefs.svelte';
+import { getLocale } from '#lib/paraglide/runtime.js';
+import { regional } from '#lib/regional/prefs.svelte.ts';
 import { displayTimeZone } from './display-zone.svelte';
 
 export type TimeInput = string | number | Date;

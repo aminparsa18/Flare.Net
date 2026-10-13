@@ -1,4 +1,4 @@
-import { createContext } from '$lib/notification-channels/context';
+import { createContext } from '#lib/notification-channels/context.ts';
 import type { MaintenanceWindowsState } from './state.svelte';
 
 /** `routes/alerts/+page.svelte` calls `.set(new MaintenanceWindowsState())`; descendants call `.get()`. */

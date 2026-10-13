@@ -36,7 +36,7 @@
 // IngestApiKeyValidationMiddleware never applies to it at all.
 
 import type { Component } from 'svelte';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 import BoxesIcon from '@lucide/svelte/icons/boxes';
 import ContainerIcon from '@lucide/svelte/icons/container';
 import TerminalIcon from '@lucide/svelte/icons/terminal';

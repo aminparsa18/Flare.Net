@@ -18,12 +18,12 @@
 // Likewise an `Attribute`-target variable has nothing to attach to on a Metrics panel, so
 // the only variable a template carries is Service.
 
-import type { DashboardLayout, DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
-import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
-import type { MetricPointType } from '$lib/metrics-api';
+import type { DashboardLayout, DashboardPanel, DashboardRow, DashboardVariable } from '#lib/dashboards-api.ts';
+import type { MetricsSavedViewState } from '#lib/metrics/state.svelte.ts';
+import type { MetricPointType } from '#lib/metrics-api.ts';
 import type { PanelVisualization } from './visualization';
 import { GRID_COLUMNS } from './layout';
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 interface TemplatePanel {
 	title: string;

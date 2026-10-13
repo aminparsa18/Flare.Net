@@ -1,11 +1,11 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/LogSearchRequest.cs`'s `LogSearchRequest`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
-// nests `LogFilter` (blocked - see `$lib/memorypack/LogFilter.ts`'s header comment).
+// nests `LogFilter` (blocked - see `#lib/memorypack/LogFilter.ts`'s header comment).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogFilter } from '$lib/memorypack/LogFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
 
 export class LogSearchRequest {
 	filter: LogFilter | null;

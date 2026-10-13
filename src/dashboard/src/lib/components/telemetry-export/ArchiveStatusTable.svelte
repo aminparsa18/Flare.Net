@@ -1,12 +1,12 @@
 <script lang="ts">
 	// Per-table progress of the S3 archive (ADR-0156/0157): last finished ingest hour exported, its row
 	// count and the last error. Shared by the Telemetry export settings page and the Ingestion page card.
-	import * as Table from '$lib/components/ui/table';
-	import type { ArchiveStatus, ArchiveTableStatus } from '$lib/telemetry-export-api';
-	import { singleLineError } from '$lib/telemetry-export/format';
-	import { formatAge, formatCount, secondsSince } from '$lib/ingestion/format';
-	import { formatDateTimeMinutes } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import type { ArchiveStatus, ArchiveTableStatus } from '#lib/telemetry-export-api.ts';
+	import { singleLineError } from '#lib/telemetry-export/format.ts';
+	import { formatAge, formatCount, secondsSince } from '#lib/ingestion/format.ts';
+	import { formatDateTimeMinutes } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { status }: { status: ArchiveStatus } = $props();
 

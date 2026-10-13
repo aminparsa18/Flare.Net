@@ -7,9 +7,9 @@
 // hand-writing it). `ClusterNodeInfo` itself has no such member, so it's a real generated
 // class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ClusterNodeInfo } from '$lib/generated/memorypack/ClusterNodeInfo.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ClusterNodeInfo } from '#lib/generated/memorypack/ClusterNodeInfo.ts';
 
 export class ClusterStatusResponse {
 	clusterModeEnabled: boolean;

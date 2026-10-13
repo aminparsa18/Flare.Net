@@ -3,14 +3,14 @@
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape, and
-// `$lib/memorypack/enums.ts` for why `defaultRole` converts through `userRoleToString`/
+// `#lib/memorypack/enums.ts` for why `defaultRole` converts through `userRoleToString`/
 // `userRoleFromString` instead of being passed through as MemoryPack's raw numeric ordinal.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import type { UserRole } from './auth-api';
-import { userRoleFromString, userRoleToString } from '$lib/memorypack/enums';
-import { ProxyAuthSettingsDto } from '$lib/generated/memorypack/ProxyAuthSettingsDto.js';
-import { SaveProxyAuthSettingsRequest as GeneratedSaveProxyAuthSettingsRequest } from '$lib/generated/memorypack/SaveProxyAuthSettingsRequest.js';
+import { userRoleFromString, userRoleToString } from '#lib/memorypack/enums.ts';
+import { ProxyAuthSettingsDto } from '#lib/generated/memorypack/ProxyAuthSettingsDto.ts';
+import { SaveProxyAuthSettingsRequest as GeneratedSaveProxyAuthSettingsRequest } from '#lib/generated/memorypack/SaveProxyAuthSettingsRequest.ts';
 
 export interface ProxyAuthSettings {
 	enabled: boolean;

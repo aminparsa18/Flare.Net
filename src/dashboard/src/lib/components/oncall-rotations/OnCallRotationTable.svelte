@@ -1,16 +1,16 @@
 <script lang="ts">
 	// Mirrors MaintenanceWindowTable.svelte's shape. See
 	// docs-internal/adr/0126-alert-oncall-rotations.md.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { onCallRotationsContext } from '$lib/oncall-rotations/context';
-	import { notificationChannelsContext } from '$lib/notification-channels/context';
-	import type { OnCallRotationStatus } from '$lib/oncall-rotations-api';
-	import { formatDateTimeMinutes } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { onCallRotationsContext } from '#lib/oncall-rotations/context.ts';
+	import { notificationChannelsContext } from '#lib/notification-channels/context.ts';
+	import type { OnCallRotationStatus } from '#lib/oncall-rotations-api.ts';
+	import { formatDateTimeMinutes } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';

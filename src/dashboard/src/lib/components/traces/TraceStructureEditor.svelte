@@ -6,14 +6,14 @@
 	// run groups the window's spans by trace - too heavy to repeat per keystroke. Apply first
 	// asks the server to validate it (TraceStructureSqlBuilder.Validate, no query) and shows
 	// the reason inline, so an invalid structure never reaches the list and facet requests. See docs-internal/adr/0069-structural-trace-queries.md.
-	import * as Select from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import AttributeValueCombobox, { type AttributeValueSuggestion } from '$lib/components/logs/AttributeValueCombobox.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import AttributeValueCombobox, { type AttributeValueSuggestion } from '#lib/components/logs/AttributeValueCombobox.svelte';
 	import SpanAttributeRowsEditor from './SpanAttributeRowsEditor.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import { tracesExplorerContext } from '$lib/traces/context';
+	import { tracesExplorerContext } from '#lib/traces/context.ts';
 	import {
 		getSpanAttributeValues,
 		MAX_STRUCTURE_CONDITIONS,
@@ -23,8 +23,8 @@
 		type SpanValuesField,
 		type TraceSpanCondition,
 		type TraceStructureFilter
-	} from '$lib/traces-api';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/traces-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = tracesExplorerContext.get();
 

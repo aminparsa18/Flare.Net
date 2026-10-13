@@ -10,8 +10,8 @@
 // trace list, neither of which is a numeric series set these reshapes apply to.
 
 import { formatSeriesLabel } from './legend';
-import { isHistogramType, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
-import { formatAtScale, niceAxisTicks, parseYAxisScale, resolveAxisScale, type AxisScale, type YAxisScale } from '$lib/metrics/axis';
+import { isHistogramType, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '#lib/metrics-api.ts';
+import { formatAtScale, niceAxisTicks, parseYAxisScale, resolveAxisScale, type AxisScale, type YAxisScale } from '#lib/metrics/axis.ts';
 
 /** One standalone reading (a Value panel's number, a table cell, a pie legend entry), scaled
  *  on its own magnitude - "1.2 s" next to "300 ms" - unlike a chart axis, where every tick
@@ -66,7 +66,7 @@ export function usesYAxis(visualization: PanelVisualization): boolean {
 }
 
 /** Visualizations that draw a per-series legend, and so honour `legendPosition`/`seriesColors`
- *  (see `$lib/dashboards/legend.ts`). Value/Table/Histogram/Heatmap have no per-series marks to key. */
+ *  (see `#lib/dashboards/legend.ts`). Value/Table/Histogram/Heatmap have no per-series marks to key. */
 export function usesLegend(visualization: PanelVisualization): boolean {
 	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'pie';
 }

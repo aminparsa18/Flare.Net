@@ -2,10 +2,10 @@
 	// "Explain this exception" (ADR-0103): one click sends the exception, stack trace and throw-site
 	// source (redacted server-side) to the admin-configured LLM. On demand only - never on render -
 	// and the answer is rendered as plain text, not markdown/HTML, since it is model output.
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { explainException, type ExplainExceptionRequest, type ExplainExceptionResponse } from '$lib/ai-api';
-	import * as m from '$lib/paraglide/messages';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { explainException, type ExplainExceptionRequest, type ExplainExceptionResponse } from '#lib/ai-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { request }: { request: ExplainExceptionRequest } = $props();
 

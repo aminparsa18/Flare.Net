@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
+	import { formatNumber } from '#lib/format/number.ts';
 	// Exports the Logs Explorer's logs as a downloaded file. Asks the user which rows and
 	// which format, rather than assuming - a first cut of this feature always exported the
 	// full filtered result set silently, which read as "wrong" to anyone who expected an
@@ -13,14 +13,14 @@
 	// A small Dialog rather than the icon-only Popover this started as (see git history) -
 	// two real decisions to make before downloading warrants a confirm step, unlike Share's
 	// single fire-and-forget action.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import DownloadIcon from '@lucide/svelte/icons/download';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import type { LogEventDto } from '$lib/api';
-	import { fetchAllForExport, eventsToBlob, exportFilename, downloadBlob, type ExportFormat, type ExportScope } from '$lib/logs/export';
-	import * as m from '$lib/paraglide/messages';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import type { LogEventDto } from '#lib/api.ts';
+	import { fetchAllForExport, eventsToBlob, exportFilename, downloadBlob, type ExportFormat, type ExportScope } from '#lib/logs/export.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
 		{ value: 'csv', label: 'CSV' },

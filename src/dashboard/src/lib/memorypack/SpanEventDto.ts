@@ -1,12 +1,12 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/SpanDto.cs`'s `SpanEventDto` field-for-field, in
 // declared order. Can't carry `[GenerateTypeScript]` itself because `Timestamp` is a
-// `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header comment.
+// `DateTimeOffset` - see `#lib/memorypack/date-time-offset.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
-import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
+import { readStringRecord, writeStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
 
 export class SpanEventDto {
 	timestamp: Date;

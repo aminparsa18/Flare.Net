@@ -7,17 +7,17 @@
 	// deliberate v1 scope cut, see docs-internal/adr/0036-cross-query-metric-formulas.md) and
 	// an optional per-row Group by, same PopoverSingleSelect widget MetricsToolbar's own
 	// (page-wide, single-mode) Group by picker uses.
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import PopoverSingleSelect from '#lib/components/logs/PopoverSingleSelect.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import { MAX_FORMULA_QUERIES, type FormulaQueryDef } from '$lib/metrics/state.svelte';
-	import { isHistogramType, type MetricNameInfo } from '$lib/metrics-api';
-	import * as m from '$lib/paraglide/messages';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import { MAX_FORMULA_QUERIES, type FormulaQueryDef } from '#lib/metrics/state.svelte.ts';
+	import { isHistogramType, type MetricNameInfo } from '#lib/metrics-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = metricsExplorerContext.get();
 

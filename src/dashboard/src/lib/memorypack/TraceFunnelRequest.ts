@@ -3,8 +3,8 @@
 // declared order. Hand-written because `Steps` is an `IReadOnlyList<T>` (see ADR-0016).
 // Request-only, so serialize-only.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { TraceFunnelStep } from '$lib/memorypack/TraceFunnelStep';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { TraceFunnelStep } from '#lib/memorypack/TraceFunnelStep.ts';
 
 export class TraceFunnelRequest {
 	windowMinutes: number | null = null;

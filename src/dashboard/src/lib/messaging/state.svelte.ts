@@ -10,8 +10,8 @@ import {
 	getMessagingDestinations,
 	type MessagingDestination,
 	type MessagingDestinationDetailResponse
-} from '$lib/messaging-api';
-import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
+} from '#lib/messaging-api.ts';
+import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 // Same five presets as the Services tab and Hosts page - the server clamps to the same
 // 5m-24h range (MessagingQueryBuilder.MinWindowMinutes/MaxWindowMinutes).

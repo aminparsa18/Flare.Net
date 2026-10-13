@@ -4,14 +4,14 @@
 	// reusing TracesToolbar's own controls rather than the toolbar shell, live TraceList
 	// preview).
 	import { onMount, onDestroy } from 'svelte';
-	import { TracesExplorerState } from '$lib/traces/state.svelte';
-	import { tracesExplorerContext } from '$lib/traces/context';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import TraceList from '$lib/components/traces/TraceList.svelte';
-	import * as Select from '$lib/components/ui/select';
-	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import { TracesExplorerState } from '#lib/traces/state.svelte.ts';
+	import { tracesExplorerContext } from '#lib/traces/context.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import TraceList from '#lib/components/traces/TraceList.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '#lib/logs/time-range.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = tracesExplorerContext.set(new TracesExplorerState());
 

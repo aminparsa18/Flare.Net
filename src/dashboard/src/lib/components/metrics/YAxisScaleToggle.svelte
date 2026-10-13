@@ -3,8 +3,8 @@
 	// page - styled like BucketIntervalMenu's trigger beside it (dotted-underline text, not a
 	// button chrome) so the row still reads as one line of chart settings. Dashboard panels
 	// don't render this; they set their scale in YAxisBoundsPopover instead.
-	import type { YAxisScale } from '$lib/metrics/axis';
-	import * as m from '$lib/paraglide/messages';
+	import type { YAxisScale } from '#lib/metrics/axis.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { value, onChange }: { value: YAxisScale; onChange: (scale: YAxisScale) => void } = $props();
 </script>

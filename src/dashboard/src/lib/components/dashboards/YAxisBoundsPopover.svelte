@@ -13,12 +13,12 @@
 	//
 	// Also carries the panel's linear/log scale (DashboardPanel.yAxisScale) when `showScale`
 	// is set - line charts only, see `usesYAxisScale`.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import MoveVerticalIcon from '@lucide/svelte/icons/move-vertical';
-	import type { YAxisScale } from '$lib/metrics/axis';
-	import * as m from '$lib/paraglide/messages';
+	import type { YAxisScale } from '#lib/metrics/axis.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		yAxisMin,

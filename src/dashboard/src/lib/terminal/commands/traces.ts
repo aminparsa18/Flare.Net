@@ -1,6 +1,6 @@
 // `traces` - mimics flare.cli's TracesCommand.cs (root-span search) by calling the same
 // POST /api/spans/search the dashboard's own Trace List uses (searchSpans() from
-// $lib/traces-api.ts), rather than any new backend surface - same "already-authenticated
+// #lib/traces-api.ts), rather than any new backend surface - same "already-authenticated
 // dashboard API, different front end" shape as commands/tail.ts. Flag parsing/validation
 // (status/kind names, duration/since suffix grammar) is a direct port of
 // Flare.Cli/Commands/TracesCommand.cs's own Settings/TryExpand*/TryParse* so the two stay
@@ -8,13 +8,13 @@
 // mirror Flare.Cli's Internal/AttributeFlagParsing.cs the same way, always against the
 // default Span bag (no --attr-bag flag yet).
 
-import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceSpanCondition } from '$lib/traces-api';
-import { formatDurationNano } from '$lib/traces/duration';
+import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceSpanCondition } from '#lib/traces-api.ts';
+import { formatDurationNano } from '#lib/traces/duration.ts';
 import { parseAttrBareKey, parseAttrKeyValue, type AttrFlagEntry } from './attr-flags';
 import { parseDurationNano } from './duration';
 import { UsageError } from './usage-error';
 import type { TerminalCommand } from '../types';
-import { formatTimeOfDay } from '$lib/time/format';
+import { formatTimeOfDay } from '#lib/time/format.ts';
 
 
 interface ParsedArgs {
@@ -247,7 +247,7 @@ function statusLabel(statusCode: string): string {
 }
 
 // Mirrors Flare.Cli's TracesCommand.cs RolledUpStatusCode (itself a port of
-// $lib/traces/status.ts's rolledUpStatusCode - not imported directly, same
+// #lib/traces/status.ts's rolledUpStatusCode - not imported directly, same
 // keep-our-own-copy-in-lockstep reasoning this file's header comment gives for
 // statusLabel/parseStatus/etc.). A root span's own statusCode only reflects the root, not
 // the rest of the trace, so a trace whose root succeeded but has an erroring span deeper

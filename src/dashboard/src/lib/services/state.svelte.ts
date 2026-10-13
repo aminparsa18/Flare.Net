@@ -16,8 +16,8 @@ import {
 	type ServiceDependencyGraph,
 	type ResourceAttributeFilter,
 	type ApdexThresholds
-} from '$lib/services-api';
-import * as m from '$lib/paraglide/messages';
+} from '#lib/services-api.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 export type ServicesWindowPreset = '5m' | '15m' | '1h' | '6h' | '24h';
 

@@ -3,9 +3,9 @@
 // in declared order. Can't carry `[GenerateTypeScript]` itself: `Hosts` is an
 // `IReadOnlyList<T>` (see ADR-0016) of `HostSummary`, which is hand-written too.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { HostSummary } from '$lib/memorypack/HostSummary';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { HostSummary } from '#lib/memorypack/HostSummary.ts';
 
 export class HostListResponse {
 	windowMinutes: number;

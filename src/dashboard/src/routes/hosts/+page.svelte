@@ -5,12 +5,12 @@
 	// shows hosts that report themselves over OTLP (a host running only an OTel Collector
 	// appears here and nowhere else).
 	import { onMount, onDestroy } from 'svelte';
-	import { HostsState } from '$lib/hosts/state.svelte';
-	import { hostsContext } from '$lib/hosts/context';
-	import HostsToolbar from '$lib/components/hosts/HostsToolbar.svelte';
-	import HostsTable from '$lib/components/hosts/HostsTable.svelte';
-	import HostDetailSheet from '$lib/components/hosts/HostDetailSheet.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { HostsState } from '#lib/hosts/state.svelte.ts';
+	import { hostsContext } from '#lib/hosts/context.ts';
+	import HostsToolbar from '#lib/components/hosts/HostsToolbar.svelte';
+	import HostsTable from '#lib/components/hosts/HostsTable.svelte';
+	import HostDetailSheet from '#lib/components/hosts/HostDetailSheet.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const hosts = hostsContext.set(new HostsState());
 

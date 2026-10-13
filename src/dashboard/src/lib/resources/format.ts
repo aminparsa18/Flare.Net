@@ -1,9 +1,9 @@
-// Host overview panel's own formatting helpers - `formatBytes` in $lib/ingestion/format.ts
+// Host overview panel's own formatting helpers - `formatBytes` in #lib/ingestion/format.ts
 // formats one value at a time, which isn't quite right for a "used / total" pair: two
 // independently-scaled values can land in different units ("800 MB / 16 GB"). This scales
 // both sides to whichever unit fits the *total*, so they always share one.
 
-import { formatBytes, formatCount } from '$lib/ingestion/format';
+import { formatBytes, formatCount } from '#lib/ingestion/format.ts';
 
 const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
 

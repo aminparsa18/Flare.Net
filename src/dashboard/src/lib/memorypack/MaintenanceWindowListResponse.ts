@@ -2,8 +2,8 @@
 // generated. Mirrors `src/Flare.Api/Model/MaintenanceWindowModels.cs`'s
 // `MaintenanceWindowListResponse` - hand-written because `MaintenanceWindow` is. Decode-only.
 
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MaintenanceWindow } from '$lib/memorypack/MaintenanceWindow';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MaintenanceWindow } from '#lib/memorypack/MaintenanceWindow.ts';
 
 export class MaintenanceWindowListResponse {
 	windows: (MaintenanceWindow | null)[] | null = null;

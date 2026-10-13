@@ -1,7 +1,7 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/SavedViewModels.cs`'s `SavedView` field-for-field,
 // in declared order. Can't carry `[GenerateTypeScript]` itself for two independent reasons:
-// `CreatedAt`/`UpdatedAt` are `DateTimeOffset` (see `$lib/memorypack/date-time-offset.ts`'s
+// `CreatedAt`/`UpdatedAt` are `DateTimeOffset` (see `#lib/memorypack/date-time-offset.ts`'s
 // header comment), and `State` is a `System.Text.Json.JsonElement` - MemoryPack has no
 // native `JsonElement` support at all (its TypeScript generator doesn't even have a
 // not-yet-implemented case for it the way it does for `DateTimeOffset`; JsonElement isn't
@@ -12,9 +12,9 @@
 // preserving the existing "opaque, unparsed-by-Flare.Api" contract (`state: unknown` here,
 // same as the hand-mirrored JSON-era interface).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class SavedView {
 	id: string;

@@ -1,24 +1,24 @@
 <script lang="ts">
-	import AroundTimePopover from '$lib/components/AroundTimePopover.svelte';
-	import { withBase } from '$lib/paths';
-	import * as Select from '$lib/components/ui/select';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
-	import MetricsHavingPopover from '$lib/components/metrics/MetricsHavingPopover.svelte';
-	import MetricsFunctionsPopover from '$lib/components/metrics/MetricsFunctionsPopover.svelte';
-	import MetricsTimeShiftPopover from '$lib/components/metrics/MetricsTimeShiftPopover.svelte';
-	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
-	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
-	import CreateAlertButton from '$lib/components/alerts/CreateAlertButton.svelte';
-	import { Switch } from '$lib/components/ui/switch';
+	import AroundTimePopover from '#lib/components/AroundTimePopover.svelte';
+	import { withBase } from '#lib/paths.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import PopoverSingleSelect from '#lib/components/logs/PopoverSingleSelect.svelte';
+	import MetricsHavingPopover from '#lib/components/metrics/MetricsHavingPopover.svelte';
+	import MetricsFunctionsPopover from '#lib/components/metrics/MetricsFunctionsPopover.svelte';
+	import MetricsTimeShiftPopover from '#lib/components/metrics/MetricsTimeShiftPopover.svelte';
+	import ViewsMenu from '#lib/components/saved-views/ViewsMenu.svelte';
+	import PinToDashboardButton from '#lib/components/dashboards/PinToDashboardButton.svelte';
+	import CreateAlertButton from '#lib/components/alerts/CreateAlertButton.svelte';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import LibraryIcon from '@lucide/svelte/icons/library';
-	import { Button } from '$lib/components/ui/button';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import { isHistogramType } from '$lib/metrics-api';
-	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
-	import * as m from '$lib/paraglide/messages';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import { isHistogramType } from '#lib/metrics-api.ts';
+	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '#lib/logs/time-range.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = metricsExplorerContext.get();
 

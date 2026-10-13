@@ -2,11 +2,11 @@
 // generated. Mirrors `src/Flare.Api/Model/LogValueDistributionRequest.cs`'s
 // `LogValueDistributionRequest` field-for-field, in declared order. Can't carry
 // `[GenerateTypeScript]` itself because it nests `LogFilter` (blocked - see
-// `$lib/memorypack/LogFilter.ts`'s header comment).
+// `#lib/memorypack/LogFilter.ts`'s header comment).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogFilter } from '$lib/memorypack/LogFilter';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
 
 export class LogValueDistributionRequest {
 	filter: LogFilter | null;

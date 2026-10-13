@@ -5,11 +5,11 @@
 	import { untrack } from 'svelte';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { formatCount } from '$lib/ingestion/format';
-	import type { FacetDefinition, FacetOption } from '$lib/facets/types';
-	import * as m from '$lib/paraglide/messages';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import type { FacetDefinition, FacetOption } from '#lib/facets/types.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { facet, reloadKey }: { facet: FacetDefinition; reloadKey: string } = $props();
 

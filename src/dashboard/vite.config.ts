@@ -41,10 +41,6 @@ export default defineConfig({
 			// set at build time instead of at `docker compose up` time.
 			adapter: adapter(),
 
-			// SvelteKit 3 removed the built-in `$lib` alias in favour of `#lib` (which needs explicit file extensions on
-			// every import). Keeping `$lib` is the documented opt-out and avoids rewriting every import.
-			alias: { $lib: 'src/lib' },
-
 			// Sub-path hosting (docs/how-to/deploy/serve-under-a-sub-path.md). `paths.base` is a
 			// build-time constant in SvelteKit - it's baked into the server bundle, the client
 			// bundle and adapter-node's static-file directory name - so the published image is

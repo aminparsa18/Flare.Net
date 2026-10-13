@@ -1,4 +1,4 @@
-// Same generic typed-context helper as $lib/alerts/context.ts/$lib/logs/context.ts -
+// Same generic typed-context helper as #lib/alerts/context.ts/#lib/logs/context.ts -
 // re-authored here rather than shared, per those files' own note: no such helper exists
 // in bits-ui, and this repo doesn't have a shared-utils module for a two-line helper.
 

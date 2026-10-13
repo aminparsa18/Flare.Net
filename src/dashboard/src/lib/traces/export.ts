@@ -1,15 +1,15 @@
 // Client-side export for the Traces explorer list and the trace detail page. No backend
-// endpoint, same approach as `$lib/logs/export.ts` (whose `downloadBlob` and row cap this reuses).
+// endpoint, same approach as `#lib/logs/export.ts` (whose `downloadBlob` and row cap this reuses).
 //  - List: the trace rows (one per trace, or per entry span) as CSV or NDJSON with a
 //    user-chosen column subset. "visible" = the rows loaded in the table; "filtered" = every
 //    row matching the filter, paginated via /api/spans/search up to EXPORT_ROW_CAP.
 //  - Detail: the whole loaded trace as one JSON document (`traceToJson`).
 
-import { searchSpans, type SpanDto, type SpanFilter, type SpanSortKey, type TraceDto } from '$lib/traces-api';
-import { EXPORT_ROW_CAP } from '$lib/logs/export';
-import type { ResolvedTimeRange } from '$lib/logs/time-range';
+import { searchSpans, type SpanDto, type SpanFilter, type SpanSortKey, type TraceDto } from '#lib/traces-api.ts';
+import { EXPORT_ROW_CAP } from '#lib/logs/export.ts';
+import type { ResolvedTimeRange } from '#lib/logs/time-range.ts';
 
-export { downloadBlob } from '$lib/logs/export';
+export { downloadBlob } from '#lib/logs/export.ts';
 export { EXPORT_ROW_CAP };
 
 /** Backend's own SpanSearchQueryBuilder max PageSize. */

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { lazyNumberFormat } from '$lib/format/number';
+	import { lazyNumberFormat } from '#lib/format/number.ts';
 	import AnsiText from './AnsiText.svelte';
-	import { stripAnsi } from '$lib/logs/ansi';
+	import { stripAnsi } from '#lib/logs/ansi.ts';
 	// Seq-style SQL query bar: `select count(*)|* from stream [where ...] [group by
 	// time(1h)[, service|level]]`, parsed/translated server-side (see Flare.Api's
 	// Query/LogQl/LogQlParser.cs) - never raw-passed to ClickHouse. Own Accordion
@@ -12,18 +12,18 @@
 	// change, matching Seq's own SQL bar and avoiding a query per keystroke.
 	import { tick } from 'svelte';
 	import { browser } from '$app/env';
-	import { runLogQlQuery, type LogAggregateBucket, type LogQlQueryResponse } from '$lib/api';
-	import { resolveTimeRange } from '$lib/logs/time-range';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { tokenizeLogQl, TOKEN_COLOR_VARS } from '$lib/logs/sql-highlight';
-	import { getLogQlSuggestions, type LogQlSuggestion, type LogQlSuggestionResult } from '$lib/logs/sql-autocomplete';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Button } from '$lib/components/ui/button';
+	import { runLogQlQuery, type LogAggregateBucket, type LogQlQueryResponse } from '#lib/api.ts';
+	import { resolveTimeRange } from '#lib/logs/time-range.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { tokenizeLogQl, TOKEN_COLOR_VARS } from '#lib/logs/sql-highlight.ts';
+	import { getLogQlSuggestions, type LogQlSuggestion, type LogQlSuggestionResult } from '#lib/logs/sql-autocomplete.ts';
+	import * as Accordion from '#lib/components/ui/accordion/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
-	import { formatChartTime, formatRowTimestamp } from '$lib/time/format';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatChartTime, formatRowTimestamp } from '#lib/time/format.ts';
 
 	const explorer = logsExplorerContext.get();
 

@@ -1,13 +1,13 @@
 <script lang="ts">
 	// Export/Import of alert rules as portable JSON (channels and SLOs by name). Import always
 	// starts with a dry run and only creates rules after the user confirms the summary.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { alertsContext } from '$lib/alerts/context';
-	import { exportAlertRules, importAlertRules, type AlertRulesImportResult } from '$lib/alerts-api';
-	import { downloadBlob } from '$lib/logs/export';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { alertsContext } from '#lib/alerts/context.ts';
+	import { exportAlertRules, importAlertRules, type AlertRulesImportResult } from '#lib/alerts-api.ts';
+	import { downloadBlob } from '#lib/logs/export.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 

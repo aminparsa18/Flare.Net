@@ -8,8 +8,8 @@
 // comma-joined, because a value (e.g. an attribute value) may itself contain a comma. An
 // explicit "All" selection is `var-<id>=` (empty) so it can be told apart from "param absent,
 // keep the variable's own default".
-import type { DashboardVariable } from '$lib/dashboards-api';
-import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
+import type { DashboardVariable } from '#lib/dashboards-api.ts';
+import { TIME_RANGE_PRESETS, type TimeRangePreset } from '#lib/logs/time-range.ts';
 import { defaultSelection } from './variables';
 import type { ReadonlyURLSearchParams } from '$app/state';
 

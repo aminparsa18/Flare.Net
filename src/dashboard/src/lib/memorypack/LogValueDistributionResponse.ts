@@ -4,9 +4,9 @@
 // member's type, `LogValueDistributionPoint`, has a `DateTimeOffset` member - see
 // `LogValueDistributionPoint.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogValueDistributionPoint } from '$lib/memorypack/LogValueDistributionPoint';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogValueDistributionPoint } from '#lib/memorypack/LogValueDistributionPoint.ts';
 
 export class LogValueDistributionResponse {
 	points: (LogValueDistributionPoint | null)[] | null;

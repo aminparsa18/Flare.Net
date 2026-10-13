@@ -7,10 +7,10 @@
 // `ServiceDependencyEdge` has no such member, so it's a real generated class, reused here
 // directly; `ServiceDependencyNode` is itself hand-written (see its own header comment).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 import { ServiceDependencyNode } from './ServiceDependencyNode.js';
-import { ServiceDependencyEdge } from '$lib/generated/memorypack/ServiceDependencyEdge.js';
+import { ServiceDependencyEdge } from '#lib/generated/memorypack/ServiceDependencyEdge.ts';
 
 export class ServiceDependencyGraphResponse {
 	windowMinutes: number;

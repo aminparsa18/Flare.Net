@@ -1,13 +1,13 @@
 <script lang="ts">
 	// Admin dialog for one status page's incidents: open an incident, post updates to its timeline, delete it.
 	// Self-contained like the page that hosts it. ADR-0159.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import {
 		INCIDENT_STATUSES,
 		deleteStatusIncident,
@@ -17,9 +17,9 @@
 		type StatusIncident,
 		type StatusIncidentStatus,
 		type StatusPage
-	} from '$lib/status-pages-api';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/status-pages-api.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	let { page, onclose }: { page: StatusPage; onclose: () => void } = $props();

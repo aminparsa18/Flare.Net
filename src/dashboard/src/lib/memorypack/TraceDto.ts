@@ -3,9 +3,9 @@
 // in declared order. Can't carry `[GenerateTypeScript]` itself because its `Spans` member's
 // type, `SpanDto`, has `DateTimeOffset` members - see `SpanDto.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { SpanDto } from '$lib/memorypack/SpanDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { SpanDto } from '#lib/memorypack/SpanDto.ts';
 
 export class TraceDto {
 	traceId: string | null;

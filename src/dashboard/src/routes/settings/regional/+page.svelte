@@ -1,14 +1,14 @@
 <script lang="ts">
-	import ChoiceGroup from '$lib/components/settings/ChoiceGroup.svelte';
-	import { getLocale, locales, type Locale } from '$lib/paraglide/runtime';
-	import { displayTimeZone } from '$lib/time/display-zone.svelte';
-	import { browserTimeZone, timeZoneOptions } from '$lib/time/time-zone';
-	import { formatUtcOffset } from '$lib/time/format';
-	import { regional, DEFAULT_RANGE_CHOICES } from '$lib/regional/prefs.svelte';
-	import { presetLabel } from '$lib/logs/time-range';
-	import { formatTimestamp } from '$lib/time/format';
-	import { formatNumber } from '$lib/format/number';
-	import * as m from '$lib/paraglide/messages';
+	import ChoiceGroup from '#lib/components/settings/ChoiceGroup.svelte';
+	import { getLocale, locales, type Locale } from '#lib/paraglide/runtime.js';
+	import { displayTimeZone } from '#lib/time/display-zone.svelte.ts';
+	import { browserTimeZone, timeZoneOptions } from '#lib/time/time-zone.ts';
+	import { formatUtcOffset } from '#lib/time/format.ts';
+	import { regional, DEFAULT_RANGE_CHOICES } from '#lib/regional/prefs.svelte.ts';
+	import { presetLabel } from '#lib/logs/time-range.ts';
+	import { formatTimestamp } from '#lib/time/format.ts';
+	import { formatNumber } from '#lib/format/number.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// Endonyms, never translated - same convention as the user menu's language picker.
 	const localeLabels: Record<Locale, string> = { en: 'English', 'zh-CN': '中文', ru: 'Русский' };

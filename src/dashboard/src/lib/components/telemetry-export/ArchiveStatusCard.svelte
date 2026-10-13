@@ -2,9 +2,9 @@
 	// Ingestion-page card for the S3 archive (ADR-0157): visible to any signed-in user, hidden unless the
 	// archive is active. Polls slowly - the worker only moves once per finished ingest hour.
 	import { onDestroy, onMount } from 'svelte';
-	import { getArchiveStatus, type ArchiveStatus } from '$lib/telemetry-export-api';
+	import { getArchiveStatus, type ArchiveStatus } from '#lib/telemetry-export-api.ts';
 	import ArchiveStatusTable from './ArchiveStatusTable.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const POLL_MS = 30000;
 

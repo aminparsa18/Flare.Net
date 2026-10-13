@@ -18,16 +18,16 @@
 	// commit immediately; path/value text inputs debounce (300ms), same reasoning
 	// AttributeFiltersRow's own header gives.
 	import { browser } from '$app/env';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { getLogAttributeValues, type BodyJsonFilter, type BodyJsonFilterOperator } from '$lib/api';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import * as Select from '$lib/components/ui/select';
-		import { Button } from '$lib/components/ui/button';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { getLogAttributeValues, type BodyJsonFilter, type BodyJsonFilterOperator } from '#lib/api.ts';
+	import * as Accordion from '#lib/components/ui/accordion/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+		import { Button } from '#lib/components/ui/button/index.ts';
 	import AttributeValueCombobox, { type AttributeValueSuggestion } from './AttributeValueCombobox.svelte';
 	import AttributeValueListInput from './AttributeValueListInput.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = logsExplorerContext.get();
 

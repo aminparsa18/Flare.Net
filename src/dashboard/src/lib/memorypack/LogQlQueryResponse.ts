@@ -3,13 +3,13 @@
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
 // nests `LogAggregateBucket`/`LogEventDto`, both blocked (`DateTimeOffset` members) - see
 // their own header comments. `kind` is a raw MemoryPack numeric ordinal (converted to
-// string at `api.ts`'s module boundary via `$lib/memorypack/enums.ts`'s
+// string at `api.ts`'s module boundary via `#lib/memorypack/enums.ts`'s
 // `logQlResultKindToString`).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogAggregateBucket } from '$lib/memorypack/LogAggregateBucket';
-import { LogEventDto } from '$lib/memorypack/LogEventDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogAggregateBucket } from '#lib/memorypack/LogAggregateBucket.ts';
+import { LogEventDto } from '#lib/memorypack/LogEventDto.ts';
 
 export class LogQlQueryResponse {
 	kind: number;

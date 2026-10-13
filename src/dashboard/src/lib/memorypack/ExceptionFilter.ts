@@ -1,13 +1,13 @@
 // Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
 // generated. Mirrors `src/Flare.Api/Model/ErrorModels.cs`'s `ExceptionFilter` field-for-field,
 // in declared order. Can't carry `[GenerateTypeScript]` itself because `From`/`To` are
-// `DateTimeOffset?` - see `$lib/memorypack/date-time-offset.ts`'s header comment.
+// `DateTimeOffset?` - see `#lib/memorypack/date-time-offset.ts`'s header comment.
 // `resourceAttributes`' element type is generated - same split as `ServiceOverviewRequest.ts`.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ResourceAttributeFilter } from '$lib/generated/memorypack/ResourceAttributeFilter.js';
-import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ResourceAttributeFilter } from '#lib/generated/memorypack/ResourceAttributeFilter.ts';
+import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class ExceptionFilter {
 	from: Date | null;

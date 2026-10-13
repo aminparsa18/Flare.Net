@@ -1,13 +1,13 @@
 <script lang="ts">
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Command from '$lib/components/ui/command';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Command from '#lib/components/ui/command/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import * as m from '$lib/paraglide/messages';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// PopoverMultiSelect's shape, plus free-text entry: a scope filter entry can be a
 	// prefix pattern (`Microsoft.EntityFrameworkCore.*`) that isn't itself an observed

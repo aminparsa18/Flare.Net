@@ -7,18 +7,18 @@
 	// this lock everyone out" guard below - the server enforces the same rule regardless
 	// (AuthSettingsEndpoints.HandlePutAsync), this is just so the Save button doesn't
 	// invite a 400 the UI could have prevented.
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { authSettingsContext } from '$lib/auth-settings/context';
-	import { entraSettingsContext } from '$lib/entra-settings/context';
-	import { ldapSettingsContext } from '$lib/ldap-settings/context';
-	import { oidcSettingsContext } from '$lib/oidc-settings/context';
-	import { proxyAuthSettingsContext } from '$lib/proxy-auth-settings/context';
-	import { authContext } from '$lib/auth/context';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { authSettingsContext } from '#lib/auth-settings/context.ts';
+	import { entraSettingsContext } from '#lib/entra-settings/context.ts';
+	import { ldapSettingsContext } from '#lib/ldap-settings/context.ts';
+	import { oidcSettingsContext } from '#lib/oidc-settings/context.ts';
+	import { proxyAuthSettingsContext } from '#lib/proxy-auth-settings/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const authSettings = authSettingsContext.get();
 	const entraSettings = entraSettingsContext.get();

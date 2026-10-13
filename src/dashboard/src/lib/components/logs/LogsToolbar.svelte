@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import ScopeFilterPopover from './ScopeFilterPopover.svelte';
@@ -13,19 +13,19 @@
 	import PatternsModal from './PatternsModal.svelte';
 	import ExportDialog from './ExportDialog.svelte';
 	import ShareViewButton from './ShareViewButton.svelte';
-	import SavedSearchesMenu from '$lib/components/logs/SavedSearchesMenu.svelte';
-	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
-	import CreateAlertButton from '$lib/components/alerts/CreateAlertButton.svelte';
-	import CreateLogMetricButton from '$lib/components/log-metrics/CreateLogMetricButton.svelte';
+	import SavedSearchesMenu from '#lib/components/logs/SavedSearchesMenu.svelte';
+	import PinToDashboardButton from '#lib/components/dashboards/PinToDashboardButton.svelte';
+	import CreateAlertButton from '#lib/components/alerts/CreateAlertButton.svelte';
+	import CreateLogMetricButton from '#lib/components/log-metrics/CreateLogMetricButton.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { isTraceSpanFilterActive } from '$lib/logs/state.svelte';
-	import { setActiveLogsExplorer } from '$lib/logs/active-explorer.svelte';
-	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
-	import { setLastUsedViewId } from '$lib/saved-views/last-used';
-	import * as m from '$lib/paraglide/messages';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { isTraceSpanFilterActive } from '#lib/logs/state.svelte.ts';
+	import { setActiveLogsExplorer } from '#lib/logs/active-explorer.svelte.ts';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '#lib/logs/severity.ts';
+	import { setLastUsedViewId } from '#lib/saved-views/last-used.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = logsExplorerContext.get();
 
@@ -133,7 +133,7 @@
 
 	{#if explorer.filter.attribute}
 		<!-- "View related logs" deep link from a Metrics chart (see MetricChart.svelte /
-		     $lib/deep-links.ts) - same "sticky filter, needs its own dismissible chip"
+		     #lib/deep-links.ts) - same "sticky filter, needs its own dismissible chip"
 		     reasoning as the pattern-id badge above; service/time-range don't get one since
 		     ServiceMultiSelect/TimeRangePicker already show and let you edit those. -->
 		<Badge variant="secondary" class="max-w-64 gap-1">
@@ -170,7 +170,7 @@
 	<LogsBodyColumnsPopover paths={explorer.filter.bodyColumns} onApply={(paths) => explorer.setBodyColumns(paths)} />
 
 	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
-	     starts from defaults rather than restoring it ($lib/saved-views/last-used.ts). -->
+	     starts from defaults rather than restoring it (#lib/saved-views/last-used.ts). -->
 	<Button
 		variant="ghost"
 		size="sm"

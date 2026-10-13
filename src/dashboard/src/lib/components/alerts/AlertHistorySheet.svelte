@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
+	import { formatNumber } from '#lib/format/number.ts';
 	// Matches EventDetailSheet.svelte's established "detail viewer" use of Sheet
 	// (open/onOpenChange bound to a runes-state field) - AlertRuleFormDialog.svelte uses
 	// Dialog instead, for its different "bounded form" role.
-	import * as Sheet from '$lib/components/ui/sheet';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as Empty from '$lib/components/ui/empty';
-	import { alertsContext } from '$lib/alerts/context';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import * as Sheet from '#lib/components/ui/sheet/index.ts';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { alertsContext } from '#lib/alerts/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	const alerts = alertsContext.get();
 

@@ -2,14 +2,14 @@
 // generated. Mirrors `src/Flare.Api/Model/HostStatsHistoryPoint.cs`'s
 // `HostStatsHistoryPoint` field-for-field, in declared order. Can't carry
 // `[GenerateTypeScript]` itself because `Timestamp` is a `DateTimeOffset` - see
-// `$lib/memorypack/date-time-offset.ts`'s header comment. `GET /api/resources/host/history`
+// `#lib/memorypack/date-time-offset.ts`'s header comment. `GET /api/resources/host/history`
 // returns a bare array of these (not wrapped in a response object), so `deserializeArray`
 // is this type's actual top-level entry point, same as MemoryPack's own generated classes
 // support via `serializeArray`/`deserializeArray`.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class HostStatsHistoryPoint {
 	timestamp: Date;

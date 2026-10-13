@@ -35,19 +35,19 @@
 	// query path here is identical either way, so switching never re-runs anything - except
 	// into or out of `heatmap`, which needs per-bucket counts (see the effect below).
 	import { onMount, untrack } from 'svelte';
-	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
-	import FormulaChart from '$lib/components/metrics/FormulaChart.svelte';
-	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
-	import type { PanelThreshold } from '$lib/dashboards/thresholds';
-	import { needsBuckets, seriesLabel, type PanelStacking, type PanelVisualization } from '$lib/dashboards/visualization';
-	import type { LegendPosition } from '$lib/dashboards/legend';
-	import type { ThresholdColor } from '$lib/dashboards/thresholds';
-	import { parseDecimals, type YAxisScale } from '$lib/metrics/axis';
+	import { MetricsExplorerState } from '#lib/metrics/state.svelte.ts';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import MetricChart from '#lib/components/metrics/MetricChart.svelte';
+	import FormulaChart from '#lib/components/metrics/FormulaChart.svelte';
+	import type { TimeRangePreset } from '#lib/logs/time-range.ts';
+	import type { ResolvedVariableOverrides } from '#lib/dashboards/variables.ts';
+	import type { PanelThreshold } from '#lib/dashboards/thresholds.ts';
+	import { needsBuckets, seriesLabel, type PanelStacking, type PanelVisualization } from '#lib/dashboards/visualization.ts';
+	import type { LegendPosition } from '#lib/dashboards/legend.ts';
+	import type { ThresholdColor } from '#lib/dashboards/thresholds.ts';
+	import { parseDecimals, type YAxisScale } from '#lib/metrics/axis.ts';
 	import MetricsVisualization from './visualizations/MetricsVisualization.svelte';
-	import { metricPointWindow } from '$lib/dashboards/explore-links';
+	import { metricPointWindow } from '#lib/dashboards/explore-links.ts';
 
 	let {
 		query,
@@ -155,7 +155,7 @@
 			// list first) - `services` must be applied only after that resolves, or setServices
 			// would just be clobbered once the saved state lands.
 			// A service-less `selectedMetric` (a built-in template's panels - see
-			// $lib/dashboards/templates.ts) resolves to the first picker entry matching the name,
+			// #lib/dashboards/templates.ts) resolves to the first picker entry matching the name,
 			// narrowed by the saved `services` - so the Service variable has to go into the saved
 			// state itself, or the metric would stay pinned to whichever service sorted first.
 			const q = query as { selectedMetric?: { serviceName?: string } | null };

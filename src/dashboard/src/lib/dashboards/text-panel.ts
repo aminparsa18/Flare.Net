@@ -1,6 +1,6 @@
 // Shape of a `Text` dashboard panel's `query` (roadmap's "Text/Markdown dashboard panel" item).
 // A Text panel has no data source, so `query` just carries the Markdown source; it's rendered
-// by `renderMarkdown` (`$lib/dashboards/markdown.ts`), which never emits raw HTML.
+// by `renderMarkdown` (`#lib/dashboards/markdown.ts`), which never emits raw HTML.
 
 export interface TextPanelQuery {
 	markdown: string;

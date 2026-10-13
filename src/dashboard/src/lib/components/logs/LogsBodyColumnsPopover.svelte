@@ -2,13 +2,13 @@
 	// LogsToolbar's "Fields" control - JSON body paths (same dotted syntax as BodyJsonFilter,
 	// e.g. `order.id`) shown as extra LogTable columns (LogsFilterState.bodyColumns). Applied
 	// immediately on add/remove; a display preference, so no re-search.
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import BracesIcon from '@lucide/svelte/icons/braces';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { MAX_BODY_COLUMNS } from '$lib/logs/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { MAX_BODY_COLUMNS } from '#lib/logs/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { paths, onApply }: { paths: string[]; onApply: (paths: string[]) => void } = $props();
 

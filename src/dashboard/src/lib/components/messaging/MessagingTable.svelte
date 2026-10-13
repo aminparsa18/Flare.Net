@@ -1,19 +1,19 @@
 <script lang="ts">
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
-	import { messagingContext } from '$lib/messaging/context';
-	import { destinationErrorRate, type MessagingSortColumn } from '$lib/messaging/state.svelte';
-	import { formatPercent } from '$lib/indexing/format';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { formatRequestRate } from '$lib/services/format';
-	import { formatCount } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
+	import { messagingContext } from '#lib/messaging/context.ts';
+	import { destinationErrorRate, type MessagingSortColumn } from '#lib/messaging/state.svelte.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { formatRequestRate } from '#lib/services/format.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const messaging = messagingContext.get();
 

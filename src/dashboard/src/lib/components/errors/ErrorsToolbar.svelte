@@ -1,20 +1,20 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Badge } from '$lib/components/ui/badge';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import XIcon from '@lucide/svelte/icons/x';
 	import UserIcon from '@lucide/svelte/icons/user';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import OwnershipRulesDialog from './OwnershipRulesDialog.svelte';
-	import { authContext } from '$lib/auth/context';
-	import { errorsExplorerContext } from '$lib/errors/context';
-	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
-	import type { ErrorsStatusFilter } from '$lib/errors/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { authContext } from '#lib/auth/context.ts';
+	import { errorsExplorerContext } from '#lib/errors/context.ts';
+	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '#lib/logs/time-range.ts';
+	import type { ErrorsStatusFilter } from '#lib/errors/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const errors = errorsExplorerContext.get();
 	const auth = authContext.get();

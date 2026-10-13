@@ -1,7 +1,7 @@
 // Searchable index of individual user settings (the section headings on /settings/*). Shared by
 // the settings rail's search box and the command palette's "Settings" group. Entries link to the
 // section page, not an anchor. Labels are functions so they follow the active locale.
-import * as m from '$lib/paraglide/messages';
+import * as m from '#lib/paraglide/messages.js';
 
 export interface SettingEntry {
 	href: string;

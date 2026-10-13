@@ -5,11 +5,11 @@
 // MemoryPack over the wire, same shape as `hosts-api.ts`: the request has no
 // DateTimeOffset/list member and is a real generated class; the response carries
 // `PodMetricsPoint.BucketStart` inside an IReadOnlyList, so it's hand-written under
-// `$lib/memorypack/`.
+// `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { PodMetricsRequest as GeneratedPodMetricsRequest } from '$lib/generated/memorypack/PodMetricsRequest.js';
-import { PodMetricsResponse as GeneratedPodMetricsResponse } from '$lib/memorypack/PodMetricsResponse';
+import { PodMetricsRequest as GeneratedPodMetricsRequest } from '#lib/generated/memorypack/PodMetricsRequest.ts';
+import { PodMetricsResponse as GeneratedPodMetricsResponse } from '#lib/memorypack/PodMetricsResponse.ts';
 
 /** Every field is a bucket average; null = the pod sent no data for it (the two limit figures are opt-in kubeletstats metrics, so usually null). */
 export interface PodMetricsPoint {

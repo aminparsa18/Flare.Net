@@ -1,13 +1,13 @@
 // Central reactive state for the Views management page - mirrors AlertsState's shape
-// (`$lib/alerts/state.svelte.ts`): a class with `$state` fields, provided via
+// (`#lib/alerts/state.svelte.ts`): a class with `$state` fields, provided via
 // `savedViewsContext` rather than passed as props. Narrower than AlertsState: there's no
 // "create" flow here (a saved view is always created from a source explorer page's
 // current state - see LogsToolbar/TracesToolbar/MetricsToolbar's own "Save current
 // view..." action - not from a blank form on this page), so only rename + delete apply.
 
-import { listSavedViews, deleteSavedView, updateSavedView, type SavedView } from '$lib/saved-views-api';
+import { listSavedViews, deleteSavedView, updateSavedView, type SavedView } from '#lib/saved-views-api.ts';
 import { forgetLastUsedViewId } from './last-used';
-import { projects } from '$lib/projects/store.svelte';
+import { projects } from '#lib/projects/store.svelte.ts';
 
 export class SavedViewsState {
 	views = $state.raw<SavedView[]>([]);

@@ -2,12 +2,12 @@
 	// The "sidebar" alternative to AppNav's top bar (Settings > Appearance > Navigation).
 	// Same links (nav-links.ts, minus the `inMenu` ones that stay in NavUserMenu's dropdown),
 	// same palette trigger - laid out as a vertical rail that collapses to icons only.
-	import { stripBase, withBase } from '$lib/paths';
+	import { stripBase, withBase } from '#lib/paths.ts';
 	import { page } from '$app/state';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import { cn } from '$lib/utils';
-	import { authContext } from '$lib/auth/context';
-	import { appearance } from '$lib/appearance/prefs.svelte';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.ts';
+	import { cn } from '#lib/utils.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { appearance } from '#lib/appearance/prefs.svelte.ts';
 	import { navLinks } from './nav-links';
 	import TerminalModal from './TerminalModal.svelte';
 	import NavUserMenu from './NavUserMenu.svelte';
@@ -27,7 +27,7 @@
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 	import CircleIcon from '@lucide/svelte/icons/circle';
 	import type { Component } from 'svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { commandPaletteOpen = $bindable(false) }: { commandPaletteOpen?: boolean } = $props();
 

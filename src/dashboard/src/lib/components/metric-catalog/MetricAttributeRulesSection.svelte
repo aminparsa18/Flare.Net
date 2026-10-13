@@ -4,10 +4,10 @@
 	// rule refresh on. Lists the existing rules covering this metric (exact or prefix) so they
 	// can be toggled or removed here. The rule list is local state - small, one panel, no need
 	// to thread it through the catalog state.
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import {
 		createMetricAttributeRule,
@@ -19,10 +19,10 @@
 		updateMetricAttributeRule,
 		type MetricAttributeRule,
 		type MetricAttributeRuleMode
-	} from '$lib/metric-attribute-rules-api';
-	import { formatCount } from '$lib/ingestion/format';
+	} from '#lib/metric-attribute-rules-api.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
 	import { cardinalityClass } from './format';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		metricName,

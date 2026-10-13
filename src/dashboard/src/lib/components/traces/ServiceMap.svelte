@@ -5,14 +5,14 @@
 	// remarks for the broken-white-on-white-boxes failure mode this avoids).
 	import { SvelteFlow, Background, Controls, type Edge } from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
-	import type { SpanDto } from '$lib/traces-api';
-	import { buildServiceMap } from '$lib/traces/service-map';
-	import type { ServiceMapFlowNode } from '$lib/traces/service-map-flow-types';
-	import { layoutGraph } from '$lib/resources/layout';
-	import { formatDurationNano } from '$lib/traces/duration';
+	import type { SpanDto } from '#lib/traces-api.ts';
+	import { buildServiceMap } from '#lib/traces/service-map.ts';
+	import type { ServiceMapFlowNode } from '#lib/traces/service-map-flow-types.ts';
+	import { layoutGraph } from '#lib/resources/layout.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
 	import ServiceMapNode from './ServiceMapNode.svelte';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as m from '$lib/paraglide/messages';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { spans }: { spans: SpanDto[] } = $props();
 

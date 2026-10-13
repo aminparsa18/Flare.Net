@@ -2,11 +2,11 @@
 	// The Status cell of the exception-groups table: the group's triage state (ADR-0121) as a
 	// badge, plus its assignee and what an ignore / regression is waiting on. A group nobody has
 	// triaged reads Open.
-	import { Badge } from '$lib/components/ui/badge';
-	import type { ErrorIssue } from '$lib/error-issues-api';
-	import { issueLinkLabel } from '$lib/errors/issue-links';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import type { ErrorIssue } from '#lib/error-issues-api.ts';
+	import { issueLinkLabel } from '#lib/errors/issue-links.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	let { issue, owner = null }: { issue: ErrorIssue | null; owner?: { user: string; viaRule: boolean } | null } = $props();
 

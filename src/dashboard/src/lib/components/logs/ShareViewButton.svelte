@@ -13,18 +13,18 @@
 	// is a single fire-and-forget action, not a list/CRUD surface, so keeping it separate
 	// keeps that distinction visible (same reasoning PatternsModal stayed its own trigger
 	// rather than living inside another menu).
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import Share2Icon from '@lucide/svelte/icons/share-2';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { projects } from '$lib/projects/store.svelte';
-	import { createSavedView } from '$lib/saved-views-api';
-	import { savedViewPath } from '$lib/saved-views/page-paths';
-	import { presetLabel } from '$lib/logs/time-range';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime, formatUtcOffset } from '$lib/time/format';
-	import { displayTimeZone } from '$lib/time/display-zone.svelte';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import { createSavedView } from '#lib/saved-views-api.ts';
+	import { savedViewPath } from '#lib/saved-views/page-paths.ts';
+	import { presetLabel } from '#lib/logs/time-range.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime, formatUtcOffset } from '#lib/time/format.ts';
+	import { displayTimeZone } from '#lib/time/display-zone.svelte.ts';
 
 	const explorer = logsExplorerContext.get();
 

@@ -1,4 +1,4 @@
-// Same generic typed-context helper as $lib/users/context.ts - re-authored here rather
+// Same generic typed-context helper as #lib/users/context.ts - re-authored here rather
 // than shared, per that file's own note (no such helper exists in bits-ui, and this repo
 // doesn't have a shared-utils module for a two-line helper).
 

@@ -126,9 +126,6 @@ folders are where "what happened and why" actually lives.
     - **Secrets at rest beyond notification channels.** [ADR-0205](../adr/0205-encrypt-notification-secrets-at-rest.md)
       stops at notification channels. Audit and extend it to telemetry-export config, source-link tokens and the
       SSO/LDAP/OIDC client secrets and bind passwords (first confirm whether those are already encrypted).
-    - **Move the dashboard from the `$lib` alias to `#lib` subpath imports.** SvelteKit 3 removed `$lib`; `vite.config.ts`
-      keeps it through the deprecated `kit.alias` option, which SvelteKit will drop in a later major. `#lib` needs an
-      explicit file extension on every import (about 800 files use `$lib/`), so do it as a mechanical codemod.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.

@@ -10,7 +10,7 @@ import {
 	type HostStatsHistoryPoint,
 	type HostStatsWatchConnection,
 	type HostStatsWatchStatus
-} from '$lib/api';
+} from '#lib/api.ts';
 
 // Matches HostStatsOptions.HistoryWindow's own default - the server already trims to this
 // window (see HostStatsPoller.AppendHistory), this is a second, client-side trim so memory

@@ -1,20 +1,20 @@
 <script lang="ts">
 	// Mirrors AlertRuleTable.svelte's Table/Empty/Badge composition.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { savedViewsContext } from '$lib/saved-views/context';
-	import { savedViewPath } from '$lib/saved-views/page-paths';
-	import type { SavedView } from '$lib/saved-views-api';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { savedViewsContext } from '#lib/saved-views/context.ts';
+	import { savedViewPath } from '#lib/saved-views/page-paths.ts';
+	import type { SavedView } from '#lib/saved-views-api.ts';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	const views = savedViewsContext.get();
 

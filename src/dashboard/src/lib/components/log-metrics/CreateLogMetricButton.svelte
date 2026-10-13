@@ -4,14 +4,14 @@
 	// LogMetricFormDialog prefilled) - same hand-off CreateAlertButton uses for /alerts.
 	// Hidden for a Viewer, same as every other mutating control.
 	import { goto } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button';
-	import { authContext } from '$lib/auth/context';
-	import { buildLogMetricDraftHref } from '$lib/log-metrics-api';
-	import { stripIgnored } from '$lib/log-metrics/format';
-	import { withBase } from '$lib/paths';
-	import type { LogFilter } from '$lib/api';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { buildLogMetricDraftHref } from '#lib/log-metrics-api.ts';
+	import { stripIgnored } from '#lib/log-metrics/format.ts';
+	import { withBase } from '#lib/paths.ts';
+	import type { LogFilter } from '#lib/api.ts';
 	import SigmaIcon from '@lucide/svelte/icons/sigma';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { filter }: { filter: () => LogFilter } = $props();
 

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select';
-	import TracesViewTabs from '$lib/components/traces/TracesViewTabs.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import TracesViewTabs from '#lib/components/traces/TracesViewTabs.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
-	import { servicesContext } from '$lib/services/context';
-	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '$lib/services/state.svelte';
+	import { servicesContext } from '#lib/services/context.ts';
+	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 	interface Props {
 		activeTab: 'traces' | 'services';

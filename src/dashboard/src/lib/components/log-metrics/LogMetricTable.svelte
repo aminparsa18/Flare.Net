@@ -1,14 +1,14 @@
 <script lang="ts">
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { authContext } from '$lib/auth/context';
-	import { logMetricsContext } from '$lib/log-metrics/context';
-	import { summarizeCondition } from '$lib/log-metrics/format';
-	import type { LogMetric } from '$lib/log-metrics-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { logMetricsContext } from '#lib/log-metrics/context.ts';
+	import { summarizeCondition } from '#lib/log-metrics/format.ts';
+	import type { LogMetric } from '#lib/log-metrics-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';

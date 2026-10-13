@@ -3,19 +3,19 @@
 	// aggregated per service over a window. The per-trace badge lives in TraceWaterfall;
 	// this is the "where should I look first" list. See NPlusOneQueryBuilder.cs.
 	import { onMount } from 'svelte';
-	import { withBase } from '$lib/paths';
-	import { getNPlusOneOffenders, type NPlusOneOffender } from '$lib/n-plus-one-api';
-	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '$lib/services/state.svelte';
-	import { DEFAULT_N_PLUS_ONE_MIN_REPEATS } from '$lib/traces/n-plus-one';
-	import TracesViewTabs from '$lib/components/traces/TracesViewTabs.svelte';
-	import * as Select from '$lib/components/ui/select';
-	import * as Table from '$lib/components/ui/table';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { withBase } from '#lib/paths.ts';
+	import { getNPlusOneOffenders, type NPlusOneOffender } from '#lib/n-plus-one-api.ts';
+	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
+	import { DEFAULT_N_PLUS_ONE_MIN_REPEATS } from '#lib/traces/n-plus-one.ts';
+	import TracesViewTabs from '#lib/components/traces/TracesViewTabs.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let windowPreset = $state<ServicesWindowPreset>('1h');
 	let service = $state('');

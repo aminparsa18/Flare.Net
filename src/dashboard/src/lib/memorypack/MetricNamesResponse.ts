@@ -7,9 +7,9 @@
 // `MetricNameInfo` itself has no such member, so it's a real generated class, reused here
 // directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricNameInfo } from '$lib/generated/memorypack/MetricNameInfo.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricNameInfo } from '#lib/generated/memorypack/MetricNameInfo.ts';
 
 export class MetricNamesResponse {
 	metrics: (MetricNameInfo | null)[] | null;

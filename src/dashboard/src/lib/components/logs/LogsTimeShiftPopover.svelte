@@ -9,13 +9,13 @@
 	// remarks give for copying MetricsFunctionsPopover. Unlike Metrics' switch, Logs has no
 	// existing overlay control to be mutually exclusive with, so there's no clearing logic
 	// to carry over.
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
 	import HistoryIcon from '@lucide/svelte/icons/history';
-	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
-	import * as m from '$lib/paraglide/messages';
+	import { formatBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		timeShiftSeconds,

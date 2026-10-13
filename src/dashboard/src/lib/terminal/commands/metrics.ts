@@ -1,9 +1,9 @@
 // `metrics` - mimics flare.cli's MetricsCommand.cs (metric discovery) by calling the same
 // POST /api/metrics/names the dashboard's own Metric Picker uses (getMetricNames() from
-// $lib/metrics-api.ts), rather than any new backend surface - same "already-authenticated
+// #lib/metrics-api.ts), rather than any new backend surface - same "already-authenticated
 // dashboard API, different front end" shape as commands/tail.ts/traces.ts.
 
-import { getMetricNames, type MetricNameInfo } from '$lib/metrics-api';
+import { getMetricNames, type MetricNameInfo } from '#lib/metrics-api.ts';
 import type { TerminalCommand } from '../types';
 
 class UsageError extends Error {}

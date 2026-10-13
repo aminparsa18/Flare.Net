@@ -1,14 +1,14 @@
 // Central reactive state for the Traces list page - mirrors LogsExplorerState's shape
-// (`$lib/logs/state.svelte.ts`): a class with `$state` fields, provided via
+// (`#lib/logs/state.svelte.ts`): a class with `$state` fields, provided via
 // `tracesExplorerContext` rather than passed as props. No live-tail here (see
 // Planning.md's traces roadmap slice - explicitly out of scope for this pass; the
 // waterfall/detail view is the value being built, not a live span firehose), so this is
 // simpler than LogsExplorerState: no connection/live/dropped-count fields at all.
 
-import { regional } from '$lib/regional/prefs.svelte';
-import { SPAN_SORT_KEYS, getSpanAttributeValues, searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceStructureFilter } from '$lib/traces-api';
-import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
-import { findCaseSuggestions, applyCaseSuggestion as applyCaseSuggestionTo, type CaseSuggestion } from '$lib/case-suggestions';
+import { regional } from '#lib/regional/prefs.svelte.ts';
+import { SPAN_SORT_KEYS, getSpanAttributeValues, searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceStructureFilter } from '#lib/traces-api.ts';
+import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '#lib/logs/time-range.ts';
+import { findCaseSuggestions, applyCaseSuggestion as applyCaseSuggestionTo, type CaseSuggestion } from '#lib/case-suggestions.ts';
 import { durationBucketRange } from './duration-buckets';
 
 const PAGE_SIZE = 100;
@@ -34,7 +34,7 @@ export interface TracesFilterState {
 	kinds: number[];
 	/** Root-span names (the operation), any of - set from the facet sidebar. */
 	names: string[];
-	/** Lower bound (ns) of the facet sidebar's selected duration bucket, `null` = any - see `$lib/traces/duration-buckets.ts`. */
+	/** Lower bound (ns) of the facet sidebar's selected duration bucket, `null` = any - see `#lib/traces/duration-buckets.ts`. */
 	durationBucketNano: number | null;
 	/**
 	 * List each service's entry spans (no parent, or a parent in another service) instead of
@@ -73,7 +73,7 @@ export class TracesExplorerState {
 	nextCursor = $state<string | null>(null);
 
 	loading = $state(false);
-	/** "Did you mean..." case-variant replacements for an empty result - see `$lib/case-suggestions.ts`. */
+	/** "Did you mean..." case-variant replacements for an empty result - see `#lib/case-suggestions.ts`. */
 	caseSuggestions = $state.raw<CaseSuggestion[]>([]);
 	loadingMore = $state(false);
 	error = $state<string | null>(null);
@@ -425,7 +425,7 @@ export class TracesExplorerState {
 
 	/**
 	 * Arrival filter for the "View traces" deep link from a Metrics chart (see
-	 * MetricChart.svelte / `$lib/deep-links.ts`, and `traces/+page.svelte`'s onMount,
+	 * MetricChart.svelte / `#lib/deep-links.ts`, and `traces/+page.svelte`'s onMount,
 	 * the only caller). No patternId-style extra state to carry here, unlike Logs -
 	 * attributeFilters is reset to empty, same "one-off hop, not something to persist and
 	 * reproduce" reasoning `LogsExplorerState.applyDeepLinkFilter` documents for its own

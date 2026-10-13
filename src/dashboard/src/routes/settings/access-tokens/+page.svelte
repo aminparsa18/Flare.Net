@@ -4,12 +4,12 @@
 	// /data-sources, which that page's own comment explains). Mirrors routes/views's
 	// shape: a state class set into context, one table component.
 	import { onMount } from 'svelte';
-	import { AccessTokensState } from '$lib/access-tokens/state.svelte';
-	import { accessTokensContext } from '$lib/access-tokens/context';
-	import AccessTokenTable from '$lib/components/access-tokens/AccessTokenTable.svelte';
-	import McpConnectCard from '$lib/components/access-tokens/McpConnectCard.svelte';
-	import CreateAccessTokenDialog from '$lib/components/access-tokens/CreateAccessTokenDialog.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { AccessTokensState } from '#lib/access-tokens/state.svelte.ts';
+	import { accessTokensContext } from '#lib/access-tokens/context.ts';
+	import AccessTokenTable from '#lib/components/access-tokens/AccessTokenTable.svelte';
+	import McpConnectCard from '#lib/components/access-tokens/McpConnectCard.svelte';
+	import CreateAccessTokenDialog from '#lib/components/access-tokens/CreateAccessTokenDialog.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const tokens = accessTokensContext.set(new AccessTokensState());
 

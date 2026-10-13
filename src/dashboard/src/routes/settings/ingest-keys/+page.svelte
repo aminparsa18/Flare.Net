@@ -4,14 +4,14 @@
 	// Usage re-polls quietly every 10s - the per-minute column is only meaningful if it
 	// moves while you watch it.
 	import { onMount } from 'svelte';
-	import { IngestKeysState } from '$lib/ingest-keys/state.svelte';
-	import { ingestKeysContext } from '$lib/ingest-keys/context';
-	import IngestKeyTable from '$lib/components/ingest-keys/IngestKeyTable.svelte';
-	import CreateIngestKeyDialog from '$lib/components/ingest-keys/CreateIngestKeyDialog.svelte';
-	import MoveIngestKeyDialog from '$lib/components/ingest-keys/MoveIngestKeyDialog.svelte';
-	import IngestKeyAccessDialog from '$lib/components/ingest-keys/IngestKeyAccessDialog.svelte';
-	import IngestKeyLimitsDialog from '$lib/components/ingest-keys/IngestKeyLimitsDialog.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { IngestKeysState } from '#lib/ingest-keys/state.svelte.ts';
+	import { ingestKeysContext } from '#lib/ingest-keys/context.ts';
+	import IngestKeyTable from '#lib/components/ingest-keys/IngestKeyTable.svelte';
+	import CreateIngestKeyDialog from '#lib/components/ingest-keys/CreateIngestKeyDialog.svelte';
+	import MoveIngestKeyDialog from '#lib/components/ingest-keys/MoveIngestKeyDialog.svelte';
+	import IngestKeyAccessDialog from '#lib/components/ingest-keys/IngestKeyAccessDialog.svelte';
+	import IngestKeyLimitsDialog from '#lib/components/ingest-keys/IngestKeyLimitsDialog.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const REFRESH_INTERVAL_MS = 10_000;
 

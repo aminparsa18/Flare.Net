@@ -3,12 +3,12 @@
 	// Kafka consumer lag where a collector exports it - see
 	// docs-internal/adr/0056-messaging-queue-monitoring.md.
 	import { onMount, onDestroy } from 'svelte';
-	import { MessagingState } from '$lib/messaging/state.svelte';
-	import { messagingContext } from '$lib/messaging/context';
-	import MessagingToolbar from '$lib/components/messaging/MessagingToolbar.svelte';
-	import MessagingTable from '$lib/components/messaging/MessagingTable.svelte';
-	import MessagingDetailSheet from '$lib/components/messaging/MessagingDetailSheet.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { MessagingState } from '#lib/messaging/state.svelte.ts';
+	import { messagingContext } from '#lib/messaging/context.ts';
+	import MessagingToolbar from '#lib/components/messaging/MessagingToolbar.svelte';
+	import MessagingTable from '#lib/components/messaging/MessagingTable.svelte';
+	import MessagingDetailSheet from '#lib/components/messaging/MessagingDetailSheet.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const messaging = messagingContext.set(new MessagingState());
 

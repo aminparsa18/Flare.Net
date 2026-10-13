@@ -11,10 +11,10 @@
 // `/api/spans/attribute-values` endpoints AttributeFiltersRow/SpanAttributeFiltersRow's own
 // value autocomplete already calls.
 
-import { aggregateLogs, getLogAttributeValues, type AttributeBag, type AttributeFilter } from '$lib/api';
-import { getMetricNames } from '$lib/metrics-api';
-import { getSpanAttributeValues, type SpanAttributeBag, type SpanAttributeFilter } from '$lib/traces-api';
-import type { DashboardAttributeBag, DashboardVariable } from '$lib/dashboards-api';
+import { aggregateLogs, getLogAttributeValues, type AttributeBag, type AttributeFilter } from '#lib/api.ts';
+import { getMetricNames } from '#lib/metrics-api.ts';
+import { getSpanAttributeValues, type SpanAttributeBag, type SpanAttributeFilter } from '#lib/traces-api.ts';
+import type { DashboardAttributeBag, DashboardVariable } from '#lib/dashboards-api.ts';
 
 /** Same wide window `loadKnownServices`/AlertRuleFormDialog's own copy use to enumerate
  *  values independent of whatever time range each panel happens to be showing. */

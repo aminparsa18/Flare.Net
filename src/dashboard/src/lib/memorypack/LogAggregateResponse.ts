@@ -4,9 +4,9 @@
 // `LogAggregateBucket`, has a `DateTimeOffset` member - see `LogAggregateBucket.ts`'s header
 // comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogAggregateBucket } from '$lib/memorypack/LogAggregateBucket';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogAggregateBucket } from '#lib/memorypack/LogAggregateBucket.ts';
 
 export class LogAggregateResponse {
 	buckets: (LogAggregateBucket | null)[] | null;

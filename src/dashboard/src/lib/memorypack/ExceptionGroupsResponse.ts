@@ -4,9 +4,9 @@
 // `IReadOnlyList<ExceptionGroup>` member blocks the generator - same
 // `ServiceOverviewResponse`/`SpanSearchResponse` precedent.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ExceptionGroup } from '$lib/memorypack/ExceptionGroup';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ExceptionGroup } from '#lib/memorypack/ExceptionGroup.ts';
 
 export class ExceptionGroupsResponse {
 	groups: (ExceptionGroup | null)[] | null;

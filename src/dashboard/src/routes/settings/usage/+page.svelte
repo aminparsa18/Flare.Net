@@ -3,12 +3,12 @@
 	// per-ingest-key volume today, and the largest attribute keys - so users can pick sampling
 	// or retention rules with evidence. Read-only; no polling.
 	import { onMount } from 'svelte';
-	import * as Card from '$lib/components/ui/card';
-	import * as Table from '$lib/components/ui/table';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { getUsage, type UsageResponse, type UsageSignal } from '$lib/usage-api';
-	import { formatBytes, formatCount } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { getUsage, type UsageResponse, type UsageSignal } from '#lib/usage-api.ts';
+	import { formatBytes, formatCount } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const WINDOWS = [1, 7, 30] as const;
 	const SIGNALS: UsageSignal[] = ['Logs', 'Traces', 'Metrics'];

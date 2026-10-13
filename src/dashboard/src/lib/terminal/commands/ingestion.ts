@@ -5,10 +5,10 @@
 // computeReceiverStatus/computeFlushStatus directly - same TypeScript, same functions,
 // zero risk of drifting from what the page itself shows.
 
-import { getIngestionStats, type IngestionProtocol, type IngestionSignal } from '$lib/ingestion-api';
-import { getPipelineStats } from '$lib/pipeline-api';
-import { computeFlushStatus, computeIngestionHealth, computeReceiverStatus, hasRecentArrivals, isBacklogStuck, utilizationPercent } from '$lib/ingestion/health';
-import { formatAge, formatBytes, formatCount, secondsSince } from '$lib/ingestion/format';
+import { getIngestionStats, type IngestionProtocol, type IngestionSignal } from '#lib/ingestion-api.ts';
+import { getPipelineStats } from '#lib/pipeline-api.ts';
+import { computeFlushStatus, computeIngestionHealth, computeReceiverStatus, hasRecentArrivals, isBacklogStuck, utilizationPercent } from '#lib/ingestion/health.ts';
+import { formatAge, formatBytes, formatCount, secondsSince } from '#lib/ingestion/format.ts';
 import type { TerminalCommand } from '../types';
 import { parseSince } from './metrics';
 

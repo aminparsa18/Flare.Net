@@ -2,8 +2,8 @@
 // permission is granted, polls /api/alerts/states and raises a Notification when a rule's
 // lastFiredAt advances. The first poll only records a baseline, so opening the app never
 // replays old fires. Best-effort: a failed poll is skipped, nothing is queued.
-import { listAlertRuleStatuses, listAlertRules } from '$lib/alerts-api';
-import * as m from '$lib/paraglide/messages';
+import { listAlertRuleStatuses, listAlertRules } from '#lib/alerts-api.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 const POLL_MS = 30_000;
 

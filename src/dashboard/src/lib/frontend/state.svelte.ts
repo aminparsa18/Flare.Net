@@ -3,10 +3,10 @@
 // `browser.web_vital.<name>` histograms with a `rating` attribute, and JS errors as exception
 // span events from resources carrying `telemetry.sdk.language = webjs`.
 
-import { getExceptionGroups, type ExceptionGroup } from '$lib/errors-api';
-import { buildErrorsDeepLinkHref } from '$lib/deep-links';
-import { queryMetric, type MetricQueryResponse } from '$lib/metrics-api';
-import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
+import { getExceptionGroups, type ExceptionGroup } from '#lib/errors-api.ts';
+import { buildErrorsDeepLinkHref } from '#lib/deep-links.ts';
+import { queryMetric, type MetricQueryResponse } from '#lib/metrics-api.ts';
+import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 export const WEB_VITALS = ['lcp', 'inp', 'cls', 'fcp', 'ttfb'] as const;
 export type WebVital = (typeof WEB_VITALS)[number];

@@ -4,14 +4,14 @@
 	// the single-value `Select` every other variable gets, with an "All" row (clears the
 	// selection) and a per-value "Only" shortcut (selects just that one). Selected values OR
 	// together; an empty selection means "All", same as a single-value variable's "All".
-	import * as Popover from '$lib/components/ui/popover';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Input } from '$lib/components/ui/input';
-	import type { DashboardVariable } from '$lib/dashboards-api';
-	import { variableOptionLabel } from '$lib/dashboards/variables';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import type { DashboardVariable } from '#lib/dashboards-api.ts';
+	import { variableOptionLabel } from '#lib/dashboards/variables.ts';
 	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		variable,

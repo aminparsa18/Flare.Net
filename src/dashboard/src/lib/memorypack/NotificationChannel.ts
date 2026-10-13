@@ -6,10 +6,10 @@
 // The `jira*` fields were appended after `sendResolved` (ADR-0097); `incidentIoToken` and `jsmOpsApiKey` after them (ADR-0098, ADR-0099).
 // `sendResolved` was appended after `updatedAt`, same versioning reasoning as `AlertRule.ts` (ADR-0064).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { NotificationChannelType } from '$lib/generated/memorypack/NotificationChannelType.js';
-import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { NotificationChannelType } from '#lib/generated/memorypack/NotificationChannelType.ts';
+import { readDateTimeOffset, writeDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class NotificationChannel {
 	id: string;

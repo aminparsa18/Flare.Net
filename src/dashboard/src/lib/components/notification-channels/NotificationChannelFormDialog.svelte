@@ -4,18 +4,18 @@
 	// reuse AlertRuleFormDialog's own `alertRuleForm_webhookUrlLabel`/etc. messages
 	// directly rather than duplicating them under a new key: same fields, same wording,
 	// now on a standalone entity instead of inlined on a rule.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { notificationChannelsContext } from '$lib/notification-channels/context';
-	import { sendTestNotificationChannel, type NotificationChannelRequest, type NotificationChannelType } from '$lib/notification-channels-api';
-	import type { AlertNotificationTestResult } from '$lib/alerts-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { notificationChannelsContext } from '#lib/notification-channels/context.ts';
+	import { sendTestNotificationChannel, type NotificationChannelRequest, type NotificationChannelType } from '#lib/notification-channels-api.ts';
+	import type { AlertNotificationTestResult } from '#lib/alerts-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const channels = notificationChannelsContext.get();
 

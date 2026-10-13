@@ -3,9 +3,9 @@
 // in declared order. Can't carry `[GenerateTypeScript]` itself: its members are
 // `IReadOnlyList<T>` (see ADR-0016). `ExternalDomain` itself is generated.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ExternalDomain } from '$lib/generated/memorypack/ExternalDomain.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ExternalDomain } from '#lib/generated/memorypack/ExternalDomain.ts';
 
 export class ExternalDomainsResponse {
 	windowMinutes: number;

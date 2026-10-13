@@ -14,7 +14,7 @@ a one-off micro-benchmark didn't justify pulling in Vitest just to get its `benc
 ## Running
 
 ```bash
-npm run bench   # regenerates $lib/generated/memorypack/*.ts first, then runs the bench
+npm run bench   # regenerates #lib/generated/memorypack/*.ts first, then runs the bench
 ```
 
 Not wired into `svelte-check`/CI — it's a manual, one-off measurement, same as the .NET

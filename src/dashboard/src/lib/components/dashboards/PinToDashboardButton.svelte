@@ -7,12 +7,12 @@
 	// existing one) - hidden entirely for a Viewer via `auth.canMutate`, same as every
 	// other dashboard-mutating control (DashboardTable.svelte/[id]/+page.svelte), so a
 	// Viewer never opens this dialog just to have it 403 on submit.
-	import { Button } from '$lib/components/ui/button';
-	import { authContext } from '$lib/auth/context';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import PinToDashboardDialog from './PinToDashboardDialog.svelte';
-	import type { PanelType } from '$lib/dashboards-api';
+	import type { PanelType } from '#lib/dashboards-api.ts';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		panelType,

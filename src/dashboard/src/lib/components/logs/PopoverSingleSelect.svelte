@@ -16,13 +16,13 @@
 	// underlying option list here is a small closed, already-loaded array
 	// (knownAttributeKeys), not a server-fetched one; Command's client-side substring
 	// filter is all that's needed).
-	import * as Popover from '$lib/components/ui/popover';
-	import * as Command from '$lib/components/ui/command';
-	import { Button } from '$lib/components/ui/button';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
+	import * as Popover from '#lib/components/ui/popover/index.ts';
+	import * as Command from '#lib/components/ui/command/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import { cn } from '$lib/utils';
-	import * as m from '$lib/paraglide/messages';
+	import { cn } from '#lib/utils.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		label,

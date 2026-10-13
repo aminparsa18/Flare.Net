@@ -12,9 +12,9 @@ import {
 	type MetricCatalogDetail,
 	type MetricCatalogEntry,
 	type MetricInspectResult
-} from '$lib/metric-catalog-api';
-import type { MetricPointType } from '$lib/metrics-api';
-import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
+} from '#lib/metric-catalog-api.ts';
+import type { MetricPointType } from '#lib/metrics-api.ts';
+import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 // Same five presets as the Services tab - the server clamps to the same 5m-24h range
 // (MetricCatalogQueryBuilder.MinWindowMinutes/MaxWindowMinutes). Their values are also valid

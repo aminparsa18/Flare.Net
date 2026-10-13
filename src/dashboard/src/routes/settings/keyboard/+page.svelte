@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { keyboardPrefs } from '#lib/keyboard/prefs.svelte.ts';
 	import {
 		FIXED_SHORTCUTS,
 		SHORTCUT_ACTIONS,
@@ -8,8 +8,8 @@
 		eventToCombo,
 		isMac,
 		type ShortcutAction
-	} from '$lib/keyboard/shortcuts';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/keyboard/shortcuts.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const actionLabels: Record<ShortcutAction, () => string> = {
 		commandPalette: () => m.settingsKeyboard_action_commandPalette(),

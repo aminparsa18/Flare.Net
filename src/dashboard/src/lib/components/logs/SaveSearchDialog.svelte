@@ -5,15 +5,15 @@
 	// before this opens (see SavedSearchesMenu's handleSaveClick), avoiding a
 	// Dialog-inside-Popover nesting/focus-trap footgun. A Logs-only reskin of
 	// saved-views/SaveViewDialog.svelte with pageType hardcoded to "Logs".
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
-	import { projects } from '$lib/projects/store.svelte';
-	import { createSavedView, type SavedView } from '$lib/saved-views-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import ProjectPicker from '#lib/components/projects/ProjectPicker.svelte';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import { createSavedView, type SavedView } from '#lib/saved-views-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		open = $bindable(false),

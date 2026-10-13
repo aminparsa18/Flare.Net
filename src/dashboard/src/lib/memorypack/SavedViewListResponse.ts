@@ -3,9 +3,9 @@
 // Can't carry `[GenerateTypeScript]` itself because its one member's type, `SavedView`, has
 // a `JsonElement` member - see `SavedView.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { SavedView } from '$lib/memorypack/SavedView';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { SavedView } from '#lib/memorypack/SavedView.ts';
 
 export class SavedViewListResponse {
 	views: (SavedView | null)[] | null;

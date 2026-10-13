@@ -8,12 +8,12 @@
 	// Counts are heavy-tailed (one busy row hides the rest on a linear ramp), so the color
 	// scale starts logarithmic; the corner toggle switches to linear. The toggle is a local
 	// view option, not saved with the panel.
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { formatAtScale, resolveAxisScale } from '$lib/metrics/axis';
-	import { SERIES_COLOR_VARS } from '$lib/metrics/chart-colors';
-	import type { HeatmapGrid } from '$lib/dashboards/visualization';
-	import { formatChartTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { formatAtScale, resolveAxisScale } from '#lib/metrics/axis.ts';
+	import { SERIES_COLOR_VARS } from '#lib/metrics/chart-colors.ts';
+	import type { HeatmapGrid } from '#lib/dashboards/visualization.ts';
+	import { formatChartTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		grid,

@@ -2,22 +2,22 @@
 	// Create/edit a maintenance window. Same Dialog + reset-on-open $effect shape as
 	// NotificationChannelFormDialog.svelte. Start/end/repeat-until are edited as wall-clock
 	// times in the window's own time zone and converted to instants on save (see
-	// $lib/time/time-zone.ts); the client-side checks mirror
+	// #lib/time/time-zone.ts); the client-side checks mirror
 	// MaintenanceWindowRequest.Validate so the Save button can't submit a request the API rejects.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import { alertsContext } from '$lib/alerts/context';
-	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
-	import { browserTimeZone, instantToZoned, timeZoneOptions, zonedToInstant } from '$lib/time/time-zone';
-	import type { MaintenanceWindowRecurrence, MaintenanceWindowRequest } from '$lib/maintenance-windows-api';
-	import * as m from '$lib/paraglide/messages';
-	import LabelsInput from '$lib/components/alerts/LabelsInput.svelte';
-	import type { Labels } from '$lib/alerts/labels';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import { alertsContext } from '#lib/alerts/context.ts';
+	import { maintenanceWindowsContext } from '#lib/maintenance-windows/context.ts';
+	import { browserTimeZone, instantToZoned, timeZoneOptions, zonedToInstant } from '#lib/time/time-zone.ts';
+	import type { MaintenanceWindowRecurrence, MaintenanceWindowRequest } from '#lib/maintenance-windows-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import LabelsInput from '#lib/components/alerts/LabelsInput.svelte';
+	import type { Labels } from '#lib/alerts/labels.ts';
 
 	const alerts = alertsContext.get();
 	const maintenance = maintenanceWindowsContext.get();

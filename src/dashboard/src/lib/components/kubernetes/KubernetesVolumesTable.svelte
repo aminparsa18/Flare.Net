@@ -1,16 +1,16 @@
 <script lang="ts">
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
 	import SortableHead from './SortableHead.svelte';
-	import { kubernetesContext } from '$lib/kubernetes/context';
-	import type { VolumesSortColumn } from '$lib/kubernetes/state.svelte';
-	import { formatAgo, isStale } from '$lib/kubernetes/ago';
-	import { formatBytes } from '$lib/kubernetes/format';
-	import { formatPercent } from '$lib/indexing/format';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import { kubernetesContext } from '#lib/kubernetes/context.ts';
+	import type { VolumesSortColumn } from '#lib/kubernetes/state.svelte.ts';
+	import { formatAgo, isStale } from '#lib/kubernetes/ago.ts';
+	import { formatBytes } from '#lib/kubernetes/format.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const k8s = kubernetesContext.get();
 	const now = $derived(k8s.loadedAt);

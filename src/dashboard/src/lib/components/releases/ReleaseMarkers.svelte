@@ -2,11 +2,11 @@
 
 <script lang="ts">
 	// Dashed vertical line per deploy inside a chart's own <svg>, in that chart's viewBox
-	// coordinates (see `$lib/releases/markers.ts`). Drawn before the series so data stays on top.
+	// coordinates (see `#lib/releases/markers.ts`). Drawn before the series so data stays on top.
 	// The wide transparent stroke is the hover target for the native <title> tooltip; pointer
 	// events still bubble to the chart's own handlers.
-	import type { ReleaseMarker } from '$lib/releases/markers';
-	import * as m from '$lib/paraglide/messages';
+	import type { ReleaseMarker } from '#lib/releases/markers.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { markers, width, peakY, baselineY }: { markers: readonly ReleaseMarker[]; width: number; peakY: number; baselineY: number } = $props();
 </script>

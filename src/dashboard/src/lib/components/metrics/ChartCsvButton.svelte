@@ -1,7 +1,7 @@
 <script lang="ts">
 	// "CSV" link in a chart's metadata row - styled like YAxisScaleToggle/BucketIntervalMenu
 	// beside it. Exports the series the chart is already showing; see chart-csv.ts.
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { onclick }: { onclick: () => void } = $props();
 </script>

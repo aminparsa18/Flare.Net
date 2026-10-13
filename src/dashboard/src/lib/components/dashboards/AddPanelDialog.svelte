@@ -10,17 +10,17 @@
 	// achieve the same "start from a blank query" reset that effect-driven forms like
 	// PinToDashboardDialog get from re-running an `$effect` on `open`.
 	import { untrack } from 'svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
 	import AddPanelLogsForm from './add-panel/AddPanelLogsForm.svelte';
 	import AddPanelTracesForm from './add-panel/AddPanelTracesForm.svelte';
 	import AddPanelMetricsForm from './add-panel/AddPanelMetricsForm.svelte';
-	import { TEXT_PANEL_MAX_LENGTH } from '$lib/dashboards/text-panel';
-	import { nextPanelPosition } from '$lib/dashboards/layout';
-	import type { DashboardPanel, PanelType } from '$lib/dashboards-api';
-	import * as m from '$lib/paraglide/messages';
+	import { TEXT_PANEL_MAX_LENGTH } from '#lib/dashboards/text-panel.ts';
+	import { nextPanelPosition } from '#lib/dashboards/layout.ts';
+	import type { DashboardPanel, PanelType } from '#lib/dashboards-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		open = $bindable(false),

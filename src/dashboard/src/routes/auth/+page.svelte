@@ -6,26 +6,26 @@
 	// only Admin-gates this once auth.authEnabled is true - see its remarks), since
 	// nobody has a role to check yet in that state.
 	import { onMount } from 'svelte';
-	import { AuthSettingsState } from '$lib/auth-settings/state.svelte';
-	import { authSettingsContext } from '$lib/auth-settings/context';
-	import { EntraSettingsState } from '$lib/entra-settings/state.svelte';
-	import { entraSettingsContext } from '$lib/entra-settings/context';
-	import { LdapSettingsState } from '$lib/ldap-settings/state.svelte';
-	import { ldapSettingsContext } from '$lib/ldap-settings/context';
-	import { OidcSettingsState } from '$lib/oidc-settings/state.svelte';
-	import { oidcSettingsContext } from '$lib/oidc-settings/context';
-	import { ProxyAuthSettingsState } from '$lib/proxy-auth-settings/state.svelte';
-	import { proxyAuthSettingsContext } from '$lib/proxy-auth-settings/context';
-	import { UsersState } from '$lib/users/state.svelte';
-	import { usersContext } from '$lib/users/context';
-	import AuthToggleCard from '$lib/components/auth/AuthToggleCard.svelte';
-	import EntraSecurityForm from '$lib/components/auth/EntraSecurityForm.svelte';
-	import LdapSecurityForm from '$lib/components/auth/LdapSecurityForm.svelte';
-	import OidcSecurityForm from '$lib/components/auth/OidcSecurityForm.svelte';
-	import ProxyAuthSecurityForm from '$lib/components/auth/ProxyAuthSecurityForm.svelte';
-	import UserTable from '$lib/components/auth/UserTable.svelte';
-	import ServiceAccountsCard from '$lib/components/auth/ServiceAccountsCard.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { AuthSettingsState } from '#lib/auth-settings/state.svelte.ts';
+	import { authSettingsContext } from '#lib/auth-settings/context.ts';
+	import { EntraSettingsState } from '#lib/entra-settings/state.svelte.ts';
+	import { entraSettingsContext } from '#lib/entra-settings/context.ts';
+	import { LdapSettingsState } from '#lib/ldap-settings/state.svelte.ts';
+	import { ldapSettingsContext } from '#lib/ldap-settings/context.ts';
+	import { OidcSettingsState } from '#lib/oidc-settings/state.svelte.ts';
+	import { oidcSettingsContext } from '#lib/oidc-settings/context.ts';
+	import { ProxyAuthSettingsState } from '#lib/proxy-auth-settings/state.svelte.ts';
+	import { proxyAuthSettingsContext } from '#lib/proxy-auth-settings/context.ts';
+	import { UsersState } from '#lib/users/state.svelte.ts';
+	import { usersContext } from '#lib/users/context.ts';
+	import AuthToggleCard from '#lib/components/auth/AuthToggleCard.svelte';
+	import EntraSecurityForm from '#lib/components/auth/EntraSecurityForm.svelte';
+	import LdapSecurityForm from '#lib/components/auth/LdapSecurityForm.svelte';
+	import OidcSecurityForm from '#lib/components/auth/OidcSecurityForm.svelte';
+	import ProxyAuthSecurityForm from '#lib/components/auth/ProxyAuthSecurityForm.svelte';
+	import UserTable from '#lib/components/auth/UserTable.svelte';
+	import ServiceAccountsCard from '#lib/components/auth/ServiceAccountsCard.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const authSettings = authSettingsContext.set(new AuthSettingsState());
 	const entraSettings = entraSettingsContext.set(new EntraSettingsState());

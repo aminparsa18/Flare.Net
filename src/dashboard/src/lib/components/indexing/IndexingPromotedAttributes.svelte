@@ -4,17 +4,17 @@
 	// it on `logs` or `spans`, and every filter on that key then reads the column instead of
 	// the whole attribute map. Listing is visible to everyone; the form and demote buttons are
 	// Admin-only (the API enforces that independently - this just hides controls that 403).
-	import * as Table from '$lib/components/ui/table';
-	import * as Select from '$lib/components/ui/select';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Switch } from '$lib/components/ui/switch';
-	import { indexingContext } from '$lib/indexing/context';
-	import { authContext } from '$lib/auth/context';
-	import type { AttributeBag } from '$lib/api';
-	import type { PromotedAttributeTable } from '$lib/indexing-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { indexingContext } from '#lib/indexing/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import type { AttributeBag } from '#lib/api.ts';
+	import type { PromotedAttributeTable } from '#lib/indexing-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const indexing = indexingContext.get();
 	const auth = authContext.get();

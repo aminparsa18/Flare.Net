@@ -3,6 +3,9 @@
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
+	"imports": {
+		"#lib/*": "./src/lib/*"
+	},
 	"scripts": {
 		"codegen": "dotnet build ../Flare.Api/Flare.Api.csproj -c Debug -clp:ErrorsOnly && paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy cookie preferredLanguage baseLocale",
 		"predev": "npm run codegen",

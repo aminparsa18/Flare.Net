@@ -4,9 +4,9 @@
 // member's type, `IngestApiKeyDto`, has `DateTimeOffset` members - see
 // `IngestApiKeyDto.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { IngestApiKeyDto } from '$lib/memorypack/IngestApiKeyDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { IngestApiKeyDto } from '#lib/memorypack/IngestApiKeyDto.ts';
 
 export class IngestApiKeyListResponse {
 	keys: (IngestApiKeyDto | null)[] | null;

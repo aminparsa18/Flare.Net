@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
+	import { formatNumber } from '#lib/format/number.ts';
 	// The last run's per-step figures. Traces, errors and drop-off counts open the matching
 	// drill-down (FunnelTracesSheet). Labels come from TraceFunnelState.resultSteps - the
 	// steps this result was computed for - not the live editor.
-	import * as Table from '$lib/components/ui/table';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { traceFunnelContext } from '$lib/trace-funnels/context';
-	import { stepLabel } from '$lib/trace-funnels/state.svelte';
-	import type { TraceFunnelOutcome } from '$lib/trace-funnels-api';
-	import { formatPercent } from '$lib/indexing/format';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { formatCount } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { traceFunnelContext } from '#lib/trace-funnels/context.ts';
+	import { stepLabel } from '#lib/trace-funnels/state.svelte.ts';
+	import type { TraceFunnelOutcome } from '#lib/trace-funnels-api.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const funnel = traceFunnelContext.get();
 

@@ -3,9 +3,9 @@
 // Can't carry `[GenerateTypeScript]` itself (its `Values` member is a list - same as
 // `SpanAttributeValuesResponse.ts`); `ExceptionFacetValue` is a real generated class.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { ExceptionFacetValue } from '$lib/generated/memorypack/ExceptionFacetValue.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { ExceptionFacetValue } from '#lib/generated/memorypack/ExceptionFacetValue.ts';
 
 export class ExceptionFacetValuesResponse {
 	values: (ExceptionFacetValue | null)[] | null;

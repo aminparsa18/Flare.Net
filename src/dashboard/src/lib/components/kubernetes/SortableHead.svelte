@@ -1,7 +1,7 @@
 <script lang="ts">
 	// One sortable column header - the same button/chevron markup HostsTable.svelte inlines,
 	// factored out because the Kubernetes page has two tables that both need it.
-	import * as Table from '$lib/components/ui/table';
+	import * as Table from '#lib/components/ui/table/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';

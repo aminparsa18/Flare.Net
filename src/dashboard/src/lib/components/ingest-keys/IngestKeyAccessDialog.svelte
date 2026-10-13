@@ -3,12 +3,12 @@
 	// and the service.name values it may write as (ADR-0150). One entry per line; an empty
 	// box lifts that restriction. The API normalizes origins and rejects malformed ones, so
 	// its message is shown as-is.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { ingestKeysContext } from '$lib/ingest-keys/context';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { ingestKeysContext } from '#lib/ingest-keys/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const keys = ingestKeysContext.get();
 

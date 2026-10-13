@@ -1,11 +1,11 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select';
+	import * as Select from '#lib/components/ui/select/index.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { INGESTION_WINDOW_PRESETS, ingestionWindowPresetLabel, type IngestionWindowPreset } from '$lib/ingestion/state.svelte';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { INGESTION_WINDOW_PRESETS, ingestionWindowPresetLabel, type IngestionWindowPreset } from '#lib/ingestion/state.svelte.ts';
 	import IngestionHealthStatus from './IngestionHealthStatus.svelte';
 	import IngestionTopology from './IngestionTopology.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const ingestion = ingestionContext.get();
 

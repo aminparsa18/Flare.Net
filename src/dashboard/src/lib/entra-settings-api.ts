@@ -7,8 +7,8 @@
 // the generated classes' fields already match this module's exported interfaces one-for-one.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { EntraSettingsDto } from '$lib/generated/memorypack/EntraSettingsDto.js';
-import { SaveEntraSettingsRequest as GeneratedSaveEntraSettingsRequest } from '$lib/generated/memorypack/SaveEntraSettingsRequest.js';
+import { EntraSettingsDto } from '#lib/generated/memorypack/EntraSettingsDto.ts';
+import { SaveEntraSettingsRequest as GeneratedSaveEntraSettingsRequest } from '#lib/generated/memorypack/SaveEntraSettingsRequest.ts';
 
 export interface EntraSettings {
 	enabled: boolean;

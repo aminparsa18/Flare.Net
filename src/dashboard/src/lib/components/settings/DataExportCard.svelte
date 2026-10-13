@@ -2,14 +2,14 @@
 	// Downloads the user's own saved views and dashboards as one JSON file. Saved views are
 	// shared workspace-wide and carry no owner, so every view the user can see is included;
 	// dashboards are limited to those the user owns (ADR-0027).
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { authContext } from '$lib/auth/context';
-	import { listDashboards } from '$lib/dashboards-api';
-	import { listSavedViews } from '$lib/saved-views-api';
-	import { downloadBlob } from '$lib/logs/export';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import { listDashboards } from '#lib/dashboards-api.ts';
+	import { listSavedViews } from '#lib/saved-views-api.ts';
+	import { downloadBlob } from '#lib/logs/export.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 

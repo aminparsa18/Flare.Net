@@ -2,18 +2,18 @@
 	// Source maps (ADR-0152): read-mostly inventory of what CI has uploaded, grouped by release
 	// (service + version), with delete per release or per bundle. Uploading stays a CLI/CI job.
 	import { onMount } from 'svelte';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { deleteSourceMaps, listSourceMaps, type SourceMapDto } from '$lib/source-maps-api';
-	import { formatBytes } from '$lib/ingestion/format';
-	import { formatDateTime } from '$lib/time/format';
-	import { authContext } from '$lib/auth/context';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { deleteSourceMaps, listSourceMaps, type SourceMapDto } from '#lib/source-maps-api.ts';
+	import { formatBytes } from '#lib/ingestion/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import FileCodeIcon from '@lucide/svelte/icons/file-code';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const auth = authContext.get();
 	const canDelete = $derived(!auth.authEnabled || auth.currentUser?.role === 'Admin');

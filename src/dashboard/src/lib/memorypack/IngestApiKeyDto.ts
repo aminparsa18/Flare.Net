@@ -2,12 +2,12 @@
 // generated. Mirrors `src/Flare.Api/Model/IngestApiKeyModels.cs`'s `IngestApiKeyDto`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
 // `CreatedAt`/`RevokedAt` are `DateTimeOffset`/`DateTimeOffset?` - see
-// `$lib/memorypack/date-time-offset.ts`'s header comment. The limit/usage members
+// `#lib/memorypack/date-time-offset.ts`'s header comment. The limit/usage members
 // (ADR-0051) are `long`/`long?` on the wire, read as `bigint` like the generated classes do.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { readDateTimeOffset, readNullableDateTimeOffset, writeDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { readDateTimeOffset, readNullableDateTimeOffset, writeDateTimeOffset, writeNullableDateTimeOffset } from '#lib/memorypack/date-time-offset.ts';
 
 export class IngestApiKeyDto {
 	id: string;

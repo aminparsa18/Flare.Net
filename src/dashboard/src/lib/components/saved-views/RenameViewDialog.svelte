@@ -3,13 +3,13 @@
 	// here (that lives on the source explorer page, not this management page). Mirrors
 	// AlertRuleFormDialog's "bounded form fits Dialog's modal-and-done shape" reasoning,
 	// just a smaller form.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { savedViewsContext } from '$lib/saved-views/context';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { savedViewsContext } from '#lib/saved-views/context.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const views = savedViewsContext.get();
 

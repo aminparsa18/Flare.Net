@@ -2,13 +2,13 @@
 // generated. Mirrors `src/Flare.Api/Model/LogAttributeValuesRequest.cs`'s
 // `LogAttributeValuesResponse`. Can't carry `[GenerateTypeScript]` itself: its `Values`
 // member is an `IReadOnlyList<LogAttributeValueInfo>` - see
-// `$lib/memorypack/LogAttributeKeysResponse.ts`'s header comment for why that alone blocks
+// `#lib/memorypack/LogAttributeKeysResponse.ts`'s header comment for why that alone blocks
 // `[GenerateTypeScript]`. `LogAttributeValueInfo` itself has no such member, so it's a real
 // generated class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogAttributeValueInfo } from '$lib/generated/memorypack/LogAttributeValueInfo.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogAttributeValueInfo } from '#lib/generated/memorypack/LogAttributeValueInfo.ts';
 
 export class LogAttributeValuesResponse {
 	values: (LogAttributeValueInfo | null)[] | null;

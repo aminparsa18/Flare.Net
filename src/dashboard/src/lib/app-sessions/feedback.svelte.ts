@@ -1,8 +1,8 @@
 // Reactive state for the /sessions/feedback inbox - messages users sent from the app (ADR-0193). On demand, with a
 // manual refresh, like the sessions table.
 
-import { getAppFeedback, type AppFeedback } from '$lib/app-sessions-api';
-import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
+import { getAppFeedback, type AppFeedback } from '#lib/app-sessions-api.ts';
+import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
 
 export const APP_FEEDBACK_WINDOW_PRESETS = SERVICES_WINDOW_PRESETS;
 

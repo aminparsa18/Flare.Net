@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { stripBase, withBase } from '$lib/paths';
+	import { stripBase, withBase } from '#lib/paths.ts';
 	// First shared app-shell nav - previously the logo lived inline in LogsToolbar since
 	// the whole app was one route. Now that /alerts exists, the logo + page links are
 	// hoisted here and mounted once in +layout.svelte so every route shares them; the
 	// Logs toolbar keeps only its own filter controls.
 	import { page } from '$app/state';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import { cn } from '$lib/utils';
-	import { Separator } from '$lib/components/ui/separator';
-	import { authContext } from '$lib/auth/context';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.ts';
+	import { cn } from '#lib/utils.ts';
+	import { Separator } from '#lib/components/ui/separator/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import { navLinks } from './nav-links';
 	import TerminalModal from './TerminalModal.svelte';
 	import NavUserMenu from './NavUserMenu.svelte';
-	import ProjectSwitcher from '$lib/components/projects/ProjectSwitcher.svelte';
+	import ProjectSwitcher from '#lib/components/projects/ProjectSwitcher.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// +layout.svelte renders AppNav once auth is off entirely (no currentUser then - see
 	// its showChrome derived value) or once auth.currentUser is confirmed non-null - the

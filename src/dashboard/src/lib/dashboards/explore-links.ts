@@ -1,6 +1,6 @@
 // Dashboard panel -> its explorer ("Open in Logs/Traces/Metrics" on DashboardPanelCard, and a
 // click on a panel's chart). Frontend-only: each explorer already restores a whole saved-view
-// state from `?state=` ($lib/deep-links.ts), so a link here is just that state, computed as
+// state from `?state=` (#lib/deep-links.ts), so a link here is just that state, computed as
 // the panel *currently shows it* - the saved query plus the dashboard's time-range override
 // and variable selections, applied by the same rules DashboardLogsPanelBody/
 // DashboardTracesPanelBody/DashboardMetricsPanelBody apply to their own private explorer
@@ -9,13 +9,13 @@
 // read back out of the panel body's explorer, so it works for a panel that hasn't scrolled
 // into view (and lazily mounted its body) yet.
 
-import { encodeStateDeepLinkParam } from '$lib/deep-links';
+import { encodeStateDeepLinkParam } from '#lib/deep-links.ts';
 import { attributesForLogsPanel, attributesForTracesPanel, type ResolvedVariableOverrides } from './variables';
 import { effectivePanelYAxisScale } from './visualization';
-import type { AttributeFilter } from '$lib/api';
-import { withBase } from '$lib/paths';
-import type { DashboardPanel } from '$lib/dashboards-api';
-import type { TimeRangePreset } from '$lib/logs/time-range';
+import type { AttributeFilter } from '#lib/api.ts';
+import { withBase } from '#lib/paths.ts';
+import type { DashboardPanel } from '#lib/dashboards-api.ts';
+import type { TimeRangePreset } from '#lib/logs/time-range.ts';
 
 type SavedState = Record<string, unknown>;
 

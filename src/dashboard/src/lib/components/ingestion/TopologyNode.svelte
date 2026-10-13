@@ -2,8 +2,8 @@
 	// One generic renderer for every stage of the Ingestion topology diagram - see
 	// topology-types.ts's remarks for why this is one component, not five.
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import type { IngestionTopologyNode, TopologyNodeKind, TopologyTone } from '$lib/ingestion/topology-types';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import type { IngestionTopologyNode, TopologyNodeKind, TopologyTone } from '#lib/ingestion/topology-types.ts';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import ServerIcon from '@lucide/svelte/icons/server';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';

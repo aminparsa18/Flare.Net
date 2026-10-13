@@ -4,12 +4,12 @@
 	// directly, since that component is typed to FlareResourceNode/ResourceNodeDto
 	// (container state/health/urls), fields a trace's services don't have.
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import type { ServiceMapFlowNode } from '$lib/traces/service-map-flow-types';
-	import { formatDurationNano } from '$lib/traces/duration';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import type { ServiceMapFlowNode } from '#lib/traces/service-map-flow-types.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
 	import NetworkIcon from '@lucide/svelte/icons/network';
 	import GlobeIcon from '@lucide/svelte/icons/globe';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { data }: NodeProps<ServiceMapFlowNode> = $props();
 	const service = $derived(data.service);

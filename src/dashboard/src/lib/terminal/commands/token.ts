@@ -3,14 +3,14 @@
 // unauthenticated against localhost because ingest keys aren't tied to a user, but a PAT
 // authenticates *as whoever creates it* - the standalone CLI process has no logged-in
 // identity to mint one for. This terminal modal runs inside an actual authenticated
-// browser tab, though, and calls the same $lib/personal-access-tokens-api.ts functions
+// browser tab, though, and calls the same #lib/personal-access-tokens-api.ts functions
 // riding that tab's own session cookie the same way every other command here already
 // does - so `create`/`list`/`revoke` all work for real, they just have no `flare token`
 // equivalent to mimic. See registry.ts's own comment for where this fits among the rest.
 
-import { createAccessToken, listAccessTokens, revokeAccessToken } from '$lib/personal-access-tokens-api';
+import { createAccessToken, listAccessTokens, revokeAccessToken } from '#lib/personal-access-tokens-api.ts';
 import type { TerminalCommand } from '../types';
-import { formatDateTime } from '$lib/time/format';
+import { formatDateTime } from '#lib/time/format.ts';
 
 export const tokenCommand: TerminalCommand = {
 	name: 'token',

@@ -11,27 +11,27 @@
 	// "dimensionless" - v1 scope cuts (docs-internal/adr/0036-cross-query-metric-formulas.md),
 	// not omissions; MetricChart's own equivalents stay the place to look for that richer
 	// feature set if/when Formula mode grows into it.
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import { axisFraction, formatAtScale, formatAutoScaled, logAxisTicks, niceAxisTicks, resolveAxisScale, type YAxisScale } from '$lib/metrics/axis';
-	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
-	import { seriesColor } from '$lib/metrics/chart-colors';
-	import { seriesLabel } from '$lib/dashboards/visualization';
-	import { areaPath, stackExtent, stackLines, topEdgePath } from '$lib/dashboards/stacking';
-	import type { PanelStacking } from '$lib/dashboards/visualization';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import { axisFraction, formatAtScale, formatAutoScaled, logAxisTicks, niceAxisTicks, resolveAxisScale, type YAxisScale } from '#lib/metrics/axis.ts';
+	import BucketIntervalMenu from '#lib/components/logs/BucketIntervalMenu.svelte';
+	import { seriesColor } from '#lib/metrics/chart-colors.ts';
+	import { seriesLabel } from '#lib/dashboards/visualization.ts';
+	import { areaPath, stackExtent, stackLines, topEdgePath } from '#lib/dashboards/stacking.ts';
+	import type { PanelStacking } from '#lib/dashboards/visualization.ts';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
 	import ChartCsvButton from './ChartCsvButton.svelte';
-	import { downloadTimeSeriesCsv } from '$lib/dashboards/chart-csv';
-	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
-	import { formatSeriesLabel, legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
-	import * as m from '$lib/paraglide/messages';
-	import { formatChartTime } from '$lib/time/format';
-	import { fractionInBuckets, loadReleases, placeMarkers } from '$lib/releases/markers';
-	import type { Release } from '$lib/releases-api';
-	import ReleaseMarkers from '$lib/components/releases/ReleaseMarkers.svelte';
+	import { downloadTimeSeriesCsv } from '#lib/dashboards/chart-csv.ts';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '#lib/dashboards/thresholds.ts';
+	import { formatSeriesLabel, legendLayout, seriesColorOverride, type LegendPosition } from '#lib/dashboards/legend.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatChartTime } from '#lib/time/format.ts';
+	import { fractionInBuckets, loadReleases, placeMarkers } from '#lib/releases/markers.ts';
+	import type { Release } from '#lib/releases-api.ts';
+	import ReleaseMarkers from '#lib/components/releases/ReleaseMarkers.svelte';
 
 	// yAxisMin/yAxisMax: same soft Y-axis floor/ceiling MetricChart.svelte's own props of
 	// the same name apply (DashboardPanel.yAxisMin/yAxisMax) - only ever set from a

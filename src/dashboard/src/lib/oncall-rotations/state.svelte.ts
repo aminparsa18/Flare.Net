@@ -9,7 +9,7 @@ import {
 	type OnCallRotation,
 	type OnCallRotationRequest,
 	type OnCallRotationStatus
-} from '$lib/oncall-rotations-api';
+} from '#lib/oncall-rotations-api.ts';
 
 export class OnCallRotationsState {
 	rotations = $state.raw<OnCallRotationStatus[]>([]);

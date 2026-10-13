@@ -12,12 +12,12 @@
 	// same "read-only, no reason to gate it" call DashboardTable.svelte's own per-dashboard
 	// Export button already makes.
 	import { goto } from '$app/navigation';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { inViewport } from '$lib/actions/in-viewport';
-	import { isReportMode } from '$lib/dashboards/report-mode';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { inViewport } from '#lib/actions/in-viewport.ts';
+	import { isReportMode } from '#lib/dashboards/report-mode.ts';
 	import DashboardLogsPanelBody from './panels/DashboardLogsPanelBody.svelte';
 	import DashboardMetricsPanelBody from './panels/DashboardMetricsPanelBody.svelte';
 	import DashboardTracesPanelBody from './panels/DashboardTracesPanelBody.svelte';
@@ -34,18 +34,18 @@
 	import ColumnUnitsPopover from './ColumnUnitsPopover.svelte';
 	import DecimalsPopover from './DecimalsPopover.svelte';
 	import LegendPopover from './LegendPopover.svelte';
-	import { effectivePanelYAxisScale, parseStacking, parseVisualization, usesLegend, usesYAxis, usesYAxisScale, type PanelReducer, type PanelStacking, type PanelVisualization } from '$lib/dashboards/visualization';
-	import type { YAxisScale } from '$lib/metrics/axis';
-	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
-	import { parseLegendFormat, parseLegendPosition, parseSeriesColors, type LegendPosition } from '$lib/dashboards/legend';
-	import { textPanelMarkdown } from '$lib/dashboards/text-panel';
-	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
-	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
-	import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
-	import { repeatValues, resolvePanelTitle, resolveVariableOverrides, type ResolvedVariableOverrides } from '$lib/dashboards/variables';
-	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '$lib/deep-links';
-	import { panelExplorerHref, panelExplorerState, withCustomRange, withLogsGroup } from '$lib/dashboards/explore-links';
+	import { effectivePanelYAxisScale, parseStacking, parseVisualization, usesLegend, usesYAxis, usesYAxisScale, type PanelReducer, type PanelStacking, type PanelVisualization } from '#lib/dashboards/visualization.ts';
+	import type { YAxisScale } from '#lib/metrics/axis.ts';
+	import type { PanelThreshold, ThresholdColor } from '#lib/dashboards/thresholds.ts';
+	import { parseLegendFormat, parseLegendPosition, parseSeriesColors, type LegendPosition } from '#lib/dashboards/legend.ts';
+	import { textPanelMarkdown } from '#lib/dashboards/text-panel.ts';
+	import type { DashboardPanel, DashboardRow, DashboardVariable } from '#lib/dashboards-api.ts';
+	import type { TimeRangePreset } from '#lib/logs/time-range.ts';
+	import type { LogsSavedViewState } from '#lib/logs/state.svelte.ts';
+	import type { MetricsSavedViewState } from '#lib/metrics/state.svelte.ts';
+	import { repeatValues, resolvePanelTitle, resolveVariableOverrides, type ResolvedVariableOverrides } from '#lib/dashboards/variables.ts';
+	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '#lib/deep-links.ts';
+	import { panelExplorerHref, panelExplorerState, withCustomRange, withLogsGroup } from '#lib/dashboards/explore-links.ts';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import TelescopeIcon from '@lucide/svelte/icons/telescope';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
@@ -53,7 +53,7 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		panel,
@@ -243,7 +243,7 @@
 
 	// "Open in Logs/Traces/Metrics" - the panel's query as it's currently shown (the
 	// dashboard's time-range override and this panel's variable selections applied, see
-	// $lib/dashboards/explore-links.ts), in its full explorer. A chart click opens the same
+	// #lib/dashboards/explore-links.ts), in its full explorer. A chart click opens the same
 	// state narrowed to the clicked window (and, on a grouped Logs chart, that series). Both
 	// modes, same "never risks losing anything" reasoning as "Create alert" above.
 	const explorerState = $derived(panelExplorerState(panel, timeRangeOverride, variableOverrides));

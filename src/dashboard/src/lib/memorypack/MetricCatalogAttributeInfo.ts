@@ -3,8 +3,8 @@
 // `MetricCatalogAttributeInfo`, in declared order. Can't carry `[GenerateTypeScript]`
 // itself: `SampleValues` is an `IReadOnlyList<string>` (see ADR-0016).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class MetricCatalogAttributeInfo {
 	key: string;

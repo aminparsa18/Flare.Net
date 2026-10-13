@@ -1,5 +1,5 @@
 import type { Node } from '@xyflow/svelte';
-import type { ResourceNodeDto, ProducerServiceDto } from '$lib/api';
+import type { ResourceNodeDto, ProducerServiceDto } from '#lib/api.ts';
 
 /** SvelteFlow node type for a Flare-managed container (Docker) or Pod (Kubernetes) - `id` is `ResourceNodeDto.role` (stable across polls; for Kubernetes this is the `flare.role` label value, not the Pod's own name - see `ResourceNodeDto.role`'s remarks), not the underlying container ID/Pod name (not stable across a recreate) - see `ResourceGraph.svelte`'s remarks. */
 export type FlareResourceNode = Node<{ node: ResourceNodeDto }, 'flare-resource'>;

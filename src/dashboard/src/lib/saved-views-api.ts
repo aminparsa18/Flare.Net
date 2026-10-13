@@ -3,10 +3,10 @@
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape. Every type here
-// is hand-written (`$lib/memorypack/`): `SavedView`/`SavedViewRequest` carry the opaque
+// is hand-written (`#lib/memorypack/`): `SavedView`/`SavedViewRequest` carry the opaque
 // `JsonElement State` blob MemoryPack has no native mapping for at all (see
-// `$lib/memorypack/SavedView.ts`'s header comment) on top of `DateTimeOffset`
-// `createdAt`/`updatedAt`. `pageType` converts through `$lib/memorypack/enums.ts`'s
+// `#lib/memorypack/SavedView.ts`'s header comment) on top of `DateTimeOffset`
+// `createdAt`/`updatedAt`. `pageType` converts through `#lib/memorypack/enums.ts`'s
 // `savedViewPageTypeToString`/`FromString`.
 //
 // `state` stays deliberately typed `unknown` on the wire, not one of the per-page filter
@@ -15,10 +15,10 @@
 // explorer state class's own toSavedViewState()/applySavedViewState() narrows it.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { savedViewPageTypeFromString, savedViewPageTypeToString, type SavedViewPageTypeName } from '$lib/memorypack/enums';
-import { SavedView as GeneratedSavedView } from '$lib/memorypack/SavedView';
-import { SavedViewRequest as GeneratedSavedViewRequest } from '$lib/memorypack/SavedViewRequest';
-import { SavedViewListResponse as GeneratedSavedViewListResponse } from '$lib/memorypack/SavedViewListResponse';
+import { savedViewPageTypeFromString, savedViewPageTypeToString, type SavedViewPageTypeName } from '#lib/memorypack/enums.ts';
+import { SavedView as GeneratedSavedView } from '#lib/memorypack/SavedView.ts';
+import { SavedViewRequest as GeneratedSavedViewRequest } from '#lib/memorypack/SavedViewRequest.ts';
+import { SavedViewListResponse as GeneratedSavedViewListResponse } from '#lib/memorypack/SavedViewListResponse.ts';
 
 // ---- Shared shapes (SavedViewModels.cs) ------------------------------------
 

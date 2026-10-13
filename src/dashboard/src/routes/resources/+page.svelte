@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { ResourcesState } from '$lib/resources/state.svelte';
-	import { HostStatsState } from '$lib/resources/host-stats.svelte';
-	import { resourcesContext } from '$lib/resources/context';
-	import ResourceGraph from '$lib/resources/ResourceGraph.svelte';
-	import HostOverview from '$lib/resources/HostOverview.svelte';
-	import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Switch } from '$lib/components/ui/switch';
+	import { ResourcesState } from '#lib/resources/state.svelte.ts';
+	import { HostStatsState } from '#lib/resources/host-stats.svelte.ts';
+	import { resourcesContext } from '#lib/resources/context.ts';
+	import ResourceGraph from '#lib/resources/ResourceGraph.svelte';
+	import HostOverview from '#lib/resources/HostOverview.svelte';
+	import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '#lib/components/ui/empty/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
 	import NetworkIcon from '@lucide/svelte/icons/network';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const resources = resourcesContext.set(new ResourcesState());
 	/** Independent stream from `resources` above - see HostOverview.svelte's own remark on why it isn't gated by the topology graph's enablement. */

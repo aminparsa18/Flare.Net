@@ -5,11 +5,11 @@
 	// to a small closed set (MAX_LINES_PER_ROW_OPTIONS) instead of anything a user types.
 	// Also hosts the Time/Message column toggles (LogsFilterState.showTimestampColumn/
 	// showBodyColumn) - the other table-display preferences, kept in one menu.
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import WrapTextIcon from '@lucide/svelte/icons/wrap-text';
-	import { MAX_LINES_PER_ROW_OPTIONS } from '$lib/logs/state.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { MAX_LINES_PER_ROW_OPTIONS } from '#lib/logs/state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		lines,

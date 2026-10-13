@@ -1,19 +1,19 @@
 <script lang="ts">
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import ActivityIcon from '@lucide/svelte/icons/activity';
-	import { servicesContext } from '$lib/services/context';
-	import { authContext } from '$lib/auth/context';
-	import type { ServicesSortColumn } from '$lib/services/state.svelte';
-	import { formatMs, formatPercent } from '$lib/indexing/format';
-	import { formatRequestRate } from '$lib/services/format';
-	import { buildTracesDeepLinkHref } from '$lib/deep-links';
+	import { servicesContext } from '#lib/services/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import type { ServicesSortColumn } from '#lib/services/state.svelte.ts';
+	import { formatMs, formatPercent } from '#lib/indexing/format.ts';
+	import { formatRequestRate } from '#lib/services/format.ts';
+	import { buildTracesDeepLinkHref } from '#lib/deep-links.ts';
 	import ApdexThresholdPopover from './ApdexThresholdPopover.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const services = servicesContext.get();
 	const auth = authContext.get();

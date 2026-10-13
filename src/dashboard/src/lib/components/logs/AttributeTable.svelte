@@ -7,7 +7,7 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ChartColumnStackedIcon from '@lucide/svelte/icons/chart-column-stacked';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		title,

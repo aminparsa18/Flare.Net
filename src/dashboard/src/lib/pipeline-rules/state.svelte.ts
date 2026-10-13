@@ -1,5 +1,5 @@
 // Central reactive state for the Pipeline Rules page - mirrors AlertsState's shape
-// (`$lib/alerts/state.svelte.ts`): a class with `$state` fields, provided via
+// (`#lib/alerts/state.svelte.ts`): a class with `$state` fields, provided via
 // `pipelineRulesContext` (context.ts) rather than passed as props, per this repo's
 // svelte-best-practices skill.
 
@@ -10,7 +10,7 @@ import {
 	deletePipelineRule,
 	type PipelineRule,
 	type PipelineRuleRequest
-} from '$lib/pipeline-rules-api';
+} from '#lib/pipeline-rules-api.ts';
 
 export class PipelineRulesState {
 	rules = $state.raw<PipelineRule[]>([]);

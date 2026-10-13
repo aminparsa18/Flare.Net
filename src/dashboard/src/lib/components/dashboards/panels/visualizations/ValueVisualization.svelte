@@ -4,10 +4,10 @@
 	// `totalsByBucket`'s remarks for why totals rather than the first series). The first
 	// matching threshold rule colors the number, which is what thresholds are most often for
 	// on a stat panel ("red above 500 ms").
-	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
-	import { formatValue, type PanelReducer } from '$lib/dashboards/visualization';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '#lib/dashboards/thresholds.ts';
+	import { formatValue, type PanelReducer } from '#lib/dashboards/visualization.ts';
 	import { reducerLabel } from './labels';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		value,

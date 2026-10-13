@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { lazyNumberFormat } from '$lib/format/number';
+	import { lazyNumberFormat } from '#lib/format/number.ts';
 	// Seq calls this the per-event scatter/density chart: pick a numeric property and see
 	// its values plotted over time, color-coded by how many events land on the same
 	// (time, value) cell. Flare's logs have no first-class numeric field to default to
@@ -23,16 +23,16 @@
 		getLogValueDistribution,
 		type LogAttributeKeyInfo,
 		type LogValueDistributionPoint
-	} from '$lib/api';
-	import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
-	import { resolveTimeRange } from '$lib/logs/time-range';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import * as m from '$lib/paraglide/messages';
-	import { formatAxisTime, formatChartRange } from '$lib/time/format';
+	} from '#lib/api.ts';
+	import { pickBucketWidthSeconds } from '#lib/logs/bucket-width.ts';
+	import { resolveTimeRange } from '#lib/logs/time-range.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import * as Accordion from '#lib/components/ui/accordion/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatAxisTime, formatChartRange } from '#lib/time/format.ts';
 
 	const explorer = logsExplorerContext.get();
 

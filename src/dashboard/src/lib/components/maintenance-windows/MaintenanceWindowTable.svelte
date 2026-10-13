@@ -1,21 +1,21 @@
 <script lang="ts">
 	// Mirrors NotificationChannelTable.svelte's shape. See
 	// docs-internal/adr/0055-alert-maintenance-windows.md.
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
-	import { instantToZoned } from '$lib/time/time-zone';
-	import type { MaintenanceWindow } from '$lib/maintenance-windows-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { maintenanceWindowsContext } from '#lib/maintenance-windows/context.ts';
+	import { instantToZoned } from '#lib/time/time-zone.ts';
+	import type { MaintenanceWindow } from '#lib/maintenance-windows-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import MoonIcon from '@lucide/svelte/icons/moon';
-	import { formatDateTimeMinutes } from '$lib/time/format';
-	import { formatLabels } from '$lib/alerts/labels';
+	import { formatDateTimeMinutes } from '#lib/time/format.ts';
+	import { formatLabels } from '#lib/alerts/labels.ts';
 
 	const maintenance = maintenanceWindowsContext.get();
 

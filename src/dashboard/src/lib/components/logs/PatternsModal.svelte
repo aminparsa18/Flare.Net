@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { lazyNumberFormat } from '$lib/format/number';
+	import { lazyNumberFormat } from '#lib/format/number.ts';
 	import { onMount } from 'svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import RegexIcon from '@lucide/svelte/icons/regex';
-	import { getPatterns, type LogPatternRow } from '$lib/api';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { cn } from '$lib/utils';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDateTime } from '$lib/time/format';
+	import { getPatterns, type LogPatternRow } from '#lib/api.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { cn } from '#lib/utils.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDateTime } from '#lib/time/format.ts';
 
 	// Embedded in the Logs page's toolbar (an icon-button trigger next to the search box)
 	// rather than a standalone `/patterns` route - patterns are always "patterns within

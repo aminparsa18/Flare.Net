@@ -6,15 +6,15 @@
 	// /traces.
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { TraceFunnelState } from '$lib/trace-funnels/state.svelte';
-	import { traceFunnelContext } from '$lib/trace-funnels/context';
-	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
-	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
-	import FunnelToolbar from '$lib/components/trace-funnels/FunnelToolbar.svelte';
-	import FunnelStepsEditor from '$lib/components/trace-funnels/FunnelStepsEditor.svelte';
-	import FunnelResults from '$lib/components/trace-funnels/FunnelResults.svelte';
-	import FunnelTracesSheet from '$lib/components/trace-funnels/FunnelTracesSheet.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { TraceFunnelState } from '#lib/trace-funnels/state.svelte.ts';
+	import { traceFunnelContext } from '#lib/trace-funnels/context.ts';
+	import { resolveRequestedSavedView } from '#lib/saved-views/hydrate.ts';
+	import { resolveLastUsedSavedView } from '#lib/saved-views/last-used.ts';
+	import FunnelToolbar from '#lib/components/trace-funnels/FunnelToolbar.svelte';
+	import FunnelStepsEditor from '#lib/components/trace-funnels/FunnelStepsEditor.svelte';
+	import FunnelResults from '#lib/components/trace-funnels/FunnelResults.svelte';
+	import FunnelTracesSheet from '#lib/components/trace-funnels/FunnelTracesSheet.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const funnel = traceFunnelContext.set(new TraceFunnelState());
 

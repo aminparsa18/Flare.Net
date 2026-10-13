@@ -3,12 +3,12 @@
 // `MessagingDestinationDetailResponse`, in declared order. Can't carry `[GenerateTypeScript]`
 // itself: its list members are `IReadOnlyList<T>` (see ADR-0016). The row types are generated.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MessagingServiceStats } from '$lib/generated/memorypack/MessagingServiceStats.js';
-import { MessagingPartitionStats } from '$lib/generated/memorypack/MessagingPartitionStats.js';
-import { MessagingConsumerLag } from '$lib/generated/memorypack/MessagingConsumerLag.js';
-import { MessagingQueueDepth } from '$lib/generated/memorypack/MessagingQueueDepth.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MessagingServiceStats } from '#lib/generated/memorypack/MessagingServiceStats.ts';
+import { MessagingPartitionStats } from '#lib/generated/memorypack/MessagingPartitionStats.ts';
+import { MessagingConsumerLag } from '#lib/generated/memorypack/MessagingConsumerLag.ts';
+import { MessagingQueueDepth } from '#lib/generated/memorypack/MessagingQueueDepth.ts';
 
 export class MessagingDestinationDetailResponse {
 	system: string | null;

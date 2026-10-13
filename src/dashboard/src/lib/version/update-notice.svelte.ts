@@ -4,9 +4,9 @@
 //
 // Dismissal is remembered per release version in localStorage, not as a flag: dismissing
 // 0.6.0 hides the banner until 0.7.0 is out, rather than forever. Per-browser, same as
-// $lib/time/display-zone - no server-side user settings store exists.
+// #lib/time/display-zone - no server-side user settings store exists.
 import { browser } from '$app/env';
-import { getVersionInfo, type VersionInfo } from '$lib/version-api';
+import { getVersionInfo, type VersionInfo } from '#lib/version-api.ts';
 
 const DISMISSED_KEY = 'flare.updateNotice.dismissedVersion';
 

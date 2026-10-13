@@ -4,9 +4,9 @@
 // `Events` member's type, `LogEventDto`, has `DateTimeOffset` members - see
 // `LogEventDto.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { LogEventDto } from '$lib/memorypack/LogEventDto';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { LogEventDto } from '#lib/memorypack/LogEventDto.ts';
 
 export class LogContextResponse {
 	events: (LogEventDto | null)[] | null;

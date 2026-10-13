@@ -2,14 +2,14 @@
 	// "Host health" section - turns host-health.ts's computed checks into the small
 	// icon+text list the mockup asked for, deliberately not another big dashboard section.
 	// Purely presentational (checks are computed by the caller, HostOverview.svelte) - same
-	// split $lib/components/indexing/IndexingStorageHealth.svelte uses between its own
+	// split #lib/components/indexing/IndexingStorageHealth.svelte uses between its own
 	// computeStorageHealth() and rendering, and this mirrors that component's rendering
 	// wholesale: a Card, divide-y rows, a tone-colored icon per row.
-	import * as Card from '$lib/components/ui/card';
+	import * as Card from '#lib/components/ui/card/index.ts';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import type { HostHealthCheck, HostHealthTone } from '$lib/resources/host-health';
-	import * as m from '$lib/paraglide/messages';
+	import type { HostHealthCheck, HostHealthTone } from '#lib/resources/host-health.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { checks }: { checks: HostHealthCheck[] } = $props();
 

@@ -4,9 +4,9 @@
 // `IReadOnlyList<T>` (see ADR-0016). `MetricCatalogEntry` has no such member, so it's a real
 // generated class, reused here directly.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { MetricCatalogEntry } from '$lib/generated/memorypack/MetricCatalogEntry.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { MetricCatalogEntry } from '#lib/generated/memorypack/MetricCatalogEntry.ts';
 
 export class MetricCatalogResponse {
 	windowMinutes: number;

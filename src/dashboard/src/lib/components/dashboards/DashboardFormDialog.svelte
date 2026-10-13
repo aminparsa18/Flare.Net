@@ -4,16 +4,16 @@
 	// dialog, this one also handles creation (`formTarget === 'new'`) - see
 	// DashboardsState's own remarks for why a dashboard (unlike a SavedView) needs one.
 	import { goto } from '$app/navigation';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
-	import { projects } from '$lib/projects/store.svelte';
-	import { dashboardsContext } from '$lib/dashboards/context';
-	import { dashboardPath } from '$lib/dashboards/page-paths';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import ProjectPicker from '#lib/components/projects/ProjectPicker.svelte';
+	import { projects } from '#lib/projects/store.svelte.ts';
+	import { dashboardsContext } from '#lib/dashboards/context.ts';
+	import { dashboardPath } from '#lib/dashboards/page-paths.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const dashboards = dashboardsContext.get();
 

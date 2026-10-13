@@ -12,7 +12,7 @@ Add `data-icon="inline-start"` (prefix) or `data-icon="inline-end"` (suffix) to 
 
 ```svelte
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button";
+  import { Button } from "#lib/components/ui/button";
   import SearchIcon from "@lucide/svelte/icons/search";
 </script>
 
@@ -26,7 +26,7 @@ Add `data-icon="inline-start"` (prefix) or `data-icon="inline-end"` (suffix) to 
 
 ```svelte
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button";
+  import { Button } from "#lib/components/ui/button";
   import SearchIcon from "@lucide/svelte/icons/search";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
 </script>
@@ -52,7 +52,7 @@ Components handle icon sizing via CSS. Don't add `size-4`, `w-4 h-4`, or other s
 
 ```svelte
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button";
+  import { Button } from "#lib/components/ui/button";
   import SearchIcon from "@lucide/svelte/icons/search";
 </script>
 
@@ -66,7 +66,7 @@ Components handle icon sizing via CSS. Don't add `size-4`, `w-4 h-4`, or other s
 
 ```svelte
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button";
+  import { Button } from "#lib/components/ui/button";
   import SearchIcon from "@lucide/svelte/icons/search";
 </script>
 

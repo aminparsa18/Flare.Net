@@ -2,11 +2,11 @@
 	// Icicle flame graph of one merged profile call tree (src/lib/profiles/layout.ts).
 	// Click a frame to zoom onto its subtree; same hand-rolled absolutely-positioned divs
 	// as TraceFlameGraph, no charting library.
-	import type { FlameGraphResponse } from '$lib/profiles-api';
-	import { layoutProfile, formatProfileValue, frameColor, type ProfileCell } from '$lib/profiles/layout';
-	import { Button } from '$lib/components/ui/button';
+	import type { FlameGraphResponse } from '#lib/profiles-api.ts';
+	import { layoutProfile, formatProfileValue, frameColor, type ProfileCell } from '#lib/profiles/layout.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { graph }: { graph: FlameGraphResponse } = $props();
 

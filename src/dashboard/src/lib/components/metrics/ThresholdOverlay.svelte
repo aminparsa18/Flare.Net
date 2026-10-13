@@ -2,7 +2,7 @@
 
 <script lang="ts">
 	// Draws a dashboard panel's visual threshold rules (DashboardPanel.thresholds - see
-	// `$lib/dashboards/thresholds.ts`) inside MetricChart's/FormulaChart's own <svg>, in that
+	// `#lib/dashboards/thresholds.ts`) inside MetricChart's/FormulaChart's own <svg>, in that
 	// chart's own viewBox coordinates: one faint shaded region per rule on the side its
 	// operator points at (above for `>`/`>=`, below for `<`/`<=`), plus a dashed line at the
 	// rule's value. Rendered before the series paths, so data always draws on top.
@@ -11,7 +11,7 @@
 	// visible range just isn't drawn (its region is still shaded if it covers the visible
 	// range, e.g. `< 1000` on a chart topping out at 50). Pulling an out-of-range threshold
 	// into view is what the panel's soft Y-axis min/max is for.
-	import { thresholdColorValue, thresholdShadesAbove, type PanelThreshold } from '$lib/dashboards/thresholds';
+	import { thresholdColorValue, thresholdShadesAbove, type PanelThreshold } from '#lib/dashboards/thresholds.ts';
 
 	let {
 		thresholds,

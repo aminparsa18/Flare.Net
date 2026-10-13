@@ -1,12 +1,12 @@
 <script lang="ts">
 	// Managed S3 archive settings (ADR-0156/0157). Remounted by its parent whenever the saved settings change,
 	// so the fields initialise once from `settings`. Keys arrive masked; leaving them untouched keeps the stored ones.
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Input } from '$lib/components/ui/input';
-	import * as Select from '$lib/components/ui/select';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Switch } from '$lib/components/ui/switch';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
 	import {
 		TELEMETRY_SIGNALS,
 		resetArchiveSettings,
@@ -14,8 +14,8 @@
 		type ArchiveFileFormat,
 		type ArchiveSettings,
 		type TelemetrySignal
-	} from '$lib/telemetry-export-api';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/telemetry-export-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { settings, onchanged }: { settings: ArchiveSettings; onchanged: (notice: string) => void } = $props();
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { withBase } from '$lib/paths';
+	import { withBase } from '#lib/paths.ts';
 	// Global Cmd+K/Ctrl+K command palette - "Navigate" (every page AppNav links to),
 	// "Actions" (Toggle Live Mode + Export Logs, Logs-page-only - see below), "Recently
 	// Searched" (last couple of raw search-box terms, also Logs-page-only, see
@@ -20,18 +20,18 @@
 	// below is null on every other page, which hides the group instead of showing
 	// controls that would no-op. "Change Environment" and "Jump to Errors" are still out
 	// of scope - no Environment/Exceptions concept exists anywhere in this codebase yet.
-	import * as Command from '$lib/components/ui/command';
-	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
-	import { firesInFields, isEditableTarget, matchesCombo } from '$lib/keyboard/shortcuts';
+	import * as Command from '#lib/components/ui/command/index.ts';
+	import { keyboardPrefs } from '#lib/keyboard/prefs.svelte.ts';
+	import { firesInFields, isEditableTarget, matchesCombo } from '#lib/keyboard/shortcuts.ts';
 	import { goto } from '$app/navigation';
-	import { authContext } from '$lib/auth/context';
+	import { authContext } from '#lib/auth/context.ts';
 	import { navLinks, settingsManagementLinks, workspaceLinks, type NavLink } from './nav-links';
-	import { listSavedViews, type SavedView } from '$lib/saved-views-api';
-	import { savedViewPath } from '$lib/saved-views/page-paths';
-	import { activeLogsExplorer } from '$lib/logs/active-explorer.svelte';
-	import { settingEntries } from '$lib/settings/search-index';
-	import { getRecentSearches } from '$lib/logs/recent-searches';
-	import * as m from '$lib/paraglide/messages';
+	import { listSavedViews, type SavedView } from '#lib/saved-views-api.ts';
+	import { savedViewPath } from '#lib/saved-views/page-paths.ts';
+	import { activeLogsExplorer } from '#lib/logs/active-explorer.svelte.ts';
+	import { settingEntries } from '#lib/settings/search-index.ts';
+	import { getRecentSearches } from '#lib/logs/recent-searches.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import type { Component } from 'svelte';
 
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';

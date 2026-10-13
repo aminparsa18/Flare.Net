@@ -1,22 +1,22 @@
 <script lang="ts">
 	// Inbox of messages users sent from the app ("report a problem", ADR-0193). Each row links to its session timeline.
 	import { onMount, onDestroy } from 'svelte';
-	import { safeMailto } from '$lib/safe-url';
-	import * as Select from '$lib/components/ui/select';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { safeMailto } from '#lib/safe-url.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import { AppFeedbackState, APP_FEEDBACK_WINDOW_PRESETS, FEEDBACK_SESSION_LOOKBACK_MS } from '$lib/app-sessions/feedback.svelte';
-	import { servicesWindowPresetLabel, type ServicesWindowPreset } from '$lib/services/state.svelte';
-	import { buildSessionTimelineHref } from '$lib/deep-links';
-	import { withBase } from '$lib/paths';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import { AppFeedbackState, APP_FEEDBACK_WINDOW_PRESETS, FEEDBACK_SESSION_LOOKBACK_MS } from '#lib/app-sessions/feedback.svelte.ts';
+	import { servicesWindowPresetLabel, type ServicesWindowPreset } from '#lib/services/state.svelte.ts';
+	import { buildSessionTimelineHref } from '#lib/deep-links.ts';
+	import { withBase } from '#lib/paths.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const feedback = new AppFeedbackState();
 

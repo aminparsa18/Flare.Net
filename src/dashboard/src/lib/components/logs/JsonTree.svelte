@@ -1,18 +1,18 @@
 <script lang="ts">
 	// Recursive collapsible tree for a parsed JSON log body. Filtering is limited to what
-	// BodyJsonFilter can express (see $lib/logs/json-body.ts): ClickHouse's JSONExtractString
+	// BodyJsonFilter can express (see #lib/logs/json-body.ts): ClickHouse's JSONExtractString
 	// only returns string leaves, so string leaves get Equals/NotEquals, scalars inside an
 	// array-of-scalars get Has/NotHas on the array's path; numbers/booleans/null are copy-only.
 	import JsonTree from './JsonTree.svelte';
-	import { bodyJsonPath, displayJsonPath, type JsonValue } from '$lib/logs/json-body';
-	import type { BodyJsonFilterOperator } from '$lib/api';
+	import { bodyJsonPath, displayJsonPath, type JsonValue } from '#lib/logs/json-body.ts';
+	import type { BodyJsonFilterOperator } from '#lib/api.ts';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import FunnelPlusIcon from '@lucide/svelte/icons/funnel-plus';
 	import FunnelXIcon from '@lucide/svelte/icons/funnel-x';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ChartColumnStackedIcon from '@lucide/svelte/icons/chart-column-stacked';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		value,

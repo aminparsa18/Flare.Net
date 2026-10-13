@@ -11,7 +11,7 @@
 // no attributed segment ran entirely in the shadow of a slower sibling and had zero
 // effect on the trace's end time.
 
-import type { SpanDto } from '$lib/traces-api';
+import type { SpanDto } from '#lib/traces-api.ts';
 
 export interface CriticalPathResult {
 	/** spanId -> total ms that span (specifically, not its descendants) contributed to the critical path. Absent = that span never determined the trace's end time. */

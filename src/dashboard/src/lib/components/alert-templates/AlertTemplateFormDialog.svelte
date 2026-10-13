@@ -2,15 +2,15 @@
 	// Create/edit a shared alert notification template (ADR-0148). Same Dialog + reset-on-open
 	// $effect shape as MaintenanceWindowFormDialog.svelte. Placeholder validation is the
 	// server's (AlertTemplateRequest.Validate) and comes back as the save error.
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { NOTIFICATION_TEMPLATE_PLACEHOLDERS } from '$lib/alerts-api';
-	import { TEMPLATE_CHANNEL_TYPES, type AlertTemplate, type AlertTemplateRequest } from '$lib/alert-templates-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { NOTIFICATION_TEMPLATE_PLACEHOLDERS } from '#lib/alerts-api.ts';
+	import { TEMPLATE_CHANNEL_TYPES, type AlertTemplate, type AlertTemplateRequest } from '#lib/alert-templates-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		target,

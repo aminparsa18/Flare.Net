@@ -6,7 +6,7 @@
 // module's exported `AuthSettings` interface one-for-one.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { AuthSettingsDto } from '$lib/generated/memorypack/AuthSettingsDto.js';
+import { AuthSettingsDto } from '#lib/generated/memorypack/AuthSettingsDto.ts';
 
 export interface AuthSettings {
 	enabled: boolean;

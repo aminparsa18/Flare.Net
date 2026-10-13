@@ -3,14 +3,14 @@
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape, and
-// `$lib/memorypack/enums.ts` for why `defaultRole` converts through `userRoleToString`/
+// `#lib/memorypack/enums.ts` for why `defaultRole` converts through `userRoleToString`/
 // `userRoleFromString` instead of being passed through as MemoryPack's raw numeric ordinal.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import type { UserRole } from './auth-api';
-import { userRoleFromString, userRoleToString } from '$lib/memorypack/enums';
-import { LdapSettingsDto } from '$lib/generated/memorypack/LdapSettingsDto.js';
-import { SaveLdapSettingsRequest as GeneratedSaveLdapSettingsRequest } from '$lib/generated/memorypack/SaveLdapSettingsRequest.js';
+import { userRoleFromString, userRoleToString } from '#lib/memorypack/enums.ts';
+import { LdapSettingsDto } from '#lib/generated/memorypack/LdapSettingsDto.ts';
+import { SaveLdapSettingsRequest as GeneratedSaveLdapSettingsRequest } from '#lib/generated/memorypack/SaveLdapSettingsRequest.ts';
 
 export interface LdapSettings {
 	enabled: boolean;

@@ -4,16 +4,16 @@
 	// too large to read row by row in the waterfall. Same hand-rolled absolutely-positioned
 	// divs as TraceWaterfall, no charting library. Selection is TraceDetailState's
 	// selectedSpanId, so clicking a bar opens the same SpanDetailSheet the waterfall does.
-	import type { SpanDto } from '$lib/traces-api';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { traceDetailContext } from '$lib/traces/trace-context';
-	import { computeFlameLayout, type FlameBar } from '$lib/traces/flame-graph';
-	import { statusLabel } from '$lib/traces/status';
-	import { formatTimeOfDay } from '$lib/time/format';
+	import type { SpanDto } from '#lib/traces-api.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { traceDetailContext } from '#lib/traces/trace-context.ts';
+	import { computeFlameLayout, type FlameBar } from '#lib/traces/flame-graph.ts';
+	import { statusLabel } from '#lib/traces/status.ts';
+	import { formatTimeOfDay } from '#lib/time/format.ts';
 	import TraceColorLegend from './TraceColorLegend.svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 
 	const detail = traceDetailContext.get();

@@ -8,21 +8,21 @@
 	// components. Formerly its own page at /users - moved here, wrapped in a Card for
 	// visual consistency with this page's other sections, when /security and /users
 	// were consolidated into /auth.
-	import * as Card from '$lib/components/ui/card';
-	import * as Table from '$lib/components/ui/table';
-	import * as Select from '$lib/components/ui/select';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Badge } from '$lib/components/ui/badge';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { withBase } from '$lib/paths';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { usersContext } from '$lib/users/context';
-	import { authContext } from '$lib/auth/context';
-	import type { UserRole } from '$lib/auth-api';
-	import * as m from '$lib/paraglide/messages';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { withBase } from '#lib/paths.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { usersContext } from '#lib/users/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
+	import type { UserRole } from '#lib/auth-api.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const users = usersContext.get();
 	const auth = authContext.get();

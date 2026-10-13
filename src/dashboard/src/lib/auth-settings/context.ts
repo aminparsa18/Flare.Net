@@ -1,4 +1,4 @@
-// Same generic typed-context helper as $lib/entra-settings/context.ts - re-authored here
+// Same generic typed-context helper as #lib/entra-settings/context.ts - re-authored here
 // rather than shared, per that file's own note.
 
 import { getContext, hasContext, setContext } from 'svelte';

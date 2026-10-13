@@ -12,18 +12,18 @@
 	// closing the "Add panel" gap ADR-0036 left open) - `explorer.toSavedViewState()`
 	// already serializes whichever mode is active, so `currentState()` needs no change.
 	import { onMount, onDestroy } from 'svelte';
-	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
-	import { metricsExplorerContext } from '$lib/metrics/context';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
-	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
-	import MetricPicker from '$lib/components/metrics/MetricPicker.svelte';
-	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
-	import FormulaBuilder from '$lib/components/metrics/FormulaBuilder.svelte';
-	import FormulaChart from '$lib/components/metrics/FormulaChart.svelte';
-	import * as Select from '$lib/components/ui/select';
-	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import { MetricsExplorerState } from '#lib/metrics/state.svelte.ts';
+	import { metricsExplorerContext } from '#lib/metrics/context.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
+	import PopoverSingleSelect from '#lib/components/logs/PopoverSingleSelect.svelte';
+	import MetricPicker from '#lib/components/metrics/MetricPicker.svelte';
+	import MetricChart from '#lib/components/metrics/MetricChart.svelte';
+	import FormulaBuilder from '#lib/components/metrics/FormulaBuilder.svelte';
+	import FormulaChart from '#lib/components/metrics/FormulaChart.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '#lib/logs/time-range.ts';
 	import ClockIcon from '@lucide/svelte/icons/clock';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { valid = $bindable(false) }: { valid?: boolean } = $props();
 

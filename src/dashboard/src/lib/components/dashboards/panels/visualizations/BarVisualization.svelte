@@ -12,16 +12,16 @@
 	// negative one can lower it. Capped at the palette's 5 series like MetricChart.
 	//
 	// `legendPosition`/`seriesColors`: the panel's legend placement and per-series color
-	// overrides - see `$lib/dashboards/legend.ts`.
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { niceAxisTicks, resolveAxisScale, formatAtScale } from '$lib/metrics/axis';
-	import { SERIES_COLOR_VARS, seriesColor } from '$lib/metrics/chart-colors';
-	import ThresholdOverlay from '$lib/components/metrics/ThresholdOverlay.svelte';
-	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
-	import { legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
-	import { byMagnitude, type PanelStacking, type VizSeries } from '$lib/dashboards/visualization';
-	import * as m from '$lib/paraglide/messages';
-	import { formatChartTime } from '$lib/time/format';
+	// overrides - see `#lib/dashboards/legend.ts`.
+	import * as Tooltip from '#lib/components/ui/tooltip/index.ts';
+	import { niceAxisTicks, resolveAxisScale, formatAtScale } from '#lib/metrics/axis.ts';
+	import { SERIES_COLOR_VARS, seriesColor } from '#lib/metrics/chart-colors.ts';
+	import ThresholdOverlay from '#lib/components/metrics/ThresholdOverlay.svelte';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '#lib/dashboards/thresholds.ts';
+	import { legendLayout, seriesColorOverride, type LegendPosition } from '#lib/dashboards/legend.ts';
+	import { byMagnitude, type PanelStacking, type VizSeries } from '#lib/dashboards/visualization.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatChartTime } from '#lib/time/format.ts';
 
 	let {
 		series,

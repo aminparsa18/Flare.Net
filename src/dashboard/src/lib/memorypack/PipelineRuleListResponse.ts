@@ -3,9 +3,9 @@
 // Can't carry `[GenerateTypeScript]` itself because its one member's type, `PipelineRule`,
 // is hand-written - see `PipelineRule.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { PipelineRule } from '$lib/memorypack/PipelineRule';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { PipelineRule } from '#lib/memorypack/PipelineRule.ts';
 
 export class PipelineRuleListResponse {
 	rules: (PipelineRule | null)[] | null;

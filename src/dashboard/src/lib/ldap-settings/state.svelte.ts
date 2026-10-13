@@ -1,7 +1,7 @@
 // Central reactive state for the /auth page's Active Directory section - mirrors
-// EntraSettingsState's shape ($lib/entra-settings/state.svelte.ts).
+// EntraSettingsState's shape (#lib/entra-settings/state.svelte.ts).
 
-import { getLdapSettings, saveLdapSettings, type LdapSettings, type SaveLdapSettingsRequest } from '$lib/ldap-settings-api';
+import { getLdapSettings, saveLdapSettings, type LdapSettings, type SaveLdapSettingsRequest } from '#lib/ldap-settings-api.ts';
 
 export class LdapSettingsState {
 	settings = $state.raw<LdapSettings | null>(null);

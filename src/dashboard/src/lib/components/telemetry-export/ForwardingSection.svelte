@@ -2,12 +2,12 @@
 	// Forwarding targets (ADR-0155/0157): the saved targets plus read-only rows for the ones defined in
 	// configuration, each with live queue/delivery status polled from /api/forwarding/status.
 	import { onDestroy, onMount } from 'svelte';
-	import * as Table from '$lib/components/ui/table';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Switch } from '$lib/components/ui/switch';
-	import { listIngestApiKeys, type IngestApiKeyDto } from '$lib/ingest-keys-api';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { listIngestApiKeys, type IngestApiKeyDto } from '#lib/ingest-keys-api.ts';
 	import {
 		deleteForwardingTarget,
 		getForwardingStatus,
@@ -15,11 +15,11 @@
 		saveForwardingTarget,
 		type ForwardingTarget,
 		type ForwardingTargetStatus
-	} from '$lib/telemetry-export-api';
-	import { singleLineError, statusKeyForTarget } from '$lib/telemetry-export/format';
-	import { formatAge, formatCount, secondsSince } from '$lib/ingestion/format';
+	} from '#lib/telemetry-export-api.ts';
+	import { singleLineError, statusKeyForTarget } from '#lib/telemetry-export/format.ts';
+	import { formatAge, formatCount, secondsSince } from '#lib/ingestion/format.ts';
 	import ForwardingTargetFormDialog from './ForwardingTargetFormDialog.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';

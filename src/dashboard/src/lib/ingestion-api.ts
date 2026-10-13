@@ -4,15 +4,15 @@
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape. Every type here
 // nests a `DateTimeOffset` member somewhere (`IngestionBucketPoint.BucketStart`,
 // `IngestionErrorEntryDto.Timestamp`, `IngestionStatsResponse.GeneratedAt`), so all three are
-// hand-written (`$lib/memorypack/`); `IngestionSignal`/`IngestionProtocol` convert through
-// `$lib/memorypack/enums.ts`'s ordinal↔string adapters, same reasoning `auth-api.ts`
+// hand-written (`#lib/memorypack/`); `IngestionSignal`/`IngestionProtocol` convert through
+// `#lib/memorypack/enums.ts`'s ordinal↔string adapters, same reasoning `auth-api.ts`
 // documents for `UserRole`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders } from './api';
-import { ingestionProtocolToString, ingestionSignalToString, type IngestionProtocolName, type IngestionSignalName } from '$lib/memorypack/enums';
-import { IngestionStatsResponse as GeneratedIngestionStatsResponse } from '$lib/memorypack/IngestionStatsResponse';
-import type { IngestionBucketPoint as GeneratedIngestionBucketPoint } from '$lib/memorypack/IngestionBucketPoint';
-import type { IngestionErrorEntryDto as GeneratedIngestionErrorEntryDto } from '$lib/memorypack/IngestionErrorEntryDto';
+import { ingestionProtocolToString, ingestionSignalToString, type IngestionProtocolName, type IngestionSignalName } from '#lib/memorypack/enums.ts';
+import { IngestionStatsResponse as GeneratedIngestionStatsResponse } from '#lib/memorypack/IngestionStatsResponse.ts';
+import type { IngestionBucketPoint as GeneratedIngestionBucketPoint } from '#lib/memorypack/IngestionBucketPoint.ts';
+import type { IngestionErrorEntryDto as GeneratedIngestionErrorEntryDto } from '#lib/memorypack/IngestionErrorEntryDto.ts';
 
 export type IngestionSignal = IngestionSignalName;
 export type IngestionProtocol = IngestionProtocolName;

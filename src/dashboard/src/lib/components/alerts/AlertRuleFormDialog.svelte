@@ -1,26 +1,26 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
+	import { formatNumber } from '#lib/format/number.ts';
 	// Create/edit alert rule. Uses `Dialog` (scaffolded in the ui/ tree but unused
 	// anywhere before this feature) rather than `Sheet` - a bounded form fits Dialog's
 	// modal-and-done shape better than Sheet's established "detail viewer" role
 	// (EventDetailSheet.svelte). AlertHistorySheet.svelte uses Sheet instead, matching
 	// that precedent for its own "inspect a list of things" role.
 	import { onMount } from 'svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import PopoverMultiSelect from '#lib/components/logs/PopoverMultiSelect.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { alertsContext } from '$lib/alerts/context';
-	import type { ResourceAttributeFilter } from '$lib/services-api';
-	import { notificationChannelsContext } from '$lib/notification-channels/context';
-	import { listAlertTemplates, type AlertTemplate } from '$lib/alert-templates-api';
-	import { onCallRotationsContext } from '$lib/oncall-rotations/context';
+	import { alertsContext } from '#lib/alerts/context.ts';
+	import type { ResourceAttributeFilter } from '#lib/services-api.ts';
+	import { notificationChannelsContext } from '#lib/notification-channels/context.ts';
+	import { listAlertTemplates, type AlertTemplate } from '#lib/alert-templates-api.ts';
+	import { onCallRotationsContext } from '#lib/oncall-rotations/context.ts';
 	import {
 		testDraftAlertRule,
 		sendTestDraftAlertRule,
@@ -37,20 +37,20 @@
 		type AnomalyCondition,
 		type AnomalyDirection,
 		type AnomalySeasonality
-	} from '$lib/alerts-api';
-	import { aggregateLogs } from '$lib/api';
-	import { compatibleUnits } from '$lib/metrics/axis';
-	import { getMetricNames, type MetricFilter, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
-	import { listSyntheticMonitors } from '$lib/synthetic-monitors-api';
-	import { quorumMinDown, quorumThreshold } from '$lib/synthetic-monitors/quorum';
-	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
-	import { ALERT_SEVERITIES } from '$lib/memorypack/enums';
-	import { severityLabel } from '$lib/alerts/severity';
-	import LabelsInput from '$lib/components/alerts/LabelsInput.svelte';
-	import type { Labels } from '$lib/alerts/labels';
-	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
-	import { projects, projectIdForRequest } from '$lib/projects/store.svelte';
-	import * as m from '$lib/paraglide/messages';
+	} from '#lib/alerts-api.ts';
+	import { aggregateLogs } from '#lib/api.ts';
+	import { compatibleUnits } from '#lib/metrics/axis.ts';
+	import { getMetricNames, type MetricFilter, type MetricNameInfo, type MetricPointType } from '#lib/metrics-api.ts';
+	import { listSyntheticMonitors } from '#lib/synthetic-monitors-api.ts';
+	import { quorumMinDown, quorumThreshold } from '#lib/synthetic-monitors/quorum.ts';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '#lib/logs/severity.ts';
+	import { ALERT_SEVERITIES } from '#lib/memorypack/enums.ts';
+	import { severityLabel } from '#lib/alerts/severity.ts';
+	import LabelsInput from '#lib/components/alerts/LabelsInput.svelte';
+	import type { Labels } from '#lib/alerts/labels.ts';
+	import ProjectPicker from '#lib/components/projects/ProjectPicker.svelte';
+	import { projects, projectIdForRequest } from '#lib/projects/store.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// Which MetricAlertAggregation values are meaningful for each MetricPointType - see
 	// that enum's C#-side doc comment. Drives the aggregation Select's option list, the

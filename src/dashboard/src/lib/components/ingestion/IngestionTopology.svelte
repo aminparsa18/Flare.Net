@@ -21,15 +21,15 @@
 	// for this unrelated node/edge set as it was there.
 	import { SvelteFlow, Background, Controls, type Edge } from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import WaypointsIcon from '@lucide/svelte/icons/waypoints';
-	import { ingestionContext } from '$lib/ingestion/context';
-	import { layoutGraph } from '$lib/resources/layout';
+	import { ingestionContext } from '#lib/ingestion/context.ts';
+	import { layoutGraph } from '#lib/resources/layout.ts';
 	import TopologyNode from './TopologyNode.svelte';
-	import { formatAge, formatCount, secondsSince, signalLabel } from '$lib/ingestion/format';
-	import * as m from '$lib/paraglide/messages';
+	import { formatAge, formatCount, secondsSince, signalLabel } from '#lib/ingestion/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import {
 		DOWN_UTILIZATION_PERCENT,
 		WARN_UTILIZATION_PERCENT,
@@ -37,9 +37,9 @@
 		hasRecentArrivals,
 		isBacklogStuck,
 		utilizationPercent
-	} from '$lib/ingestion/health';
-	import type { IngestionTopologyNode, TopologyLine, TopologyTone } from '$lib/ingestion/topology-types';
-	import type { IngestionSignal } from '$lib/ingestion-api';
+	} from '#lib/ingestion/health.ts';
+	import type { IngestionTopologyNode, TopologyLine, TopologyTone } from '#lib/ingestion/topology-types.ts';
+	import type { IngestionSignal } from '#lib/ingestion-api.ts';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 

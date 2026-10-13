@@ -1,21 +1,21 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { AlertsState } from '$lib/alerts/state.svelte';
-	import { alertsContext } from '$lib/alerts/context';
-	import { parseAlertDeepLinkParams } from '$lib/deep-links';
-	import { NotificationChannelsState } from '$lib/notification-channels/state.svelte';
-	import { notificationChannelsContext } from '$lib/notification-channels/context';
-	import { OnCallRotationsState } from '$lib/oncall-rotations/state.svelte';
-	import { onCallRotationsContext } from '$lib/oncall-rotations/context';
-	import { MaintenanceWindowsState } from '$lib/maintenance-windows/state.svelte';
-	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
-	import AlertRuleTable from '$lib/components/alerts/AlertRuleTable.svelte';
-	import AlertRuleFormDialog from '$lib/components/alerts/AlertRuleFormDialog.svelte';
-	import AlertHistorySheet from '$lib/components/alerts/AlertHistorySheet.svelte';
-	import NotificationChannelFormDialog from '$lib/components/notification-channels/NotificationChannelFormDialog.svelte';
-	import MaintenanceWindowFormDialog from '$lib/components/maintenance-windows/MaintenanceWindowFormDialog.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { AlertsState } from '#lib/alerts/state.svelte.ts';
+	import { alertsContext } from '#lib/alerts/context.ts';
+	import { parseAlertDeepLinkParams } from '#lib/deep-links.ts';
+	import { NotificationChannelsState } from '#lib/notification-channels/state.svelte.ts';
+	import { notificationChannelsContext } from '#lib/notification-channels/context.ts';
+	import { OnCallRotationsState } from '#lib/oncall-rotations/state.svelte.ts';
+	import { onCallRotationsContext } from '#lib/oncall-rotations/context.ts';
+	import { MaintenanceWindowsState } from '#lib/maintenance-windows/state.svelte.ts';
+	import { maintenanceWindowsContext } from '#lib/maintenance-windows/context.ts';
+	import AlertRuleTable from '#lib/components/alerts/AlertRuleTable.svelte';
+	import AlertRuleFormDialog from '#lib/components/alerts/AlertRuleFormDialog.svelte';
+	import AlertHistorySheet from '#lib/components/alerts/AlertHistorySheet.svelte';
+	import NotificationChannelFormDialog from '#lib/components/notification-channels/NotificationChannelFormDialog.svelte';
+	import MaintenanceWindowFormDialog from '#lib/components/maintenance-windows/MaintenanceWindowFormDialog.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// Channels and maintenance windows are managed under Settings > Workspace, but their state
 	// is still provided here: AlertRuleFormDialog's channel picker needs the loaded channels, and
@@ -34,7 +34,7 @@
 		// "Create alert" from a dashboard Logs/Metrics panel (DashboardPanelCard.svelte) -
 		// checked before the rule list even loads (unlike ?rule= below, which needs
 		// alerts.rules populated first) since opening the create dialog doesn't depend on
-		// any saved rule existing. See $lib/deep-links.ts's own remarks for the param shape.
+		// any saved rule existing. See #lib/deep-links.ts's own remarks for the param shape.
 		const draft = parseAlertDeepLinkParams(page.url);
 		if (draft) alerts.openCreateFromDraft(draft);
 

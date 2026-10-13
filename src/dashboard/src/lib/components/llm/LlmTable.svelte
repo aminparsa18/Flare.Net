@@ -1,22 +1,22 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/format/number';
-	import * as Table from '$lib/components/ui/table';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { formatNumber } from '#lib/format/number.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import * as Empty from '#lib/components/ui/empty/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import SortableHead from '$lib/components/external-apis/SortableHead.svelte';
-	import { llmContext } from '$lib/llm/context';
-	import { authContext } from '$lib/auth/context';
+	import SortableHead from '#lib/components/external-apis/SortableHead.svelte';
+	import { llmContext } from '#lib/llm/context.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import LlmPricePopover from './LlmPricePopover.svelte';
-	import { errorRate, type LlmSortColumn } from '$lib/llm/state.svelte';
-	import { buildLlmCallTracesHref } from '$lib/deep-links';
-	import { formatPercent } from '$lib/indexing/format';
-	import { formatDurationNano } from '$lib/traces/duration';
-	import { formatRequestRate } from '$lib/services/format';
-	import { formatCount } from '$lib/ingestion/format';
-	import { formatAgo } from '$lib/components/metric-catalog/format';
-	import { formatDateTime } from '$lib/time/format';
-	import * as m from '$lib/paraglide/messages';
+	import { errorRate, type LlmSortColumn } from '#lib/llm/state.svelte.ts';
+	import { buildLlmCallTracesHref } from '#lib/deep-links.ts';
+	import { formatPercent } from '#lib/indexing/format.ts';
+	import { formatDurationNano } from '#lib/traces/duration.ts';
+	import { formatRequestRate } from '#lib/services/format.ts';
+	import { formatCount } from '#lib/ingestion/format.ts';
+	import { formatAgo } from '#lib/components/metric-catalog/format.ts';
+	import { formatDateTime } from '#lib/time/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const llm = llmContext.get();
 	const auth = authContext.get();

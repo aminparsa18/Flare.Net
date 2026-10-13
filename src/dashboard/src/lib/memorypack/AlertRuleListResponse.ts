@@ -3,9 +3,9 @@
 // carry `[GenerateTypeScript]` itself because its one member's type, `AlertRule`, is
 // hand-written - see `AlertRule.ts`'s header comment.
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
-import { AlertRule } from '$lib/memorypack/AlertRule';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { AlertRule } from '#lib/memorypack/AlertRule.ts';
 
 export class AlertRuleListResponse {
 	rules: (AlertRule | null)[] | null;

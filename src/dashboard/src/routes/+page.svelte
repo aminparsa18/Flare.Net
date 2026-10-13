@@ -2,29 +2,29 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { LogsExplorerState } from '$lib/logs/state.svelte';
-	import { logsExplorerContext } from '$lib/logs/context';
-	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
-	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
-	import { parseLogsDeepLinkParams, parseLogContextDeepLinkParams, parseStateDeepLinkParam } from '$lib/deep-links';
-	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
-	import { withBase } from '$lib/paths';
-	import { getHomeDashboardId } from '$lib/dashboards/home-preference';
-	import { dashboardPath } from '$lib/dashboards/page-paths';
-	import NaturalLanguageFilter from '$lib/components/NaturalLanguageFilter.svelte';
-	import LogsToolbar from '$lib/components/logs/LogsToolbar.svelte';
-	import VolumeChart from '$lib/components/logs/VolumeChart.svelte';
-	import ValueDistributionChart from '$lib/components/logs/ValueDistributionChart.svelte';
-	import AttributeFiltersRow from '$lib/components/logs/AttributeFiltersRow.svelte';
-	import BodyJsonFiltersRow from '$lib/components/logs/BodyJsonFiltersRow.svelte';
-	import SqlQueryRow from '$lib/components/logs/SqlQueryRow.svelte';
-	import LogTable from '$lib/components/logs/LogTable.svelte';
-	import EventDetailSheet from '$lib/components/logs/EventDetailSheet.svelte';
-	import LogContextSheet from '$lib/components/logs/LogContextSheet.svelte';
-	import FacetSidebar from '$lib/components/facets/FacetSidebar.svelte';
-	import { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
-	import { DEFAULT_LOG_ATTRIBUTE_FACETS, LOG_FACET_BAGS, logFacetDefinitions, logFacetReloadKey } from '$lib/logs/facets';
-	import * as m from '$lib/paraglide/messages';
+	import { LogsExplorerState } from '#lib/logs/state.svelte.ts';
+	import { logsExplorerContext } from '#lib/logs/context.ts';
+	import { resolveRequestedSavedView } from '#lib/saved-views/hydrate.ts';
+	import { resolveLastUsedSavedView } from '#lib/saved-views/last-used.ts';
+	import { parseLogsDeepLinkParams, parseLogContextDeepLinkParams, parseStateDeepLinkParam } from '#lib/deep-links.ts';
+	import { explorerPrefs } from '#lib/explorer/prefs.svelte.ts';
+	import { withBase } from '#lib/paths.ts';
+	import { getHomeDashboardId } from '#lib/dashboards/home-preference.ts';
+	import { dashboardPath } from '#lib/dashboards/page-paths.ts';
+	import NaturalLanguageFilter from '#lib/components/NaturalLanguageFilter.svelte';
+	import LogsToolbar from '#lib/components/logs/LogsToolbar.svelte';
+	import VolumeChart from '#lib/components/logs/VolumeChart.svelte';
+	import ValueDistributionChart from '#lib/components/logs/ValueDistributionChart.svelte';
+	import AttributeFiltersRow from '#lib/components/logs/AttributeFiltersRow.svelte';
+	import BodyJsonFiltersRow from '#lib/components/logs/BodyJsonFiltersRow.svelte';
+	import SqlQueryRow from '#lib/components/logs/SqlQueryRow.svelte';
+	import LogTable from '#lib/components/logs/LogTable.svelte';
+	import EventDetailSheet from '#lib/components/logs/EventDetailSheet.svelte';
+	import LogContextSheet from '#lib/components/logs/LogContextSheet.svelte';
+	import FacetSidebar from '#lib/components/facets/FacetSidebar.svelte';
+	import { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
+	import { DEFAULT_LOG_ATTRIBUTE_FACETS, LOG_FACET_BAGS, logFacetDefinitions, logFacetReloadKey } from '#lib/logs/facets.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
 
@@ -42,7 +42,7 @@
 	}
 
 	onMount(() => {
-		// A "set as home" dashboard (Phase 3, $lib/dashboards/home-preference.ts) takes over
+		// A "set as home" dashboard (Phase 3, #lib/dashboards/home-preference.ts) takes over
 		// this bare "/" only when nothing else is asking to land here - a `?view=<id>`
 		// shareable link or a Metrics "View related logs" deep link (both checked below via
 		// searchParams.size) still means "show the Logs Explorer", not the home dashboard.
@@ -67,16 +67,16 @@
 			// id. Pattern drill-down ("View occurrences" in PatternsModal) doesn't need a
 			// URL round-trip - it calls explorer.applyPatternIdFilter directly, since the
 			// modal lives on this same page/state instance. The Metrics "View related
-			// logs" deep link (`$lib/deep-links.ts`) does need one, since it's a real
+			// logs" deep link (`#lib/deep-links.ts`) does need one, since it's a real
 			// cross-route navigation, checked next - same priority position `?view=` sits
 			// in, and mutually exclusive with it (a URL is never both at once).
-			// A fired alert's `?state=` link (`$lib/deep-links.ts`) carries a whole saved-view
+			// A fired alert's `?state=` link (`#lib/deep-links.ts`) carries a whole saved-view
 			// state inline, so it restores through the same applySavedViewState path.
 			const view = await resolveRequestedSavedView(page.url, 'Logs');
 			const inlineState = view ? null : parseStateDeepLinkParam(page.url);
 			const deepLink = view || inlineState ? null : parseLogsDeepLinkParams(page.url);
 			// A bare visit (no params at all, and no home dashboard - that returned above)
-			// restores the saved search last picked here ($lib/saved-views/last-used.ts),
+			// restores the saved search last picked here (#lib/saved-views/last-used.ts),
 			// through the same applySavedViewState path as `?view=`.
 			const lastUsed = page.url.searchParams.size === 0 ? await resolveLastUsedSavedView('Logs') : null;
 			if (view) {

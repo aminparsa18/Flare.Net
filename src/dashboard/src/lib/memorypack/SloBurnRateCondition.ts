@@ -3,8 +3,8 @@
 // field-for-field, in declared order (the C# type carries no `[GenerateTypeScript]`, same
 // as `AnomalyCondition.ts`).
 
-import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
-import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
 
 export class SloBurnRateCondition {
 	sloId: string;
