@@ -107,6 +107,8 @@ Flare laisse la frame en texte brut plutôt que de deviner :
   frames Java ;
 - l'occurrence n'a pas de commit et le service n'a pas de branche de repli.
 
+Les requêtes vers le dépôt passent par la même protection sortante que les canaux d'alerte : un GitLab ou GitHub Enterprise auto-hébergé sur une adresse privée est refusé tant que vous ne l'autorisez pas sur Flare.Api avec `Outbound__Allow__0=git.corp.local` (voir [le guide de transfert](../data/forward-telemetry-to-another-otlp-endpoint.fr.md)). Les redirections ne sont jamais suivies.
+
 ## Voir aussi
 
 - [Décision d'architecture : ADR-0095](../../../docs-internal/adr/0095-exception-source-links.md)

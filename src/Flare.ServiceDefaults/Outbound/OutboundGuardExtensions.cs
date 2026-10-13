@@ -12,7 +12,8 @@ public static class OutboundGuardExtensions
     /// in the connect callback, on the address that is then actually connected to, so a redirect, a DNS name that
     /// resolves to a private address, or a rebinding resolver cannot get past it.
     /// </summary>
-    public static IHttpClientBuilder AddOutboundGuard(this IHttpClientBuilder builder)
+    /// <param name="allowAutoRedirect">False for clients that send a credential and must never follow a redirect off-host.</param>
+    public static IHttpClientBuilder AddOutboundGuard(this IHttpClientBuilder builder, bool allowAutoRedirect = true)
     {
         builder.Services.AddOptions<OutboundGuardOptions>().BindConfiguration(OutboundGuardOptions.SectionName);
         // The connect callback sees only the proxy when one is configured, so the target is also checked up front.
@@ -20,7 +21,7 @@ public static class OutboundGuardExtensions
         return builder.ConfigurePrimaryHttpMessageHandler(sp =>
         {
             var policy = new OutboundAddressPolicy(sp.GetRequiredService<IOptions<OutboundGuardOptions>>().Value);
-            var handler = new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) };
+            var handler = new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2), AllowAutoRedirect = allowAutoRedirect };
             if (policy.Enabled)
             {
                 handler.ConnectCallback = (context, ct) => ConnectAsync(policy, context, ct);

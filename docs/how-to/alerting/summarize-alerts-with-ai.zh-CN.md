@@ -45,6 +45,8 @@ Flare 会先脱敏令牌、密码、连接字符串密钥、电子邮件和 IP �
 - 恢复事件和被维护窗口抑制的告警不会生成摘要。数据缺失告警因为没有数据，摘要仅基于
   规则本身。
 
+LLM 端点与告警渠道使用同一套出站防护。位于私有地址的模型服务器（例如 `http://localhost:11434` 上的本地 Ollama）会被拒绝，除非您在 Flare.Api 上用 `Outbound__Allow__0=localhost` 放行（参见[转发指南](../data/forward-telemetry-to-another-otlp-endpoint.zh-CN.md)）。
+
 ## 摘要显示在哪里
 
 - 仪表板中的**告警历史**会以纯文本显示在事件下方。

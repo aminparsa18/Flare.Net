@@ -52,6 +52,8 @@ summary in the `alert_event_summaries` table, and logged at Debug.
 - Resolved events and alerts suppressed by a maintenance window get no summary.
   An absent-data alert gets one built from the rule alone, since there is no data.
 
+The LLM endpoint goes through the same outbound guard as alert channels. A model server on a private address, such as a local Ollama at `http://localhost:11434`, is refused until you allow it on Flare.Api with `Outbound__Allow__0=localhost` (see [the forwarding guide](../data/forward-telemetry-to-another-otlp-endpoint.md)).
+
 ## Where the summary shows up
 
 - **Alert history** in the dashboard shows it under the event, as plain text.

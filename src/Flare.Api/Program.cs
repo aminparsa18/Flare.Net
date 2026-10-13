@@ -431,7 +431,7 @@ builder.Services.AddSingleton<IDashboardRenderTokenSigner, DashboardRenderTokenS
 builder.Services.AddFlareMcp(builder.Configuration);
 // No redirects: the repo host token must never follow one to another host.
 builder.Services.AddHttpClient(Flare.Api.Source.SourceSnippetService.HttpClientName)
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+    .AddOutboundGuard(allowAutoRedirect: false);
 builder.Services.AddSingleton<Flare.Api.Source.ISourceSnippetService, Flare.Api.Source.SourceSnippetService>();
 builder.Services.AddSingleton<Flare.Api.SourceMaps.IStackTraceSymbolicator, Flare.Api.SourceMaps.StackTraceSymbolicator>();
 // AI actions (ADR-0103): the standard resilience handler's 10s attempt timeout and retries would
@@ -440,7 +440,7 @@ builder.Services.Configure<Flare.Api.Ai.AiOptions>(builder.Configuration.GetSect
 #pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental
 builder.Services.AddHttpClient(Flare.Api.Ai.OpenAiCompatibleLlmClient.HttpClientName)
     .RemoveAllResilienceHandlers()
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+    .AddOutboundGuard(allowAutoRedirect: false);
 #pragma warning restore EXTEXP0001
 builder.Services.AddSingleton<Flare.Api.Ai.ILlmClient, Flare.Api.Ai.OpenAiCompatibleLlmClient>();
 builder.Services.AddSingleton<Flare.Api.Ai.IExceptionExplainService, Flare.Api.Ai.ExceptionExplainService>();

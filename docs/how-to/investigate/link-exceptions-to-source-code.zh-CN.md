@@ -85,6 +85,8 @@ Flare 宁可保留纯文本也不猜测：
 - 位置只是没有目录的文件名，例如 Java 的帧；
 - 该事件没有提交，且服务没有备用分支。
 
+仓库请求与告警渠道使用同一套出站防护，因此位于私有地址的自托管 GitLab 或 GitHub Enterprise 会被拒绝，除非您在 Flare.Api 上用 `Outbound__Allow__0=git.corp.local` 放行（参见[转发指南](../data/forward-telemetry-to-another-otlp-endpoint.zh-CN.md)）。从不跟随重定向。
+
 ## 另请参阅
 
 - [架构决策：ADR-0095](../../../docs-internal/adr/0095-exception-source-links.md)

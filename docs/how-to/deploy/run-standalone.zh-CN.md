@@ -214,6 +214,8 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 
 （`flare` 是撰写默认的 ClickHouse 密码 - 如果您更改了它，请参阅 [`.env.example`](../../../.env.example)。）
 
+ClickHouse 的端口只发布在 `127.0.0.1` 上，因此该命令只能在运行堆栈的机器上使用，不能从其他主机访问。快速安装脚本在首次安装时还会把 `~/.flare/.env` 中的 `flare` 换成随机密码。若要把端口发布到网络，请先修改密码，再在 `.env` 中设置 `CLICKHOUSE_BIND_ADDRESS=0.0.0.0`。
+
 ## 关闭更新检查（离线部署）
 
 当有新版 Flare 发布时，仪表盘会在导航栏下方显示提示并附带发行说明，用户菜单（**⋯**）中也会显示当前运行的版本。为此，`Flare.Api` 会通过 GitHub API 查询最新版本——每天最多一次，且仅在有人使用仪表盘时进行。如需关闭（例如在无法访问互联网的主机上），请在 `api` 服务上设置：

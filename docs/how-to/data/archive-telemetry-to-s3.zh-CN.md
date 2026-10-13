@@ -86,3 +86,5 @@ flare/metrics_gauge/dt=2026-10-08/hh=14/metrics_gauge-20261008T1400Z.parquet
 - 凭据会包含在导出语句中发送给 ClickHouse，因此会出现在其查询日志里。
 
 设计说明：[ADR-0156](../../../docs-internal/adr/0156-telemetry-archive-s3.md)、[ADR-0157](../../../docs-internal/adr/0157-managed-telemetry-export.md)。
+
+Flare 不会向回环、私有或链路本地地址（例如 `10.x` 上的 MinIO）归档；它会记录原因并保持空闲。若要使用，请在 Flare.AlertWorker 上用 `Outbound__Allow__0=10.20.0.0/16` 放行（可为 IP、CIDR 或主机名；参见[转发指南](forward-telemetry-to-another-otlp-endpoint.zh-CN.md)）。该检查只是尽力而为，因为 ClickHouse 自己解析域名；真正的限制是 ClickHouse 的 `remote_url_allow_hosts`。
