@@ -149,3 +149,13 @@ folders are where "what happened and why" actually lives.
   (single + cluster) alongside the retention TTL work. Flare sets no
   force-merge or `ttl_only_drop_parts` settings today. Prior art: [ClickHouse
   26.9 changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).
+- **Smoke-test the built dashboard image in CI.** CI builds the image but never serves it, which is how a stale-asset-table
+  bug in `apply-base-path.mjs` (adapter-node 6 sends build-time `Content-Length`/etag for rewritten files) reached `main`.
+  Add a job that runs the image at the root and with `FLARE_BASE_PATH=/flare`, then checks that every `_app/**/*.js|css`
+  returns 200 with a `Content-Length` equal to the received body, for identity, gzip and brotli.
+- **Drop the dead `ORIGIN` setting for the dashboard.** adapter-node 6 no longer reads `ORIGIN` (the origin comes from the
+  `Host` header, `https` unless `PROTOCOL_HEADER` is set). Remove it from `docker-compose.yml`, `docker-compose.install.yml`,
+  `docker-compose.cluster.yml`, the two CLI compose templates, the Helm `dashboard.yaml`, `Flare.Hosting.Aspire`
+  (`WithPublicDashboardUrl` and its comments) and `AlertLinkOptions` comments, and hand-update the en/fr/ru/zh-CN docs
+  (`serve-under-a-sub-path`, `aspire-hosting`). Keep the public dashboard URL setting only where it still feeds CORS or
+  alert links. If form actions are ever added behind plain http, set `PROTOCOL_HEADER` instead.
