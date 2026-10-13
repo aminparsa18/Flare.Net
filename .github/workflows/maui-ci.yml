@@ -3,7 +3,8 @@
 # Separate from ci.yml on purpose: Flare.Maui multi-targets android/ios, which
 # only build with the MAUI workloads (and, for iOS, Xcode) on a macOS runner - and macOS
 # minutes cost ten times Linux ones. So it runs only when the MAUI project, its tests, or
-# this workflow change, and on demand. Flare.Maui is deliberately outside Flare.slnx
+# this workflow change, and on demand (workflow_dispatch - use it after a repo-wide change to
+# Directory.Build.props / Directory.Packages.props / global.json that might affect the mobile targets). Flare.Maui is deliberately outside Flare.slnx
 # (ADR-0166), so ci.yml never builds it; this is the signal that the mobile targets compile.
 #
 # The tests are the plain net10.0 core tests (Flare.Maui.Tests); there is no device or
@@ -18,9 +19,6 @@ on:
       - 'src/Flare.Maui/**'
       - 'src/Flare.Maui.Tests/**'
       - 'Flare.Maui.slnx'
-      - 'Directory.Build.props'
-      - 'Directory.Packages.props'
-      - 'global.json'
       - '.github/workflows/maui-ci.yml'
   pull_request:
     paths:
