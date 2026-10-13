@@ -127,21 +127,7 @@ folders are where "what happened and why" actually lives.
       [`Flare.Api/Endpoints`](../../src/Flare.Api/Endpoints)):
       - **Follow-ups to the shipped live-tail limits, Origin check and regex guard** (code in `LiveTail/` and
         `Endpoints/WebSocketOriginGuard.cs`):
-        - Document the new `LiveTail__*` options (connection caps, `MaxClientMessageBytes`, filter size limits, regex
-          pattern count, length and `RegexMatchTimeout`) and the `Cors:AllowedOrigins` requirement for WebSockets, in
-          `docs/` with the ru, fr and zh-CN translations. Include `LiveTail__MaxSocketLifetime` (default 5 minutes; sockets are closed and the
-          dashboard reconnects, so session revocation, user disable, PAT expiry and project changes apply within that window).
-          Say that live-tail regexes are now linear-time, so lookarounds
-          and backreferences are rejected, which can break an existing saved view.
-        - `LiveTailFilterGuard.TryCompile` calls `pattern.Length` on `attribute.Value` and `bodyFilter.Value`; a client
-          sending `"value": null` (System.Text.Json can leave non-nullable strings null) throws and ends that client's
-          receive loop. Coalesce to `""`.
-        - Run the new `LiveTailHardeningTests` against the old code once to confirm the Origin, 1009 and cap tests fail
-          without the fix; they were only seen passing.
-        - Host stats and the resource graph got the Origin check but not connection caps or a message-size limit (their
-          inbound frames are discarded, so only the socket count matters). Anonymous callers share one bucket, so with
-          auth off the per-user cap is a second global cap. The 10 per user, 200 total and filter limits are untuned
-          defaults.
+        - The 10 per user, 200 total and filter limits are untuned defaults.
     - **ClickHouse published with a default password.** `docker-compose.yml` publishes `8123` with the default password
       `flare`. Bind to `127.0.0.1` by default (opt in to wider exposure) and have the installer generate a random
       password.

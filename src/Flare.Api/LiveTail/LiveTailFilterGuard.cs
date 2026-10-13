@@ -41,7 +41,7 @@ public static class LiveTailFilterGuard
             longString = Math.Max(longString, Longest(attribute.Key, attribute.Value, attribute.Values));
             if (attribute.Operator is AttributeFilterOperator.Regex or AttributeFilterOperator.NotRegex)
             {
-                patterns.Add(attribute.Value);
+                patterns.Add(attribute.Value ?? "");
             }
         }
 
@@ -51,7 +51,7 @@ public static class LiveTailFilterGuard
             longString = Math.Max(longString, Longest(bodyFilter.Path, bodyFilter.Value, bodyFilter.Values));
             if (bodyFilter.Operator is BodyJsonFilterOperator.Regex or BodyJsonFilterOperator.NotRegex)
             {
-                patterns.Add(bodyFilter.Value);
+                patterns.Add(bodyFilter.Value ?? "");
             }
         }
 

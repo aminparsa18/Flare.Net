@@ -109,6 +109,49 @@ public class LiveTailHardeningTests
     }
 
     [Fact]
+    public void PushSocketLimiter_EnforcesCapsPerKind_AndReleasesOnDispose()
+    {
+        var limiter = new PushSocketLimiter();
+        var options = new LiveTailOptions { MaxConnectionsPerUser = 2, MaxConnections = 3 };
+
+        var a1 = limiter.TryAcquire("host-stats", "alice", options);
+        Assert.NotNull(limiter.TryAcquire("host-stats", "alice", options));
+        Assert.Null(limiter.TryAcquire("host-stats", "alice", options)); // per-user cap
+        Assert.NotNull(limiter.TryAcquire("host-stats", "bob", options));
+        Assert.Null(limiter.TryAcquire("host-stats", "carol", options)); // total cap (3)
+        Assert.NotNull(limiter.TryAcquire("resource-graph", "alice", options)); // separate bucket
+
+        a1!.Dispose();
+        a1.Dispose(); // idempotent
+        Assert.NotNull(limiter.TryAcquire("host-stats", "alice", options));
+    }
+
+    [Fact]
+    public async Task PushSocketReceive_ClosesWith1009_WhenInboundMessageExceedsLimit()
+    {
+        var options = new LiveTailOptions { MaxClientMessageBytes = 4 * 1024 };
+        var socket = new ScriptedWebSocket(Enumerable.Repeat(new byte[1024], 100));
+
+        await PushSocketReceive.WaitForCloseAsync(socket, options, CancellationToken.None);
+
+        Assert.Equal(WebSocketCloseStatus.MessageTooBig, socket.ClosedWith);
+        Assert.True(socket.FragmentsRead <= 5);
+    }
+
+    [Fact]
+    public void NullRegexValue_IsTreatedAsEmptyPattern()
+    {
+        var filter = new LogFilter
+        {
+            Attributes = [new AttributeFilter { Key = "k", Value = null!, Operator = AttributeFilterOperator.Regex }],
+            BodyJsonFilters = [new BodyJsonFilter { Path = "p", Value = null!, Operator = BodyJsonFilterOperator.Regex }],
+        };
+        var patterns = LiveTailFilterGuard.TryCompile(filter, new LiveTailOptions(), out var error);
+        Assert.Null(error);
+        Assert.NotNull(patterns);
+    }
+
+    [Fact]
     public void CatastrophicPattern_DoesNotStallMatching()
     {
         var filter = new LogFilter { Attributes = [RegexAttribute("(a+)+$")] };

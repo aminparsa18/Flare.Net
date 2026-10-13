@@ -111,6 +111,7 @@
 -[Aspire hosting](reference/aspire-hosting.zh-CN.md)
 -[Authentication config](reference/authentication-config.zh-CN.md)
 -[Clustering config](reference/clustering-config.zh-CN.md)
+- [Live-tail 配置](reference/live-tail-config.zh-CN.md)
 -[OTLP logger versions](reference/otlp-logger-versions.zh-CN.md)
 
 **解释**

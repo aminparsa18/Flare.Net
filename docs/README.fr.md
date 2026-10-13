@@ -111,6 +111,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Hébergement Aspire](reference/aspire-hosting.fr.md)
 - [Configuration de l'authentification](reference/authentication-config.fr.md)
 - [Configuration du clustering](reference/clustering-config.fr.md)
+- [Configuration du live-tail](reference/live-tail-config.fr.md)
 - [Versions des loggers OTLP](reference/otlp-logger-versions.fr.md)
 
 **Explication**

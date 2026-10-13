@@ -111,6 +111,7 @@
 - [Хостинг Aspire](reference/aspire-hosting.ru.md)
 - [Конфигурация аутентификации](reference/authentication-config.ru.md)
 - [Конфигурация кластера](reference/clustering-config.ru.md)
+- [Конфигурация live-tail](reference/live-tail-config.ru.md)
 - [Версии OTLP-логгеров](reference/otlp-logger-versions.ru.md)
 
 **Объяснение**

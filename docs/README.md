@@ -113,6 +113,7 @@ the full rule set on what goes where.
 - [Aspire hosting](reference/aspire-hosting.md)
 - [Authentication config](reference/authentication-config.md)
 - [Clustering config](reference/clustering-config.md)
+- [Live-tail config](reference/live-tail-config.md)
 - [OTLP logger versions](reference/otlp-logger-versions.md)
 
 **Explanation**
