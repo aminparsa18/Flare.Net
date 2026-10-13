@@ -56,6 +56,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 
 - [Envoyer la télémétrie du navigateur à Flare](how-to/instrument/send-browser-telemetry.fr.md)
 - [Envoyer la télémétrie d'une application .NET MAUI à Flare](how-to/instrument/send-maui-telemetry.fr.md)
+- [Envoyer la télémétrie d'une application Orleans à Flare](how-to/instrument/send-orleans-telemetry.fr.md)
 
 *Surveiller l'infrastructure et les services*
 

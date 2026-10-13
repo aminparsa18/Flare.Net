@@ -56,6 +56,7 @@
 
 - [将浏览器遥测发送到 Flare](how-to/instrument/send-browser-telemetry.zh-CN.md)
 - [将 .NET MAUI 应用的遥测数据发送到 Flare](how-to/instrument/send-maui-telemetry.zh-CN.md)
+- [将 Orleans 应用的遥测发送到 Flare](how-to/instrument/send-orleans-telemetry.zh-CN.md)
 
 *监控基础设施与服务*
 
