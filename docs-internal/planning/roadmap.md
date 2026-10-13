@@ -48,19 +48,6 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Terraform / OpenTofu provider.** Design settled in ADR-0146 (separate Go repo,
-  hand-written schemas, names as the stable key, write-only secrets, `/api/version`
-  compatibility). Server prerequisites (phases 1 and 3 name uniqueness) are done and
-  the provider repo has `flare_notification_channel`, `flare_alert_rule`, `flare_slo`,
-  `flare_maintenance_window`, `flare_pipeline_rule`, `flare_ingest_key`,
-  `flare_service_account`, `flare_dashboard` (layout JSON passed through as-is,
-  ADR-0147 makes names unique per project), `flare_metric_attribute_rule`,
-  `flare_forwarding_target` and `flare_archive_settings` (ADR-0157), verified
-  with OpenTofu acceptance tests against a live stack. `minServerVersion` is 0.6.0, the
-  first Flare release with the server-side prerequisites. Provider v0.1.0 is published on
-  the Terraform Registry as `aminparsa18/flare` (GPG-signed releases via GoReleaser).
-  Remaining: list it on the OpenTofu Registry (a PR to `opentofu/registry` with the same
-  public key).
 - **.NET MAUI / mobile SDK (later).** `Flare.Maui` (ADR-0166, `src/Flare.Maui`) ships the
   `UseFlare()` core: OTLP/HTTP export, disk retry, device/session attributes, `HttpClient`
   and Shell navigation spans, unhandled-exception capture. Remaining for it: Windows,

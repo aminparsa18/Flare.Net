@@ -39,6 +39,9 @@ public static class OtlpTraceMapper
 
                 foreach (var span in scopeSpans.Spans)
                 {
+                    var spanAttributes = OtlpAnyValue.Flatten(span.Attributes);
+                    var endTime = FromUnixNano(span.EndTimeUnixNano);
+
                     yield return new SpanRecord
                     {
                         TraceId = Convert.ToHexStringLower(span.TraceId.Span),
@@ -48,7 +51,7 @@ public static class OtlpTraceMapper
                         Name = EmptyToNull(span.Name),
                         Kind = (int)span.Kind,
                         StartTime = FromUnixNano(span.StartTimeUnixNano),
-                        EndTime = FromUnixNano(span.EndTimeUnixNano),
+                        EndTime = endTime,
                         // Computed from the raw wire nanoseconds, not from StartTime/EndTime -
                         // those round-trip through DateTimeOffset's 100ns tick resolution
                         // (see FromUnixNano), which would introduce avoidable rounding into a
@@ -63,8 +66,8 @@ public static class OtlpTraceMapper
                         ScopeName = EmptyToNull(scopeSpans.Scope?.Name),
                         ScopeVersion = EmptyToNull(scopeSpans.Scope?.Version),
                         ScopeAttributes = scopeAttributes,
-                        SpanAttributes = OtlpAnyValue.Flatten(span.Attributes),
-                        Events = [.. span.Events.Select(MapEvent)],
+                        SpanAttributes = spanAttributes,
+                        Events = MapEvents(span, spanAttributes, endTime),
                         Links = [.. span.Links.Select(MapLink)],
                         IngestedAt = ingestedAt,
                     };
@@ -72,6 +75,39 @@ public static class OtlpTraceMapper
             }
         }
     }
+
+    /// <summary>
+    /// Maps the span's events, adding a synthesized <c>exception</c> event when the span
+    /// records its exception as span <em>attributes</em> instead (Microsoft Orleans does
+    /// this) - the Errors page and exception-count alerts only read <c>exception</c>-named
+    /// events, so without it those failures are invisible there. Does nothing when the span
+    /// already has an event carrying <c>exception.type</c>, so a span that records both is
+    /// counted once. The attributes stay on the span as well.
+    /// </summary>
+    private static IReadOnlyList<SpanEvent> MapEvents(
+        Span span, IReadOnlyDictionary<string, string> spanAttributes, DateTimeOffset endTime)
+    {
+        var events = span.Events.Select(MapEvent).ToList();
+
+        if (!spanAttributes.TryGetValue("exception.type", out var type) || string.IsNullOrEmpty(type)
+            || events.Any(e => e.Attributes.TryGetValue("exception.type", out var t) && !string.IsNullOrEmpty(t)))
+        {
+            return events;
+        }
+
+        var attributes = new Dictionary<string, string>();
+        foreach (var key in SynthesizedExceptionKeys)
+        {
+            if (spanAttributes.TryGetValue(key, out var value))
+                attributes[key] = value;
+        }
+
+        events.Add(new SpanEvent { Timestamp = endTime, Name = "exception", Attributes = attributes });
+        return events;
+    }
+
+    private static readonly string[] SynthesizedExceptionKeys =
+        ["exception.type", "exception.message", "exception.stacktrace", "exception.escaped"];
 
     private static SpanEvent MapEvent(Span.Types.Event evt) => new()
     {

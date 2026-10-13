@@ -168,6 +168,57 @@ public class OtlpTraceMapperTests
     }
 
     [Fact]
+    public void Map_SynthesizesExceptionEvent_WhenExceptionIsRecordedAsSpanAttributes()
+    {
+        var request = SingleSpanRequest(span =>
+        {
+            span.EndTimeUnixNano = 1_700_000_005_000_000_000UL;
+            span.Attributes.Add(Str("exception.type", "System.InvalidOperationException"));
+            span.Attributes.Add(Str("exception.message", "boom"));
+            span.Attributes.Add(Str("exception.stacktrace", "at Foo.Bar()"));
+            span.Attributes.Add(Str("unrelated", "x"));
+        });
+
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
+
+        var evt = Assert.Single(record.Events);
+        Assert.Equal("exception", evt.Name);
+        Assert.Equal("System.InvalidOperationException", evt.Attributes["exception.type"]);
+        Assert.Equal("boom", evt.Attributes["exception.message"]);
+        Assert.Equal("at Foo.Bar()", evt.Attributes["exception.stacktrace"]);
+        Assert.DoesNotContain("unrelated", evt.Attributes.Keys);
+        Assert.Equal(record.EndTime, evt.Timestamp);
+        // The attributes stay on the span too.
+        Assert.Equal("boom", record.SpanAttributes["exception.message"]);
+    }
+
+    [Fact]
+    public void Map_DoesNotSynthesizeExceptionEvent_WhenSpanAlreadyHasOne()
+    {
+        var request = SingleSpanRequest(span =>
+        {
+            span.Attributes.Add(Str("exception.type", "System.InvalidOperationException"));
+            var evt = new Span.Types.Event { Name = "exception" };
+            evt.Attributes.Add(Str("exception.type", "System.InvalidOperationException"));
+            span.Events.Add(evt);
+        });
+
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
+
+        Assert.Single(record.Events);
+    }
+
+    [Fact]
+    public void Map_DoesNotSynthesizeExceptionEvent_WhenNoExceptionTypeAttribute()
+    {
+        var request = SingleSpanRequest(span => span.Attributes.Add(Str("exception.message", "boom")));
+
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
+
+        Assert.Empty(record.Events);
+    }
+
+    [Fact]
     public void Map_EventsIsEmpty_NotNull_WhenSpanHasNoEvents()
     {
         var request = SingleSpanRequest();
@@ -266,6 +317,8 @@ public class OtlpTraceMapperTests
         Assert.Equal("test-scope", record.ScopeName);
         Assert.Equal("1.0", record.ScopeVersion);
     }
+
+    private static KeyValue Str(string key, string value) => new() { Key = key, Value = new AnyValue { StringValue = value } };
 
     private static Span MinimalSpan() => new()
     {

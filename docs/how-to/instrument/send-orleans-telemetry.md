@@ -81,7 +81,9 @@ waterfall. The spans carry `rpc.system.name = orleans`, `orleans.rpc.service`
 
 A grain method that throws gives both spans an error status, with
 `exception.type`, `exception.message` and `exception.stacktrace` as span
-attributes. They count in the service's error rate on **Traces > Services**.
+attributes. They count in the service's error rate on **Traces > Services**. Flare also records each failure as an `exception` event on the span, so it shows
+on the **Errors** page and counts in exception-count alerts. Spans ingested before
+you upgraded Flare aren't backfilled.
 
 ### Metrics
 
@@ -116,9 +118,5 @@ them changes the volume a lot:
 
 ## Known limits
 
-- **Grain failures don't appear on the Errors page.** That page reads
-  `exception` span events, and Orleans records the exception as span
-  attributes instead. Failed calls are still easy to find: filter **Traces** by
-  the error status.
 - **Grain-to-grain calls don't draw edges on the service map.** They happen
   inside one service (your silo), so the map shows a single node.
