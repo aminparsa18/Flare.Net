@@ -11,12 +11,7 @@
     <PackageReference Include="KubernetesClient" />
     <!-- MemoryPack, phase 0 of the JSON->MemoryPack request/response migration - see
          docs-internal/investigations/memorypack-serialization-migration-scope.md. -->
-    <!-- TODO: remove ExcludeAssets + the DateTimeOffsetPatch reference below once Cysharp/
-         MemoryPack ships DateTimeOffset (PR #459) and IReadOnlyList/IReadOnlyDictionary
-         support in the TypeScript generator, then use the stock generator again. Until then the patched generator
-         replaces the meta package's own, so the two are never both active. -->
-    <PackageReference Include="MemoryPack" ExcludeAssets="analyzers" />
-    <PackageReference Include="MemoryPack.Generator.DateTimeOffsetPatch" PrivateAssets="all" />
+    <PackageReference Include="MemoryPack" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <!-- Direct reference (see Directory.Packages.props) so the pinned, patched version
          wins over Microsoft.AspNetCore.OpenApi's own transitive Microsoft.OpenApi 2.0.0. -->
@@ -32,12 +27,8 @@
 
   <!-- MemoryPack TypeScript codegen, phase 2 of the JSON->MemoryPack migration - see
        docs-internal/investigations/memorypack-serialization-migration-scope.md. Only types
-       with no JsonElement member (directly or via a nested type) can carry
-       [GenerateTypeScript] - MemoryPack's TS generator has no mapping for it; DateTimeOffset,
-       IReadOnlyList and IReadOnlyDictionary are supported via the patched generator referenced
-       above. See that doc's Phase 2 section. NOTE: the generator never overwrites an existing
-       MemoryPackWriter.ts/MemoryPackReader.ts, so a checkout whose generated dir predates the
-       patched generator must delete the two files once and rebuild. This writes
+       with no DateTimeOffset/JsonElement member can carry [GenerateTypeScript] (MemoryPack's
+       TS generator has no mapping for either - see that doc's Phase 2 section); this writes
        real generated .ts decoders straight into the dashboard's source tree, run as part of
        `dotnet build` (skipped during IDE design-time builds - see MemoryPackGenerator's own
        IsDesignTimeBuild check). src/dashboard's `npm run build`/`dev`/`check` all shell out to

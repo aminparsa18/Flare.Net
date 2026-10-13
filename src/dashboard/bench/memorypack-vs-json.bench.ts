@@ -17,8 +17,8 @@
 // Run: npm run bench   (from src/dashboard)
 
 import { Bench } from 'tinybench';
-import { LogEventDto } from '#lib/generated/memorypack/LogEventDto.ts';
-import { LogSearchResponse } from '#lib/generated/memorypack/LogSearchResponse.ts';
+import { LogEventDto } from '#lib/memorypack/LogEventDto.ts';
+import { LogSearchResponse } from '#lib/memorypack/LogSearchResponse.ts';
 import { toLogEventDto } from './consumer-mapping';
 import { buildLogEventDto, buildLogSearchResponsePage, newRandom } from './fixtures';
 import { parseLogEventDtoJson, parseLogSearchResponseJson, responseToJsonShape, toJsonShape } from './json-shape';

@@ -10,15 +10,14 @@
 // `predev`/`prebuild`/`precheck` in package.json) sent/received via
 // `MEMORYPACK_CONTENT_TYPE` below, plus a handful of hand-written classes
 // (`#lib/memorypack/*.ts`) for DTOs MemoryPack's TypeScript generator can't emit itself
-// (only types with a `JsonElement` member now - see that investigation doc's Phase 2
-// section and its follow-ups). Every migrated
+// (any type with a `DateTimeOffset` or `JsonElement` member - see that investigation doc's
+// Phase 2 section for exactly why and the wire format verified for each). Every migrated
 // function still returns/accepts this file's original hand-written interfaces unchanged -
 // only what happens between the network and that shape is different - so no consumer
 // outside `lib/` needs to change. A module not yet migrated still hand-mirrors its
 // interfaces and calls `res.json()` exactly as before; check that module's own header
 // comment for its current state.
 
-import { mapToRecord } from '#lib/memorypack/map-record.ts';
 import { PUBLIC_API_URL } from '$app/env/public';
 import type { SpanFilter } from '#lib/traces-api.ts';
 import {
@@ -32,31 +31,30 @@ import {
 	resourceStateToString
 } from '#lib/memorypack/enums.ts';
 import { LogPostProcessFunction as GeneratedLogPostProcessFunction } from '#lib/generated/memorypack/LogPostProcessFunction.ts';
-import { LogFilter as GeneratedLogFilter } from '#lib/generated/memorypack/LogFilter.ts';
-import { logFilterFromPlain } from '#lib/log-filter-plain.ts';
-import { LogEventDto as GeneratedLogEventDto } from '#lib/generated/memorypack/LogEventDto.ts';
-import { LogSearchRequest as GeneratedLogSearchRequest } from '#lib/generated/memorypack/LogSearchRequest.ts';
-import { LogSearchResponse as GeneratedLogSearchResponse } from '#lib/generated/memorypack/LogSearchResponse.ts';
-import { LogContextRequest as GeneratedLogContextRequest } from '#lib/generated/memorypack/LogContextRequest.ts';
-import { LogContextResponse as GeneratedLogContextResponse } from '#lib/generated/memorypack/LogContextResponse.ts';
-import { LogAggregateRequest as GeneratedLogAggregateRequest } from '#lib/generated/memorypack/LogAggregateRequest.ts';
-import { LogAggregateBucket as GeneratedLogAggregateBucket } from '#lib/generated/memorypack/LogAggregateBucket.ts';
-import { LogAggregateResponse as GeneratedLogAggregateResponse } from '#lib/generated/memorypack/LogAggregateResponse.ts';
-import { LogAttributeKeysRequest as GeneratedLogAttributeKeysRequest } from '#lib/generated/memorypack/LogAttributeKeysRequest.ts';
-import { LogAttributeKeysResponse as GeneratedLogAttributeKeysResponse } from '#lib/generated/memorypack/LogAttributeKeysResponse.ts';
-import { LogValueDistributionRequest as GeneratedLogValueDistributionRequest } from '#lib/generated/memorypack/LogValueDistributionRequest.ts';
-import { LogValueDistributionResponse as GeneratedLogValueDistributionResponse } from '#lib/generated/memorypack/LogValueDistributionResponse.ts';
-import { LogAttributeValuesRequest as GeneratedLogAttributeValuesRequest } from '#lib/generated/memorypack/LogAttributeValuesRequest.ts';
-import { LogAttributeValuesResponse as GeneratedLogAttributeValuesResponse } from '#lib/generated/memorypack/LogAttributeValuesResponse.ts';
+import { LogFilter as GeneratedLogFilter, logFilterFromPlain } from '#lib/memorypack/LogFilter.ts';
+import { LogEventDto as GeneratedLogEventDto } from '#lib/memorypack/LogEventDto.ts';
+import { LogSearchRequest as GeneratedLogSearchRequest } from '#lib/memorypack/LogSearchRequest.ts';
+import { LogSearchResponse as GeneratedLogSearchResponse } from '#lib/memorypack/LogSearchResponse.ts';
+import { LogContextRequest as GeneratedLogContextRequest } from '#lib/memorypack/LogContextRequest.ts';
+import { LogContextResponse as GeneratedLogContextResponse } from '#lib/memorypack/LogContextResponse.ts';
+import { LogAggregateRequest as GeneratedLogAggregateRequest } from '#lib/memorypack/LogAggregateRequest.ts';
+import { LogAggregateBucket as GeneratedLogAggregateBucket } from '#lib/memorypack/LogAggregateBucket.ts';
+import { LogAggregateResponse as GeneratedLogAggregateResponse } from '#lib/memorypack/LogAggregateResponse.ts';
+import { LogAttributeKeysRequest as GeneratedLogAttributeKeysRequest } from '#lib/memorypack/LogAttributeKeysRequest.ts';
+import { LogAttributeKeysResponse as GeneratedLogAttributeKeysResponse } from '#lib/memorypack/LogAttributeKeysResponse.ts';
+import { LogValueDistributionRequest as GeneratedLogValueDistributionRequest } from '#lib/memorypack/LogValueDistributionRequest.ts';
+import { LogValueDistributionResponse as GeneratedLogValueDistributionResponse } from '#lib/memorypack/LogValueDistributionResponse.ts';
+import { LogAttributeValuesRequest as GeneratedLogAttributeValuesRequest } from '#lib/memorypack/LogAttributeValuesRequest.ts';
+import { LogAttributeValuesResponse as GeneratedLogAttributeValuesResponse } from '#lib/memorypack/LogAttributeValuesResponse.ts';
 import { attributeBagFromString } from '#lib/memorypack/enums.ts';
-import { LogQlQueryRequest as GeneratedLogQlQueryRequest } from '#lib/generated/memorypack/LogQlQueryRequest.ts';
-import { LogQlQueryResponse as GeneratedLogQlQueryResponse } from '#lib/generated/memorypack/LogQlQueryResponse.ts';
-import { LogPatternRequest as GeneratedLogPatternRequest } from '#lib/generated/memorypack/LogPatternRequest.ts';
-import { LogPatternResponse as GeneratedLogPatternResponse } from '#lib/generated/memorypack/LogPatternResponse.ts';
-import { ResourceNodeDto as GeneratedResourceNodeDto } from '#lib/generated/memorypack/ResourceNodeDto.ts';
-import { ResourceGraphSnapshot as GeneratedResourceGraphSnapshot } from '#lib/generated/memorypack/ResourceGraphSnapshot.ts';
-import { HostStatsSnapshot as GeneratedHostStatsSnapshot } from '#lib/generated/memorypack/HostStatsSnapshot.ts';
-import { HostStatsHistoryPoint as GeneratedHostStatsHistoryPoint } from '#lib/generated/memorypack/HostStatsHistoryPoint.ts';
+import { LogQlQueryRequest as GeneratedLogQlQueryRequest } from '#lib/memorypack/LogQlQueryRequest.ts';
+import { LogQlQueryResponse as GeneratedLogQlQueryResponse } from '#lib/memorypack/LogQlQueryResponse.ts';
+import { LogPatternRequest as GeneratedLogPatternRequest } from '#lib/memorypack/LogPatternRequest.ts';
+import { LogPatternResponse as GeneratedLogPatternResponse } from '#lib/memorypack/LogPatternResponse.ts';
+import { ResourceNodeDto as GeneratedResourceNodeDto } from '#lib/memorypack/ResourceNodeDto.ts';
+import { ResourceGraphSnapshot as GeneratedResourceGraphSnapshot } from '#lib/memorypack/ResourceGraphSnapshot.ts';
+import { HostStatsSnapshot as GeneratedHostStatsSnapshot } from '#lib/memorypack/HostStatsSnapshot.ts';
+import { HostStatsHistoryPoint as GeneratedHostStatsHistoryPoint } from '#lib/memorypack/HostStatsHistoryPoint.ts';
 
 /** Falls back to Flare.Api's fixed standalone dev port (see src/Flare.Api/Properties/launchSettings.json). */
 export const API_BASE_URL = PUBLIC_API_URL ?? 'http://localhost:5085';
@@ -101,8 +99,11 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack. `LogFilter`/`LogEventDto` and every request/response type below are
-// generated (`#lib/generated/memorypack/`); `#lib/log-filter-plain.ts` converts between the
-// generated `LogFilter` and the plain interface below. Enum fields (`bag`, `groupBy`, `kind`) convert through
+// hand-written (`#lib/memorypack/`) - `LogFilter.From`/`To` are `DateTimeOffset?` and
+// `LogEventDto.Timestamp`/`ObservedTimestamp`/`IngestedAt` are `DateTimeOffset` - see
+// `#lib/memorypack/date-time-offset.ts`'s header comment. `LogAttributeKeyInfo`/
+// `LogAttributeKeysResponse` are the one clean pair in this section and use real generated
+// classes. Enum fields (`bag`, `groupBy`, `kind`) convert through
 // `#lib/memorypack/enums.ts`'s ordinal↔string adapters, same reasoning `auth-api.ts`
 // documents for `UserRole`.
 
@@ -201,12 +202,12 @@ function toLogEventDto(dto: GeneratedLogEventDto): LogEventDto {
 		serviceName: dto.serviceName ?? '',
 		body: dto.body ?? '',
 		resourceSchemaUrl: dto.resourceSchemaUrl ?? '',
-		resourceAttributes: mapToRecord(dto.resourceAttributes),
+		resourceAttributes: dto.resourceAttributes ?? {},
 		scopeSchemaUrl: dto.scopeSchemaUrl ?? '',
 		scopeName: dto.scopeName ?? '',
 		scopeVersion: dto.scopeVersion ?? '',
-		scopeAttributes: mapToRecord(dto.scopeAttributes),
-		logAttributes: mapToRecord(dto.logAttributes),
+		scopeAttributes: dto.scopeAttributes ?? {},
+		logAttributes: dto.logAttributes ?? {},
 		eventName: dto.eventName ?? '',
 		patternId: dto.patternId ?? '',
 		patternTemplate: dto.patternTemplate ?? '',

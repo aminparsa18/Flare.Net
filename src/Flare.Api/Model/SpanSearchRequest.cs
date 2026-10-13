@@ -4,7 +4,6 @@ namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/spans/search</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record SpanSearchRequest
 {
     /// <summary>
@@ -53,7 +52,6 @@ public enum SpanSortKey
 
 /// <summary>Response body for <c>POST /api/spans/search</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record SpanSearchResponse
 {
     /// <summary>In <see cref="SpanSearchRequest.SortBy"/> order - most-recent-first (<c>StartTime DESC</c>) by default.</summary>
@@ -65,7 +63,6 @@ public sealed partial record SpanSearchResponse
 
 /// <summary>Response body for <c>GET /api/traces/{traceId}</c> - every span in one trace, for the waterfall view.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record TraceDto
 {
     public required string TraceId { get; init; }

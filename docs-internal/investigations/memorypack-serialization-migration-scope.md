@@ -398,13 +398,6 @@ test Flare.slnx` clean (782 tests), and live-verified against a real
 four separate real (non-empty) `DateTimeOffset` round trips and a
 byte-exact `JsonElement` round trip for a nested object.
 
-### Follow-up (2026-10-13): patched generator removes the `DateTimeOffset` and `IReadOnlyList` blockers
-
-Findings 1 and 2 above no longer hold for `Flare.Api`: it now builds with a patched generator that
-maps `DateTimeOffset`, `IReadOnlyList<T>`, `IReadOnlyCollection<T>` and `IReadOnlyDictionary<K,V>`.
-141 of the 147 hand-written classes are generated now; the six left (`Dashboard*`, `SavedView*`)
-carry a `JsonElement`. See [ADR-0215](../adr/0215-patched-memorypack-typescript-generator.md).
-
 ## Unresolved / follow-ups
 
 - ~~No ADR written.~~ Written: [`../adr/0015-memorypack-content-negotiation-for-flare-api.md`](../adr/0015-memorypack-content-negotiation-for-flare-api.md) -

@@ -42,7 +42,6 @@ public sealed partial record SkipIndexInfo(
 /// "is this table growing and how fast," not a byte-exact audit.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record StorageGrowthPoint(DateTimeOffset Day, string TableName, long Bytes, long Rows);
 
 /// <summary>
@@ -93,7 +92,6 @@ public sealed partial record QueryPerformanceInfo(
 /// of an empty chart in that case, rather than the endpoint failing outright.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record IndexingStatsResponse(
     DateTimeOffset GeneratedAt,
     IReadOnlyList<TableStorageInfo> Tables,
@@ -146,7 +144,6 @@ public sealed partial record ClusterNodeInfo(
 /// "caught up" reading, and must be rendered as unknown rather than healthy.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ClusterStatusResponse(
     bool ClusterModeEnabled,
     bool SharedPatternStoreEnabled,

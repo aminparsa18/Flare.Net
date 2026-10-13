@@ -12,7 +12,6 @@ namespace Flare.Api.Model;
 /// ceiling to normalize against, so it stays in its natural unit (bytes/sec) instead.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record HostStatsHistoryPoint
 {
     public required DateTimeOffset Timestamp { get; init; }

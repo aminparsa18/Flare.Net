@@ -130,7 +130,6 @@ public sealed partial record PipelineRuleAction
 /// default (see docs-internal/adr/0033-pipeline-rules-extraction-redaction.md).
 /// </remarks>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record PipelineRule
 {
     public required Guid Id { get; init; }
@@ -159,7 +158,6 @@ public sealed partial record PipelineRule
 /// source-gen constructor-style converter defaults an omitted member.
 /// </remarks>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record PipelineRuleRequest
 {
     public required string Name { get; init; }
@@ -263,7 +261,6 @@ public sealed partial record PipelineRuleRequest
 
 /// <summary>Response body for <c>GET /api/pipeline-rules</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record PipelineRuleListResponse
 {
     public required IReadOnlyList<PipelineRule> Rules { get; init; }
@@ -279,7 +276,6 @@ public sealed partial record PipelineRuleListResponse
 /// Scope attributes are never mutated, so showing them here would only add noise.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record PipelineRulePreviewMatch
 {
     public required Guid EventId { get; init; }
@@ -311,7 +307,6 @@ public sealed partial record PipelineRulePreviewMatch
 /// mirrors <c>AlertEndpoints</c>'s <c>AlertTestResult</c> dry-run shape for the same reason.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record PipelineRulePreviewResult
 {
     /// <summary>How many logs the sample pulled - at most <see cref="Endpoints.PipelineRuleEndpoints.PreviewSampleSize"/>, fewer if the condition (and the search's default lookback window, when <c>Condition.From</c>/<c>To</c> are unset) doesn't match that many.</summary>

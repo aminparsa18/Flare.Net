@@ -4,7 +4,6 @@ namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/logs/patterns</c> - the ranked Drain-cluster view.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogPatternRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
@@ -16,7 +15,6 @@ public sealed partial record LogPatternRequest
 
 /// <summary>One ranked pattern: a Drain cluster and its occurrence stats within the request's filter window.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogPatternRow
 {
     public required string PatternId { get; init; }
@@ -36,7 +34,6 @@ public sealed partial record LogPatternRow
 
 /// <summary>Response body for <c>POST /api/logs/patterns</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogPatternResponse
 {
     public required IReadOnlyList<LogPatternRow> Patterns { get; init; }

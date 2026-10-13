@@ -1,6 +1,6 @@
 # ADR-0215: Build Flare.Api with a patched MemoryPack TypeScript generator
 
-Status: Accepted
+Status: Superseded by [ADR-0216](0216-revert-to-hand-written-memorypack-decoders.md)
 
 Date: 2026-10-13
 

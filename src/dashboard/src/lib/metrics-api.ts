@@ -3,10 +3,12 @@
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape.
-// Every wire class is generated (`#lib/generated/memorypack/`).
+// `MetricAttributeFilter`/`MetricNameInfo`/`MetricNamesResponse`/`MetricAttributeKeyInfo`/
+// `MetricAttributeKeysResponse` have no DateTimeOffset/JsonElement/IReadOnlyList-of-object
+// member and use real generated classes; everything nesting `MetricFilter` (`DateTimeOffset?`
+// members) or `MetricSeriesPoint` (`DateTimeOffset`) is hand-written (`#lib/memorypack/`).
 // `type` converts through `#lib/memorypack/enums.ts`'s `metricPointTypeToString`/`FromString`.
 
-import { mapToRecord } from '#lib/memorypack/map-record.ts';
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import {
 	metricPointTypeFromString,
@@ -17,19 +19,19 @@ import {
 	metricPostProcessFunctionTypeFromString,
 	type MetricPostProcessFunctionTypeName
 } from '#lib/memorypack/enums.ts';
-import { MetricFilter as GeneratedMetricFilter } from '#lib/generated/memorypack/MetricFilter.ts';
-import { MetricNamesRequest as GeneratedMetricNamesRequest } from '#lib/generated/memorypack/MetricNamesRequest.ts';
-import { MetricNamesResponse as GeneratedMetricNamesResponse } from '#lib/generated/memorypack/MetricNamesResponse.ts';
-import { MetricAttributeKeysRequest as GeneratedMetricAttributeKeysRequest } from '#lib/generated/memorypack/MetricAttributeKeysRequest.ts';
-import { MetricAttributeKeysResponse as GeneratedMetricAttributeKeysResponse } from '#lib/generated/memorypack/MetricAttributeKeysResponse.ts';
-import { MetricQueryRequest as GeneratedMetricQueryRequest } from '#lib/generated/memorypack/MetricQueryRequest.ts';
-import { MetricQueryResponse as GeneratedMetricQueryResponse } from '#lib/generated/memorypack/MetricQueryResponse.ts';
+import { MetricFilter as GeneratedMetricFilter } from '#lib/memorypack/MetricFilter.ts';
+import { MetricNamesRequest as GeneratedMetricNamesRequest } from '#lib/memorypack/MetricNamesRequest.ts';
+import { MetricNamesResponse as GeneratedMetricNamesResponse } from '#lib/memorypack/MetricNamesResponse.ts';
+import { MetricAttributeKeysRequest as GeneratedMetricAttributeKeysRequest } from '#lib/memorypack/MetricAttributeKeysRequest.ts';
+import { MetricAttributeKeysResponse as GeneratedMetricAttributeKeysResponse } from '#lib/memorypack/MetricAttributeKeysResponse.ts';
+import { MetricQueryRequest as GeneratedMetricQueryRequest } from '#lib/memorypack/MetricQueryRequest.ts';
+import { MetricQueryResponse as GeneratedMetricQueryResponse } from '#lib/memorypack/MetricQueryResponse.ts';
 import { MetricAttributeFilter as GeneratedMetricAttributeFilter } from '#lib/generated/memorypack/MetricAttributeFilter.ts';
 import { MetricPostProcessFunction as GeneratedMetricPostProcessFunction } from '#lib/generated/memorypack/MetricPostProcessFunction.ts';
 import type { MetricNameInfo as GeneratedMetricNameInfo } from '#lib/generated/memorypack/MetricNameInfo.ts';
 import type { MetricAttributeKeyInfo as GeneratedMetricAttributeKeyInfo } from '#lib/generated/memorypack/MetricAttributeKeyInfo.ts';
-import type { MetricSeries as GeneratedMetricSeries } from '#lib/generated/memorypack/MetricSeries.ts';
-import type { MetricSeriesPoint as GeneratedMetricSeriesPoint } from '#lib/generated/memorypack/MetricSeriesPoint.ts';
+import type { MetricSeries as GeneratedMetricSeries } from '#lib/memorypack/MetricSeries.ts';
+import type { MetricSeriesPoint as GeneratedMetricSeriesPoint } from '#lib/memorypack/MetricSeriesPoint.ts';
 
 // ---- Shared filter shape (MetricFilter.cs) ---------------------------------
 
@@ -300,7 +302,7 @@ function toMetricSeriesPoint(dto: GeneratedMetricSeriesPoint): MetricSeriesPoint
 function toMetricSeries(dto: GeneratedMetricSeries): MetricSeries {
 	return {
 		serviceName: dto.serviceName ?? '',
-		attributes: mapToRecord(dto.attributes),
+		attributes: dto.attributes ?? {},
 		points: (dto.points ?? []).map((p) => toMetricSeriesPoint(p!))
 	};
 }

@@ -2,12 +2,14 @@
 // one Kubernetes pod's CPU/memory per time bucket, from the OTel `kubeletstats` receiver -
 // see PodMetricsQueryBuilder.cs for which metric feeds which field.
 //
-// MemoryPack over the wire, same shape as `hosts-api.ts`: every wire class is
-// generated (`#lib/generated/memorypack/`).
+// MemoryPack over the wire, same shape as `hosts-api.ts`: the request has no
+// DateTimeOffset/list member and is a real generated class; the response carries
+// `PodMetricsPoint.BucketStart` inside an IReadOnlyList, so it's hand-written under
+// `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { PodMetricsRequest as GeneratedPodMetricsRequest } from '#lib/generated/memorypack/PodMetricsRequest.ts';
-import { PodMetricsResponse as GeneratedPodMetricsResponse } from '#lib/generated/memorypack/PodMetricsResponse.ts';
+import { PodMetricsResponse as GeneratedPodMetricsResponse } from '#lib/memorypack/PodMetricsResponse.ts';
 
 /** Every field is a bucket average; null = the pod sent no data for it (the two limit figures are opt-in kubeletstats metrics, so usually null). */
 export interface PodMetricsPoint {
@@ -55,7 +57,7 @@ export async function getPodMetrics(query: PodMetricsQuery, signal?: AbortSignal
 		throw new Error('Empty response body decoding PodMetricsResponse.');
 	}
 	return {
-		podName: dto.podName ?? '',
+		podName: dto.podName,
 		windowMinutes: dto.windowMinutes,
 		bucketWidthSeconds: dto.bucketWidthSeconds,
 		points: (dto.points ?? [])

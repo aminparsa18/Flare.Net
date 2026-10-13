@@ -1,0 +1,274 @@
+// Hand-written companion to MemoryPack's generated TypeScript classes - NOT itself
+// generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertRuleRequest`
+// field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
+// nests `LogFilter` (blocked - see `#lib/memorypack/LogFilter.ts`'s header comment).
+// `Threshold` (`AlertThreshold`) has no such problem, so it's a real generated class,
+// reused here directly. `conditionKind`/`metricCondition`/`metricThresholdValue`/`channelIds`/
+// `exceptionCondition`/`noDataWindowSeconds`/`evaluationIntervalSeconds` were appended after every pre-existing field, same versioning
+// reasoning as `AlertRule.ts`.
+// `anomalyCondition` was appended after `evaluationIntervalSeconds`, same reasoning (ADR-0048).
+// `minDataPoints` was appended after `anomalyCondition`, same reasoning (ADR-0050).
+// `notificationTitleTemplate`/`notificationBodyTemplate` were appended after `minDataPoints`, same reasoning (ADR-0052).
+// `recoveryThreshold` was appended after `notificationBodyTemplate`, same reasoning (ADR-0076).
+// `severity` was appended after `recoveryThreshold`, same reasoning (ADR-0077). `thresholdUnit` was appended after `severity`, same reasoning (ADR-0080). `labels` was appended after `thresholdUnit`, same reasoning (ADR-0084). `sloCondition` was appended after `labels`, same reasoning (ADR-0108).
+
+import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
+import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
+import { AlertThreshold } from '#lib/generated/memorypack/AlertThreshold.ts';
+import { LogFilter } from '#lib/memorypack/LogFilter.ts';
+import { MetricAlertCondition } from '#lib/memorypack/MetricAlertCondition.ts';
+import { ExceptionCountCondition } from '#lib/memorypack/ExceptionCountCondition.ts';
+import { AnomalyCondition } from '#lib/memorypack/AnomalyCondition.ts';
+import { SloBurnRateCondition } from '#lib/memorypack/SloBurnRateCondition.ts';
+import { readStringRecord, writeStringRecord, type StringRecord } from '#lib/memorypack/string-record.ts';
+
+export class AlertRuleRequest {
+	name: string | null;
+	description: string | null;
+	enabled: boolean | null;
+	condition: LogFilter | null;
+	threshold: AlertThreshold | null;
+	windowSeconds: number;
+	cooldownSeconds: number | null;
+	webhookUrl: string | null;
+	telegramBotToken: string | null;
+	telegramChatId: string | null;
+	emailTo: string | null;
+	pagerDutyRoutingKey: string | null;
+	conditionKind: number | null;
+	metricCondition: MetricAlertCondition | null;
+	metricThresholdValue: number | null;
+	channelIds: (string | null)[] | null;
+	exceptionCondition: ExceptionCountCondition | null;
+	noDataWindowSeconds: number | null;
+	evaluationIntervalSeconds: number | null;
+	anomalyCondition: AnomalyCondition | null;
+	minDataPoints: number | null;
+	notificationTitleTemplate: string | null;
+	notificationBodyTemplate: string | null;
+	recoveryThreshold: number | null;
+	severity: number | null;
+	thresholdUnit: string | null;
+	labels: StringRecord;
+	sloCondition: SloBurnRateCondition | null;
+	projectId: string | null;
+	escalateAfterMinutes: number | null;
+	escalationChannelIds: (string | null)[] | null;
+	escalationRotationId: string | null;
+	secondEscalateAfterMinutes: number | null;
+	secondEscalationChannelIds: (string | null)[] | null;
+	notificationTemplateId: string | null;
+
+	constructor() {
+		this.name = null;
+		this.description = null;
+		this.enabled = null;
+		this.condition = null;
+		this.threshold = null;
+		this.windowSeconds = 0;
+		this.cooldownSeconds = null;
+		this.webhookUrl = null;
+		this.telegramBotToken = null;
+		this.telegramChatId = null;
+		this.emailTo = null;
+		this.pagerDutyRoutingKey = null;
+		this.conditionKind = null;
+		this.metricCondition = null;
+		this.metricThresholdValue = null;
+		this.channelIds = null;
+		this.exceptionCondition = null;
+		this.noDataWindowSeconds = null;
+		this.evaluationIntervalSeconds = null;
+		this.anomalyCondition = null;
+		this.minDataPoints = null;
+		this.notificationTitleTemplate = null;
+		this.notificationBodyTemplate = null;
+		this.recoveryThreshold = null;
+		this.severity = null;
+		this.thresholdUnit = null;
+		this.labels = null;
+		this.sloCondition = null;
+		this.projectId = null;
+		this.escalateAfterMinutes = null;
+		this.escalationChannelIds = null;
+		this.escalationRotationId = null;
+		this.secondEscalateAfterMinutes = null;
+		this.secondEscalationChannelIds = null;
+		this.notificationTemplateId = null;
+	}
+
+	static serialize(value: AlertRuleRequest | null): Uint8Array {
+		const writer = MemoryPackWriter.getSharedInstance();
+		this.serializeCore(writer, value);
+		return writer.toArray();
+	}
+
+	static serializeCore(writer: MemoryPackWriter, value: AlertRuleRequest | null): void {
+		if (value == null) {
+			writer.writeNullObjectHeader();
+			return;
+		}
+
+		writer.writeObjectHeader(35);
+		writer.writeString(value.name);
+		writer.writeString(value.description);
+		writer.writeNullableBoolean(value.enabled);
+		LogFilter.serializeCore(writer, value.condition);
+		AlertThreshold.serializeCore(writer, value.threshold);
+		writer.writeInt32(value.windowSeconds);
+		writer.writeNullableInt32(value.cooldownSeconds);
+		writer.writeString(value.webhookUrl);
+		writer.writeString(value.telegramBotToken);
+		writer.writeString(value.telegramChatId);
+		writer.writeString(value.emailTo);
+		writer.writeString(value.pagerDutyRoutingKey);
+		writer.writeNullableInt32(value.conditionKind);
+		MetricAlertCondition.serializeCore(writer, value.metricCondition);
+		writer.writeNullableFloat64(value.metricThresholdValue);
+		writer.writeArray(value.channelIds, (writer, x) => writer.writeGuid(x!));
+		ExceptionCountCondition.serializeCore(writer, value.exceptionCondition);
+		writer.writeNullableInt32(value.noDataWindowSeconds);
+		writer.writeNullableInt32(value.evaluationIntervalSeconds);
+		AnomalyCondition.serializeCore(writer, value.anomalyCondition);
+		writer.writeNullableInt32(value.minDataPoints);
+		writer.writeString(value.notificationTitleTemplate);
+		writer.writeString(value.notificationBodyTemplate);
+		writer.writeNullableFloat64(value.recoveryThreshold);
+		writer.writeNullableInt32(value.severity);
+		writer.writeString(value.thresholdUnit);
+		writeStringRecord(writer, value.labels);
+		SloBurnRateCondition.serializeCore(writer, value.sloCondition);
+		writer.writeNullableGuid(value.projectId);
+		writer.writeNullableInt32(value.escalateAfterMinutes);
+		writer.writeArray(value.escalationChannelIds, (writer, x) => writer.writeGuid(x!));
+		writer.writeNullableGuid(value.escalationRotationId);
+		writer.writeNullableInt32(value.secondEscalateAfterMinutes);
+		writer.writeArray(value.secondEscalationChannelIds, (writer, x) => writer.writeGuid(x!));
+		writer.writeNullableGuid(value.notificationTemplateId);
+	}
+
+	static deserialize(buffer: ArrayBuffer): AlertRuleRequest | null {
+		return this.deserializeCore(new MemoryPackReader(buffer));
+	}
+
+	static deserializeCore(reader: MemoryPackReader): AlertRuleRequest | null {
+		const [ok, count] = reader.tryReadObjectHeader();
+		if (!ok) {
+			return null;
+		}
+
+		const value = new AlertRuleRequest();
+		if (count == 32) {
+			value.name = reader.readString();
+			value.description = reader.readString();
+			value.enabled = reader.readNullableBoolean();
+			value.condition = LogFilter.deserializeCore(reader);
+			value.threshold = AlertThreshold.deserializeCore(reader);
+			value.windowSeconds = reader.readInt32();
+			value.cooldownSeconds = reader.readNullableInt32();
+			value.webhookUrl = reader.readString();
+			value.telegramBotToken = reader.readString();
+			value.telegramChatId = reader.readString();
+			value.emailTo = reader.readString();
+			value.pagerDutyRoutingKey = reader.readString();
+			value.conditionKind = reader.readNullableInt32();
+			value.metricCondition = MetricAlertCondition.deserializeCore(reader);
+			value.metricThresholdValue = reader.readNullableFloat64();
+			value.channelIds = reader.readArray((reader) => reader.readGuid());
+			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
+			value.noDataWindowSeconds = reader.readNullableInt32();
+			value.evaluationIntervalSeconds = reader.readNullableInt32();
+			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
+			value.minDataPoints = reader.readNullableInt32();
+			value.notificationTitleTemplate = reader.readString();
+			value.notificationBodyTemplate = reader.readString();
+			value.recoveryThreshold = reader.readNullableFloat64();
+			value.severity = reader.readNullableInt32();
+			value.thresholdUnit = reader.readString();
+			value.labels = readStringRecord(reader);
+			value.sloCondition = SloBurnRateCondition.deserializeCore(reader);
+			value.projectId = reader.readNullableGuid();
+			value.escalateAfterMinutes = reader.readNullableInt32();
+			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			value.escalationRotationId = reader.readNullableGuid();
+			value.secondEscalateAfterMinutes = reader.readNullableInt32();
+			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			value.notificationTemplateId = reader.readNullableGuid();
+		} else if (count > 35) {
+			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
+		} else {
+			if (count == 0) return value;
+			value.name = reader.readString();
+			if (count == 1) return value;
+			value.description = reader.readString();
+			if (count == 2) return value;
+			value.enabled = reader.readNullableBoolean();
+			if (count == 3) return value;
+			value.condition = LogFilter.deserializeCore(reader);
+			if (count == 4) return value;
+			value.threshold = AlertThreshold.deserializeCore(reader);
+			if (count == 5) return value;
+			value.windowSeconds = reader.readInt32();
+			if (count == 6) return value;
+			value.cooldownSeconds = reader.readNullableInt32();
+			if (count == 7) return value;
+			value.webhookUrl = reader.readString();
+			if (count == 8) return value;
+			value.telegramBotToken = reader.readString();
+			if (count == 9) return value;
+			value.telegramChatId = reader.readString();
+			if (count == 10) return value;
+			value.emailTo = reader.readString();
+			if (count == 11) return value;
+			value.pagerDutyRoutingKey = reader.readString();
+			if (count == 12) return value;
+			value.conditionKind = reader.readNullableInt32();
+			if (count == 13) return value;
+			value.metricCondition = MetricAlertCondition.deserializeCore(reader);
+			if (count == 14) return value;
+			value.metricThresholdValue = reader.readNullableFloat64();
+			if (count == 15) return value;
+			value.channelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 16) return value;
+			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
+			if (count == 17) return value;
+			value.noDataWindowSeconds = reader.readNullableInt32();
+			if (count == 18) return value;
+			value.evaluationIntervalSeconds = reader.readNullableInt32();
+			if (count == 19) return value;
+			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
+			if (count == 20) return value;
+			value.minDataPoints = reader.readNullableInt32();
+			if (count == 21) return value;
+			value.notificationTitleTemplate = reader.readString();
+			if (count == 22) return value;
+			value.notificationBodyTemplate = reader.readString();
+			if (count == 23) return value;
+			value.recoveryThreshold = reader.readNullableFloat64();
+			if (count == 24) return value;
+			value.severity = reader.readNullableInt32();
+			if (count == 25) return value;
+			value.thresholdUnit = reader.readString();
+			if (count == 26) return value;
+			value.labels = readStringRecord(reader);
+			if (count == 27) return value;
+			value.sloCondition = SloBurnRateCondition.deserializeCore(reader);
+			if (count == 28) return value;
+			value.projectId = reader.readNullableGuid();
+			if (count == 29) return value;
+			value.escalateAfterMinutes = reader.readNullableInt32();
+			if (count == 30) return value;
+			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 31) return value;
+			value.escalationRotationId = reader.readNullableGuid();
+			if (count == 32) return value;
+			value.secondEscalateAfterMinutes = reader.readNullableInt32();
+			if (count == 33) return value;
+			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 34) return value;
+			value.notificationTemplateId = reader.readNullableGuid();
+			if (count == 35) return value;
+		}
+		return value;
+	}
+}

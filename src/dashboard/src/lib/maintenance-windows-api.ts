@@ -2,19 +2,19 @@
 // windows during which alert rules still evaluate but don't notify. See
 // `docs-internal/adr/0055-alert-maintenance-windows.md`.
 //
-// MemoryPack over the wire, same shape as `notification-channels-api.ts`. Every wire class is
-// generated (`#lib/generated/memorypack/`). `recurrence` converts through `#lib/memorypack/enums.ts`.
+// MemoryPack over the wire, same shape as `notification-channels-api.ts`. Every type here is
+// hand-written (`#lib/memorypack/MaintenanceWindow*.ts`) - `DateTimeOffset`/`IReadOnlyList<T>`
+// members. `recurrence` converts through `#lib/memorypack/enums.ts`.
 
-import { mapToRecord, recordToMap } from '#lib/memorypack/map-record.ts';
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import {
 	maintenanceWindowRecurrenceFromString,
 	maintenanceWindowRecurrenceToString,
 	type MaintenanceWindowRecurrenceName
 } from '#lib/memorypack/enums.ts';
-import { MaintenanceWindow as GeneratedMaintenanceWindow } from '#lib/generated/memorypack/MaintenanceWindow.ts';
-import { MaintenanceWindowRequest as GeneratedMaintenanceWindowRequest } from '#lib/generated/memorypack/MaintenanceWindowRequest.ts';
-import { MaintenanceWindowListResponse as GeneratedMaintenanceWindowListResponse } from '#lib/generated/memorypack/MaintenanceWindowListResponse.ts';
+import { MaintenanceWindow as GeneratedMaintenanceWindow } from '#lib/memorypack/MaintenanceWindow.ts';
+import { MaintenanceWindowRequest as GeneratedMaintenanceWindowRequest } from '#lib/memorypack/MaintenanceWindowRequest.ts';
+import { MaintenanceWindowListResponse as GeneratedMaintenanceWindowListResponse } from '#lib/memorypack/MaintenanceWindowListResponse.ts';
 
 export type MaintenanceWindowRecurrence = MaintenanceWindowRecurrenceName;
 
@@ -72,7 +72,7 @@ function toMaintenanceWindow(dto: GeneratedMaintenanceWindow): MaintenanceWindow
 		timeZone: dto.timeZone ?? 'UTC',
 		createdAt: dto.createdAt.toISOString(),
 		updatedAt: dto.updatedAt.toISOString(),
-		labelMatchers: mapToRecord(dto.labelMatchers)
+		labelMatchers: dto.labelMatchers ?? {}
 	};
 }
 
@@ -87,7 +87,7 @@ function toGeneratedRequest(request: MaintenanceWindowRequest): GeneratedMainten
 	dto.daysOfWeek = request.daysOfWeek;
 	dto.repeatUntil = request.repeatUntil == null ? null : new Date(request.repeatUntil);
 	dto.timeZone = request.timeZone;
-	dto.labelMatchers = recordToMap(request.labelMatchers);
+	dto.labelMatchers = request.labelMatchers;
 	return dto;
 }
 

@@ -59,9 +59,10 @@ public sealed partial record DatabaseCallGroup
 /// from clicking a node on the Services tab's Map view, answering "what does this service
 /// call, and how slow/erroring is each one" split into external HTTP-ish calls
 /// (<see cref="ExternalCalls"/>) and database calls (<see cref="DatabaseCalls"/>).
+/// Deliberately hand-written on the MemoryPack TS side (not <c>[GenerateTypeScript]</c>) -
+/// same <c>IReadOnlyList&lt;T&gt;</c>-member block as <see cref="ServiceOverviewResponse"/>.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ServiceCallBreakdownResponse
 {
     /// <summary>The service this breakdown is for, echoed back from the request - lets the dialog title itself off the response rather than threading the requested name through separately.</summary>
@@ -78,7 +79,6 @@ public sealed partial record ServiceCallBreakdownResponse
 
 /// <summary>Request body for <c>POST /api/services/breakdown</c> - see <see cref="ServiceOverviewRequest"/>'s remarks for why this is POST-with-a-flat-body rather than the GET-with-query-string it used to be. Same filter chips as the Table/Map views, so a node's drill-down stays consistent with whatever narrowed the graph it was opened from.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ServiceCallBreakdownRequest
 {
     /// <summary>Exact service name (or <c>peer.service</c>-overridden node id) clicked in the graph.</summary>

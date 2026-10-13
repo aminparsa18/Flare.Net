@@ -2,13 +2,13 @@
 // `POST /api/llm/models`, one row per (provider, model) derived from spans' `gen_ai.*`
 // attributes - see LlmQueryBuilder.cs and docs-internal/adr/0100-llm-observability-genai-spans.md.
 //
-// MemoryPack over the wire, same shape as `external-apis-api.ts`: every wire class is
-// generated (`#lib/generated/memorypack/`).
+// MemoryPack over the wire, same shape as `external-apis-api.ts`: the request and row type are
+// generated classes; the response is hand-written under `#lib/memorypack/`.
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { LlmModelsRequest as GeneratedModelsRequest } from '#lib/generated/memorypack/LlmModelsRequest.ts';
 import { SetLlmModelPriceRequest as GeneratedSetPriceRequest } from '#lib/generated/memorypack/SetLlmModelPriceRequest.ts';
-import { LlmModelsResponse as GeneratedModelsResponse } from '#lib/generated/memorypack/LlmModelsResponse.ts';
+import { LlmModelsResponse as GeneratedModelsResponse } from '#lib/memorypack/LlmModelsResponse.ts';
 
 /** One model's calls over the window. Latencies are milliseconds. */
 export interface LlmModel {

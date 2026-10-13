@@ -81,9 +81,8 @@ public sealed partial record SetLlmModelPriceRequest
     public double OutputPerMillion { get; init; }
 }
 
-/// <summary>Response body for <c>POST /api/llm/models</c>.</summary>
+/// <summary>Response body for <c>POST /api/llm/models</c>. Hand-written on the MemoryPack TS side (it holds <see cref="IReadOnlyList{T}"/> fields).</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LlmModelsResponse
 {
     public required int WindowMinutes { get; init; }

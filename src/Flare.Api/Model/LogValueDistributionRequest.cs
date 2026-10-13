@@ -4,7 +4,6 @@ namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/logs/numeric-attribute-keys</c> - populates the Value distribution chart's attribute picker (see <c>Query.LogAttributeKeysQueryBuilder</c>).</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogAttributeKeysRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
@@ -23,7 +22,6 @@ public sealed partial record LogAttributeKeyInfo
 
 /// <summary>Response body for <c>POST /api/logs/numeric-attribute-keys</c>, ordered by <see cref="LogAttributeKeyInfo.NumericCount"/> descending.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogAttributeKeysResponse
 {
     public required IReadOnlyList<LogAttributeKeyInfo> Keys { get; init; }
@@ -31,7 +29,6 @@ public sealed partial record LogAttributeKeysResponse
 
 /// <summary>Request body for <c>POST /api/logs/value-distribution</c> - a random sample of one numeric <c>LogAttributes</c> value over time, for the Logs page's scatter/density chart.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogValueDistributionRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
@@ -46,7 +43,6 @@ public sealed partial record LogValueDistributionRequest
 
 /// <summary>One sampled point: an event's <see cref="Value"/> for the requested attribute key, at the time it occurred.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogValueDistributionPoint
 {
     public required DateTimeOffset Timestamp { get; init; }
@@ -56,7 +52,6 @@ public sealed partial record LogValueDistributionPoint
 
 /// <summary>Response body for <c>POST /api/logs/value-distribution</c>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogValueDistributionResponse
 {
     public required IReadOnlyList<LogValueDistributionPoint> Points { get; init; }

@@ -18,7 +18,6 @@ namespace Flare.Api.Model;
 /// the OTel side is stored, and returned, as <see cref="string.Empty"/>, not <c>null</c>.
 /// </remarks>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record LogEventDto
 {
     public required Guid EventId { get; init; }

@@ -61,10 +61,11 @@ public sealed partial record ExternalDomain
 }
 
 /// <summary>
-/// Response body for <c>POST /api/external-apis/domains</c>.
+/// Response body for <c>POST /api/external-apis/domains</c>. Hand-written on the MemoryPack
+/// TS side - the <c>IReadOnlyList&lt;T&gt;</c> members block <c>[GenerateTypeScript]</c>, same
+/// precedent as <see cref="MessagingDestinationsResponse"/>.
 /// </summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ExternalDomainsResponse
 {
     /// <summary>The window actually used, post-clamp.</summary>
@@ -205,9 +206,8 @@ public sealed partial record ExternalSeriesPoint
     public required double P95Ms { get; init; }
 }
 
-/// <summary>Response body for <c>POST /api/external-apis/domain-detail</c>.</summary>
+/// <summary>Response body for <c>POST /api/external-apis/domain-detail</c>. Hand-written on the MemoryPack TS side, same reason as <see cref="ExternalDomainsResponse"/>.</summary>
 [MemoryPackable]
-[GenerateTypeScript]
 public sealed partial record ExternalDomainDetailResponse
 {
     /// <summary>Echoed back from the request, so the drill-down titles itself off the response.</summary>
