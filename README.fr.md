@@ -101,6 +101,8 @@ Vous dépassez les capacités d'un seul nœud ClickHouse ? Il existe une configu
 
 Vous voulez que votre assistant IA lise votre télémétrie ? `flare mcp` est un serveur [MCP](https://modelcontextprotocol.io) en lecture seule — voir [docs/how-to/integrations/connect-ai-assistants.fr.md](docs/how-to/integrations/connect-ai-assistants.fr.md).
 
+### Applications mobiles (.NET MAUI)
+
 Vous développez une application mobile ? [`Flare.Maui`](src/Flare.Maui) (aperçu, pas encore sur NuGet) ajoute `builder.UseFlare(...)` à une application .NET MAUI : export OTLP/HTTP avec file hors ligne, attributs d'appareil et de session, spans `HttpClient` et de navigation Shell, capture des exceptions non gérées — voir [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.fr.md).
 
 ## Développement local

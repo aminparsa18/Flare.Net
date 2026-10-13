@@ -99,6 +99,8 @@ Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup 
 
 Want your AI assistant to read your telemetry? `flare mcp` is a read-only [MCP](https://modelcontextprotocol.io) server — see [docs/how-to/integrations/connect-ai-assistants.md](docs/how-to/integrations/connect-ai-assistants.md).
 
+### Mobile apps (.NET MAUI)
+
 Building a mobile app? [`Flare.Maui`](src/Flare.Maui) (preview, not yet on NuGet) adds `builder.UseFlare(...)` to a .NET MAUI app: OTLP/HTTP export with an offline queue, device and session attributes, `HttpClient` and Shell navigation spans, and unhandled-exception capture — see [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.md).
 
 ## Local development

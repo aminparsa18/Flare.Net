@@ -101,6 +101,8 @@
 
 想让 AI 助手读取你的遥测数据？`flare mcp` 是一个只读的 [MCP](https://modelcontextprotocol.io) 服务器，参见 [docs/how-to/integrations/connect-ai-assistants.zh-CN.md](docs/how-to/integrations/connect-ai-assistants.zh-CN.md)。
 
+### 移动应用（.NET MAUI）
+
 正在开发移动应用？[`Flare.Maui`](src/Flare.Maui)（预览版，尚未发布到 NuGet）为 .NET MAUI 应用添加 `builder.UseFlare(...)`：带离线队列的 OTLP/HTTP 导出、设备和会话属性、`HttpClient` 和 Shell 导航 span，以及未处理异常捕获——参见 [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.zh-CN.md)。
 
 ## 本地开发

@@ -101,6 +101,8 @@
 
 Хотите, чтобы ИИ-ассистент читал вашу телеметрию? `flare mcp` — это [MCP](https://modelcontextprotocol.io)-сервер только для чтения; см. [docs/how-to/integrations/connect-ai-assistants.ru.md](docs/how-to/integrations/connect-ai-assistants.ru.md).
 
+### Мобильные приложения (.NET MAUI)
+
 Разрабатываете мобильное приложение? [`Flare.Maui`](src/Flare.Maui) (предварительная версия, в NuGet пока нет) добавляет `builder.UseFlare(...)` в приложение .NET MAUI: экспорт OTLP/HTTP с очередью без сети, атрибуты устройства и сессии, спаны `HttpClient` и навигации Shell, перехват необработанных исключений — см. [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.ru.md).
 
 ## Локальная разработка
