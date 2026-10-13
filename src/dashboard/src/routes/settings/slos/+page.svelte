@@ -94,7 +94,7 @@
 		const url = new URL(page.url.href);
 		if (slo) url.searchParams.set('slo', slo.id);
 		else url.searchParams.delete('slo');
-		goto(url, { replaceState: true, reset: false });
+		goto(url, { replace: true, reset: false });
 	}
 
 	async function onSaved(slo: Slo): Promise<void> {

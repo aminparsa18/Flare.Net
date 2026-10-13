@@ -46,7 +46,7 @@
 		if (spanId) q.set('spanId', spanId);
 		if (windowPreset !== '1h') q.set('window', windowPreset);
 		const qs = q.toString();
-		void goto(withBase(`/profiles${qs ? `?${qs}` : ''}`), { replaceState: true, reset: false });
+		void goto(withBase(`/profiles${qs ? `?${qs}` : ''}`), { replace: true, reset: false });
 	}
 
 	async function load() {

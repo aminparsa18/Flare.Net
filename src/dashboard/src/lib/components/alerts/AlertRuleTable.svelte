@@ -8,7 +8,7 @@
 	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import { page } from '$app/state';
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { withBase } from '#lib/paths.ts';
 	import { formatBurnRate, formatWindow } from '#lib/slos/burn-rate.ts';
 	import { formatDateTime } from '#lib/time/format.ts';
@@ -53,7 +53,7 @@
 	let view = $state<AlertListView>(parseAlertListView(page.url.searchParams));
 	$effect(() => {
 		const search = buildAlertListSearch(page.url.searchParams, view);
-		if (search !== page.url.search) replaceState(page.url.pathname + search, page.state);
+		if (search !== page.url.search) void goto(page.url.pathname + search, { shallow: true, replace: true, state: page.state });
 	});
 
 	const visibleRules = $derived(applyAlertListView(alerts.rules.filter((r) => projects.visible(r.projectId)), alerts.statuses, (rule) => maintenance.isRuleMuted(rule), view));

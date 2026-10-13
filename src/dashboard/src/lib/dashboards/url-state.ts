@@ -2,7 +2,7 @@
 // dashboard-wide time-range override) into the page URL, so a shared `/dashboards/<id>` link
 // opens with the sender's selections instead of the recipient's defaults. Pure - no
 // `$app/*` - so the encoding stays testable; DashboardViewerState.load() hydrates from it and
-// routes/dashboards/[id]/+page.svelte writes it back with replaceState.
+// routes/dashboards/[id]/+page.svelte writes it back with a shallow replace goto.
 //
 // Shape: `?range=1h&var-<variableId>=a&var-<variableId>=b`. Values are repeated params, not
 // comma-joined, because a value (e.g. an attribute value) may itself contain a comma. An

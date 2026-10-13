@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { withBase } from '#lib/paths.ts';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { buildDashboardUrlSearch } from '#lib/dashboards/url-state.ts';
 	import { isReportSearch, markReportReady } from '#lib/dashboards/report-mode.ts';
 	import { onMount, onDestroy } from 'svelte';
@@ -82,7 +82,7 @@
 	$effect(() => {
 		if (!urlSyncReady) return;
 		const search = buildDashboardUrlSearch(page.url.searchParams, viewer.timeRangeOverride, viewer.variables, viewer.variableValues, viewer.dashboard?.layout.defaultTimeRange ?? null);
-		if (search !== page.url.search) replaceState(page.url.pathname + search, page.state);
+		if (search !== page.url.search) void goto(page.url.pathname + search, { shallow: true, replace: true, state: page.state });
 	});
 
 	onMount(() => {

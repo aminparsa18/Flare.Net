@@ -1,6 +1,6 @@
 // Search / filter / sort for the alert rules list, plus its URL encoding. Pure (no `$app/*`)
 // so the logic stays testable; AlertRuleTable.svelte hydrates from the URL and writes back
-// with replaceState.
+// with a shallow replace goto.
 //
 // Shape: `?q=<name>&label=<key=value,...>&state=firing|ok|disabled|muted&kind=<AlertConditionKind>&sort=name|state|lastFired&dir=desc`.
 // Absent params are the defaults (no filter, name ascending).
