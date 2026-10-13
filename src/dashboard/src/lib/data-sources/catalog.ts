@@ -77,6 +77,8 @@ import BusIcon from '@lucide/svelte/icons/bus';
 import CloudIcon from '@lucide/svelte/icons/cloud';
 // NATS: no brand logo in lucide; an antenna reads as pub/sub broadcast.
 import AntennaIcon from '@lucide/svelte/icons/antenna';
+// Dapr's own logo, vendored as a currentColor component (lucide has no brand logos).
+import DaprIcon from '#lib/components/data-sources/DaprIcon.svelte';
 
 export interface GuideStep {
 	heading: string;
@@ -903,6 +905,66 @@ service:
 				}
 			]
 		},
+		dapr: {
+			id: 'dapr',
+			title: m.dataSourceCatalog_daprTitle(),
+			icon: DaprIcon,
+			intro: m.dataSourceCatalog_daprIntro(),
+			steps: [
+				{
+					heading: m.dataSourceCatalog_daprStep1Heading(),
+					body: m.dataSourceCatalog_daprStep1Body(),
+					code: {
+						label: 'config.yaml',
+						text: `apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: flare
+spec:
+  tracing:
+    samplingRate: "1"
+    otel:
+      endpointAddress: "${ep.grpcHostPort}"
+      isSecure: false
+      protocol: grpc`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_daprStep2Heading(),
+					body: m.dataSourceCatalog_daprStep2Body(),
+					code: {
+						label: 'Kubernetes pod annotations',
+						text: `dapr.io/enabled: "true"
+dapr.io/app-id: orders
+dapr.io/config: flare`
+					}
+				},
+				{
+					heading: '',
+					code: {
+						label: 'Self-hosted',
+						text: 'daprd --app-id orders --app-port 6001 --resources-path components --config config.yaml'
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_daprStep3Heading(),
+					body: m.dataSourceCatalog_daprStep3Body(),
+					code: {
+						label: 'docker-compose.yml',
+						text: `services:
+  ingest:
+    environment:
+      PrometheusScrape__Targets__0__Job: orders
+      PrometheusScrape__Targets__0__Url: http://orders-host:9090/
+      PrometheusScrape__Targets__0__Interval: "00:00:15"`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_daprStep4Heading(),
+					body: m.dataSourceCatalog_daprStep4Body()
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: m.dataSourceCatalog_customTitle(),
@@ -950,7 +1012,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 	const items = buildItems(ep);
 	const categories: GuideCategory[] = [
 		{ id: 'recommended', label: m.dataSourceCatalog_categoryRecommended(), itemIds: ['kubernetes', 'docker', 'dotnet', 'custom'] },
-		{ id: 'platforms', label: m.dataSourceCatalog_categoryPlatforms(), itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
+		{ id: 'platforms', label: m.dataSourceCatalog_categoryPlatforms(), itemIds: ['kubernetes', 'docker', 'linux', 'windows', 'dapr'] },
 		{ id: 'shippers', label: m.dataSourceCatalog_categoryShippers(), itemIds: ['vector', 'fluent-bit', 'syslog'] },
 		{ id: 'metrics', label: m.dataSourceCatalog_categoryMetrics(), itemIds: ['prometheus'] },
 		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka', 'rabbitmq', 'masstransit', 'servicebus', 'nats'] },
