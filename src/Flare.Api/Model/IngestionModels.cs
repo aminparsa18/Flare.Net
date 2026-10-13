@@ -43,6 +43,7 @@ public sealed partial record IngestionStatsRequest(int Minutes = 60);
 /// itself.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record IngestionBucketPoint(
     DateTimeOffset BucketStart,
     IngestionSignal Signal,
@@ -59,6 +60,7 @@ public sealed partial record IngestionBucketPoint(
 /// through the enums above, since nothing here needs to switch on them structurally.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record IngestionErrorEntryDto(
     DateTimeOffset Timestamp,
     string Signal,
@@ -86,6 +88,7 @@ public sealed partial record IngestionStatsTotals(
     long RejectedInWindow);
 
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record IngestionStatsResponse(
     DateTimeOffset GeneratedAt,
     int Minutes,

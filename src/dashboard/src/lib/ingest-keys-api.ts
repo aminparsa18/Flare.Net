@@ -3,10 +3,7 @@
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape.
-// `CreateIngestApiKeyRequest`/`UpdateIngestApiKeyLimitsRequest` have no
-// DateTimeOffset/JsonElement member, so they use real generated classes; every response
-// nests `IngestApiKeyDto` (`CreatedAt`/`RevokedAt` are `DateTimeOffset`/`DateTimeOffset?`),
-// so those are hand-written under `#lib/memorypack/`.
+// Every wire class is generated (`#lib/generated/memorypack/`).
 //
 // Used by the Ingest Keys page (routes/ingest-keys, ADR-0051's limits + usage) and by the
 // terminal's `apikey create` command.
@@ -19,9 +16,9 @@ import { SetIngestApiKeyExpiryRequest as GeneratedSetIngestApiKeyExpiryRequest }
 import { SetIngestApiKeyOriginsRequest as GeneratedSetIngestApiKeyOriginsRequest } from '#lib/generated/memorypack/SetIngestApiKeyOriginsRequest.ts';
 import { SetIngestApiKeyServicesRequest as GeneratedSetIngestApiKeyServicesRequest } from '#lib/generated/memorypack/SetIngestApiKeyServicesRequest.ts';
 import { UpdateIngestApiKeyLimitsRequest as GeneratedUpdateIngestApiKeyLimitsRequest } from '#lib/generated/memorypack/UpdateIngestApiKeyLimitsRequest.ts';
-import { CreateIngestApiKeyResponse as GeneratedCreateIngestApiKeyResponse } from '#lib/memorypack/CreateIngestApiKeyResponse.ts';
-import { IngestApiKeyListResponse as GeneratedIngestApiKeyListResponse } from '#lib/memorypack/IngestApiKeyListResponse.ts';
-import type { IngestApiKeyDto as GeneratedIngestApiKeyDto } from '#lib/memorypack/IngestApiKeyDto.ts';
+import { CreateIngestApiKeyResponse as GeneratedCreateIngestApiKeyResponse } from '#lib/generated/memorypack/CreateIngestApiKeyResponse.ts';
+import { IngestApiKeyListResponse as GeneratedIngestApiKeyListResponse } from '#lib/generated/memorypack/IngestApiKeyListResponse.ts';
+import type { IngestApiKeyDto as GeneratedIngestApiKeyDto } from '#lib/generated/memorypack/IngestApiKeyDto.ts';
 
 /** Per-key caps (ADR-0051). A null cap means "no cap on that dimension". */
 export interface IngestApiKeyLimits {
@@ -77,13 +74,13 @@ const toBigInt = (v: number | null): bigint | null => (v == null ? null : BigInt
 function toIngestApiKey(dto: GeneratedIngestApiKeyDto): IngestApiKeyDto {
 	return {
 		id: dto.id,
-		name: dto.name,
+		name: dto.name ?? '',
 		createdAt: dto.createdAt.toISOString(),
 		revokedAt: dto.revokedAt?.toISOString() ?? null,
 		isActive: dto.isActive,
 		projectId: dto.projectId,
-		allowedOrigins: dto.allowedOrigins,
-		allowedServices: dto.allowedServices,
+		allowedOrigins: (dto.allowedOrigins ?? []).map((o) => o ?? ''),
+		allowedServices: (dto.allowedServices ?? []).map((s) => s ?? ''),
 		expiresAt: dto.expiresAt?.toISOString() ?? null,
 		limitsEnabled: dto.limitsEnabled,
 		maxEventsPerMinute: toNumber(dto.maxEventsPerMinute),

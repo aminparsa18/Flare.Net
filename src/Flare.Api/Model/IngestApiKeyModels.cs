@@ -7,9 +7,10 @@ namespace Flare.Api.Model;
 /// Carries the key's ingestion limits and its current usage (ADR-0051) - usage is read
 /// live from the same Redis counters <c>Flare.Ingest</c> enforces against, so it's the
 /// current UTC minute/day, not a history. New members are appended, never inserted -
-/// the dashboard's hand-written <c>$lib/memorypack/IngestApiKeyDto.ts</c> reads them in
+/// the dashboard's generated TypeScript decoder reads them in
 /// declared order.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record IngestApiKeyDto
 {
     public required Guid Id { get; init; }
@@ -40,7 +41,7 @@ public sealed partial record IngestApiKeyDto
 
     public long BytesToday { get; init; }
 
-    /// <summary>The owning project (ADR-0123), or null for an instance-wide key. Appended last for the same hand-written TypeScript reader reason as the members above.</summary>
+    /// <summary>The owning project (ADR-0123), or null for an instance-wide key. Appended last for the same reason as the members above.</summary>
     public Guid? ProjectId { get; init; }
 
     /// <summary>Browser origins the key is restricted to (ADR-0149); empty = unrestricted. Appended last, same reason.</summary>
@@ -129,6 +130,7 @@ public sealed partial record RenameIngestApiKeyRequest
 /// <summary><see cref="RawKey"/> is shown exactly once, here - Flare never stores or
 /// displays it again after this response (see <see cref="Identity.IngestKeys.DbIngestApiKeyStore"/>).</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record CreateIngestApiKeyResponse
 {
     public required IngestApiKeyDto Key { get; init; }
@@ -138,6 +140,7 @@ public sealed partial record CreateIngestApiKeyResponse
 
 /// <summary>Response body for <c>GET /api/ingest-keys</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record IngestApiKeyListResponse
 {
     public required IReadOnlyList<IngestApiKeyDto> Keys { get; init; }

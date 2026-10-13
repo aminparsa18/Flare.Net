@@ -5,6 +5,7 @@ namespace Flare.Api.Model;
 /// <summary>A personal access token as returned by list/create - never carries the raw
 /// token value except at creation time (see <see cref="CreateAccessTokenResponse"/>).</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record AccessTokenDto
 {
     public required Guid Id { get; init; }
@@ -39,6 +40,7 @@ public sealed partial record CreateAccessTokenRequest
 /// displays it again after this response (see
 /// <see cref="Identity.PersonalAccessTokens.DbPersonalAccessTokenStore"/>).</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record CreateAccessTokenResponse
 {
     public required AccessTokenDto Token { get; init; }
@@ -49,6 +51,7 @@ public sealed partial record CreateAccessTokenResponse
 /// <summary>Response body for <c>GET /api/access-tokens</c> - the caller's own tokens
 /// only, see that endpoint's remarks.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record AccessTokenListResponse
 {
     public required IReadOnlyList<AccessTokenDto> Tokens { get; init; }

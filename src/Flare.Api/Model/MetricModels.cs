@@ -49,6 +49,7 @@ public sealed partial record MetricAttributeFilter
 /// <c>Time</c>/<c>ServiceName</c>/<c>DataPointAttributes</c> columns).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricFilter
 {
     public DateTimeOffset? From { get; init; }
@@ -64,6 +65,7 @@ public sealed partial record MetricFilter
 
 /// <summary>Request body for <c>POST /api/metrics/names</c> - metric discovery for a picker, not a full <see cref="MetricFilter"/> (no attribute filtering - see its remarks).</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricNamesRequest
 {
     public DateTimeOffset? From { get; init; }
@@ -106,6 +108,7 @@ public sealed partial record MetricNameInfo
 
 /// <summary>Response body for <c>POST /api/metrics/names</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricNamesResponse
 {
     public required IReadOnlyList<MetricNameInfo> Metrics { get; init; }
@@ -121,6 +124,7 @@ public sealed partial record MetricNamesResponse
 /// to discover that metric's group-by keys.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricAttributeKeysRequest
 {
     public required string MetricName { get; init; }
@@ -148,6 +152,7 @@ public sealed partial record MetricAttributeKeyInfo
 
 /// <summary>Response body for <c>POST /api/metrics/attribute-keys</c>, sorted by <see cref="MetricAttributeKeyInfo.Key"/>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricAttributeKeysResponse
 {
     public required IReadOnlyList<MetricAttributeKeyInfo> Keys { get; init; }
@@ -178,6 +183,7 @@ public enum MetricHavingOperator
 /// a time-bucketed series for one metric, one attribute-set per <see cref="MetricSeries"/>.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricQueryRequest
 {
     public required string MetricName { get; init; }
@@ -308,6 +314,7 @@ public sealed partial record MetricPostProcessFunction
 /// response type would just be overhead here, not disambiguation.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricSeriesPoint
 {
     public required DateTimeOffset BucketStart { get; init; }
@@ -380,6 +387,7 @@ public sealed partial record MetricSeriesPoint
 /// no separate flag for which mode produced it.
 /// </remarks>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricSeries
 {
     public required string ServiceName { get; init; }
@@ -391,6 +399,7 @@ public sealed partial record MetricSeries
 
 /// <summary>Response body for <c>POST /api/metrics/query</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricQueryResponse
 {
     public required IReadOnlyList<MetricSeries> Series { get; init; }

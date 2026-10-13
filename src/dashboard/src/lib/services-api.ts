@@ -5,35 +5,28 @@
 // docs-internal/adr/0032-apdex-score-per-service.md): GET is plain-JSON-or-MemoryPack
 // content-negotiated like every other endpoint here, PUT/DELETE are Admin-only.
 //
-// MemoryPack over the wire, same shape as `indexing-api.ts`'s header comment: `ServiceMetrics`
-// has no DateTimeOffset/JsonElement/IReadOnlyList member and is a real generated class;
-// `ServiceOverviewResponse` (an IReadOnlyList-of-object member) is hand-written
-// (`#lib/memorypack/ServiceOverviewResponse.ts`), and so are `ServiceDependencyNode` (an
-// IReadOnlyList<string> member) and `ServiceDependencyGraphResponse` (IReadOnlyList-of-object
-// members) - see their own header comments.
+// MemoryPack over the wire, same shape as `indexing-api.ts`'s header comment: every wire
+// class is generated (`#lib/generated/memorypack/`).
 //
 // All three endpoints were plain GET-with-`?windowMinutes=` until the Services tab's
 // resource-attribute filter chips (docs-internal/planning/roadmap.md's now-removed
 // "Resource-attribute filtering on the Traces > Services tab" item) - see
 // `ServicesEndpoints.cs`'s own header comment for why that made them POST. Their request
 // bodies (`ServiceOverviewRequest`/`ServiceDependencyRequest`/`ServiceCallBreakdownRequest`)
-// are hand-written for the same reason as the response types above: an
-// `IReadOnlyList<ResourceAttributeFilter>?` member blocks the generator, even though
-// `ResourceAttributeFilter` itself is a real generated class (no list/DateTimeOffset
-// member of its own).
+// are generated like the rest.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { ServiceOverviewRequest as GeneratedServiceOverviewRequest } from '#lib/memorypack/ServiceOverviewRequest.ts';
-import { ServiceOverviewResponse as GeneratedServiceOverviewResponse } from '#lib/memorypack/ServiceOverviewResponse.ts';
-import { ServiceDependencyRequest as GeneratedServiceDependencyRequest } from '#lib/memorypack/ServiceDependencyRequest.ts';
-import { ServiceDependencyGraphResponse as GeneratedServiceDependencyGraphResponse } from '#lib/memorypack/ServiceDependencyGraphResponse.ts';
-import { ServiceCallBreakdownRequest as GeneratedServiceCallBreakdownRequest } from '#lib/memorypack/ServiceCallBreakdownRequest.ts';
-import { ServiceCallBreakdownResponse as GeneratedServiceCallBreakdownResponse } from '#lib/memorypack/ServiceCallBreakdownResponse.ts';
-import { ApdexThresholdsResponse as GeneratedApdexThresholdsResponse } from '#lib/memorypack/ApdexThresholdsResponse.ts';
+import { ServiceOverviewRequest as GeneratedServiceOverviewRequest } from '#lib/generated/memorypack/ServiceOverviewRequest.ts';
+import { ServiceOverviewResponse as GeneratedServiceOverviewResponse } from '#lib/generated/memorypack/ServiceOverviewResponse.ts';
+import { ServiceDependencyRequest as GeneratedServiceDependencyRequest } from '#lib/generated/memorypack/ServiceDependencyRequest.ts';
+import { ServiceDependencyGraphResponse as GeneratedServiceDependencyGraphResponse } from '#lib/generated/memorypack/ServiceDependencyGraphResponse.ts';
+import { ServiceCallBreakdownRequest as GeneratedServiceCallBreakdownRequest } from '#lib/generated/memorypack/ServiceCallBreakdownRequest.ts';
+import { ServiceCallBreakdownResponse as GeneratedServiceCallBreakdownResponse } from '#lib/generated/memorypack/ServiceCallBreakdownResponse.ts';
+import { ApdexThresholdsResponse as GeneratedApdexThresholdsResponse } from '#lib/generated/memorypack/ApdexThresholdsResponse.ts';
 import { SetApdexThresholdRequest as GeneratedSetApdexThresholdRequest } from '#lib/generated/memorypack/SetApdexThresholdRequest.ts';
 import { ResourceAttributeFilter as GeneratedResourceAttributeFilter } from '#lib/generated/memorypack/ResourceAttributeFilter.ts';
 import type { ServiceMetrics as GeneratedServiceMetrics } from '#lib/generated/memorypack/ServiceMetrics.ts';
-import type { ServiceDependencyNode as GeneratedServiceDependencyNode } from '#lib/memorypack/ServiceDependencyNode.ts';
+import type { ServiceDependencyNode as GeneratedServiceDependencyNode } from '#lib/generated/memorypack/ServiceDependencyNode.ts';
 import type { ServiceDependencyEdge as GeneratedServiceDependencyEdge } from '#lib/generated/memorypack/ServiceDependencyEdge.ts';
 import type { ExternalCallGroup as GeneratedExternalCallGroup } from '#lib/generated/memorypack/ExternalCallGroup.ts';
 import type { DatabaseCallGroup as GeneratedDatabaseCallGroup } from '#lib/generated/memorypack/DatabaseCallGroup.ts';

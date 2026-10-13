@@ -35,11 +35,10 @@ public sealed partial record PromotedAttributeInfo(
     PromotedAttributeTable Table);
 
 /// <summary>
-/// <c>GET /api/indexing/promoted-attributes</c> response. Hand-written on the MemoryPack TS
-/// side - the <c>IReadOnlyList</c> member blocks <c>[GenerateTypeScript]</c>, same precedent
-/// as <see cref="ApdexThresholdsResponse"/>.
+/// <c>GET /api/indexing/promoted-attributes</c> response.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record PromotedAttributesResponse(
     IReadOnlyList<PromotedAttributeInfo> Attributes,
     int MaxPromotedAttributes);

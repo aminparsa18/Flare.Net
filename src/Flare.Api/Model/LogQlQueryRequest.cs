@@ -15,6 +15,7 @@ namespace Flare.Api.Model;
 /// <c>where</c> clause, if any - the toolbar's filters are deliberately not applied here.
 /// </remarks>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LogQlQueryRequest
 {
     public required string Query { get; init; }
@@ -42,6 +43,7 @@ public enum LogQlResultKind
 
 /// <summary>Response body for <c>POST /api/logs/query</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LogQlQueryResponse
 {
     public required LogQlResultKind Kind { get; init; }

@@ -18,6 +18,7 @@ namespace Flare.Api.Model;
 /// persisted <see cref="ExceptionCountCondition"/> JSON without the field reads it back as null.
 /// </remarks>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionFilter
 {
     public DateTimeOffset? From { get; init; }
@@ -33,6 +34,7 @@ public sealed partial record ExceptionFilter
 
 /// <summary>Request body for <c>POST /api/errors/groups</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionGroupsRequest
 {
     /// <summary>
@@ -53,6 +55,7 @@ public sealed partial record ExceptionGroupsRequest
 /// embedded id/value is a known follow-up, not attempted here.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionGroup
 {
     /// <summary>The <c>exception.type</c> event attribute, e.g. <c>"System.NullReferenceException"</c>. Never empty - the query only groups events that set this attribute.</summary>
@@ -80,6 +83,7 @@ public sealed partial record ExceptionGroup
 
 /// <summary>Response body for <c>POST /api/errors/groups</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionGroupsResponse
 {
     /// <summary>Highest <see cref="ExceptionGroup.OccurrenceCount"/> first - see <see cref="Query.ExceptionGroupQueryBuilder"/>'s <c>ORDER BY</c>.</summary>
@@ -92,6 +96,7 @@ public sealed partial record ExceptionGroupsResponse
 /// (type, message) pair.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionOccurrencesRequest
 {
     /// <summary>Never null, same as <see cref="ExceptionGroupsRequest.Filter"/>.</summary>
@@ -109,6 +114,7 @@ public sealed partial record ExceptionOccurrencesRequest
 /// stack trace inline.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionOccurrence
 {
     public required string TraceId { get; init; }
@@ -137,11 +143,10 @@ public sealed partial record ExceptionOccurrence
 }
 
 /// <summary>
-/// Response body for <c>POST /api/errors/occurrences</c>. Deliberately hand-written on the
-/// MemoryPack TS side (not <c>[GenerateTypeScript]</c>) - same <c>IReadOnlyList&lt;T&gt;</c>-
-/// member block as <see cref="ServiceOverviewResponse"/>/<see cref="ExceptionGroupsResponse"/>.
+/// Response body for <c>POST /api/errors/occurrences</c>.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionOccurrencesResponse
 {
     /// <summary>The group this drill-down is for, echoed back from the request - same "dialog titles itself off the response" convention as <see cref="ServiceCallBreakdownResponse.Service"/>.</summary>
@@ -171,6 +176,7 @@ public enum ExceptionFacetField
 /// <c>ARRAY JOIN</c> over <c>Events</c>), not spans. See <see cref="Query.ExceptionFacetValuesQueryBuilder"/>.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionFacetValuesRequest
 {
     /// <summary>See <see cref="ExceptionGroupsRequest.Filter"/> - never null, same reason. The caller strips the facet's own selection from this, so a section lists its alternatives rather than only what's already picked.</summary>
@@ -197,6 +203,7 @@ public sealed partial record ExceptionFacetValue
 
 /// <summary>Response body for <c>POST /api/errors/facet-values</c>, ordered by <see cref="ExceptionFacetValue.Count"/> descending.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ExceptionFacetValuesResponse
 {
     public required IReadOnlyList<ExceptionFacetValue> Values { get; init; }
