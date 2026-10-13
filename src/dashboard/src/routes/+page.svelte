@@ -50,12 +50,12 @@
 		if (page.url.searchParams.size === 0) {
 			// Settings > Explorer's landing page wins over the home dashboard when it names another page.
 			if (explorerPrefs.landingPage !== 'default' && explorerPrefs.landingPage !== 'logs') {
-				void goto(withBase(`/${explorerPrefs.landingPage}`), { replaceState: true });
+				void goto(withBase(`/${explorerPrefs.landingPage}`), { replace: true });
 				return;
 			}
 			const homeId = explorerPrefs.landingPage === 'logs' ? null : getHomeDashboardId();
 			if (homeId) {
-				void goto(dashboardPath({ id: homeId }), { replaceState: true });
+				void goto(dashboardPath({ id: homeId }), { replace: true });
 				return;
 			}
 		}
