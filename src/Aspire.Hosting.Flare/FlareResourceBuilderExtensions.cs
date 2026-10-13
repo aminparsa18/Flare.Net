@@ -68,7 +68,7 @@ public static class FlareResourceBuilderExtensions
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
     /// <param name="name">The name of the Flare resource group.</param>
     /// <param name="imageTag">
-    /// The tag to pull for all four Flare images. Defaults to <c>"0.5.1"</c>, the latest
+    /// The tag to pull for all four Flare images. Defaults to <c>"0.6.0"</c>, the latest
     /// stable Flare release this package version was tested against - deliberately NOT
     /// Docker Hub's floating <c>latest</c>/<c>edge</c> tags, so a given
     /// <c>Flare.Hosting.Aspire</c> NuGet version keeps pulling the same images forever
@@ -152,7 +152,7 @@ public static class FlareResourceBuilderExtensions
     public static IResourceBuilder<FlareResource> AddFlare(
         this IDistributedApplicationBuilder builder,
         [ResourceName] string name = "flare",
-        string imageTag = "0.5.1",
+        string imageTag = "0.6.0",
         bool enableResourceGraph = false)
     {
         ArgumentNullException.ThrowIfNull(builder);
