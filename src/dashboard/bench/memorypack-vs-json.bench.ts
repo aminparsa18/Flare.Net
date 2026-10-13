@@ -10,11 +10,16 @@
 // when this benchmark was added: the dashboard had no test runner at all yet, and a
 // one-off micro-benchmark didn't warrant adding one just to get `bench()`).
 //
+// The `*_DecodeAndMap_*` cases add the real consumer path (`toLogEventDto` from `src/lib/api.ts`,
+// including the `Map` -> `Record` copy of the three attribute dictionaries) on top of the raw decode.
+// `--json` prints the per-case statistics as JSON instead of the console table, for scripted runs.
+//
 // Run: npm run bench   (from src/dashboard)
 
 import { Bench } from 'tinybench';
-import { LogEventDto } from '#lib/memorypack/LogEventDto.ts';
-import { LogSearchResponse } from '#lib/memorypack/LogSearchResponse.ts';
+import { LogEventDto } from '#lib/generated/memorypack/LogEventDto.ts';
+import { LogSearchResponse } from '#lib/generated/memorypack/LogSearchResponse.ts';
+import { toLogEventDto } from './consumer-mapping';
 import { buildLogEventDto, buildLogSearchResponsePage, newRandom } from './fixtures';
 import { parseLogEventDtoJson, parseLogSearchResponseJson, responseToJsonShape, toJsonShape } from './json-shape';
 
@@ -31,8 +36,10 @@ async function main() {
 	const pageMemoryPack = LogSearchResponse.serialize(page);
 	const pageJsonText = JSON.stringify(responseToJsonShape(page));
 
-	console.log(`One:  MemoryPack ${oneMemoryPack.byteLength} B, JSON ${oneJsonText.length} B (UTF-16 chars)`);
-	console.log(`Page: MemoryPack ${pageMemoryPack.byteLength} B, JSON ${pageJsonText.length} B (UTF-16 chars)\n`);
+	const asJson = process.argv.includes('--json');
+	const log = asJson ? () => {} : console.log;
+	log(`One:  MemoryPack ${oneMemoryPack.byteLength} B, JSON ${oneJsonText.length} B (UTF-16 chars)`);
+	log(`Page: MemoryPack ${pageMemoryPack.byteLength} B, JSON ${pageJsonText.length} B (UTF-16 chars)\n`);
 
 	const bench = new Bench({ time: 500 });
 
@@ -46,6 +53,9 @@ async function main() {
 		.add('MemoryPack_Decode_One', () => {
 			LogEventDto.deserialize(oneMemoryPack.buffer as ArrayBuffer);
 		})
+		.add('MemoryPack_DecodeAndMap_One', () => {
+			toLogEventDto(LogEventDto.deserialize(oneMemoryPack.buffer as ArrayBuffer)!);
+		})
 		.add('Json_Decode_One', () => {
 			parseLogEventDtoJson(JSON.parse(oneJsonText));
 		})
@@ -58,12 +68,26 @@ async function main() {
 		.add('MemoryPack_Decode_Page', () => {
 			LogSearchResponse.deserialize(pageMemoryPack.buffer as ArrayBuffer);
 		})
+		.add('MemoryPack_DecodeAndMap_Page', () => {
+			LogSearchResponse.deserialize(pageMemoryPack.buffer as ArrayBuffer)!.events!.map((e) => toLogEventDto(e!));
+		})
 		.add('Json_Decode_Page', () => {
 			parseLogSearchResponseJson(JSON.parse(pageJsonText));
 		});
 
 	await bench.run();
 
+	if (asJson) {
+		const rows = bench.tasks.map((t) => ({
+			name: t.name,
+			hz: t.result.throughput.mean,
+			meanMs: t.result.latency.mean,
+			rmePercent: t.result.latency.rme,
+			samples: t.result.latency.samplesCount
+		}));
+		console.log(JSON.stringify({ oneBytes: oneMemoryPack.byteLength, pageBytes: pageMemoryPack.byteLength, rows }));
+		return;
+	}
 	console.table(bench.table());
 }
 
