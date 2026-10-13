@@ -15,6 +15,11 @@ import { dirname, join } from 'node:path';
 
 export const BASE_PATH_PLACEHOLDER = '/__FLARE_BASE_PATH__';
 
+// `if (!x.startsWith("<placeholder>")) return ...;\n x = x.slice(<placeholder length>) || "/";` in the server's request handler.
+const SERVER_BASE_SLICE = new RegExp(
+	`(startsWith\\("${BASE_PATH_PLACEHOLDER}"\\)\\)[^\\n]*\\n\\s*\\w+ = \\w+\\.slice\\()${BASE_PATH_PLACEHOLDER.length}\\)`
+);
+
 const REWRITE_EXTENSIONS = new Set(['.js', '.mjs', '.css', '.html', '.json', '.map']);
 
 /** "" | "/" -> ""; "flare/" -> "/flare". Rejects anything that would not survive being spliced into a URL path. */
@@ -49,15 +54,27 @@ export function applyBasePath(buildDir, outDir, basePath) {
 	rmSync(outDir, { recursive: true, force: true });
 	cpSync(buildDir, outDir, { recursive: true });
 
+	let patchedSlices = 0;
 	for (const file of walk(outDir)) {
 		const dot = file.lastIndexOf('.');
 		if (dot < 0 || !REWRITE_EXTENSIONS.has(file.slice(dot))) continue;
 		const text = readFileSync(file, 'utf8');
 		if (!text.includes(BASE_PATH_PLACEHOLDER)) continue;
-		const rewritten = text.replaceAll(BASE_PATH_PLACEHOLDER, basePath);
+		// SvelteKit 3 inlines the placeholder's *length* too: after `startsWith("<base>")` the server strips it
+		// with `.slice(<length>)`. Left alone, every request path is cut at the placeholder's length instead of the
+		// real base's (all routes collapse to "/"), so retarget that literal before the plain text replacement.
+		const lengthPatched = text.replace(SERVER_BASE_SLICE, (_, head) => {
+			patchedSlices++;
+			return `${head}${basePath.length})`;
+		});
+		const rewritten = lengthPatched.replaceAll(BASE_PATH_PLACEHOLDER, basePath);
 		writeFileSync(file, rewritten);
 		if (existsSync(`${file}.gz`)) writeFileSync(`${file}.gz`, gzipSync(rewritten, { level: 9 }));
 		if (existsSync(`${file}.br`)) writeFileSync(`${file}.br`, brotliCompressSync(rewritten));
+	}
+
+	if (patchedSlices === 0) {
+		throw new Error("apply-base-path: could not find SvelteKit's `startsWith(<base>) ... .slice(<length>)` base-path strip - the server output format changed, so routing would break.");
 	}
 
 	const from = join(outDir, 'client', BASE_PATH_PLACEHOLDER.slice(1));

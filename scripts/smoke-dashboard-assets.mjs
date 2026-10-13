@@ -6,7 +6,8 @@
 // container start) is served with a stale Content-Length unless the tables are refreshed. Unit
 // tests can't see that; only a running server can. For every _app/**/*.js|css under --dir this
 // requests <url><base>/<file> as identity, gzip and br and checks: 200, Content-Length present and
-// equal to the bytes received, decoded body free of the build-time placeholder.
+// equal to the bytes received, decoded body free of the build-time placeholder. It also checks that
+// routing survived the rewrite (a deep link is not the home page, an unknown path is a 404).
 //
 // Usage: node scripts/smoke-dashboard-assets.mjs --url http://127.0.0.1:3000 --base /flare --dir <client dir>
 import { request } from 'node:http';
@@ -87,6 +88,23 @@ for (const file of files) {
 		if (problems.length) failures.push(`${encoding.padEnd(8)} ${path}: ${problems.join('; ')}`);
 	}
 }
+
+// Routing: SvelteKit 3 inlines the placeholder's length into the server's base-path strip, so a bad rewrite
+// resolves every path to "/" (unknown paths 200, deep links render the home page). The SSR payload names the
+// matched route's nodes, so a real route must differ from "/" and an unknown path must 404.
+const nodeIds = (html) => /node_ids: \[([\d, ]*)\]/.exec(html)?.[1];
+const page = async (path) => {
+	const { res, body } = await get(path, 'identity');
+	return { status: res.statusCode, nodes: nodeIds(body.toString('utf8')) };
+};
+const home = await page(`${base}/`);
+const metrics = await page(`${base}/metrics`);
+const unknown = await page(`${base}/definitely-not-a-route`);
+checks += 3;
+if (home.status !== 200) failures.push(`routing  ${base}/: status ${home.status}`);
+if (metrics.status !== 200 || metrics.nodes === undefined || metrics.nodes === home.nodes)
+	failures.push(`routing  ${base}/metrics resolves to the same page as ${base}/ (status ${metrics.status}, nodes ${metrics.nodes})`);
+if (unknown.status !== 404) failures.push(`routing  ${base}/definitely-not-a-route: expected 404, got ${unknown.status}`);
 
 console.log(`${files.length} files, ${checks} requests, ${failures.length} failures`);
 for (const f of failures) console.error(`FAIL ${f}`);
