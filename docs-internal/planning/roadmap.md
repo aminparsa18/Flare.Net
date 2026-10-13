@@ -143,3 +143,7 @@ folders are where "what happened and why" actually lives.
   (single + cluster) alongside the retention TTL work. Flare sets no
   force-merge or `ttl_only_drop_parts` settings today. Prior art: [ClickHouse
   26.9 changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).
+- **First npm release of the CLI (`@apardev/flare-cli`, [ADR-0214](../adr/0214-npm-distribution-of-the-cli.md)).** The six packages exist at 0.1.9 (published by hand) with trusted
+  publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
+  `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
+  mention npm in the csproj `Description` while the version is bumped.
