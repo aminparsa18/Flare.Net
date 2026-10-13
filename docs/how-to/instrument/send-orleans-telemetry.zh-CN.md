@@ -79,7 +79,8 @@ grain 扇出的请求可以在追踪瀑布图中从上到下阅读。这些 span
 
 抛出异常的 grain 方法会让两个 span 都带上错误状态，并把 `exception.type`、
 `exception.message` 和 `exception.stacktrace` 作为 span 属性。它们会计入
-**Traces > Services** 上该服务的错误率。
+**Traces > Services** 上该服务的错误率。Flare 还会把每次失败记录为 span 上的 `exception` 事件，因此它会出现在
+**Errors** 页面，并计入异常计数告警。升级 Flare 之前已摄取的 span 不会回填。
 
 ### 指标
 
@@ -109,8 +110,5 @@ grain 扇出的请求可以在追踪瀑布图中从上到下阅读。这些 span
 
 ## 已知限制
 
-- **grain 失败不会出现在 Errors 页面。** 该页面读取 `exception` span 事件，而
-  Orleans 把异常记录在 span 属性中。失败的调用仍然很容易找到：在 **Traces** 中
-  按错误状态过滤。
 - **grain 之间的调用不会在服务地图上画出连线。** 它们发生在同一个服务（你的
   silo）内部，所以地图上只有一个节点。

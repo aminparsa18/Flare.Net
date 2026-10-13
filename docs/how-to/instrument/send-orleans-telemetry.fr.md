@@ -84,7 +84,10 @@ grain appelant).
 Une méthode de grain qui lève une exception donne aux deux spans un statut
 d'erreur, avec `exception.type`, `exception.message` et `exception.stacktrace`
 comme attributs de span. Ils comptent dans le taux d'erreur du service sur
-**Traces > Services**.
+**Traces > Services**. Flare enregistre aussi chaque échec comme événement `exception` sur le span :
+il apparaît donc sur la page **Errors** et compte dans les alertes de nombre
+d'exceptions. Les spans ingérés avant la mise à jour de Flare ne sont pas
+rétroalimentés.
 
 ### Métriques
 
@@ -121,10 +124,6 @@ change beaucoup le volume :
 
 ## Limites connues
 
-- **Les échecs de grains n'apparaissent pas sur la page Errors.** Cette page lit
-  les événements de span `exception`, alors qu'Orleans enregistre l'exception
-  dans des attributs de span. Les appels en échec restent faciles à trouver :
-  filtrez **Traces** par statut d'erreur.
 - **Les appels de grain à grain ne dessinent pas de liens sur la carte des
   services.** Ils se produisent à l'intérieur d'un seul service (votre silo) :
   la carte affiche donc un seul nœud.
