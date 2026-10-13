@@ -17,6 +17,14 @@ a one-off micro-benchmark didn't justify pulling in Vitest just to get its `benc
 npm run bench   # regenerates #lib/generated/memorypack/*.ts first, then runs the bench
 ```
 
+`npm run bench -- --json` (or `npx tsx bench/memorypack-vs-json.bench.ts --json`) prints the per-case
+statistics as one JSON line instead of the table.
+
+The `MemoryPack_DecodeAndMap_*` cases time the real consumer path: deserialize plus `toLogEventDto`
+(`bench/consumer-mapping.ts`, a verbatim mirror of the module-private function in `src/lib/api.ts`,
+including the `Map` -> `Record` copy of the three attribute dictionaries), for one event and a
+200-row page. Fixtures use `Map` attribute bags because the generated classes do (ADR-0215).
+
 Not wired into `svelte-check`/CI — it's a manual, one-off measurement, same as the .NET
 benchmarks.
 

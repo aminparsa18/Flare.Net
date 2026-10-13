@@ -5,8 +5,8 @@
 // JSON-vs-MemoryPack benchmark" item) - not lifted from a captured production payload,
 // so treat absolute numbers as directionally representative rather than exact.
 
-import { LogEventDto } from '#lib/memorypack/LogEventDto.ts';
-import { LogSearchResponse } from '#lib/memorypack/LogSearchResponse.ts';
+import { LogEventDto } from '#lib/generated/memorypack/LogEventDto.ts';
+import { LogSearchResponse } from '#lib/generated/memorypack/LogSearchResponse.ts';
 
 /** A tiny seeded PRNG (mulberry32) - deterministic across runs, unlike `Math.random()`. */
 function mulberry32(seed: number): () => number {
@@ -43,6 +43,15 @@ function randomGuid(rand: () => number): string {
 	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/**
+ * The generated decoder/encoder models an `IReadOnlyDictionary<string, string>` as a `Map` (the
+ * pre-ADR-0215 hand-written class used a plain `Record`). Insertion order follows the object
+ * literal, so the wire bytes are identical to the old fixtures'.
+ */
+function attributeMap(attributes: Record<string, string>): Map<string | null, string | null> {
+	return new Map(Object.entries(attributes));
+}
+
 /** One `LogEventDto` instance, ready to feed into `LogSearchResponse.serialize`/`serializeCore`. */
 export function buildLogEventDto(rand: () => number): LogEventDto {
 	const now = new Date(Date.UTC(2026, 8, 5, 12, 0, 0) + Math.floor(rand() * 86_400_000));
@@ -61,25 +70,25 @@ export function buildLogEventDto(rand: () => number): LogEventDto {
 	dto.serviceName = serviceName;
 	dto.body = `Handled ${pick(rand, HTTP_METHODS)} ${pick(rand, HTTP_ROUTES)} in ${Math.floor(rand() * 500)}ms`;
 	dto.resourceSchemaUrl = 'https://opentelemetry.io/schemas/1.27.0';
-	dto.resourceAttributes = {
+	dto.resourceAttributes = attributeMap({
 		'service.name': serviceName,
 		'service.version': `${1 + Math.floor(rand() * 5)}.${Math.floor(rand() * 20)}.${Math.floor(rand() * 20)}`,
 		'service.instance.id': randomGuid(rand),
 		'deployment.environment': rand() < 0.5 ? 'production' : 'staging',
 		'cloud.region': 'us-east-1',
 		'host.name': `ip-10-0-${Math.floor(rand() * 255)}-${Math.floor(rand() * 255)}`
-	};
+	});
 	dto.scopeSchemaUrl = 'https://opentelemetry.io/schemas/1.27.0';
 	dto.scopeName = `${serviceName}.instrumentation`;
 	dto.scopeVersion = '1.4.0';
-	dto.scopeAttributes = {};
-	dto.logAttributes = {
+	dto.scopeAttributes = attributeMap({});
+	dto.logAttributes = attributeMap({
 		'http.request.method': pick(rand, HTTP_METHODS),
 		'http.route': pick(rand, HTTP_ROUTES),
 		'http.response.status_code': String(200 + Math.floor(rand() * 5) * 100 + Math.floor(rand() * 5)),
 		'user.id': randomGuid(rand),
 		'request.id': randomGuid(rand)
-	};
+	});
 	dto.eventName = rand() < 0.25 ? 'http.server.request.failed' : '';
 	dto.patternId = '';
 	dto.patternTemplate = '';
