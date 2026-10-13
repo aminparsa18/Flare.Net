@@ -8,9 +8,8 @@
 // shape (see `src/lib/api.ts`'s own header comment and its `toISOString()`/`new Date()`
 // conversions).
 
-import { mapToRecord } from '#lib/memorypack/map-record.ts';
-import type { LogEventDto } from '#lib/generated/memorypack/LogEventDto.ts';
-import type { LogSearchResponse } from '#lib/generated/memorypack/LogSearchResponse.ts';
+import type { LogEventDto } from '#lib/memorypack/LogEventDto.ts';
+import type { LogSearchResponse } from '#lib/memorypack/LogSearchResponse.ts';
 
 export interface LogEventDtoJson {
 	eventId: string;
@@ -57,12 +56,12 @@ export function toJsonShape(dto: LogEventDto): LogEventDtoJson {
 		serviceName: dto.serviceName ?? '',
 		body: dto.body ?? '',
 		resourceSchemaUrl: dto.resourceSchemaUrl ?? '',
-		resourceAttributes: mapToRecord(dto.resourceAttributes),
+		resourceAttributes: dto.resourceAttributes ?? {},
 		scopeSchemaUrl: dto.scopeSchemaUrl ?? '',
 		scopeName: dto.scopeName ?? '',
 		scopeVersion: dto.scopeVersion ?? '',
-		scopeAttributes: mapToRecord(dto.scopeAttributes),
-		logAttributes: mapToRecord(dto.logAttributes),
+		scopeAttributes: dto.scopeAttributes ?? {},
+		logAttributes: dto.logAttributes ?? {},
 		eventName: dto.eventName ?? '',
 		patternId: dto.patternId ?? '',
 		patternTemplate: dto.patternTemplate ?? '',

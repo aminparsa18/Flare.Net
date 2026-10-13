@@ -21,9 +21,10 @@ npm run bench   # regenerates #lib/generated/memorypack/*.ts first, then runs th
 statistics as one JSON line instead of the table.
 
 The `MemoryPack_DecodeAndMap_*` cases time the real consumer path: deserialize plus `toLogEventDto`
-(`bench/consumer-mapping.ts`, a verbatim mirror of the module-private function in `src/lib/api.ts`,
-including the `Map` -> `Record` copy of the three attribute dictionaries), for one event and a
-200-row page. Fixtures use `Map` attribute bags because the generated classes do (ADR-0215).
+(`bench/consumer-mapping.ts`, a verbatim mirror of the module-private function in `src/lib/api.ts`),
+for one event and a 200-row page. The decoders are the hand-written classes under
+`src/lib/memorypack/` (ADR-0216 reverted ADR-0215's generated ones; its measurements came from
+this bench).
 
 Not wired into `svelte-check`/CI — it's a manual, one-off measurement, same as the .NET
 benchmarks.
