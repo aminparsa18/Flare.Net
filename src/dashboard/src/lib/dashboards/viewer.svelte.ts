@@ -34,6 +34,7 @@ import type { LegendPosition } from './legend';
 import { parseStacking, parseVisualization, type PanelReducer, type PanelStacking, type PanelVisualization } from './visualization';
 import type { YAxisScale } from '$lib/metrics/axis';
 import * as m from '$lib/paraglide/messages';
+import type { ReadonlyURLSearchParams } from '$app/state';
 
 export class DashboardViewerState {
 	dashboard = $state<DashboardSummary | null>(null);
@@ -123,7 +124,7 @@ export class DashboardViewerState {
 
 	/** `urlSearch` (the page's `?range=&var-<id>=` params, see url-state.ts) seeds the time-range
 	 *  override and variable selections from a shared link, taking precedence over defaults. */
-	async load(id: string, urlSearch?: URLSearchParams): Promise<void> {
+	async load(id: string, urlSearch?: ReadonlyURLSearchParams): Promise<void> {
 		this.loading = true;
 		this.error = null;
 		try {

@@ -6,7 +6,7 @@
 // display preference like this doesn't warrant one. Unlike recent-searches.ts this is a
 // reactive $state singleton rather than a plain read-on-demand helper: toggling a pin must
 // re-render the open sheet immediately.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 function load(storageKey: string): string[] {
 	if (!browser) return [];

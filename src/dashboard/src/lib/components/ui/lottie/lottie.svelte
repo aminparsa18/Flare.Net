@@ -5,7 +5,7 @@
 	// browser-guarded $effect rather than imported at module scope: it touches
 	// `document` on load, which would break SvelteKit's SSR pass (this app renders
 	// server-side via @sveltejs/adapter-node) if it ever ended up in the server bundle.
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { cn } from '$lib/utils.js';
 	import type { AnimationItem } from 'lottie-web';
 

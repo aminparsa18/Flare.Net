@@ -6,7 +6,7 @@
 // paint, so density/font size don't flash on load. Client-only for now, same as the other
 // display prefs ($lib/time/display-zone). Signed-in state also syncs to the server per user
 // (ADR-0110) so prefs follow the user across browsers; localStorage stays the pre-paint cache.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { setMode } from 'mode-watcher';
 import { createPrefsSync } from '$lib/prefs-sync';
 

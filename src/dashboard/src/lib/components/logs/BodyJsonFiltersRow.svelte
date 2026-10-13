@@ -17,7 +17,7 @@
 	// whenever a row's committed shape actually changes. Operator dropdown and add/remove
 	// commit immediately; path/value text inputs debounce (300ms), same reasoning
 	// AttributeFiltersRow's own header gives.
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { getLogAttributeValues, type BodyJsonFilter, type BodyJsonFilterOperator } from '$lib/api';
 	import * as Accordion from '$lib/components/ui/accordion';

@@ -6,6 +6,7 @@
 // Absent params are the defaults (no filter, name ascending).
 import type { AlertConditionKind, AlertRule, AlertRuleStatus } from '$lib/alerts-api';
 import { labelsMatch, parseLabels } from '$lib/alerts/labels';
+import type { ReadonlyURLSearchParams } from '$app/state';
 
 export type RuleStateFilter = 'all' | 'firing' | 'ok' | 'disabled' | 'muted';
 export type RuleSortKey = 'name' | 'state' | 'lastFired';
@@ -38,7 +39,7 @@ export function ruleState(rule: AlertRule, status: AlertRuleStatus | undefined):
 // Firing first when sorting ascending, so the rules needing attention surface at the top.
 const STATE_ORDER: Record<RuleState, number> = { firing: 0, ok: 1, disabled: 2 };
 
-export function parseAlertListView(search: URLSearchParams): AlertListView {
+export function parseAlertListView(search: ReadonlyURLSearchParams): AlertListView {
 	const state = search.get('state') as RuleStateFilter | null;
 	const kind = search.get('kind') as AlertConditionKind | null;
 	const sort = search.get('sort') as RuleSortKey | null;
@@ -53,8 +54,8 @@ export function parseAlertListView(search: URLSearchParams): AlertListView {
 }
 
 /** Writes the view's non-default fields onto a copy of `base`, leaving unrelated params (e.g. `?rule=`) alone. */
-export function buildAlertListSearch(base: URLSearchParams, view: AlertListView): string {
-	const next = new URLSearchParams(base);
+export function buildAlertListSearch(base: ReadonlyURLSearchParams, view: AlertListView): string {
+	const next = new URLSearchParams(base.toString());
 	for (const key of ['q', 'label', 'state', 'kind', 'sort', 'dir']) next.delete(key);
 	if (view.query.trim()) next.set('q', view.query.trim());
 	if (view.label.trim()) next.set('label', view.label.trim());

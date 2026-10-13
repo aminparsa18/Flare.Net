@@ -5,6 +5,7 @@
 // still not started - see saved-views-api.ts's module comment for the full framing.
 
 import { getSavedView, type PageType, type SavedView } from '$lib/saved-views-api';
+import type { ReadonlyURL } from '$app/state';
 
 /**
  * Reads a `?view=<id>` query param off `url` and resolves the saved view it names -
@@ -13,7 +14,7 @@ import { getSavedView, type PageType, type SavedView } from '$lib/saved-views-ap
  * while landing on /traces). Every caller falls back to its own hardcoded defaults on
  * `null`, same as if no `view` param had been present at all.
  */
-export async function resolveRequestedSavedView(url: URL, expectedPageType: PageType): Promise<SavedView | null> {
+export async function resolveRequestedSavedView(url: ReadonlyURL, expectedPageType: PageType): Promise<SavedView | null> {
 	const viewId = url.searchParams.get('view');
 	if (!viewId) return null;
 

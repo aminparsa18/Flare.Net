@@ -2,7 +2,7 @@
 // stores: localStorage is the cache, the document syncs per user under key "keyboard"
 // (ADR-0110). Only differences from the defaults are stored, so a default changed later still
 // reaches users who never touched it.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { createPrefsSync } from '$lib/prefs-sync';
 import { DEFAULT_BINDINGS, SHORTCUT_ACTIONS, isValidCombo, type ShortcutAction } from './shortcuts';
 

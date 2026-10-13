@@ -20,7 +20,7 @@ src/Flare.Mcp             Read-only MCP tools shared by `flare mcp` (stdio) and 
 src/Aspire.Hosting.Flare  NuGet PackageId Flare.Hosting.Aspire — AddFlare() hosting integration for consumer AppHosts
 src/Aspire.Flare          NuGet PackageId Flare.Aspire — shared client-side integration bits
 src/Flare.ServiceDefaults Shared Aspire service defaults + ClickHouseMigrations runner
-src/dashboard             SvelteKit 2 (Svelte 5 runes) + Tailwind 4 + shadcn-svelte SPA — talks to Flare.Api over HTTP/WS
+src/dashboard             SvelteKit 3 (Svelte 5 runes) + Tailwind 4 + shadcn-svelte SPA — talks to Flare.Api over HTTP/WS
 src/website               Next.js marketing site (separate from the dashboard app)
 src/*.Tests               xUnit unit tests, one per testable project (Flare.Ingest.Tests, Flare.Api.Tests, Flare.Identity.Tests)
 db/clickhouse             Numbered .sql migrations, mounted at container init (docker-entrypoint-initdb.d convention)
@@ -57,7 +57,7 @@ npm run dev -- --open    # requires Flare.Api running first; PUBLIC_API_URL in .
 npm run build && npm run preview
 npm run check             # svelte-check type checking
 ```
-Uses `@sveltejs/adapter-node` (not `adapter-static`) — required because `PUBLIC_API_URL` is read via `$env/dynamic/public` at request time, not baked in at build time.
+Uses `@sveltejs/adapter-node` (not `adapter-static`) — required because `PUBLIC_API_URL` is a runtime (non-static) variable declared in `src/env.ts` and read via `$app/env/public`, not baked in at build time.
 
 **Whole stack, no Aspire:**
 ```bash

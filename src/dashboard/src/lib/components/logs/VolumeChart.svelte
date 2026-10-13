@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { lazyNumberFormat } from '$lib/format/number';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { aggregateLogs, type LogAggregateBucket } from '$lib/api';
 	import type { VolumeGroupBy } from '$lib/logs/state.svelte';
 	import { resolveBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';

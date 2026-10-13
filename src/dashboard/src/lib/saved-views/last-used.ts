@@ -9,7 +9,7 @@
 // visit, not "the search I work in" (ShareViewButton mints those views silently). The
 // toolbar's "Clear filters" forgets it, and a deleted view self-heals: the delete paths
 // clear it directly, and resolveLastUsedSavedView drops an id that no longer resolves.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { listSavedViews, type PageType, type SavedView } from '$lib/saved-views-api';
 
 const PAGE_TYPES: readonly PageType[] = ['Logs', 'Traces', 'Metrics', 'Funnels'];

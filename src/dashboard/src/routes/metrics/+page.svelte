@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';

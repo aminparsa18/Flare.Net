@@ -5,7 +5,7 @@
 //
 // localStorage is the cache; ./time/format.ts reads these on every call, so switching
 // re-renders every timestamp at once.
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
 import { createPrefsSync } from '$lib/prefs-sync';
 import { displayTimeZone } from '$lib/time/display-zone.svelte';
