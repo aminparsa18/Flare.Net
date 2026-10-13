@@ -17,6 +17,14 @@
 [![License: MIT](https://img.shields.io/github/license/aminparsa18/Flare.Net)](LICENSE)
 [![NuGet Flare.Hosting.Aspire](https://img.shields.io/nuget/v/Flare.Hosting.Aspire?label=Flare.Hosting.Aspire)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
 [![NuGet Flare.Cli](https://img.shields.io/nuget/v/Flare.Cli?label=flare%20cli)](https://www.nuget.org/packages/Flare.Cli)
+[![Release](https://img.shields.io/github/v/release/aminparsa18/Flare.Net)](https://github.com/aminparsa18/Flare.Net/releases/latest)
+[![Helm Lint](https://github.com/aminparsa18/Flare.Net/actions/workflows/helm-lint.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/helm-lint.yml)
+[![Docker Hub pulls](https://img.shields.io/docker/pulls/apardev/flare-api?label=docker%20pulls)](https://hub.docker.com/u/apardev)
+[![NuGet downloads](https://img.shields.io/nuget/dt/Flare.Hosting.Aspire?label=nuget%20downloads)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
+[![OpenTelemetry native](https://img.shields.io/badge/OpenTelemetry-native-425CC7)](https://opentelemetry.io/)
+[![Stars](https://img.shields.io/github/stars/aminparsa18/Flare.Net?style=flat)](https://github.com/aminparsa18/Flare.Net/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/aminparsa18/Flare.Net)](https://github.com/aminparsa18/Flare.Net/commits/main)
 
 **语言：** [English](README.md) &nbsp;|&nbsp; [简体中文](README.zh-CN.md) &nbsp;|&nbsp; [Русский](README.ru.md) &nbsp;|&nbsp; [Français](README.fr.md)
 
@@ -92,6 +100,8 @@
 单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [docs/how-to/deploy/run-cluster-mode.md](docs/how-to/deploy/run-cluster-mode.zh-CN.md)。
 
 想让 AI 助手读取你的遥测数据？`flare mcp` 是一个只读的 [MCP](https://modelcontextprotocol.io) 服务器，参见 [docs/how-to/integrations/connect-ai-assistants.zh-CN.md](docs/how-to/integrations/connect-ai-assistants.zh-CN.md)。
+
+### 移动应用（.NET MAUI）
 
 正在开发移动应用？[`Flare.Maui`](src/Flare.Maui)（预览版，尚未发布到 NuGet）为 .NET MAUI 应用添加 `builder.UseFlare(...)`：带离线队列的 OTLP/HTTP 导出、设备和会话属性、`HttpClient` 和 Shell 导航 span，以及未处理异常捕获——参见 [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.zh-CN.md)。
 
