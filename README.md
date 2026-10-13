@@ -15,6 +15,14 @@
 [![License: MIT](https://img.shields.io/github/license/aminparsa18/Flare.Net)](LICENSE)
 [![NuGet Flare.Hosting.Aspire](https://img.shields.io/nuget/v/Flare.Hosting.Aspire?label=Flare.Hosting.Aspire)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
 [![NuGet Flare.Cli](https://img.shields.io/nuget/v/Flare.Cli?label=flare%20cli)](https://www.nuget.org/packages/Flare.Cli)
+[![Release](https://img.shields.io/github/v/release/aminparsa18/Flare.Net)](https://github.com/aminparsa18/Flare.Net/releases/latest)
+[![Helm Lint](https://github.com/aminparsa18/Flare.Net/actions/workflows/helm-lint.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/helm-lint.yml)
+[![Docker Hub pulls](https://img.shields.io/docker/pulls/apardev/flare-api?label=docker%20pulls)](https://hub.docker.com/u/apardev)
+[![NuGet downloads](https://img.shields.io/nuget/dt/Flare.Hosting.Aspire?label=nuget%20downloads)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
+[![OpenTelemetry native](https://img.shields.io/badge/OpenTelemetry-native-425CC7)](https://opentelemetry.io/)
+[![Stars](https://img.shields.io/github/stars/aminparsa18/Flare.Net?style=flat)](https://github.com/aminparsa18/Flare.Net/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/aminparsa18/Flare.Net)](https://github.com/aminparsa18/Flare.Net/commits/main)
 
 **Languages:** [English](README.md) &nbsp;|&nbsp; [简体中文](README.zh-CN.md) &nbsp;|&nbsp; [Русский](README.ru.md) &nbsp;|&nbsp; [Français](README.fr.md)
 
