@@ -37,7 +37,7 @@ public static class HostStatsEndpoints
     private static IResult HandleHistory(HttpContext http, HostStatsPoller poller) =>
         ApiSerialization.Write(http, poller.GetHistory(), HostStatsJsonContext.Default.IReadOnlyListHostStatsHistoryPoint);
 
-    private static async Task HandleWatchAsync(HttpContext http, HostStatsPoller poller, IOptions<LiveTailOptions> options)
+    private static async Task HandleWatchAsync(HttpContext http, HostStatsPoller poller, IOptions<LiveTailOptions> options, PushSocketLimiter limiter)
     {
         if (!http.WebSockets.IsWebSocketRequest)
         {
@@ -50,6 +50,14 @@ public static class HostStatsEndpoints
             return;
         }
 
+        // Claimed before the upgrade so a refused caller gets a plain 429 and never holds a socket.
+        using var lease = limiter.TryAcquire("host-stats", PushSocketLimiter.UserKey(http), options.Value);
+        if (lease is null)
+        {
+            http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            return;
+        }
+
         using var socket = await http.WebSockets.AcceptWebSocketAsync();
         var subscription = poller.Subscribe();
 
@@ -57,7 +65,7 @@ public static class HostStatsEndpoints
 
         try
         {
-            var closeTask = WaitForCloseAsync(socket, lifetimeCts.Token);
+            var closeTask = PushSocketReceive.WaitForCloseAsync(socket, options.Value, lifetimeCts.Token);
             var sendTask = SendSnapshotsAsync(socket, subscription, lifetimeCts.Token);
 
             await Task.WhenAny(closeTask, sendTask);
@@ -76,31 +84,6 @@ public static class HostStatsEndpoints
                     // Client already gone - nothing to clean up.
                 }
             }
-        }
-    }
-
-    /// <summary>Drains (and discards) inbound frames purely to detect a client-initiated close - this endpoint has no control protocol to act on.</summary>
-    private static async Task WaitForCloseAsync(WebSocket socket, CancellationToken cancellationToken)
-    {
-        var buffer = new byte[1024];
-        try
-        {
-            while (socket.State == WebSocketState.Open)
-            {
-                var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
-                if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    return;
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Connection ending - driven by the send loop or client disconnect.
-        }
-        catch (WebSocketException)
-        {
-            // Client disconnected uncleanly.
         }
     }
 

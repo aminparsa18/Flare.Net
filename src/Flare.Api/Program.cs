@@ -364,6 +364,7 @@ builder.Services.AddSingleton<PipelineStreamKeys>();
 
 builder.Services.AddSingleton<IPipelineQueryService, PipelineQueryService>();
 builder.Services.Configure<LiveTailOptions>(builder.Configuration.GetSection(LiveTailOptions.SectionName));
+builder.Services.AddSingleton<PushSocketLimiter>();
 builder.Services.AddSingleton<LogTailBroadcaster>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailBroadcaster>());
 

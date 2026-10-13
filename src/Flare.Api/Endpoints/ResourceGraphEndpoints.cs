@@ -33,7 +33,7 @@ public static class ResourceGraphEndpoints
     internal static IResult HandleSnapshot(HttpContext http, ResourceGraphSourceRegistry registry) =>
         ApiSerialization.Write(http, ResourceGraphScopeFilter.Apply(registry.CurrentSnapshot, Query.ServiceScope.Current), ResourceGraphJsonContext.Default.ResourceGraphSnapshot);
 
-    private static async Task HandleWatchAsync(HttpContext http, ResourceGraphSourceRegistry registry, IOptions<LiveTailOptions> options)
+    private static async Task HandleWatchAsync(HttpContext http, ResourceGraphSourceRegistry registry, IOptions<LiveTailOptions> options, PushSocketLimiter limiter)
     {
         if (!http.WebSockets.IsWebSocketRequest)
         {
@@ -43,6 +43,14 @@ public static class ResourceGraphEndpoints
 
         if (!WebSocketOriginGuard.IsAllowed(http))
         {
+            return;
+        }
+
+        // Claimed before the upgrade so a refused caller gets a plain 429 and never holds a socket.
+        using var lease = limiter.TryAcquire("resource-graph", PushSocketLimiter.UserKey(http), options.Value);
+        if (lease is null)
+        {
+            http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
             return;
         }
 
@@ -59,7 +67,7 @@ public static class ResourceGraphEndpoints
             // has to run alongside the send loop, though - otherwise this handler would
             // never observe the client disconnecting and would leak the WebSocket/subscription
             // until the whole HTTP request pipeline eventually tears it down.
-            var closeTask = WaitForCloseAsync(socket, lifetimeCts.Token);
+            var closeTask = PushSocketReceive.WaitForCloseAsync(socket, options.Value, lifetimeCts.Token);
             var sendTask = SendSnapshotsAsync(socket, subscription, lifetimeCts.Token);
 
             await Task.WhenAny(closeTask, sendTask);
@@ -78,31 +86,6 @@ public static class ResourceGraphEndpoints
                     // Client already gone - nothing to clean up.
                 }
             }
-        }
-    }
-
-    /// <summary>Drains (and discards) inbound frames purely to detect a client-initiated close - this endpoint has no control protocol to act on.</summary>
-    private static async Task WaitForCloseAsync(WebSocket socket, CancellationToken cancellationToken)
-    {
-        var buffer = new byte[1024];
-        try
-        {
-            while (socket.State == WebSocketState.Open)
-            {
-                var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
-                if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    return;
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Connection ending - driven by the send loop or client disconnect.
-        }
-        catch (WebSocketException)
-        {
-            // Client disconnected uncleanly.
         }
     }
 
