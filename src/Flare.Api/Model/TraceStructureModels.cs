@@ -34,6 +34,31 @@ public sealed partial record TraceSpanCondition
     /// <c>duration &lt; x</c> (ADR-0217) is what needs it.
     /// </summary>
     public ulong? MaxDurationNano { get; init; }
+
+    /// <summary>
+    /// How <see cref="SpanName"/> is compared; exact equality by default. Appended last (MemoryPack
+    /// wire-compatible); the Tempo API's TraceQL <c>name != "x"</c> and <c>name =~ "x.*"</c> (ADR-0217)
+    /// are what need it. Regex patterns are ClickHouse <c>match()</c> (RE2) and are not anchored.
+    /// </summary>
+    public SpanNameMatch SpanNameMatch { get; init; }
+
+    /// <summary>True when <see cref="StatusCode"/> must <em>differ</em> (TraceQL <c>status != error</c>).</summary>
+    public bool StatusCodeNegated { get; init; }
+
+    /// <summary>OTel <c>SpanKind</c> number (0 unspecified, 1 internal, 2 server, 3 client, 4 producer, 5 consumer), same encoding as <see cref="SpanFilter.Kinds"/>. Null = any kind.</summary>
+    public byte? Kind { get; init; }
+
+    /// <summary>True when <see cref="Kind"/> must <em>differ</em> (TraceQL <c>kind != server</c>).</summary>
+    public bool KindNegated { get; init; }
+}
+
+/// <summary>How a <see cref="TraceSpanCondition.SpanName"/> is compared with a span's name.</summary>
+public enum SpanNameMatch
+{
+    Equals = 0,
+    NotEquals = 1,
+    Regex = 2,
+    NotRegex = 3,
 }
 
 /// <summary>

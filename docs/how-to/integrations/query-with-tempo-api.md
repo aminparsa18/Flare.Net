@@ -38,11 +38,12 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
 |---|---|
 | `GET /tempo/api/echo` | Grafana's connection test |
 | `GET /tempo/api/traces/{id}`, `GET /tempo/api/v2/traces/{id}` | JSON or protobuf by `Accept`. Short ids are left-padded. v2 reports `PARTIAL` for a trace Flare cut short |
-| `GET /tempo/api/search` | `q` (TraceQL) or `tags`, plus `minDuration`, `maxDuration`, `limit` (default 20, at most 200), `start`, `end` (unix seconds; default the last hour) |
+| `GET /tempo/api/search` | `q` (TraceQL) or `tags`, plus `minDuration`, `maxDuration`, `limit` (default 20, at most 200), `spss` (matching spans listed per trace, default 3, at most 100), `start`, `end` (unix seconds; default the last hour) |
 | `GET /tempo/api/search/tags`, `GET /tempo/api/v2/search/tags` | Attribute names seen in the window; v2 groups them by `span`, `resource` and `intrinsic`; `scope` narrows |
 | `GET /tempo/api/search/tag/{tag}/values`, `GET /tempo/api/v2/search/tag/{tag}/values` | Values seen in the window |
 
-A search returns one row per trace: its root span's service and name, its start, and its duration.
+A search returns one row per trace: its root span's service and name, its start, and its duration. When the query says something about spans, each row also lists up to `spss` of the
+spans that matched (`spanSets`), which Grafana shows as nested rows of its TraceQL results table.
 
 ### The TraceQL subset
 
@@ -50,13 +51,13 @@ A search returns one row per trace: its root span's service and name, its start,
 |---|---|
 | Span attributes, scoped | `{ span.http.method = "GET" && resource.k8s.namespace.name = "prod" }` |
 | Operators `=`, `!=`, `=~`, `!~`, `>`, `>=`, `<`, `<=` | `{ span.http.status_code >= 500 }` |
-| Span intrinsics: `name` (`=` only), `status` (`=` only: `error`, `ok`, `unset`), `duration` | `{ name = "POST /pay" && duration >= 100ms }` |
+| Span intrinsics: `name` (`=`, `!=`, `=~`, `!~`), `status` (`=`, `!=`: `error`, `ok`, `unset`), `kind` (`=`, `!=`: `unspecified`, `internal`, `server`, `client`, `producer`, `consumer`), `duration` | `{ kind = server && name =~ "POST .*" && status != ok }` |
 | Trace intrinsics, in a query of one spanset: `rootName`, `rootServiceName`, `traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
 | Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>` | `{ resource.service.name = "checkout" } >> { status = error }` |
 | Unscoped attributes | `{ .service.name = "api" }` |
 
-Not supported: `|` pipelines (`count()`, `avg()`, `select()`, `by()`, ...), `||` inside one spanset, `kind`,
-`statusMessage`, `name` with anything but `=`, `status !=`, comparing two fields, and Tempo's TraceQL metrics
+Not supported: `|` pipelines (`count()`, `avg()`, `select()`, `by()`, ...), `||` inside one spanset, `statusMessage`,
+comparing two fields, and Tempo's TraceQL metrics
 endpoints.
 
 ## Things that differ from Tempo
@@ -68,7 +69,9 @@ endpoints.
   `resource.foo` to be explicit.
 - **`!=` also matches spans without the attribute.** In TraceQL it requires the attribute to exist.
 - **Search needs the root span.** A trace whose root was never ingested is not listed, though it opens by id.
-- **No matching-span detail.** Results list traces, not the spans inside them that matched.
+- **Matching spans carry little detail.** Each listed span has its id, name, start, duration and `service.name`, not the
+  other attributes the query used. In a query of several spansets (`{ a } >> { b }`) the spans of every spanset are
+  listed together in one group, not one group per spanset.
 - **Tag lists are a sample.** Names come from up to 50,000 spans of the window, most common first. Narrow
   `start` and `end` for a complete list.
 

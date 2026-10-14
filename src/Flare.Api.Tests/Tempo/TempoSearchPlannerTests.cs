@@ -33,6 +33,51 @@ public class TempoSearchPlannerTests
     }
 
     [Fact]
+    public void NameOperators_MapToTheMatchMode()
+    {
+        Assert.Equal((SpanNameMatch.NotEquals, "GET /health"), Name("""{ name != "GET /health" }"""));
+        // Tempo anchors patterns; ClickHouse match() does not, so the planner wraps them.
+        Assert.Equal((SpanNameMatch.Regex, "^(?:GET .*)$"), Name("""{ name =~ "GET .*" }"""));
+        Assert.Equal((SpanNameMatch.NotRegex, "^(?:health|ready)$"), Name("""{ name !~ "health|ready" }"""));
+        Assert.Equal((SpanNameMatch.Equals, "x"), Name("""{ name = "x" }"""));
+
+        static (SpanNameMatch, string?) Name(string q)
+        {
+            var condition = Assert.Single(Plan(q).Conditions);
+            return (condition.SpanNameMatch, condition.SpanName);
+        }
+    }
+
+    [Fact]
+    public void StatusNotEqual_NegatesTheStatus()
+    {
+        var condition = Assert.Single(Plan("{ status != error }").Conditions);
+
+        Assert.Equal("STATUS_CODE_ERROR", condition.StatusCode);
+        Assert.True(condition.StatusCodeNegated);
+        Assert.False(Assert.Single(Plan("{ status = error }").Conditions).StatusCodeNegated);
+    }
+
+    [Theory]
+    [InlineData("unspecified", 0)]
+    [InlineData("internal", 1)]
+    [InlineData("server", 2)]
+    [InlineData("client", 3)]
+    [InlineData("producer", 4)]
+    [InlineData("consumer", 5)]
+    public void Kind_MapsToTheOtelNumber(string word, int number)
+    {
+        var equal = Assert.Single(Plan($"{{ kind = {word} }}").Conditions);
+        var notEqual = Assert.Single(Plan($"{{ kind != {word} }}").Conditions);
+
+        Assert.Equal((byte)number, equal.Kind);
+        Assert.False(equal.KindNegated);
+        Assert.Equal((byte)number, notEqual.Kind);
+        Assert.True(notEqual.KindNegated);
+        Flare.Api.Query.TraceStructureSqlBuilder.Validate(Plan($"{{ kind = {word} }}").Structure!);
+    }
+
+    [Fact]
     public void StrictDurationBounds_AreOneNanosecondInside()
     {
         var plan = Plan("{ duration > 1s && duration <= 3s }");
@@ -117,15 +162,19 @@ public class TempoSearchPlannerTests
     [Theory]
     [InlineData("{ rootName = \"x\" } || { name = \"y\" }", "single spanset")]
     [InlineData("{ } && { name = \"y\" }", "empty spanset")]
-    [InlineData("{ kind = server }", "not supported")]
     [InlineData("{ statusMessage = \"x\" }", "not supported")]
-    [InlineData("{ name != \"x\" }", "only =")]
-    [InlineData("{ name =~ \"x.*\" }", "only =")]
-    [InlineData("{ status != error }", "only =")]
     [InlineData("{ status = \"weird\" }", "unknown status")]
     [InlineData("{ duration = 5 }", "duration")]
     [InlineData("{ duration =~ 5s }", "supports")]
     [InlineData("{ name = \"a\" && name = \"b\" }", "twice")]
+    [InlineData("{ name = \"a\" && name != \"a\" }", "twice")]
+    [InlineData("{ kind = server && kind = client }", "twice")]
+    [InlineData("{ status = error && status != error }", "twice")]
+    [InlineData("{ kind > server }", "supports")]
+    [InlineData("{ kind = \"server\" }", "unspecified, internal")]
+    [InlineData("{ name > \"a\" }", "supports")]
+    [InlineData("{ name =~ 5 }", "quoted pattern")]
+    [InlineData("{ status > error }", "supports")]
     [InlineData("{ http.method = \"GET\" }", "not a field")]
     [InlineData("{ span. = \"x\" }", "no attribute name")]
     [InlineData("{ span.x > \"a\" }", "against a number")]

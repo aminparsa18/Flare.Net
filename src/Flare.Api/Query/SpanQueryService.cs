@@ -24,6 +24,9 @@ public interface ISpanQueryService
     /// <summary>The most common attribute names of one bag in a window, most-used first - the Tempo-compatible API's tag discovery. See <see cref="SpanAttributeKeysQueryBuilder"/>.</summary>
     Task<IReadOnlyList<string>> GetAttributeKeysAsync(SpanAttributeKeysRequest request, CancellationToken cancellationToken);
 
+    /// <summary>For each given trace, its spans matching a structure's conditions - the Tempo-compatible API's <c>spanSets</c>. See <see cref="TraceMatchedSpansQueryBuilder"/>.</summary>
+    Task<IReadOnlyList<TraceMatchedSpans>> GetMatchedSpansAsync(MatchedSpansRequest request, CancellationToken cancellationToken);
+
     /// <summary>Where one span's duration ranks among same service + name spans around it - see <see cref="SpanDurationPercentileQueryBuilder"/>.</summary>
     Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken);
 }
@@ -233,6 +236,47 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
         }
 
         return keys;
+    }
+
+    public async Task<IReadOnlyList<TraceMatchedSpans>> GetMatchedSpansAsync(MatchedSpansRequest request, CancellationToken cancellationToken)
+    {
+        if (request.TraceIds.Count == 0)
+        {
+            return [];
+        }
+
+        var built = TraceMatchedSpansQueryBuilder.Build(request, promotedAttributes.Spans);
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var traces = new List<TraceMatchedSpans>();
+        string? currentId = null;
+        var current = new List<MatchedSpan>();
+        var matched = 0;
+        while (reader.Read())
+        {
+            var traceId = reader.GetString(0);
+            if (traceId != currentId)
+            {
+                if (currentId is not null)
+                {
+                    traces.Add(new TraceMatchedSpans(currentId, matched, current));
+                }
+
+                currentId = traceId;
+                current = [];
+                matched = (int)Math.Min(reader.GetFieldValue<ulong>(6), int.MaxValue);
+            }
+
+            current.Add(new MatchedSpan(reader.GetString(1), reader.GetString(2), reader.GetString(3), ReadUtc(reader, 4), reader.GetFieldValue<ulong>(5)));
+        }
+
+        if (currentId is not null)
+        {
+            traces.Add(new TraceMatchedSpans(currentId, matched, current));
+        }
+
+        return traces;
     }
 
     public async Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken)
