@@ -68,6 +68,11 @@ iOS frames carry binary offsets for server-side dSYM symbolication.
 
 Not yet: Windows.
 
+Trimmed Release builds: the .NET iOS SDK defaults `MetricsSupport` and `HttpActivityPropagationSupport` to `false` in
+optimized builds, which would drop every `Meter` (including the app's own) and all `HttpClient` spans. The package
+ships `buildTransitive/Flare.Maui.props`, which sets both to `true` unless the app has already chosen a value. A project
+reference does not import it, so import the file by hand (the example app does).
+
 ## Build
 
 Needs the MAUI workloads (`dotnet workload install maui`), so it is not in `Flare.slnx`:
