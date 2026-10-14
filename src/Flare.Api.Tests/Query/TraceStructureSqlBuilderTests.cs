@@ -97,6 +97,19 @@ public class TraceStructureSqlBuilderTests
     }
 
     [Fact]
+    public void MaxDuration_IsAnInclusiveUpperBound_AndCountsAsSomethingToMatchOn()
+    {
+        var condition = new TraceSpanCondition { Name = "A", MinDurationNano = 1_000, MaxDurationNano = 9_000 };
+
+        var (sql, parameters) = Build(Structure("A", condition));
+
+        Assert.Contains("DurationNano >= {tsAMinDuration:UInt64} AND DurationNano <= {tsAMaxDuration:UInt64}", sql);
+        Assert.Equal(9_000UL, parameters["tsAMaxDuration"].Value);
+        // An upper bound alone is a real predicate, not a blank condition.
+        TraceStructureSqlBuilder.Validate(Structure("A", new TraceSpanCondition { Name = "A", MaxDurationNano = 9_000 }));
+    }
+
+    [Fact]
     public void UnreferencedConditions_AreLeftOut()
     {
         var (sql, _) = Build(Structure("A", Checkout, Payment));

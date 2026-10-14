@@ -21,6 +21,9 @@ public interface ISpanQueryService
     /// <summary>Every distinct value observed for one attribute key, most-observed first - the Attribute filters builder's value autocomplete. See <see cref="SpanAttributeValuesQueryBuilder"/>.</summary>
     Task<SpanAttributeValuesResponse> GetAttributeValuesAsync(SpanAttributeValuesRequest request, CancellationToken cancellationToken);
 
+    /// <summary>The most common attribute names of one bag in a window, most-used first - the Tempo-compatible API's tag discovery. See <see cref="SpanAttributeKeysQueryBuilder"/>.</summary>
+    Task<IReadOnlyList<string>> GetAttributeKeysAsync(SpanAttributeKeysRequest request, CancellationToken cancellationToken);
+
     /// <summary>Where one span's duration ranks among same service + name spans around it - see <see cref="SpanDurationPercentileQueryBuilder"/>.</summary>
     Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken);
 }
@@ -215,6 +218,21 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
         }
 
         return new SpanAttributeValuesResponse { Values = values };
+    }
+
+    public async Task<IReadOnlyList<string>> GetAttributeKeysAsync(SpanAttributeKeysRequest request, CancellationToken cancellationToken)
+    {
+        var built = SpanAttributeKeysQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Spans);
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var keys = new List<string>();
+        while (reader.Read())
+        {
+            keys.Add(reader.GetString(0));
+        }
+
+        return keys;
     }
 
     public async Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken)

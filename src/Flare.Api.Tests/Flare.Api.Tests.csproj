@@ -13,6 +13,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Flare.Api\Flare.Api.csproj" />
     <ProjectReference Include="..\Flare.AlertWorker\Flare.AlertWorker.csproj" />
+    <!-- Only for its generated OTLP protobuf types: TempoTraceEncoderTests parses the hand-written encoder's bytes with them. -->
+    <ProjectReference Include="..\Flare.Ingest\Flare.Ingest.csproj" />
   </ItemGroup>
 
   <ItemGroup>

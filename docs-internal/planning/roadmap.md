@@ -87,9 +87,12 @@ folders are where "what happened and why" actually lives.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested
     rollback.
 - **Grafana interoperability.** Today there is OTLP forwarding to a Grafana endpoint
-  ([ADR-0155](../adr/0155-otlp-forwarding.md)) and a read-only Prometheus API a Grafana data source can query
-  ([ADR-0109](../adr/0109-prometheus-query-api.md)). Remaining, roughly in priority order:
-  - A Tempo-compatible trace API (trace by ID and search), so Grafana's Tempo data source reads Flare traces directly.
+  ([ADR-0155](../adr/0155-otlp-forwarding.md)), a read-only Prometheus API a Grafana data source can query
+  ([ADR-0109](../adr/0109-prometheus-query-api.md)) and a read-only Tempo-compatible trace API
+  ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)). Remaining, roughly in priority order:
+  - Tempo API follow-ups (ADR-0217): `spanSets` in search results (which spans matched, for Grafana's TraceQL table);
+    `kind`, `name` with `!=`/`=~` and `status !=` in the structure condition; TraceQL metrics (`rate()`,
+    `quantile_over_time()`) behind `/api/metrics/query_range`; trace-to-logs and trace-to-metrics settings in the how-to.
   - A Loki-compatible log API (a LogQL subset), the same idea for logs.
   - A fuller Prometheus API: operators between series (`a / b`), `offset`, `topk`, `quantile` and more functions, which
     error ratios and "top N hosts by CPU" panels need. Exemplars, so a latency chart links to a sample trace.

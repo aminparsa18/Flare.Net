@@ -15,6 +15,7 @@ using Flare.Api.KubernetesResources;
 using Flare.Api.LiveTail;
 using Flare.Api.Pipeline;
 using Flare.Api.Prometheus;
+using Flare.Api.Tempo;
 using Flare.Api.Query;
 using Flare.Api.Status;
 using Flare.Api.Erasure;
@@ -621,6 +622,8 @@ authenticatedRoutes.MapLogTailEndpoints();
 authenticatedRoutes.MapSpanEndpoints();
 authenticatedRoutes.MapMetricsEndpoints();
 authenticatedRoutes.MapPrometheusEndpoints();
+// Tempo-compatible trace API subset (ADR-0217) under /tempo, over ISpanQueryService.
+authenticatedRoutes.MapTempoEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSourceLinkReadEndpoints();
 authenticatedRoutes.MapSourceMapReadEndpoints();

@@ -1,0 +1,117 @@
+using Flare.Api.Tempo;
+using Xunit;
+
+namespace Flare.Api.Tests.Tempo;
+
+public class TraceQlParserTests
+{
+    [Fact]
+    public void EmptySpanset_IsOneSpansetWithNoPredicates()
+    {
+        var query = TraceQlParser.Parse("{ }");
+
+        var spanset = Assert.Single(query.Spansets);
+        Assert.Empty(spanset.Predicates);
+        Assert.Equal("A", query.Expression);
+    }
+
+    [Fact]
+    public void Predicates_ReadFieldOperatorAndTypedValue()
+    {
+        var query = TraceQlParser.Parse("""{ resource.service.name = "api" && span.http.status_code >= 500 && duration > 1.5s && status = error && span.ok = true }""");
+
+        var p = Assert.Single(query.Spansets).Predicates;
+        Assert.Equal(5, p.Count);
+        Assert.Equal(new TraceQlPredicate("resource.service.name", TraceQlOp.Eq, new TraceQlValue(TraceQlValueKind.String, "api")), p[0]);
+        Assert.Equal(new TraceQlPredicate("span.http.status_code", TraceQlOp.Gte, new TraceQlValue(TraceQlValueKind.Number, "500")), p[1]);
+        Assert.Equal(TraceQlValueKind.Duration, p[2].Value.Kind);
+        Assert.Equal(1_500_000_000UL, p[2].Value.Nanos);
+        Assert.Equal(new TraceQlValue(TraceQlValueKind.Status, "error"), p[3].Value);
+        Assert.Equal(new TraceQlValue(TraceQlValueKind.Bool, "true"), p[4].Value);
+    }
+
+    [Theory]
+    [InlineData("=", TraceQlOp.Eq)]
+    [InlineData("!=", TraceQlOp.Neq)]
+    [InlineData("=~", TraceQlOp.Re)]
+    [InlineData("!~", TraceQlOp.Nre)]
+    [InlineData(">", TraceQlOp.Gt)]
+    [InlineData(">=", TraceQlOp.Gte)]
+    [InlineData("<", TraceQlOp.Lt)]
+    [InlineData("<=", TraceQlOp.Lte)]
+    public void Operators_AreRecognisedWithoutSpaces(string op, TraceQlOp expected)
+    {
+        var query = TraceQlParser.Parse($"{{span.x{op}\"1\"}}");
+
+        Assert.Equal(expected, Assert.Single(Assert.Single(query.Spansets).Predicates).Op);
+    }
+
+    [Fact]
+    public void StringEscapesAndBackticks_AreDecoded()
+    {
+        var query = TraceQlParser.Parse("""{ name = "say \"hi\"\n" && span.re =~ `a\d+` }""");
+
+        var p = Assert.Single(query.Spansets).Predicates;
+        Assert.Equal("say \"hi\"\n", p[0].Value.Text);
+        Assert.Equal(@"a\d+", p[1].Value.Text);
+    }
+
+    [Theory]
+    [InlineData("{ name = \"a\" } && { name = \"b\" }", "(A && B)")]
+    [InlineData("{ name = \"a\" } || { name = \"b\" }", "(A || B)")]
+    [InlineData("{ name = \"a\" } > { name = \"b\" }", "A -> B")]
+    [InlineData("{ name = \"a\" } >> { name = \"b\" }", "A => B")]
+    [InlineData("{ name = \"a\" } >> { name = \"b\" } && { name = \"c\" }", "(A => B && C)")]
+    [InlineData("({ name = \"a\" } || { name = \"b\" }) && { name = \"c\" }", "((A || B) && C)")]
+    public void SpansetOperators_BecomeAStructureExpression(string traceQl, string expression)
+    {
+        var query = TraceQlParser.Parse(traceQl);
+
+        Assert.Equal(expression, query.Expression);
+        // The result must be something the structural trace filter itself accepts.
+        Flare.Api.Query.TraceStructureExpression.Parse(query.Expression);
+    }
+
+    [Theory]
+    [InlineData("{ } | count() > 2", "pipeline")]
+    [InlineData("{ name = \"a\" } | select(span.x)", "pipeline")]
+    [InlineData("{ span.a = 1 || span.b = 2 }", "||")]
+    [InlineData("{ name = \"a\" } &&& { }", "unexpected")]
+    [InlineData("{ name = }", "unexpected")]
+    [InlineData("{ name }", "needs a comparison")]
+    [InlineData("{ name = \"unterminated }", "not closed")]
+    [InlineData("{ span.x = nil }", "nil")]
+    [InlineData("{ span.x = span.y }", "not a value")]
+    [InlineData("{ duration > 5q }", "valid number or duration")]
+    [InlineData("{ name = \"a\" ", "ends")]
+    [InlineData("", "empty")]
+    [InlineData("{ name = \"a\" } >> ({ name = \"b\" } && { name = \"c\" })", "relates two spansets")]
+    public void UnsupportedOrMalformed_IsRejectedWithAMessageNamingIt(string traceQl, string messagePart)
+    {
+        var ex = Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(traceQl));
+
+        Assert.Contains(messagePart, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("250ms", 250_000_000UL)]
+    [InlineData("2s", 2_000_000_000UL)]
+    [InlineData("1m30s", 90_000_000_000UL)]
+    [InlineData("1h", 3_600_000_000_000UL)]
+    [InlineData("10us", 10_000UL)]
+    [InlineData("10µs", 10_000UL)]
+    [InlineData("5ns", 5UL)]
+    [InlineData("0.5s", 500_000_000UL)]
+    public void Durations_ParseToNanoseconds(string text, ulong nanos)
+    {
+        Assert.True(TraceQlParser.TryParseDuration(text, out var parsed));
+        Assert.Equal(nanos, parsed);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("5")]
+    [InlineData("s")]
+    [InlineData("5x")]
+    public void NotADuration_IsRejected(string text) => Assert.False(TraceQlParser.TryParseDuration(text, out _));
+}

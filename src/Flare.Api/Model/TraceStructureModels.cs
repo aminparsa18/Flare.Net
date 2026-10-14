@@ -27,6 +27,13 @@ public sealed partial record TraceSpanCondition
 
     /// <summary>Same filters, operators and semantics as <see cref="SpanFilter.Attributes"/>, ANDed together.</summary>
     public IReadOnlyList<SpanAttributeFilter>? Attributes { get; init; }
+
+    /// <summary>
+    /// Inclusive upper bound on <c>DurationNano</c>, if set. Appended last so older MemoryPack
+    /// clients that never write it stay wire-compatible; the Tempo API's TraceQL
+    /// <c>duration &lt; x</c> (ADR-0217) is what needs it.
+    /// </summary>
+    public ulong? MaxDurationNano { get; init; }
 }
 
 /// <summary>
