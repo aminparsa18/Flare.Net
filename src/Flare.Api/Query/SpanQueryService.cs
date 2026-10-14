@@ -268,7 +268,9 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
                 matched = (int)Math.Min(reader.GetFieldValue<ulong>(6), int.MaxValue);
             }
 
-            current.Add(new MatchedSpan(reader.GetString(1), reader.GetString(2), reader.GetString(3), ReadUtc(reader, 4), reader.GetFieldValue<ulong>(5)));
+            var attributes = TraceMatchedSpansQueryBuilder.MergeEchoed(
+                reader.GetFieldValue<Dictionary<string, string>>(7), reader.GetFieldValue<Dictionary<string, string>>(8));
+            current.Add(new MatchedSpan(reader.GetString(1), reader.GetString(2), reader.GetString(3), ReadUtc(reader, 4), reader.GetFieldValue<ulong>(5), attributes));
         }
 
         if (currentId is not null)

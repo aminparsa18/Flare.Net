@@ -28,6 +28,60 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
   --data-urlencode 'tags=service.name=payment http.status_code=500' --data-urlencode minDuration=500ms
 ```
 
+## Связь спана с метриками
+
+Параметр **Trace to metrics** источника данных Tempo добавляет к спану кнопку, которая открывает запрос Prometheus для сервиса и маршрута этого спана. Укажите в нём источник данных Prometheus, который [читает метрики Flare](query-with-prometheus-api.ru.md): тогда медленный спан в трассе — в одном клике от частоты запросов, доли ошибок и задержки сервиса, в котором он выполнялся. Имена лейблов метрик Flare отличаются от имён атрибутов OTel, поэтому сопоставление ниже важно.
+
+В настройках источника данных Tempo, в разделе **Trace to metrics**:
+
+1. **Data source**: источник данных Prometheus, указывающий на Flare.
+2. **Span start time shift** `-5m`, **Span end time shift** `5m`. Приведённые ниже запросы смотрят назад на `[5m]`, поэтому диапазон, начинающийся со спана, оставил бы первые минуты пустыми.
+3. **Tags**: сопоставьте каждый атрибут спана с лейблом Flare справа.
+
+   | Атрибут спана | Лейбл |
+   |---|---|
+   | `service.name` | `service_name` |
+   | `http.route` | `http_route` |
+   | `http.request.method` | `http_request_method` |
+
+   Всегда заполняйте лейбл. Лейблы Flare — это имена атрибутов с `_` вместо `.`; если поле пустое, Grafana берёт имя самого атрибута, а Flare отклоняет `service.name="checkout"` как селектор лейбла.
+4. **Queries**: `$__tags` раскрывается в сопоставленные теги, которые есть у спана.
+
+   | Название | Запрос |
+   |---|---|
+   | Request rate | `sum(rate(http_server_request_duration_seconds_count{$__tags}[5m]))` |
+   | Error rate | `sum(rate(http_server_request_duration_seconds_count{$__tags, http_response_status_code=~"5.."}[5m]))` |
+   | p95 latency | `histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{$__tags}[5m])))` |
+
+Те же настройки в виде провизионированного источника данных (`$$` не даёт Grafana раскрыть `$__tags` как переменную окружения):
+
+```yaml
+apiVersion: 1
+datasources:
+  - name: Flare Traces
+    type: tempo
+    url: http://localhost:8080/tempo
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: flare-prometheus   # uid вашего источника данных Prometheus для Flare
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - { key: service.name, value: service_name }
+          - { key: http.route, value: http_route }
+          - { key: http.request.method, value: http_request_method }
+        queries:
+          - name: Request rate
+            query: 'sum(rate(http_server_request_duration_seconds_count{$$__tags}[5m]))'
+```
+
+Что ожидать:
+
+- **Сервис должен отправлять метрики во Flare под тем же `service.name`.** Запросы читают гистограмму `http.server.request.duration`, которую записывают ASP.NET Core и другие HTTP-серверные инструментации OpenTelemetry. Для другой метрики найдите её имя в Prometheus через `GET /api/v1/label/__name__/values`.
+- **Grafana пропускает тег, которого нет у спана.** У дочернего спана базы данных есть `service.name`, но нет `http.route`, поэтому его ссылка — запрос по всему сервису; ссылка серверного спана сужена до его маршрута.
+- **Тег, которого нет у метрики, ничего не находит.** Если у `http.server.request.duration` приложения нет лейбла `http.route` (проверьте через `GET /api/v1/labels?match[]=http_server_request_duration_seconds_count`), уберите этот тег.
+- **Trace to logs недоступен.** Ему нужен Loki-совместимый API логов, которого Flare пока не предоставляет.
+
 ## Что поддерживается
 
 | Эндпоинт | Примечания |
@@ -38,7 +92,7 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
 | `GET /tempo/api/search/tags`, `GET /tempo/api/v2/search/tags` | Имена атрибутов, встреченные в окне; v2 группирует их по `span`, `resource` и `intrinsic`; `scope` сужает выборку |
 | `GET /tempo/api/search/tag/{tag}/values`, `GET /tempo/api/v2/search/tag/{tag}/values` | Значения, встреченные в окне |
 
-Поиск возвращает одну строку на трейс: сервис и имя корневого спана, его начало и длительность. Если запрос описывает спаны, каждая строка также содержит до `spss` совпавших спанов (`spanSets`); Grafana показывает их вложенными строками таблицы результатов TraceQL.
+Поиск возвращает одну строку на трейс: сервис и имя корневого спана, его начало и длительность. Если запрос описывает спаны, каждая строка также содержит до `spss` совпавших спанов (`spanSets`) с атрибутами, по которым запрос сравнивал; Grafana показывает их вложенными строками таблицы результатов TraceQL.
 
 ### Поднабор TraceQL
 
@@ -59,7 +113,7 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
 - **Область атрибута без префикса определяется эвристикой.** В Tempo `.foo` означает «спан или ресурс». Flare читает его из ресурса, если имя входит в пространство имён ресурсов OpenTelemetry (`service.`, `k8s.`, `host.`, `cloud.`, `deployment.`, `process.`, `container.`, `os.`, ...), и из спана в остальных случаях. Чтобы не гадать, пишите `span.foo` или `resource.foo`.
 - **`!=` совпадает и со спанами без этого атрибута.** В TraceQL атрибут обязан существовать.
 - **Для поиска нужен корневой спан.** Трейс, корень которого не был принят, в списке не появится, хотя по идентификатору открывается.
-- **У совпавших спанов мало подробностей.** У каждого показанного спана есть идентификатор, имя, начало, длительность и `service.name`, но не другие атрибуты из запроса. В запросе из нескольких спансетов (`{ a } >> { b }`) спаны всех спансетов показываются вместе одной группой, а не отдельной группой на каждый спансет.
+- **У совпавших спанов показаны атрибуты, по которым сравнивал запрос.** У каждого показанного спана есть идентификатор, имя, начало, длительность, `service.name` и атрибуты, названные в запросе (не больше 20), в виде строк. Атрибут со старым и новым написанием (`http.status_code`, `http.response.status_code`) показан в том написании, которое есть у спана. В запросе из нескольких спансетов (`{ a } >> { b }`) спаны всех спансетов показываются вместе одной группой, а не отдельной группой на каждый спансет.
 - **Списки тегов строятся по выборке.** Имена берутся максимум из 50 000 спанов окна, самые частые первыми. Сузьте `start` и `end`, чтобы получить полный список.
 
 Заметки о проектировании: [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md).

@@ -28,6 +28,60 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
   --data-urlencode 'tags=service.name=payment http.status_code=500' --data-urlencode minDuration=500ms
 ```
 
+## 把 span 关联到它的指标
+
+Tempo 数据源的 **Trace to metrics** 设置会在 span 上加一个按钮，点击后打开针对该 span 所属服务和路由的 Prometheus 查询。把它指向一个[读取 Flare 指标](query-with-prometheus-api.zh-CN.md)的 Prometheus 数据源，trace 里的慢 span 一键就能跳到它所在服务的请求速率、错误率和延迟。Flare 指标的标签名与 OTel 属性名不同，所以下面的映射很重要。
+
+在 Tempo 数据源的设置里，**Trace to metrics** 下：
+
+1. **Data source**：指向 Flare 的 Prometheus 数据源。
+2. **Span start time shift** `-5m`，**Span end time shift** `5m`。下面的查询向前回看 `[5m]`，如果时间范围从 span 开始，最前面几分钟会是空的。
+3. **Tags**：把每个 span 属性映射到右侧的 Flare 标签。
+
+   | Span 属性 | 标签 |
+   |---|---|
+   | `service.name` | `service_name` |
+   | `http.route` | `http_route` |
+   | `http.request.method` | `http_request_method` |
+
+   标签务必填写。Flare 的标签是把属性名里的 `.` 换成 `_`；留空时 Grafana 会沿用属性名本身，而 Flare 会把 `service.name="checkout"` 当作标签匹配器拒绝。
+4. **Queries**：`$__tags` 会展开为 span 具备的已映射标签。
+
+   | 名称 | 查询 |
+   |---|---|
+   | Request rate | `sum(rate(http_server_request_duration_seconds_count{$__tags}[5m]))` |
+   | Error rate | `sum(rate(http_server_request_duration_seconds_count{$__tags, http_response_status_code=~"5.."}[5m]))` |
+   | p95 latency | `histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{$__tags}[5m])))` |
+
+同样的设置写成预置（provisioned）数据源（`$$` 防止 Grafana 把 `$__tags` 当作环境变量展开）：
+
+```yaml
+apiVersion: 1
+datasources:
+  - name: Flare Traces
+    type: tempo
+    url: http://localhost:8080/tempo
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: flare-prometheus   # 你的 Flare Prometheus 数据源的 uid
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - { key: service.name, value: service_name }
+          - { key: http.route, value: http_route }
+          - { key: http.request.method, value: http_request_method }
+        queries:
+          - name: Request rate
+            query: 'sum(rate(http_server_request_duration_seconds_count{$$__tags}[5m]))'
+```
+
+需要了解：
+
+- **服务必须以相同的 `service.name` 向 Flare 上报指标。** 这些查询读取 `http.server.request.duration` 直方图，ASP.NET Core 和其他 OpenTelemetry HTTP 服务端插桩都会记录它。要用别的指标，请用 `GET /api/v1/label/__name__/values` 查它的 Prometheus 名称。
+- **Grafana 会省略 span 没有的标签。** 数据库子 span 有 `service.name` 但没有 `http.route`，所以它的链接是整个服务的查询；服务端 span 的链接则收窄到它的路由。
+- **指标没有的标签什么也匹配不到。** 如果应用的 `http.server.request.duration` 没有 `http.route` 标签（用 `GET /api/v1/labels?match[]=http_server_request_duration_seconds_count` 检查），请删掉该标签映射。
+- **Trace to logs 暂不可用。** 它需要兼容 Loki 的日志 API，Flare 目前还没有提供。
+
 ## 支持的内容
 
 | 端点 | 说明 |
@@ -38,7 +92,7 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
 | `GET /tempo/api/search/tags`、`GET /tempo/api/v2/search/tags` | 时间窗口内出现过的属性名；v2 按 `span`、`resource` 和 `intrinsic` 分组；`scope` 可缩小范围 |
 | `GET /tempo/api/search/tag/{tag}/values`、`GET /tempo/api/v2/search/tag/{tag}/values` | 时间窗口内出现过的值 |
 
-搜索为每条追踪返回一行：根 span 的服务和名称、开始时间以及时长。当查询涉及 span 时，每一行还会列出最多 `spss` 个匹配的 span（`spanSets`），Grafana 将它们显示为 TraceQL 结果表中的嵌套行。
+搜索为每条追踪返回一行：根 span 的服务和名称、开始时间以及时长。当查询涉及 span 时，每一行还会列出最多 `spss` 个匹配的 span（`spanSets`），并带上查询比较过的属性，Grafana 将它们显示为 TraceQL 结果表中的嵌套行。
 
 ### TraceQL 子集
 
@@ -59,7 +113,7 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
 - **不带前缀的属性作用域靠推测。** 在 Tempo 中 `.foo` 表示“span 或 resource”。当名称属于 OpenTelemetry 资源命名空间（`service.`、`k8s.`、`host.`、`cloud.`、`deployment.`、`process.`、`container.`、`os.` 等）时，Flare 从 resource 读取，否则从 span 读取。写成 `span.foo` 或 `resource.foo` 可以避免推测。
 - **`!=` 也会匹配没有该属性的 span。** 在 TraceQL 中该属性必须存在。
 - **搜索需要根 span。** 根 span 从未被摄入的追踪不会出现在列表中，但仍可按 ID 打开。
-- **匹配的 span 信息很少。** 列出的每个 span 只有 id、名称、开始时间、时长和 `service.name`，不含查询中用到的其他属性。在包含多个 spanset 的查询（`{ a } >> { b }`）中，所有 spanset 的 span 合并列在同一组里，而不是每个 spanset 一组。
+- **匹配的 span 会列出查询比较过的属性。** 列出的每个 span 有 id、名称、开始时间、时长、`service.name` 和查询中点名的属性（最多 20 个），值均为字符串。同一属性有新旧两种写法时（`http.status_code`、`http.response.status_code`），列出 span 实际具有的那种。在包含多个 spanset 的查询（`{ a } >> { b }`）中，所有 spanset 的 span 合并列在同一组里，而不是每个 spanset 一组。
 - **标签列表来自采样。** 名称取自时间窗口内最多 50,000 个 span，按出现频率从高到低排列。缩小 `start` 和 `end` 可获得完整列表。
 
 设计说明：[ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md)。

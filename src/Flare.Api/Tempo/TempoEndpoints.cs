@@ -179,8 +179,10 @@ public static class TempoEndpoints
         }
     }
 
-    private static void WriteSpanSet(Utf8JsonWriter w, TraceMatchedSpans trace)
+    internal static void WriteSpanSet(Utf8JsonWriter w, TraceMatchedSpans trace)
     {
+        const string ServiceNameKey = "service.name";
+
         w.WriteStartObject();
         w.WriteStartArray("spans");
         foreach (var span in trace.Spans)
@@ -190,15 +192,22 @@ public static class TempoEndpoints
             w.WriteString("name", span.Name);
             w.WriteString("startTimeUnixNano", TempoTraceEncoder.UnixNanos(span.StartTime).ToString(CultureInfo.InvariantCulture));
             w.WriteString("durationNanos", span.DurationNano.ToString(CultureInfo.InvariantCulture));
-            if (span.ServiceName.Length > 0)
+
+            // service.name always, then the attributes the query compared on (Flare stores every value as a string).
+            var echoed = span.Attributes.Where(a => a.Key != ServiceNameKey).ToArray();
+            if (span.ServiceName.Length > 0 || echoed.Length > 0)
             {
                 w.WriteStartArray("attributes");
-                w.WriteStartObject();
-                w.WriteString("key", "service.name");
-                w.WriteStartObject("value");
-                w.WriteString("stringValue", span.ServiceName);
-                w.WriteEndObject();
-                w.WriteEndObject();
+                if (span.ServiceName.Length > 0)
+                {
+                    WriteAttribute(w, ServiceNameKey, span.ServiceName);
+                }
+
+                foreach (var (key, value) in echoed)
+                {
+                    WriteAttribute(w, key, value);
+                }
+
                 w.WriteEndArray();
             }
 
@@ -207,6 +216,16 @@ public static class TempoEndpoints
 
         w.WriteEndArray();
         w.WriteNumber("matched", trace.Matched);
+        w.WriteEndObject();
+    }
+
+    private static void WriteAttribute(Utf8JsonWriter w, string key, string value)
+    {
+        w.WriteStartObject();
+        w.WriteString("key", key);
+        w.WriteStartObject("value");
+        w.WriteString("stringValue", value);
+        w.WriteEndObject();
         w.WriteEndObject();
     }
 
