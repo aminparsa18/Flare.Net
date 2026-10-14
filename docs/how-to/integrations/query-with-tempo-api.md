@@ -1,8 +1,8 @@
 # How to read Flare traces from Grafana with the Tempo API
 
 Flare serves a read-only **subset of the Grafana Tempo HTTP API** over your OTel traces, so Grafana's
-**Tempo** data source can look up a trace by id, search traces, and fill its query builder's tag and value
-pickers. Search takes a small part of TraceQL. Anything outside it is rejected with an error that names the
+**Tempo** data source can look up a trace by id, search traces, fill its query builder's tag and value
+pickers, and draw TraceQL metrics (rates and latency percentiles) as time series. Search takes a small part of TraceQL. Anything outside it is rejected with an error that names the
 unsupported construct, never answered partially.
 
 ## Connect Grafana
@@ -26,6 +26,11 @@ curl -H "Authorization: Bearer $TOKEN" $FLARE/tempo/api/traces/0af7651916cd43dd8
 curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
   --data-urlencode 'q={ resource.service.name = "payment" && status = error && duration > 500ms }' \
   --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" --data-urlencode limit=20
+
+# TraceQL metrics: the request rate of each service, one sample per minute
+curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/metrics/query_range \
+  --data-urlencode 'q={ kind = server } | rate() by (resource.service.name)' \
+  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" --data-urlencode step=60s
 
 # The same idea with the older tag syntax
 curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
@@ -105,6 +110,8 @@ What to expect:
 | `GET /tempo/api/search` | `q` (TraceQL) or `tags`, plus `minDuration`, `maxDuration`, `limit` (default 20, at most 200), `spss` (matching spans listed per trace, default 3, at most 100), `start`, `end` (unix seconds; default the last hour) |
 | `GET /tempo/api/search/tags`, `GET /tempo/api/v2/search/tags` | Attribute names seen in the window; v2 groups them by `span`, `resource` and `intrinsic`; `scope` narrows |
 | `GET /tempo/api/search/tag/{tag}/values`, `GET /tempo/api/v2/search/tag/{tag}/values` | Values seen in the window |
+| `GET /tempo/api/metrics/query_range` | `q` (a [TraceQL metrics query](#traceql-metrics)), `start` and `end` (unix seconds or nanoseconds, or RFC3339) or `since` (a duration; default the last hour), `step` (a duration or whole seconds; default the range in 200 steps, at most 1,500 steps). One series per group |
+| `GET /tempo/api/metrics/query` | The same without `step`: one value per group over the whole range |
 
 A search returns one row per trace: its root span's service and name, its start, and its duration. When the query says something about spans, each row also lists up to `spss` of the
 spans that matched (`spanSets`), with the attributes the query compared on, which Grafana shows as nested rows of its
@@ -121,9 +128,28 @@ TraceQL results table.
 | Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>` | `{ resource.service.name = "checkout" } >> { status = error }` |
 | Unscoped attributes | `{ .service.name = "api" }` |
 
-Not supported: `|` pipelines (`count()`, `avg()`, `select()`, `by()`, ...), `||` inside one spanset, `statusMessage`,
-comparing two fields, and Tempo's TraceQL metrics
-endpoints.
+Not supported in a search: `|` pipelines (`count()`, `avg()`, `select()`, `by()`, ...; a metrics query takes one, below),
+`||` inside one spanset, `statusMessage`, and comparing two fields.
+
+### TraceQL metrics
+
+`/tempo/api/metrics` takes one spanset and one function: `{ status = error } | rate() by (resource.service.name)`. The
+spanset is anything a search accepts for a single span, except combined spansets and the trace intrinsics (`rootName`,
+`rootServiceName`, `traceDuration`). In Grafana, use the **TraceQL** query type with a query that ends in a function and the
+result is a time series; **Type** in the query's Metrics options picks a range or an instant (one value) query.
+
+| Function | Value per step |
+|---|---|
+| `rate()` | Spans per second |
+| `count_over_time()` | Spans |
+| `quantile_over_time(duration, .5, .95)` | Duration quantiles in seconds, one series per quantile, labelled `p` |
+| `avg_over_time(duration)`, `min_over_time(duration)`, `max_over_time(duration)`, `sum_over_time(duration)` | The duration, in seconds |
+
+`by (...)` takes up to five of `name`, `status`, `kind`, `span.x`, `resource.x` and `.x` and makes a series for each
+combination: `{ kind = server } | quantile_over_time(duration, .95) by (resource.service.name, span.http.route)`.
+
+Not supported: `histogram_over_time()`, `compare()`, a second stage such as `topk()`, aggregating anything but `duration`,
+and exemplars (`with(exemplars=true)` is accepted and ignored).
 
 ## Things that differ from Tempo
 
@@ -138,6 +164,15 @@ endpoints.
   `service.name` and the attributes the query named (at most 20), as strings. An attribute with old and new spellings
   (`http.status_code`, `http.response.status_code`) lists whichever the span has. In a query of several spansets (`{ a } >> { b }`) the spans of every spanset are
   listed together in one group, not one group per spanset.
+- **Metrics are bucketed by the step.** A sample is stamped with the start of its step, and `start` and `end` are rounded
+  out to a multiple of the step, so when the range ends now the last step is partial. `rate()` and `count_over_time()` are
+  zero in a step with no spans; the other functions have no sample there.
+- **Metrics group only spans that have the attribute.** In `by (span.http.route)` a span without `http.route` is left out,
+  not counted under an empty value. An attribute with old and new spellings (`http.status_code`,
+  `http.response.status_code`) groups by whichever the span has.
+- **A metrics query returns at most 200 series.** With more groups it keeps the 200 with the most spans and marks the
+  response `PARTIAL`. Counts and quantiles weight each stored span by what it stands for under
+  [trace sampling](../../explanation/sampling-clustering-and-cost.md), so a sampled service still reports its true rate.
 - **Tag lists are a sample.** Names come from up to 50,000 spans of the window, most common first. Narrow
   `start` and `end` for a complete list.
 

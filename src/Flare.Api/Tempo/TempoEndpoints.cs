@@ -9,8 +9,8 @@ namespace Flare.Api.Tempo;
 /// <summary>
 /// A read-only subset of Grafana Tempo's HTTP API (ADR-0217) under <c>/tempo</c>, so Grafana's Tempo data
 /// source can read Flare traces: <c>/tempo/api/echo</c> (the connection test), trace by id (v1 and v2, JSON
-/// or protobuf), <c>/tempo/api/search</c> (TraceQL subset or <c>tags</c>), and tag and tag-value discovery
-/// (v1 and v2). Authentication is the normal Flare pipeline - a personal access token as
+/// or protobuf), <c>/tempo/api/search</c> (TraceQL subset or <c>tags</c>), tag and tag-value discovery
+/// (v1 and v2), and TraceQL metrics (<c>/tempo/api/metrics/query_range</c> and <c>/query</c>, ADR-0221). Authentication is the normal Flare pipeline - a personal access token as
 /// <c>Authorization: Bearer flr_pat_...</c>.
 /// </summary>
 /// <remarks>
@@ -48,6 +48,10 @@ public static class TempoEndpoints
         tempo.MapGet("/v2/traces/{traceId}", (string traceId, HttpContext http, ISpanQueryService spans, CancellationToken ct) =>
             HandleTraceAsync(traceId, http, spans, v2: true, ct));
         tempo.MapGet("/search", HandleSearchAsync);
+        tempo.MapGet("/metrics/query_range", (HttpContext http, ISpanQueryService spans, TimeProvider time, CancellationToken ct) =>
+            HandleMetricsAsync(http, spans, time, instant: false, ct));
+        tempo.MapGet("/metrics/query", (HttpContext http, ISpanQueryService spans, TimeProvider time, CancellationToken ct) =>
+            HandleMetricsAsync(http, spans, time, instant: true, ct));
         tempo.MapGet("/search/tags", (HttpContext http, ISpanQueryService spans, TimeProvider time, CancellationToken ct) =>
             HandleTagsAsync(http, spans, time, v2: false, ct));
         tempo.MapGet("/v2/search/tags", (HttpContext http, ISpanQueryService spans, TimeProvider time, CancellationToken ct) =>
@@ -175,6 +179,50 @@ public static class TempoEndpoints
         catch (ClickHouseServerException ex) when (ex.ErrorCode == CannotCompileRegexp)
         {
             // ClickHouse compiles the pattern (RE2) when the query runs; say so rather than surface its stack trace as a 500.
+            return Error(StatusCodes.Status400BadRequest, "invalid regular expression in the query (RE2 syntax).");
+        }
+    }
+
+    /// <summary>TraceQL metrics (ADR-0221): <c>/metrics/query_range</c> is a series per group, <c>/metrics/query</c> one value per group.</summary>
+    private static async Task<IResult> HandleMetricsAsync(HttpContext http, ISpanQueryService spans, TimeProvider time, bool instant, CancellationToken ct)
+    {
+        var query = http.Request.Query;
+        try
+        {
+            var plan = TempoMetricsPlanner.Plan(TraceQlParser.ParseMetrics(query["q"].ToString()));
+            var window = TempoMetricsWindow.Resolve(
+                query["start"], query["end"], query["since"], query["step"], time.GetUtcNow(), instant, TraceQlMetricsQueryBuilder.MaxSteps);
+
+            var rows = await spans.GetSpanMetricsAsync(
+                new SpanMetricsRequest(
+                    plan.Condition,
+                    plan.Function,
+                    plan.Quantiles,
+                    plan.GroupBy,
+                    DateTimeOffset.FromUnixTimeSeconds(window.FromSeconds),
+                    DateTimeOffset.FromUnixTimeSeconds(window.ToSeconds),
+                    window.StepSeconds),
+                ct);
+
+            var result = TempoMetricsSeries.Build(plan, rows, window);
+            return Json(w =>
+            {
+                if (instant)
+                {
+                    TempoMetricsSeries.WriteInstant(w, result);
+                }
+                else
+                {
+                    TempoMetricsSeries.WriteRange(w, result);
+                }
+            });
+        }
+        catch (Exception ex) when (ex is TraceQlException or ArgumentException)
+        {
+            return Error(StatusCodes.Status400BadRequest, ex.Message);
+        }
+        catch (ClickHouseServerException ex) when (ex.ErrorCode == CannotCompileRegexp)
+        {
             return Error(StatusCodes.Status400BadRequest, "invalid regular expression in the query (RE2 syntax).");
         }
     }
