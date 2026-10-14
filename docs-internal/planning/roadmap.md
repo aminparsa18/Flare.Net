@@ -90,9 +90,10 @@ folders are where "what happened and why" actually lives.
   ([ADR-0155](../adr/0155-otlp-forwarding.md)), a read-only Prometheus API a Grafana data source can query
   ([ADR-0109](../adr/0109-prometheus-query-api.md)) and a read-only Tempo-compatible trace API
   ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)). Remaining, roughly in priority order:
-  - Tempo API follow-ups (ADR-0217, ADR-0219): TraceQL metrics (`rate()`, `quantile_over_time()`) behind
-    `/api/metrics/query_range`; trace-to-metrics settings in the how-to (trace-to-logs needs the Loki-compatible API
-    below); the attributes a query compared echoed on each listed span in `spanSets`.
+  - Tempo API follow-ups (ADR-0217, ADR-0221): TraceQL metrics (`rate()`, `quantile_over_time()`, ...) take one spanset
+    and one function over `duration`; still missing are functions over a numeric attribute (`avg_over_time(span.size)`),
+    `histogram_over_time()`, `compare()`, a second stage (`topk()`), structural spansets (`{ a } >> { b }`), trace-level
+    intrinsics and exemplars. Trace-to-logs needs the Loki-compatible API below.
   - A Loki-compatible log API (a LogQL subset), the same idea for logs.
   - A fuller Prometheus API: operators between series (`a / b`), `offset`, `topk`, `quantile` and more functions, which
     error ratios and "top N hosts by CPU" panels need. Exemplars, so a latency chart links to a sample trace.

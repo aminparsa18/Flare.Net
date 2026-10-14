@@ -48,6 +48,36 @@ public sealed record TraceQlSpanset(IReadOnlyList<TraceQlPredicate> Predicates);
 /// <param name="Expression">The structural expression over the spansets' letters (<c>A -&gt; B</c>, <c>A &amp;&amp; B</c>...), in <see cref="Query.TraceStructureExpression"/>'s grammar.</param>
 public sealed record TraceQlQuery(IReadOnlyList<TraceQlSpanset> Spansets, string Expression);
 
+/// <summary>The metrics functions a TraceQL metrics query can apply to a spanset (ADR-0221).</summary>
+public enum TraceQlMetricsFunction
+{
+    Rate,
+    CountOverTime,
+    QuantileOverTime,
+    AvgOverTime,
+    MinOverTime,
+    MaxOverTime,
+    SumOverTime,
+}
+
+/// <summary>A TraceQL metrics query: <c>{ spanset } | function(...) [by (...)]</c>.</summary>
+/// <param name="Quantiles">The quantiles of <see cref="TraceQlMetricsFunction.QuantileOverTime"/>, in order; empty for every other function.</param>
+/// <param name="By">The <c>by (...)</c> fields as written: <c>name</c>, <c>status</c>, <c>kind</c>, <c>span.x</c>, <c>resource.x</c> or <c>.x</c>.</param>
+public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By)
+{
+    /// <summary>The function's TraceQL name, which is also the <c>__name__</c> of its series.</summary>
+    public string FunctionName => Function switch
+    {
+        TraceQlMetricsFunction.Rate => "rate",
+        TraceQlMetricsFunction.CountOverTime => "count_over_time",
+        TraceQlMetricsFunction.QuantileOverTime => "quantile_over_time",
+        TraceQlMetricsFunction.AvgOverTime => "avg_over_time",
+        TraceQlMetricsFunction.MinOverTime => "min_over_time",
+        TraceQlMetricsFunction.MaxOverTime => "max_over_time",
+        _ => "sum_over_time",
+    };
+}
+
 /// <summary>
 /// A hand-written parser for the TraceQL subset the Tempo-compatible API accepts (ADR-0217).
 /// Pure, no ClickHouse dependency. Grammar, loosest to tightest:
@@ -67,24 +97,48 @@ public sealed record TraceQlQuery(IReadOnlyList<TraceQlSpanset> Spansets, string
 /// spanset expression (a <c>|</c> pipeline: <c>count()</c>, <c>select()</c>, ...), a <c>||</c> inside a
 /// spanset, sibling and negated structural operators and arithmetic are rejected with a message that
 /// names them, never half-evaluated.
+/// <see cref="ParseMetrics"/> reads the one pipeline stage a metrics query adds (ADR-0221):
+/// <code>
+/// metrics := spanset "|" function ["by" "(" field ("," field)* ")"] ["with" "(" "exemplars" "=" bool ")"]
+/// function := "rate" "(" ")" | "count_over_time" "(" ")" | "quantile_over_time" "(" "duration" ("," number)+ ")"
+///           | ("avg_over_time" | "min_over_time" | "max_over_time" | "sum_over_time") "(" "duration" ")"
+/// </code>
 /// </summary>
 public static class TraceQlParser
 {
     public const int MaxLength = 4000;
 
+    /// <summary>The most quantiles one <c>quantile_over_time</c> asks for.</summary>
+    public const int MaxQuantiles = 10;
+
+    /// <summary>The most <c>by (...)</c> fields.</summary>
+    public const int MaxGroupFields = 5;
+
+    private static readonly string[] SupportedFunctions =
+        ["rate", "count_over_time", "quantile_over_time", "avg_over_time", "min_over_time", "max_over_time", "sum_over_time"];
+
+    /// <summary>
+    /// Parses <c>{ spanset } | function(...) [by (...)]</c>. The spanset is one <c>{ ... }</c>; several, structural
+    /// operators and a second pipeline stage are rejected, naming the construct.
+    /// </summary>
+    public static TraceQlMetricsQuery ParseMetrics(string? query)
+    {
+        CheckLength(query);
+        var parser = new Parser(Tokenize(query!), allowPipe: true);
+        var spansets = new List<TraceQlSpanset>();
+        var expression = parser.ParseOr(spansets);
+        if (spansets.Count != 1 || expression != "A")
+        {
+            throw new TraceQlException("a metrics query takes one spanset, e.g. { status = error } | rate(); combining spansets is not supported.");
+        }
+
+        return parser.ParseMetricsStage(spansets[0]);
+    }
+
     public static TraceQlQuery Parse(string? query)
     {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            throw new TraceQlException("the query is empty.");
-        }
-
-        if (query.Length > MaxLength)
-        {
-            throw new TraceQlException($"the query is longer than {MaxLength} characters.");
-        }
-
-        var parser = new Parser(Tokenize(query));
+        CheckLength(query);
+        var parser = new Parser(Tokenize(query!));
         var spansets = new List<TraceQlSpanset>();
         var expression = parser.ParseOr(spansets);
         if (!parser.AtEnd)
@@ -98,6 +152,19 @@ public static class TraceQlParser
         }
 
         return new TraceQlQuery(spansets, expression);
+    }
+
+    private static void CheckLength(string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            throw new TraceQlException("the query is empty.");
+        }
+
+        if (query.Length > MaxLength)
+        {
+            throw new TraceQlException($"the query is longer than {MaxLength} characters.");
+        }
     }
 
     private static TraceQlException Unexpected(Token token) => token.Kind == TokenKind.End
@@ -114,6 +181,7 @@ public static class TraceQlParser
         Word,
         String,
         Pipe,
+        Comma,
         End,
     }
 
@@ -145,6 +213,9 @@ public static class TraceQlParser
                     continue;
                 case ')':
                     tokens.Add(new Token(TokenKind.RParen, ")", i++));
+                    continue;
+                case ',':
+                    tokens.Add(new Token(TokenKind.Comma, ",", i++));
                     continue;
                 case '"':
                 case '`':
@@ -222,11 +293,182 @@ public static class TraceQlParser
         return new Token(TokenKind.String, sb.ToString(), start);
     }
 
-    private sealed class Parser(List<Token> tokens)
+    private sealed class Parser(List<Token> tokens, bool allowPipe = false)
     {
         private int _pos;
 
         public bool AtEnd => Peek.Kind == TokenKind.End;
+
+        /// <summary>The <c>| function(...) [by (...)] [with (...)]</c> after the spanset of a metrics query.</summary>
+        public TraceQlMetricsQuery ParseMetricsStage(TraceQlSpanset spanset)
+        {
+            if (Peek.Kind != TokenKind.Pipe)
+            {
+                throw Peek.Kind == TokenKind.End
+                    ? new TraceQlException("a metrics query needs a function after the spanset, e.g. { status = error } | rate().")
+                    : Unexpected(Peek);
+            }
+
+            _pos++;
+            var nameToken = Peek;
+            if (nameToken.Kind != TokenKind.Word)
+            {
+                throw Unexpected(nameToken);
+            }
+
+            _pos++;
+            var name = nameToken.Text;
+            Expect(TokenKind.LParen, "(");
+            var quantiles = new List<double>();
+            TraceQlMetricsFunction function;
+            switch (name)
+            {
+                case "rate" or "count_over_time":
+                    function = name == "rate" ? TraceQlMetricsFunction.Rate : TraceQlMetricsFunction.CountOverTime;
+                    break;
+                case "quantile_over_time":
+                    function = TraceQlMetricsFunction.QuantileOverTime;
+                    ExpectDurationArgument(name);
+                    while (Peek.Kind == TokenKind.Comma)
+                    {
+                        _pos++;
+                        quantiles.Add(ParseQuantile());
+                    }
+
+                    if (quantiles.Count is 0 or > MaxQuantiles)
+                    {
+                        throw new TraceQlException($"quantile_over_time(duration, q, ...) takes 1 to {MaxQuantiles} quantiles between 0 and 1, e.g. quantile_over_time(duration, .5, .95).");
+                    }
+
+                    break;
+                case "avg_over_time" or "min_over_time" or "max_over_time" or "sum_over_time":
+                    function = name switch
+                    {
+                        "avg_over_time" => TraceQlMetricsFunction.AvgOverTime,
+                        "min_over_time" => TraceQlMetricsFunction.MinOverTime,
+                        "max_over_time" => TraceQlMetricsFunction.MaxOverTime,
+                        _ => TraceQlMetricsFunction.SumOverTime,
+                    };
+                    ExpectDurationArgument(name);
+                    break;
+                default:
+                    throw new TraceQlException($"the metrics function '{name}' is not supported; use {string.Join(", ", SupportedFunctions.Select(f => f + "()"))}.");
+            }
+
+            Expect(TokenKind.RParen, ")");
+            var by = new List<string>();
+            if (Peek.Kind == TokenKind.Word && Peek.Text == "by")
+            {
+                _pos++;
+                Expect(TokenKind.LParen, "(");
+                by.Add(ParseGroupField());
+                while (Peek.Kind == TokenKind.Comma)
+                {
+                    _pos++;
+                    by.Add(ParseGroupField());
+                }
+
+                Expect(TokenKind.RParen, ")");
+                if (by.Count > MaxGroupFields)
+                {
+                    throw new TraceQlException($"by (...) takes at most {MaxGroupFields} fields.");
+                }
+            }
+
+            if (Peek.Kind == TokenKind.Word && Peek.Text == "with")
+            {
+                ParseHints();
+            }
+
+            if (Peek.Kind == TokenKind.Pipe)
+            {
+                throw new TraceQlException("a second pipeline stage after the metrics function (| topk(), | filter, ...) is not supported.");
+            }
+
+            if (!AtEnd)
+            {
+                throw Unexpected(Peek);
+            }
+
+            return new TraceQlMetricsQuery(spanset, function, quantiles, by);
+        }
+
+        /// <summary>Only <c>duration</c> is a supported value to aggregate; any other field gets a message saying so.</summary>
+        private void ExpectDurationArgument(string function)
+        {
+            var token = Peek;
+            if (token.Kind != TokenKind.Word)
+            {
+                throw new TraceQlException($"{function}(duration) needs the field to aggregate; only duration is supported.");
+            }
+
+            if (token.Text != "duration")
+            {
+                throw new TraceQlException($"{function}({token.Text}) is not supported; only duration can be aggregated.");
+            }
+
+            _pos++;
+        }
+
+        private double ParseQuantile()
+        {
+            var token = Peek;
+            if (token.Kind != TokenKind.Word || !double.TryParse(token.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var q) || q is < 0 or > 1 || !double.IsFinite(q))
+            {
+                throw token.Kind == TokenKind.End
+                    ? new TraceQlException("the query ends unexpectedly.")
+                    : new TraceQlException($"'{token.Text}' is not a quantile; use a number between 0 and 1, e.g. .95.");
+            }
+
+            _pos++;
+            return q;
+        }
+
+        private string ParseGroupField()
+        {
+            var token = Peek;
+            if (token.Kind != TokenKind.Word)
+            {
+                throw Unexpected(token);
+            }
+
+            _pos++;
+            var field = token.Text;
+            var ok = field is "name" or "status" or "kind"
+                || (field.StartsWith("span.", StringComparison.Ordinal) && field.Length > "span.".Length)
+                || (field.StartsWith("resource.", StringComparison.Ordinal) && field.Length > "resource.".Length)
+                || (field.StartsWith('.') && field.Length > 1);
+            return ok
+                ? field
+                : throw new TraceQlException($"'{field}' cannot be grouped by; use name, status, kind, span.x, resource.x or .x.");
+        }
+
+        /// <summary><c>with(exemplars = true)</c>: accepted and ignored, since Flare returns no exemplars. Any other hint is an error.</summary>
+        private void ParseHints()
+        {
+            _pos++;
+            Expect(TokenKind.LParen, "(");
+            var hint = Peek;
+            if (hint.Kind != TokenKind.Word || hint.Text != "exemplars")
+            {
+                throw new TraceQlException($"the query hint '{(hint.Kind == TokenKind.Word ? hint.Text : hint.Kind.ToString())}' is not supported; only with(exemplars=...) is accepted.");
+            }
+
+            _pos++;
+            if (!IsOperator("="))
+            {
+                throw Unexpected(Peek);
+            }
+
+            _pos++;
+            if (Peek.Kind != TokenKind.Word || Peek.Text is not ("true" or "false"))
+            {
+                throw Unexpected(Peek);
+            }
+
+            _pos++;
+            Expect(TokenKind.RParen, ")");
+        }
 
         public Token Peek => tokens[_pos];
 
@@ -312,7 +554,7 @@ public static class TraceQlParser
             }
 
             Expect(TokenKind.RBrace, "}");
-            if (Peek.Kind == TokenKind.Pipe)
+            if (Peek.Kind == TokenKind.Pipe && !allowPipe)
             {
                 throw PipelineNotSupported();
             }

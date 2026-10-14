@@ -1,6 +1,6 @@
 # 如何用 Tempo API 在 Grafana 中读取 Flare 的追踪
 
-Flare 在您的 OTel 追踪之上提供 **Grafana Tempo HTTP API 的只读子集**，因此 Grafana 的 **Tempo** 数据源可以按 ID 查找追踪、搜索追踪，并填充查询构建器中的标签和标签值选择器。搜索支持 TraceQL 的一小部分。其余内容都会被拒绝，并返回指明不支持的语法结构的错误，绝不会给出部分结果。
+Flare 在您的 OTel 追踪之上提供 **Grafana Tempo HTTP API 的只读子集**，因此 Grafana 的 **Tempo** 数据源可以按 ID 查找追踪、搜索追踪，填充查询构建器中的标签和标签值选择器，并把 TraceQL 指标（速率和延迟百分位）绘制成时间序列。搜索支持 TraceQL 的一小部分。其余内容都会被拒绝，并返回指明不支持的语法结构的错误，绝不会给出部分结果。
 
 ## 连接 Grafana
 
@@ -23,10 +23,69 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
   --data-urlencode 'q={ resource.service.name = "payment" && status = error && duration > 500ms }' \
   --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" --data-urlencode limit=20
 
+# TraceQL 指标：每个服务的请求速率，每分钟一个采样点
+curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/metrics/query_range \
+  --data-urlencode 'q={ kind = server } | rate() by (resource.service.name)' \
+  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" --data-urlencode step=60s
+
 # 用较旧的标签语法表达同样的查询
 curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
   --data-urlencode 'tags=service.name=payment http.status_code=500' --data-urlencode minDuration=500ms
 ```
+
+## 把 span 关联到它的指标
+
+Tempo 数据源的 **Trace to metrics** 设置会在 span 上加一个按钮，点击后打开针对该 span 所属服务和路由的 Prometheus 查询。把它指向一个[读取 Flare 指标](query-with-prometheus-api.zh-CN.md)的 Prometheus 数据源，trace 里的慢 span 一键就能跳到它所在服务的请求速率、错误率和延迟。Flare 指标的标签名与 OTel 属性名不同，所以下面的映射很重要。
+
+在 Tempo 数据源的设置里，**Trace to metrics** 下：
+
+1. **Data source**：指向 Flare 的 Prometheus 数据源。
+2. **Span start time shift** `-5m`，**Span end time shift** `5m`。下面的查询向前回看 `[5m]`，如果时间范围从 span 开始，最前面几分钟会是空的。
+3. **Tags**：把每个 span 属性映射到右侧的 Flare 标签。
+
+   | Span 属性 | 标签 |
+   |---|---|
+   | `service.name` | `service_name` |
+   | `http.route` | `http_route` |
+   | `http.request.method` | `http_request_method` |
+
+   标签务必填写。Flare 的标签是把属性名里的 `.` 换成 `_`；留空时 Grafana 会沿用属性名本身，而 Flare 会把 `service.name="checkout"` 当作标签匹配器拒绝。
+4. **Queries**：`$__tags` 会展开为 span 具备的已映射标签。
+
+   | 名称 | 查询 |
+   |---|---|
+   | Request rate | `sum(rate(http_server_request_duration_seconds_count{$__tags}[5m]))` |
+   | Error rate | `sum(rate(http_server_request_duration_seconds_count{$__tags, http_response_status_code=~"5.."}[5m]))` |
+   | p95 latency | `histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{$__tags}[5m])))` |
+
+同样的设置写成预置（provisioned）数据源（`$$` 防止 Grafana 把 `$__tags` 当作环境变量展开）：
+
+```yaml
+apiVersion: 1
+datasources:
+  - name: Flare Traces
+    type: tempo
+    url: http://localhost:8080/tempo
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: flare-prometheus   # 你的 Flare Prometheus 数据源的 uid
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - { key: service.name, value: service_name }
+          - { key: http.route, value: http_route }
+          - { key: http.request.method, value: http_request_method }
+        queries:
+          - name: Request rate
+            query: 'sum(rate(http_server_request_duration_seconds_count{$$__tags}[5m]))'
+```
+
+需要了解：
+
+- **服务必须以相同的 `service.name` 向 Flare 上报指标。** 这些查询读取 `http.server.request.duration` 直方图，ASP.NET Core 和其他 OpenTelemetry HTTP 服务端插桩都会记录它。要用别的指标，请用 `GET /api/v1/label/__name__/values` 查它的 Prometheus 名称。
+- **Grafana 会省略 span 没有的标签。** 数据库子 span 有 `service.name` 但没有 `http.route`，所以它的链接是整个服务的查询；服务端 span 的链接则收窄到它的路由。
+- **指标没有的标签什么也匹配不到。** 如果应用的 `http.server.request.duration` 没有 `http.route` 标签（用 `GET /api/v1/labels?match[]=http_server_request_duration_seconds_count` 检查），请删掉该标签映射。
+- **Trace to logs 暂不可用。** 它需要兼容 Loki 的日志 API，Flare 目前还没有提供。
 
 ## 支持的内容
 
@@ -37,8 +96,10 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
 | `GET /tempo/api/search` | `q`（TraceQL）或 `tags`，以及 `minDuration`、`maxDuration`、`limit`（默认 20，最大 200）、`spss`（每条追踪列出的匹配 span 数，默认 3，最大 100）、`start`、`end`（unix 秒；默认最近一小时） |
 | `GET /tempo/api/search/tags`、`GET /tempo/api/v2/search/tags` | 时间窗口内出现过的属性名；v2 按 `span`、`resource` 和 `intrinsic` 分组；`scope` 可缩小范围 |
 | `GET /tempo/api/search/tag/{tag}/values`、`GET /tempo/api/v2/search/tag/{tag}/values` | 时间窗口内出现过的值 |
+| `GET /tempo/api/metrics/query_range` | `q`（一条 [TraceQL 指标查询](#traceql-指标)）、`start` 和 `end`（unix 秒或纳秒，或 RFC3339）或 `since`（时长；默认最近一小时）、`step`（时长或整数秒；默认把时间范围分成 200 步，最多 1,500 步）。每个分组一条序列 |
+| `GET /tempo/api/metrics/query` | 同上但没有 `step`：每个分组在整个时间范围内的一个值 |
 
-搜索为每条追踪返回一行：根 span 的服务和名称、开始时间以及时长。当查询涉及 span 时，每一行还会列出最多 `spss` 个匹配的 span（`spanSets`），Grafana 将它们显示为 TraceQL 结果表中的嵌套行。
+搜索为每条追踪返回一行：根 span 的服务和名称、开始时间以及时长。当查询涉及 span 时，每一行还会列出最多 `spss` 个匹配的 span（`spanSets`），并带上查询比较过的属性，Grafana 将它们显示为 TraceQL 结果表中的嵌套行。
 
 ### TraceQL 子集
 
@@ -51,7 +112,22 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
 | 组合 spanset：`&&`、`\|\|`、子级 `>`、后代 `>>` | `{ resource.service.name = "checkout" } >> { status = error }` |
 | 不带作用域的属性 | `{ .service.name = "api" }` |
 
-不支持：`|` 管道（`count()`、`avg()`、`select()`、`by()` 等）、同一个 spanset 内的 `||`、`statusMessage`、两个字段之间的比较，以及 Tempo 的 TraceQL 指标端点。
+搜索中不支持：`|` 管道（`count()`、`avg()`、`select()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内的 `||`、`statusMessage`，以及两个字段之间的比较。
+
+### TraceQL 指标
+
+`/tempo/api/metrics` 接受一个 spanset 和一个函数：`{ status = error } | rate() by (resource.service.name)`。spanset 可以是搜索对单个 span 接受的任何写法，但不能是组合 spanset，也不能用追踪级字段（`rootName`、`rootServiceName`、`traceDuration`）。在 Grafana 中，使用 **TraceQL** 查询类型，查询以函数结尾，结果就是时间序列；查询的 Metrics 选项里的 **Type** 用来选择范围查询或即时（单个值）查询。
+
+| 函数 | 每一步的值 |
+|---|---|
+| `rate()` | 每秒 span 数 |
+| `count_over_time()` | span 数 |
+| `quantile_over_time(duration, .5, .95)` | 时长的分位数（秒），每个分位数一条序列，带标签 `p` |
+| `avg_over_time(duration)`、`min_over_time(duration)`、`max_over_time(duration)`、`sum_over_time(duration)` | 时长（秒） |
+
+`by (...)` 最多接受五个字段，可选 `name`、`status`、`kind`、`span.x`、`resource.x` 和 `.x`，每种组合一条序列：`{ kind = server } | quantile_over_time(duration, .95) by (resource.service.name, span.http.route)`。
+
+不支持：`histogram_over_time()`、`compare()`、`topk()` 之类的第二阶段、对 `duration` 以外的内容做聚合，以及 exemplar（`with(exemplars=true)` 会被接受但忽略）。
 
 ## 与 Tempo 的差异
 
@@ -59,7 +135,10 @@ curl -H "Authorization: Bearer $TOKEN" -G $FLARE/tempo/api/search \
 - **不带前缀的属性作用域靠推测。** 在 Tempo 中 `.foo` 表示“span 或 resource”。当名称属于 OpenTelemetry 资源命名空间（`service.`、`k8s.`、`host.`、`cloud.`、`deployment.`、`process.`、`container.`、`os.` 等）时，Flare 从 resource 读取，否则从 span 读取。写成 `span.foo` 或 `resource.foo` 可以避免推测。
 - **`!=` 也会匹配没有该属性的 span。** 在 TraceQL 中该属性必须存在。
 - **搜索需要根 span。** 根 span 从未被摄入的追踪不会出现在列表中，但仍可按 ID 打开。
-- **匹配的 span 信息很少。** 列出的每个 span 只有 id、名称、开始时间、时长和 `service.name`，不含查询中用到的其他属性。在包含多个 spanset 的查询（`{ a } >> { b }`）中，所有 spanset 的 span 合并列在同一组里，而不是每个 spanset 一组。
+- **匹配的 span 会列出查询比较过的属性。** 列出的每个 span 有 id、名称、开始时间、时长、`service.name` 和查询中点名的属性（最多 20 个），值均为字符串。同一属性有新旧两种写法时（`http.status_code`、`http.response.status_code`），列出 span 实际具有的那种。在包含多个 spanset 的查询（`{ a } >> { b }`）中，所有 spanset 的 span 合并列在同一组里，而不是每个 spanset 一组。
+- **指标按步长分桶。** 采样点带的是所在步长起点的时间戳，`start` 和 `end` 会向外取整到步长的整数倍，所以时间范围结束于当前时刻时，最后一步是不完整的。`rate()` 和 `count_over_time()` 在没有 span 的步长里为零；其他函数在这样的步长里没有采样点。
+- **指标只对具有该属性的 span 分组。** 在 `by (span.http.route)` 中，没有 `http.route` 的 span 会被排除，而不是算到空值下。新旧写法并存的属性（`http.status_code`、`http.response.status_code`）按 span 实际具有的那种分组。
+- **一次指标查询最多返回 200 条序列。** 分组更多时，保留 span 最多的 200 条，并把响应标记为 `PARTIAL`。计数和分位数会按[追踪采样](../../explanation/sampling-clustering-and-cost.zh-CN.md)下每个已存储 span 所代表的数量加权，所以被采样的服务仍能报告真实速率。
 - **标签列表来自采样。** 名称取自时间窗口内最多 50,000 个 span，按出现频率从高到低排列。缩小 `start` 和 `end` 可获得完整列表。
 
 设计说明：[ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md)。

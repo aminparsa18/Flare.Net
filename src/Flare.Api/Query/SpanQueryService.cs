@@ -1,3 +1,4 @@
+using System.Globalization;
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
@@ -26,6 +27,9 @@ public interface ISpanQueryService
 
     /// <summary>For each given trace, its spans matching a structure's conditions - the Tempo-compatible API's <c>spanSets</c>. See <see cref="TraceMatchedSpansQueryBuilder"/>.</summary>
     Task<IReadOnlyList<TraceMatchedSpans>> GetMatchedSpansAsync(MatchedSpansRequest request, CancellationToken cancellationToken);
+
+    /// <summary>A TraceQL metrics query's per-step, per-group aggregates over the matching spans - the Tempo-compatible API's <c>/api/metrics</c> (ADR-0221). See <see cref="TraceQlMetricsQueryBuilder"/>.</summary>
+    Task<IReadOnlyList<SpanMetricRow>> GetSpanMetricsAsync(SpanMetricsRequest request, CancellationToken cancellationToken);
 
     /// <summary>Where one span's duration ranks among same service + name spans around it - see <see cref="SpanDurationPercentileQueryBuilder"/>.</summary>
     Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken);
@@ -268,7 +272,9 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
                 matched = (int)Math.Min(reader.GetFieldValue<ulong>(6), int.MaxValue);
             }
 
-            current.Add(new MatchedSpan(reader.GetString(1), reader.GetString(2), reader.GetString(3), ReadUtc(reader, 4), reader.GetFieldValue<ulong>(5)));
+            var attributes = TraceMatchedSpansQueryBuilder.MergeEchoed(
+                reader.GetFieldValue<Dictionary<string, string>>(7), reader.GetFieldValue<Dictionary<string, string>>(8));
+            current.Add(new MatchedSpan(reader.GetString(1), reader.GetString(2), reader.GetString(3), ReadUtc(reader, 4), reader.GetFieldValue<ulong>(5), attributes));
         }
 
         if (currentId is not null)
@@ -277,6 +283,49 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
         }
 
         return traces;
+    }
+
+    public async Task<IReadOnlyList<SpanMetricRow>> GetSpanMetricsAsync(SpanMetricsRequest request, CancellationToken cancellationToken)
+    {
+        var built = TraceQlMetricsQueryBuilder.Build(request, promotedAttributes.Spans);
+
+        // Steps x series is bounded by the builder, so lift the generic result-row cap to fit it and make an overflow an error:
+        // 'break' would drop the last steps without saying so.
+        var options = SafetyOptions();
+        options.CustomSettings!["max_result_rows"] = Math.Max(queryLimits.Value.MaxResultRows, TraceQlMetricsQueryBuilder.MaxRows);
+        options.CustomSettings["result_overflow_mode"] = "throw";
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, options, cancellationToken);
+
+        var rows = new List<SpanMetricRow>();
+        var groups = request.GroupBy.Count;
+        var values = request.Function == SpanMetricFunction.Quantile ? request.Quantiles.Count : request.Function == SpanMetricFunction.Count ? 0 : 1;
+        while (reader.Read())
+        {
+            var group = new string[groups];
+            for (var i = 0; i < groups; i++)
+            {
+                group[i] = reader.GetString(1 + i);
+            }
+
+            var weight = Convert.ToDouble(reader.GetValue(1 + groups), CultureInfo.InvariantCulture);
+            var aggregate = new double[values == 0 ? 1 : values];
+            if (values == 0)
+            {
+                aggregate[0] = weight;
+            }
+            else
+            {
+                for (var i = 0; i < values; i++)
+                {
+                    aggregate[i] = Convert.ToDouble(reader.GetValue(2 + groups + i), CultureInfo.InvariantCulture);
+                }
+            }
+
+            rows.Add(new SpanMetricRow(Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture), group, weight, aggregate));
+        }
+
+        return rows;
     }
 
     public async Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken)
