@@ -107,6 +107,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 
 - [Laisser un assistant IA interroger Flare](how-to/integrations/connect-ai-assistants.fr.md)
 - [Interroger Flare avec Grafana ou l'API Prometheus](how-to/integrations/query-with-prometheus-api.fr.md)
+- [Lire les traces de Flare depuis Grafana avec l'API Tempo](how-to/integrations/query-with-tempo-api.fr.md)
 
 **Référence**
 - [Commandes CLI](reference/cli-commands.fr.md)

@@ -109,6 +109,7 @@ the full rule set on what goes where.
 
 - [Let an AI assistant query Flare](how-to/integrations/connect-ai-assistants.md)
 - [Query Flare with Grafana or the Prometheus API](how-to/integrations/query-with-prometheus-api.md)
+- [Read Flare traces from Grafana with the Tempo API](how-to/integrations/query-with-tempo-api.md)
 
 **Reference**
 - [CLI commands](reference/cli-commands.md)
