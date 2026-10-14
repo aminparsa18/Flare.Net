@@ -30,7 +30,7 @@ public enum TraceQlValueKind
     /// <summary>The bare words <c>error</c>, <c>ok</c> and <c>unset</c>.</summary>
     Status,
 
-    /// <summary>The bare span kind words (<c>server</c>, <c>client</c>, ...). Parsed so <c>kind</c> can be rejected by name.</summary>
+    /// <summary>The bare span kind words (<c>server</c>, <c>client</c>, ...). Compared with <c>kind</c>.</summary>
     Kind,
 }
 

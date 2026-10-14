@@ -96,6 +96,45 @@ public class TraceStructureSqlBuilderTests
         Assert.Equal(5_000_000UL, parameters["tsBMinDuration"].Value);
     }
 
+    [Theory]
+    [InlineData(SpanNameMatch.Equals, false, "Name = {tsAName:String}")]
+    [InlineData(SpanNameMatch.NotEquals, false, "Name != {tsAName:String}")]
+    [InlineData(SpanNameMatch.Regex, false, "match(Name, {tsAName:String})")]
+    [InlineData(SpanNameMatch.NotRegex, false, "NOT match(Name, {tsAName:String})")]
+    [InlineData(SpanNameMatch.Equals, true, "StatusCode != {tsAStatus:String}")]
+    public void NameMatchAndNegatedStatus_CompileToTheirOperators(SpanNameMatch match, bool statusNegated, string expected)
+    {
+        var condition = new TraceSpanCondition
+        {
+            Name = "A",
+            SpanName = "x",
+            SpanNameMatch = match,
+            StatusCode = statusNegated ? "STATUS_CODE_ERROR" : null,
+            StatusCodeNegated = statusNegated,
+        };
+
+        var (sql, _) = Build(Structure("A", condition));
+
+        Assert.Contains(expected, sql);
+    }
+
+    [Theory]
+    [InlineData(false, "Kind = {tsAKind:UInt8}")]
+    [InlineData(true, "Kind != {tsAKind:UInt8}")]
+    public void Kind_IsParameterized_AndCountsAsSomethingToMatchOn(bool negated, string expected)
+    {
+        var (sql, parameters) = Build(Structure("A", new TraceSpanCondition { Name = "A", Kind = 2, KindNegated = negated }));
+
+        Assert.Contains(expected, sql);
+        Assert.Equal((byte)2, parameters["tsAKind"].Value);
+    }
+
+    [Fact]
+    public void Validate_RejectsAnUnknownKind()
+    {
+        Assert.Contains("unknown span kind", Assert.Throws<ArgumentException>(() => TraceStructureSqlBuilder.Validate(Structure("A", new TraceSpanCondition { Name = "A", Kind = 6 }))).Message);
+    }
+
     [Fact]
     public void MaxDuration_IsAnInclusiveUpperBound_AndCountsAsSomethingToMatchOn()
     {

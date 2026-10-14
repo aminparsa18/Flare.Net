@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using ClickHouse.Driver;
 using Flare.Api.Model;
 using Flare.Api.Query;
 
@@ -28,6 +29,12 @@ public static class TempoEndpoints
     private const int DefaultSearchLimit = 20;
     private const int MaxSearchLimit = 200;
     private const int DefaultTagLimit = 200;
+
+    /// <summary>ClickHouse's <c>CANNOT_COMPILE_REGEXP</c> error code.</summary>
+    private const int CannotCompileRegexp = 427;
+
+    /// <summary>Tempo's default <c>spss</c>: how many matching spans each result lists.</summary>
+    private const int DefaultSpansPerSpanSet = 3;
 
     /// <summary>The intrinsics the search subset understands, as Tempo's <c>intrinsic</c> tag scope lists them.</summary>
     private static readonly string[] Intrinsics = ["duration", "name", "rootName", "rootServiceName", "status", "traceDuration"];
@@ -111,7 +118,20 @@ public static class TempoEndpoints
                 Structure = plan.Structure,
             };
 
+            var spansPerSpanSet = ParseLimit(query["spss"], DefaultSpansPerSpanSet, TraceMatchedSpansQueryBuilder.MaxSpansPerTrace);
+
             var response = await spans.SearchAsync(new SpanSearchRequest { Filter = filter, PageSize = limit }, ct);
+
+            // Which spans of each trace matched, for Grafana's nested result rows. A query with nothing span-specific
+            // (only trace-level fields, or { }) has no spans to point at.
+            IReadOnlyDictionary<string, TraceMatchedSpans> matched = new Dictionary<string, TraceMatchedSpans>();
+            if (plan.Structure is { } structure && response.Spans.Count > 0)
+            {
+                var found = await spans.GetMatchedSpansAsync(
+                    new MatchedSpansRequest(response.Spans.Select(r => r.TraceId).ToArray(), structure, spansPerSpanSet), ct);
+                matched = found.ToDictionary(t => t.TraceId, StringComparer.Ordinal);
+            }
+
             return Json(w =>
             {
                 w.WriteStartObject();
@@ -128,6 +148,16 @@ public static class TempoEndpoints
                     w.WriteString("rootTraceName", root.Name);
                     w.WriteString("startTimeUnixNano", TempoTraceEncoder.UnixNanos(root.StartTime).ToString(CultureInfo.InvariantCulture));
                     w.WriteNumber("durationMs", root.DurationNano / 1_000_000);
+                    if (matched.TryGetValue(root.TraceId, out var traceSpans) && traceSpans.Spans.Count > 0)
+                    {
+                        // Tempo writes the spanset twice: the list, and the first one under its deprecated singular name.
+                        w.WriteStartArray("spanSets");
+                        WriteSpanSet(w, traceSpans);
+                        w.WriteEndArray();
+                        w.WritePropertyName("spanSet");
+                        WriteSpanSet(w, traceSpans);
+                    }
+
                     w.WriteEndObject();
                 }
 
@@ -142,6 +172,42 @@ public static class TempoEndpoints
         {
             return Error(StatusCodes.Status400BadRequest, ex.Message);
         }
+        catch (ClickHouseServerException ex) when (ex.ErrorCode == CannotCompileRegexp)
+        {
+            // ClickHouse compiles the pattern (RE2) when the query runs; say so rather than surface its stack trace as a 500.
+            return Error(StatusCodes.Status400BadRequest, "invalid regular expression in the query (RE2 syntax).");
+        }
+    }
+
+    private static void WriteSpanSet(Utf8JsonWriter w, TraceMatchedSpans trace)
+    {
+        w.WriteStartObject();
+        w.WriteStartArray("spans");
+        foreach (var span in trace.Spans)
+        {
+            w.WriteStartObject();
+            w.WriteString("spanID", span.SpanId);
+            w.WriteString("name", span.Name);
+            w.WriteString("startTimeUnixNano", TempoTraceEncoder.UnixNanos(span.StartTime).ToString(CultureInfo.InvariantCulture));
+            w.WriteString("durationNanos", span.DurationNano.ToString(CultureInfo.InvariantCulture));
+            if (span.ServiceName.Length > 0)
+            {
+                w.WriteStartArray("attributes");
+                w.WriteStartObject();
+                w.WriteString("key", "service.name");
+                w.WriteStartObject("value");
+                w.WriteString("stringValue", span.ServiceName);
+                w.WriteEndObject();
+                w.WriteEndObject();
+                w.WriteEndArray();
+            }
+
+            w.WriteEndObject();
+        }
+
+        w.WriteEndArray();
+        w.WriteNumber("matched", trace.Matched);
+        w.WriteEndObject();
     }
 
     private static async Task<IResult> HandleTagsAsync(HttpContext http, ISpanQueryService spans, TimeProvider time, bool v2, CancellationToken ct)

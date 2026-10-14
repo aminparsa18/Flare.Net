@@ -44,6 +44,9 @@ public static class TraceStructureSqlBuilder
 
     private static readonly string[] StatusCodes = ["STATUS_CODE_UNSET", "STATUS_CODE_OK", "STATUS_CODE_ERROR"];
 
+    /// <summary>The highest OTel <c>SpanKind</c> number (consumer).</summary>
+    private const byte MaxSpanKind = 5;
+
     private const string SpanHash = "cityHash64(SpanId)";
     private const string ParentHash = "if(ParentSpanId = '', toUInt64(0), cityHash64(ParentSpanId))";
 
@@ -139,6 +142,16 @@ public static class TraceStructureSqlBuilder
             {
                 throw new ArgumentException($"Condition {letter} has an unknown status '{condition.StatusCode}'.");
             }
+
+            if (condition.Kind > MaxSpanKind)
+            {
+                throw new ArgumentException($"Condition {letter} has an unknown span kind {condition.Kind}; use 0 (unspecified) to {MaxSpanKind} (consumer).");
+            }
+
+            if (!Enum.IsDefined(condition.SpanNameMatch))
+            {
+                throw new ArgumentException($"Condition {letter} has an unknown span name match '{condition.SpanNameMatch}'.");
+            }
         }
 
         var expression = TraceStructureExpression.Parse(structure.Expression);
@@ -153,7 +166,7 @@ public static class TraceStructureSqlBuilder
             // Only a referenced condition must match on something - an unused blank one (a
             // card the user added but hasn't filled in yet) is just ignored.
             if (string.IsNullOrEmpty(condition.ServiceName) && string.IsNullOrEmpty(condition.SpanName) && string.IsNullOrEmpty(condition.StatusCode)
-                && condition.MinDurationNano is null && condition.MaxDurationNano is null && condition.Attributes is not { Count: > 0 })
+                && condition.Kind is null && condition.MinDurationNano is null && condition.MaxDurationNano is null && condition.Attributes is not { Count: > 0 })
             {
                 throw new ArgumentException($"Condition {letter} needs a service, span name, status, duration or attribute filter.");
             }
@@ -229,7 +242,7 @@ public static class TraceStructureSqlBuilder
     }
 
     /// <summary>One condition's span predicate, parameters bound under a <c>ts{letter}</c> prefix so conditions never collide with each other or the outer filter.</summary>
-    private static string ConditionMatch(TraceSpanCondition condition, char letter, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
+    internal static string ConditionMatch(TraceSpanCondition condition, char letter, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
     {
         var clauses = new List<string>();
         if (!string.IsNullOrEmpty(condition.ServiceName))
@@ -241,13 +254,25 @@ public static class TraceStructureSqlBuilder
         if (!string.IsNullOrEmpty(condition.SpanName))
         {
             parameters.AddParameter($"ts{letter}Name", condition.SpanName);
-            clauses.Add($"Name = {{ts{letter}Name:String}}");
+            clauses.Add(condition.SpanNameMatch switch
+            {
+                SpanNameMatch.NotEquals => $"Name != {{ts{letter}Name:String}}",
+                SpanNameMatch.Regex => $"match(Name, {{ts{letter}Name:String}})",
+                SpanNameMatch.NotRegex => $"NOT match(Name, {{ts{letter}Name:String}})",
+                _ => $"Name = {{ts{letter}Name:String}}",
+            });
         }
 
         if (!string.IsNullOrEmpty(condition.StatusCode))
         {
             parameters.AddParameter($"ts{letter}Status", condition.StatusCode);
-            clauses.Add($"StatusCode = {{ts{letter}Status:String}}");
+            clauses.Add($"StatusCode {(condition.StatusCodeNegated ? "!=" : "=")} {{ts{letter}Status:String}}");
+        }
+
+        if (condition.Kind is { } kind)
+        {
+            parameters.AddParameter($"ts{letter}Kind", kind);
+            clauses.Add($"Kind {(condition.KindNegated ? "!=" : "=")} {{ts{letter}Kind:UInt8}}");
         }
 
         if (condition.MinDurationNano is { } minDuration)
