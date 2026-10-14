@@ -23,6 +23,9 @@
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
+  <!-- Flare.Maui's NuGet package ships this file as buildTransitive; a project reference does not import it. -->
+  <Import Project="..\..\src\Flare.Maui\buildTransitive\Flare.Maui.props" />
+
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
     <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />

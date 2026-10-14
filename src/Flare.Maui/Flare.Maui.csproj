@@ -38,6 +38,7 @@
   <ItemGroup>
     <None Include="..\..\logo.png" Pack="true" PackagePath="\" />
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="buildTransitive\Flare.Maui.props" Pack="true" PackagePath="buildTransitive\" />
     <InternalsVisibleTo Include="Flare.Maui.Tests" />
   </ItemGroup>
 

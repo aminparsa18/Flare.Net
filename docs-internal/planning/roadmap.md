@@ -50,8 +50,7 @@ folders are where "what happened and why" actually lives.
   (theme, layout, time zone).
 - **.NET MAUI / mobile SDK (later).** `Flare.Maui` (ADR-0166, `src/Flare.Maui`) ships the
   `UseFlare()` core: OTLP/HTTP export, disk retry, device/session attributes, `HttpClient`
-  and Shell navigation spans, unhandled-exception capture. Remaining for it: Windows,
-  and verifying on a device or emulator. Native crashes found on the next launch (Android `ApplicationExitInfo`, iOS MetricKit,
+  and Shell navigation spans, unhandled-exception capture. Remaining for it: Windows. Native crashes found on the next launch (Android `ApplicationExitInfo`, iOS MetricKit,
   ADR-0178) are done apart from the follow-ups below. The macOS CI job (`maui-ci.yml`) and the NuGet
   publish path (`flare-maui-v*` tag in `nuget-publish.yml`) exist but have not run yet: the
   first release also needs a nuget.org trusted-publishing policy for `Flare.Maui`. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
@@ -61,20 +60,17 @@ folders are where "what happened and why" actually lives.
   stack traces are symbolicated from uploaded dll+PDB symbols (ADR-0168); Native AOT frames on
   iOS/macOS are covered from the `.dSYM`; remaining there: ELF/PDB
   symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
-  The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
+  The `Platform/` glue's trimming is verified on an iOS Release build on a device; an Android Release build is untested.
     Next for `Flare.Maui`, from the gap against Sentry's MAUI SDK (what a team would miss moving over), roughly in
   priority order:
-  - Device verification: `ExampleApp.Maui` is verified on a real Android device (arm64, Debug build): export, the disk
-    queue and its replay, breadcrumbs, `app.hang` with a stack, ANR and native-crash reporting on relaunch, a managed
-    crash, scrubbing and a screenshot row. Remaining: an Android emulator, an iOS simulator and an iOS device; a Release
-    build to prove the `Platform/` glue's trimming; and the Sessions page's release comparison. Known gap: a managed
-    crash also emits a spurious `app.hang`, because the crash handler's flush blocks the UI thread for over 2 s.
+  - Known gap: on Android a managed crash also emits a spurious `app.hang`, because the crash handler's flush blocks
+    the UI thread for over 2 s (it does not on iOS).
   - Native crash follow-ups (ADR-0178): server-side symbolication of the raw iOS offsets against a dSYM; verify the
     MetricKit renderer on an iOS device (the tombstone one is verified on Android); Android before 11
     and iOS jetsam out-of-memory kills, which have no report to read; an exact iOS crash time (it is estimated from
     the last lifecycle event).
-  - Mobile performance follow-ups (ADR-0180; verified on a real Android device, arm64 Debug, by Maestro flows 12-14):
-    an iOS device, an Android emulator and a Release build; a trend over time and an alert rule on a start/load
+  - Mobile performance follow-ups (ADR-0180; verified on a real Android device by Maestro flows 12-14 and on an iPhone by `run-ios-device.sh`):
+    an Android Release build; a trend over time and an alert rule on a start/load
     regression; iOS process start time; time-to-first-frame rather than first resume (a warm start is only the
     `OnRestart` to `OnResume` gap, about 12 ms).
   - Profiling follow-ups (ADR-0181): iOS, `app.start` profiles, managed frames, and a flame graph in the dashboard.

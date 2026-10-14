@@ -116,6 +116,9 @@ check_15() {
   echo "    ok   Releases lists only the 2.0.0 error as new in 2.0.0"
 }
 
+# run-ios-device.sh sources this file for the helpers and check_NN functions above.
+[ -n "${FLARE_RUN_LIB:-}" ] && return 0
+
 for f in 01-http 02-navigate 03-custom 04-record-exception 05-unhandled-task 06-flush 07-scrubbing 08-freeze 09-managed-crash 10-native-crash 11-service-version 12-warm-start 13-jank 14-slow-screen 15-releases 16-offline 17-session-replay 18-feedback; do
   p=${f%%-*}
   if [ $# -gt 0 ]; then case " $* " in *" $p "*) ;; *) continue ;; esac; fi

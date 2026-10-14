@@ -22,13 +22,18 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         _logger = logger;
-        EndpointEntry.Text = Preferences.Default.Get(MauiProgram.EndpointKey, MauiProgram.DefaultEndpoint);
+        EndpointEntry.Text = MauiProgram.Endpoint;
         KeyEntry.Text = Preferences.Default.Get(MauiProgram.IngestKeyKey, "");
-        VersionEntry.Text = Preferences.Default.Get(MauiProgram.VersionKey, "");
+        VersionEntry.Text = MauiProgram.Version;
         SessionLabel.Text = $"session.id: {FlareMaui.SessionId}";
+        if (MauiProgram.Env("FLARE_AUTORUN") is { } steps) Loaded += async (_, _) => await AutoRunAsync(steps);
     }
 
-    void Say(string text) => StatusLabel.Text = $"{DateTime.Now:HH:mm:ss} {text}";
+    void Say(string text)
+    {
+        StatusLabel.Text = $"{DateTime.Now:HH:mm:ss} {text}";
+        Console.WriteLine($"[example] {text}"); // visible with `devicectl ... process launch --console`
+    }
 
     void OnSaveClicked(object? sender, EventArgs e)
     {
@@ -100,7 +105,7 @@ public partial class MainPage : ContentPage
     // releases (flare releases mark) and the Releases page lists this one as new under the version that threw it.
     void OnReleaseErrorClicked(object? sender, EventArgs e)
     {
-        var version = Preferences.Default.Get(MauiProgram.VersionKey, "");
+        var version = MauiProgram.Version;
         if (version.Length == 0) version = AppInfo.Current.VersionString;
         try { throw new InvalidOperationException($"Release demo error {version}"); }
         catch (Exception ex) { FlareMaui.RecordException(ex); }
@@ -151,7 +156,9 @@ public partial class MainPage : ContentPage
     // Produces frames that take 40 ms each (slow) by changing the page and blocking the UI thread between yields, then
     // one 800 ms block (frozen). The frame counts are reported as a screen.frames span when the screen changes or the
     // app is flushed.
-    async void OnJankClicked(object? sender, EventArgs e)
+    async void OnJankClicked(object? sender, EventArgs e) => await JankAsync();
+
+    async Task JankAsync()
     {
         for (var i = 0; i < 75; i++)
         {

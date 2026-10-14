@@ -1,0 +1,12 @@
+<Project>
+
+  <!-- The .NET iOS SDK turns these two trimming switches off in optimized (Release) builds unless they are set, which
+       silences Flare.Maui: HttpClient gets no spans (EnableActivityPropagation=false) and no System.Diagnostics.Metrics
+       meter exports, including the app's own (Meter.IsSupported=false). Found on a physical iPhone; Debug builds are fine.
+       Set only when the app has not chosen a value, so an app can still opt out. -->
+  <PropertyGroup>
+    <MetricsSupport Condition="'$(MetricsSupport)' == ''">true</MetricsSupport>
+    <HttpActivityPropagationSupport Condition="'$(HttpActivityPropagationSupport)' == ''">true</HttpActivityPropagationSupport>
+  </PropertyGroup>
+
+</Project>

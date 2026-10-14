@@ -49,5 +49,23 @@ examples/ExampleApp.Maui/maestro/run.sh          # every flow
 examples/ExampleApp.Maui/maestro/run.sh 03 09    # selected flows, by number
 ```
 
+### A physical iPhone
+
+Maestro drives only iOS simulators and Android devices, so for an iPhone `maestro/run-ios-device.sh` launches the app with
+`xcrun devicectl device process launch --environment-variables`. `FLARE_AUTORUN` (a comma-separated list of steps, see
+`MainPage.AutoRun.cs`) runs a scenario without taps, and `FLARE_ENDPOINT` / `FLARE_VERSION` replace the saved values. The
+script reuses `run.sh`'s ClickHouse checks:
+
+```bash
+IOS_DEVICE=<CoreDevice id from `xcrun devicectl list devices`> examples/ExampleApp.Maui/maestro/run-ios-device.sh [01 12 ...]
+```
+
+Allow the Local Network prompt once after each fresh install, and keep the phone on the same Wi-Fi as the Mac
+(`FLARE_HOST` overrides the Mac's address, default `en0`). Flows 16 (airplane mode) and 18 (the feedback prompt) need a
+tap or system toggle and are not run; flow 10's native crash arrives through MetricKit up to a day later. Signing: a free
+Personal Team works once Xcode has created a profile for `com.flare.exampleapp` (build any stub app with that bundle id
+for the phone with `-allowProvisioningUpdates`), then trust the certificate under Settings > General > VPN & Device
+Management.
+
 `xcrun xctrace list devices` and `adb devices` list the identifiers. The app allows cleartext HTTP to a LAN address
 (iOS ATS exception, Android `usesCleartextTraffic`) because it is a test tool; a real app should use HTTPS.

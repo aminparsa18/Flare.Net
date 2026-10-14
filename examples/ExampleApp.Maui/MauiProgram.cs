@@ -15,6 +15,18 @@ public static class MauiProgram
             ? "http://10.0.2.2:4318"
             : "http://localhost:4318";
 
+    /// <summary>
+    /// FLARE_ENDPOINT / FLARE_VERSION override the saved values, and FLARE_AUTORUN (see <c>MainPage.AutoRun.cs</c>) runs
+    /// scenarios without taps. They are for devices UI automation cannot drive: pass them with
+    /// <c>xcrun devicectl device process launch --environment-variables '{"FLARE_AUTORUN":"http,flush"}'</c>.
+    /// </summary>
+    public static string? Env(string name) =>
+        Environment.GetEnvironmentVariable(name) is { Length: > 0 } v ? v : null;
+
+    public static string Endpoint => Env("FLARE_ENDPOINT") ?? Preferences.Default.Get(EndpointKey, DefaultEndpoint);
+
+    public static string Version => Env("FLARE_VERSION") ?? Preferences.Default.Get(VersionKey, "");
+
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
@@ -26,14 +38,14 @@ public static class MauiProgram
                })
                .UseFlare(o =>
                {
-                   o.Endpoint = new Uri(Preferences.Default.Get(EndpointKey, DefaultEndpoint));
+                   o.Endpoint = new Uri(Endpoint);
                    o.ServiceName = "example-maui-app";
                    var key = Preferences.Default.Get(IngestKeyKey, "");
                    if (key.Length > 0) o.IngestKey = key;
                    o.AdditionalSources.Add(MainPage.SourceName);
                    o.SendDefaultPii = true;
                    // Pretend to be another release (set on the main page) to compare versions in release health.
-                   var version = Preferences.Default.Get(VersionKey, "");
+                   var version = Version;
                    if (version.Length > 0) o.ServiceVersion = version;
                    // Screenshots can show anything on screen, so a real app should think before enabling this.
                    o.CaptureScreenshotOnError = true;
