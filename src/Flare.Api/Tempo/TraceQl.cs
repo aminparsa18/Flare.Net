@@ -58,12 +58,19 @@ public enum TraceQlMetricsFunction
     MinOverTime,
     MaxOverTime,
     SumOverTime,
+    HistogramOverTime,
 }
+
+/// <summary>The second stage <c>| topk(n)</c> or <c>| bottomk(n)</c> (ADR-0224): at each step, keep the <paramref name="K"/> series with the largest (or smallest) value.</summary>
+public sealed record TraceQlRank(bool Top, int K);
 
 /// <summary>A TraceQL metrics query: <c>{ spanset } | function(...) [by (...)]</c>.</summary>
 /// <param name="Quantiles">The quantiles of <see cref="TraceQlMetricsFunction.QuantileOverTime"/>, in order; empty for every other function.</param>
 /// <param name="By">The <c>by (...)</c> fields as written: <c>name</c>, <c>status</c>, <c>kind</c>, <c>span.x</c>, <c>resource.x</c> or <c>.x</c>.</param>
-public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By)
+/// <param name="Rank">The <c>| topk(n)</c> / <c>| bottomk(n)</c> stage, if any.</param>
+/// <param name="Exemplars">Whether the query asked for exemplars with <c>with(exemplars=true)</c>.</param>
+/// <param name="ValueField">What <c>avg_over_time</c> and the other value functions aggregate, as written: <c>span.x</c>, <c>resource.x</c> or <c>.x</c> for a numeric attribute (ADR-0222); null is <c>duration</c> (and for <c>rate</c> and <c>count_over_time</c>, which take no argument).</param>
+public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, TraceQlRank? Rank = null, bool Exemplars = false)
 {
     /// <summary>The function's TraceQL name, which is also the <c>__name__</c> of its series.</summary>
     public string FunctionName => Function switch
@@ -74,6 +81,7 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
         TraceQlMetricsFunction.AvgOverTime => "avg_over_time",
         TraceQlMetricsFunction.MinOverTime => "min_over_time",
         TraceQlMetricsFunction.MaxOverTime => "max_over_time",
+        TraceQlMetricsFunction.HistogramOverTime => "histogram_over_time",
         _ => "sum_over_time",
     };
 }
@@ -99,9 +107,10 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 /// names them, never half-evaluated.
 /// <see cref="ParseMetrics"/> reads the one pipeline stage a metrics query adds (ADR-0221):
 /// <code>
-/// metrics := spanset "|" function ["by" "(" field ("," field)* ")"] ["with" "(" "exemplars" "=" bool ")"]
-/// function := "rate" "(" ")" | "count_over_time" "(" ")" | "quantile_over_time" "(" "duration" ("," number)+ ")"
-///           | ("avg_over_time" | "min_over_time" | "max_over_time" | "sum_over_time") "(" "duration" ")"
+/// metrics := spanset "|" function ["by" "(" field ("," field)* ")"] ["|" ("topk" | "bottomk") "(" integer ")"] ["with" "(" "exemplars" "=" bool ")"]
+/// function := "rate" "(" ")" | "count_over_time" "(" ")" | "quantile_over_time" "(" value ("," number)+ ")"
+///           | ("avg_over_time" | "min_over_time" | "max_over_time" | "sum_over_time" | "histogram_over_time") "(" value ")"
+/// value    := "duration" | "span." name | "resource." name | "." name
 /// </code>
 /// </summary>
 public static class TraceQlParser
@@ -115,7 +124,7 @@ public static class TraceQlParser
     public const int MaxGroupFields = 5;
 
     private static readonly string[] SupportedFunctions =
-        ["rate", "count_over_time", "quantile_over_time", "avg_over_time", "min_over_time", "max_over_time", "sum_over_time"];
+        ["rate", "count_over_time", "quantile_over_time", "avg_over_time", "min_over_time", "max_over_time", "sum_over_time", "histogram_over_time"];
 
     /// <summary>
     /// Parses <c>{ spanset } | function(...) [by (...)]</c>. The spanset is one <c>{ ... }</c>; several, structural
@@ -320,6 +329,7 @@ public static class TraceQlParser
             var name = nameToken.Text;
             Expect(TokenKind.LParen, "(");
             var quantiles = new List<double>();
+            string? valueField = null;
             TraceQlMetricsFunction function;
             switch (name)
             {
@@ -328,7 +338,7 @@ public static class TraceQlParser
                     break;
                 case "quantile_over_time":
                     function = TraceQlMetricsFunction.QuantileOverTime;
-                    ExpectDurationArgument(name);
+                    valueField = ParseValueArgument(name);
                     while (Peek.Kind == TokenKind.Comma)
                     {
                         _pos++;
@@ -341,15 +351,16 @@ public static class TraceQlParser
                     }
 
                     break;
-                case "avg_over_time" or "min_over_time" or "max_over_time" or "sum_over_time":
+                case "avg_over_time" or "min_over_time" or "max_over_time" or "sum_over_time" or "histogram_over_time":
                     function = name switch
                     {
+                        "histogram_over_time" => TraceQlMetricsFunction.HistogramOverTime,
                         "avg_over_time" => TraceQlMetricsFunction.AvgOverTime,
                         "min_over_time" => TraceQlMetricsFunction.MinOverTime,
                         "max_over_time" => TraceQlMetricsFunction.MaxOverTime,
                         _ => TraceQlMetricsFunction.SumOverTime,
                     };
-                    ExpectDurationArgument(name);
+                    valueField = ParseValueArgument(name);
                     break;
                 default:
                     throw new TraceQlException($"the metrics function '{name}' is not supported; use {string.Join(", ", SupportedFunctions.Select(f => f + "()"))}.");
@@ -375,14 +386,25 @@ public static class TraceQlParser
                 }
             }
 
+            var exemplars = false;
             if (Peek.Kind == TokenKind.Word && Peek.Text == "with")
             {
-                ParseHints();
+                exemplars = ParseHints();
+            }
+
+            TraceQlRank? rank = null;
+            if (Peek.Kind == TokenKind.Pipe)
+            {
+                rank = ParseRankStage();
+                if (Peek.Kind == TokenKind.Word && Peek.Text == "with")
+                {
+                    exemplars = ParseHints();
+                }
             }
 
             if (Peek.Kind == TokenKind.Pipe)
             {
-                throw new TraceQlException("a second pipeline stage after the metrics function (| topk(), | filter, ...) is not supported.");
+                throw new TraceQlException("only one second pipeline stage, | topk(n) or | bottomk(n), is supported after the metrics function.");
             }
 
             if (!AtEnd)
@@ -390,24 +412,58 @@ public static class TraceQlParser
                 throw Unexpected(Peek);
             }
 
-            return new TraceQlMetricsQuery(spanset, function, quantiles, by);
+            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, rank, exemplars);
         }
 
-        /// <summary>Only <c>duration</c> is a supported value to aggregate; any other field gets a message saying so.</summary>
-        private void ExpectDurationArgument(string function)
+        /// <summary>
+        /// The value a function aggregates: <c>duration</c> (null) or an attribute (<c>span.x</c>, <c>resource.x</c>,
+        /// <c>.x</c>, returned as written). The other intrinsics are not numbers a metric can take, and say so.
+        /// </summary>
+        private string? ParseValueArgument(string function)
         {
             var token = Peek;
             if (token.Kind != TokenKind.Word)
             {
-                throw new TraceQlException($"{function}(duration) needs the field to aggregate; only duration is supported.");
-            }
-
-            if (token.Text != "duration")
-            {
-                throw new TraceQlException($"{function}({token.Text}) is not supported; only duration can be aggregated.");
+                throw new TraceQlException($"{function}(...) needs the field to aggregate: duration, or a numeric attribute such as span.size.");
             }
 
             _pos++;
+            var field = token.Text;
+            if (field == "duration")
+            {
+                return null;
+            }
+
+            var attribute = (field.StartsWith("span.", StringComparison.Ordinal) && field.Length > "span.".Length)
+                || (field.StartsWith("resource.", StringComparison.Ordinal) && field.Length > "resource.".Length)
+                || (field.StartsWith('.') && field.Length > 1);
+            return attribute
+                ? field
+                : throw new TraceQlException($"{function}({field}) is not supported; aggregate duration or a numeric attribute (span.x, resource.x or .x).");
+        }
+
+        /// <summary><c>| topk(n)</c> or <c>| bottomk(n)</c>, the only second stage; anything else is rejected naming it.</summary>
+        private TraceQlRank ParseRankStage()
+        {
+            _pos++;
+            var token = Peek;
+            if (token.Kind != TokenKind.Word || token.Text is not ("topk" or "bottomk"))
+            {
+                throw new TraceQlException(
+                    $"the second pipeline stage '{(token.Kind == TokenKind.Word ? token.Text : token.Kind.ToString())}' is not supported; only | topk(n) and | bottomk(n) are.");
+            }
+
+            _pos++;
+            Expect(TokenKind.LParen, "(");
+            var count = Peek;
+            if (count.Kind != TokenKind.Word || !int.TryParse(count.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var k) || k < 1)
+            {
+                throw new TraceQlException($"{token.Text}(n) takes a whole number of series to keep, 1 or more, e.g. {token.Text}(5).");
+            }
+
+            _pos++;
+            Expect(TokenKind.RParen, ")");
+            return new TraceQlRank(token.Text == "topk", k);
         }
 
         private double ParseQuantile()
@@ -443,8 +499,8 @@ public static class TraceQlParser
                 : throw new TraceQlException($"'{field}' cannot be grouped by; use name, status, kind, span.x, resource.x or .x.");
         }
 
-        /// <summary><c>with(exemplars = true)</c>: accepted and ignored, since Flare returns no exemplars. Any other hint is an error.</summary>
-        private void ParseHints()
+        /// <summary><c>with(exemplars = true)</c>: whether exemplars were asked for (ADR-0223). Any other hint is an error.</summary>
+        private bool ParseHints()
         {
             _pos++;
             Expect(TokenKind.LParen, "(");
@@ -466,8 +522,10 @@ public static class TraceQlParser
                 throw Unexpected(Peek);
             }
 
+            var enabled = Peek.Text == "true";
             _pos++;
             Expect(TokenKind.RParen, ")");
+            return enabled;
         }
 
         public Token Peek => tokens[_pos];

@@ -38,6 +38,157 @@ public class TempoMetricsSeriesTests
     }
 
     [Fact]
+    public void AttributeValues_AreReportedAsTheyAreNotAsSeconds()
+    {
+        var result = TempoMetricsSeries.Build(Plan("{ } | avg_over_time(span.size)"), [Row(1, 10, [2048]), Row(3, 5, [512.5])], Window);
+
+        Assert.Equal(new[] { 2048.0, 512.5 }, Assert.Single(result.Series).Samples.Select(s => s.Value));
+    }
+
+    [Fact]
+    public void Histogram_IsOneSeriesPerBucketLabelledWithItsUpperBoundInSeconds()
+    {
+        var result = TempoMetricsSeries.Build(
+            Plan("{ } | histogram_over_time(duration)"),
+            [Row(0, 3, [20], "x"), Row(1, 4, [21], "x"), Row(2, 5, [20], "x")],
+            Window);
+
+        Assert.Equal(2, result.Series.Count);
+        Assert.Equal(new TempoLabel("__bucket", null, 1048576 / 1e9), Assert.Single(result.Series[0].Labels));
+        Assert.Equal(new[] { 3.0, 0, 5, 0 }, result.Series[0].Samples.Select(s => s.Value));
+        Assert.Equal(2097152 / 1e9, result.Series[1].Labels[0].Number);
+        Assert.Equal(new[] { 0.0, 4, 0, 0 }, result.Series[1].Samples.Select(s => s.Value));
+    }
+
+    [Fact]
+    public void Histogram_OfAnAttribute_LabelsTheRawBound()
+    {
+        var result = TempoMetricsSeries.Build(Plan("{ } | histogram_over_time(span.size) by (name)"), [Row(0, 3, [10], "GET")], Window);
+
+        var series = Assert.Single(result.Series);
+        Assert.Equal(new[] { new TempoLabel("name", "GET"), new TempoLabel("__bucket", null, 1024) }, series.Labels);
+    }
+
+    [Fact]
+    public void Histogram_KeepsFewerGroupsAndSaysSo()
+    {
+        var rows = Enumerable.Range(0, TraceQlMetricsQueryBuilder.MaxHistogramGroups + 1).Select(i => Row(0, 100 - i, [10], $"g{i:00}")).ToArray();
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | histogram_over_time(duration) by (name)"), rows, Window);
+
+        Assert.Equal(TraceQlMetricsQueryBuilder.MaxHistogramGroups, result.Series.Count);
+        Assert.Contains($"{TraceQlMetricsQueryBuilder.MaxHistogramGroups} groups", result.PartialMessage);
+    }
+
+    [Fact]
+    public void Exemplars_GoOnTheSeriesOfTheirGroup()
+    {
+        var result = TempoMetricsSeries.Build(
+            Plan("{ } | rate() by (name)"),
+            [Row(0, 60, [60], "a"), Row(0, 30, [30], "b")],
+            Window,
+            [new SpanExemplarRow(0, ["b"], "trace-b", "span-b", 2.5e9, 1_790_000_050_000)]);
+
+        Assert.Null(result.Series[0].Exemplars);
+        var exemplar = Assert.Single(result.Series[1].Exemplars!);
+        Assert.Equal(2.5, exemplar.Value);
+        Assert.Equal(1_790_000_050_000, exemplar.TimestampMs);
+        Assert.Equal(new[] { new TempoLabel("trace:id", "trace-b"), new TempoLabel("span:id", "span-b") }, exemplar.Labels);
+    }
+
+    [Fact]
+    public void Exemplars_OfAHistogram_LandInTheBucketOfTheirValue()
+    {
+        var result = TempoMetricsSeries.Build(
+            Plan("{ } | histogram_over_time(duration)"),
+            [Row(0, 3, [20]), Row(0, 3, [22])],
+            Window,
+            [new SpanExemplarRow(0, [], "t", "s", 3_000_000, 1_790_000_050_000)]);
+
+        // 3ms is between 2^21 ns and 2^22 ns, so it belongs to the 2^22 ns bucket
+        Assert.Null(result.Series[0].Exemplars);
+        Assert.Single(result.Series[1].Exemplars!);
+    }
+
+    [Fact]
+    public void Exemplars_OfQuantiles_GoOnTheLargestQuantile()
+    {
+        var result = TempoMetricsSeries.Build(
+            Plan("{ } | quantile_over_time(duration, .99, .5)"),
+            [Row(0, 3, [3e9, 1e9])],
+            Window,
+            [new SpanExemplarRow(0, [], "t", "s", 3e9, 1_790_000_050_000)]);
+
+        Assert.Single(result.Series[0].Exemplars!);
+        Assert.Null(result.Series[1].Exemplars);
+    }
+
+    [Fact]
+    public void TopK_KeepsTheLargestSeriesAtEachStepAndDropsTheOthers()
+    {
+        // a is largest in the first step, b in the second; c is never in the top
+        var rows = new[]
+        {
+            Row(0, 60, [6e9], "a"), Row(1, 6, [6e8], "a"),
+            Row(0, 30, [3e9], "b"), Row(1, 90, [9e9], "b"),
+            Row(0, 6, [6e8], "c"), Row(1, 6, [6e8], "c"),
+        };
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | avg_over_time(duration) by (name) | topk(1)"), rows, Window);
+
+        Assert.Equal(2, result.Series.Count);
+        // series are ordered by their spans, b having the most
+        Assert.Equal("b", result.Series[0].Labels[0].Text);
+        Assert.Equal(new[] { 1_790_000_100_000L }, result.Series[0].Samples.Select(s => s.TimestampMs));
+        Assert.Equal("a", result.Series[1].Labels[0].Text);
+        Assert.Equal(new[] { 1_790_000_040_000L }, result.Series[1].Samples.Select(s => s.TimestampMs));
+    }
+
+    [Fact]
+    public void TopK_KeepsAnExemplarOnlyWhereItsSeriesKeptTheStep()
+    {
+        var rows = new[] { Row(0, 60, [6e9], "a"), Row(1, 6, [6e8], "a"), Row(0, 30, [3e9], "b"), Row(1, 90, [9e9], "b") };
+        var exemplars = new[]
+        {
+            new SpanExemplarRow(0, ["a"], "kept", "s", 6e9, 1_790_000_050_000),
+            new SpanExemplarRow(1, ["a"], "dropped", "s", 6e8, 1_790_000_110_000),
+        };
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | avg_over_time(duration) by (name) | topk(1)"), rows, Window, exemplars);
+
+        var a = Assert.Single(result.Series, s => s.Labels[0].Text == "a");
+        Assert.Equal("kept", Assert.Single(a.Exemplars!).Labels[0].Text);
+    }
+
+    [Fact]
+    public void BottomK_KeepsTheSmallest()
+    {
+        var rows = new[] { Row(0, 60, [6e9], "a"), Row(0, 30, [3e9], "b"), Row(0, 6, [1e9], "c") };
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | avg_over_time(duration) by (name) | bottomk(2)"), rows, Window);
+
+        Assert.Equal(new[] { "b", "c" }, result.Series.Select(s => s.Labels[0].Text).OrderBy(x => x));
+    }
+
+    [Fact]
+    public void ExemplarsAreWrittenOnTheSeries()
+    {
+        var result = TempoMetricsSeries.Build(
+            Plan("{ } | rate()"),
+            [Row(0, 60, [60])],
+            Window,
+            [new SpanExemplarRow(0, [], "abc", "def", 1e9, 1_790_000_050_000)]);
+
+        var json = Json(w => TempoMetricsSeries.WriteRange(w, result));
+
+        var exemplar = json.GetProperty("series")[0].GetProperty("exemplars")[0];
+        Assert.Equal("abc", exemplar.GetProperty("labels")[0].GetProperty("value").GetProperty("stringValue").GetString());
+        Assert.Equal("trace:id", exemplar.GetProperty("labels")[0].GetProperty("key").GetString());
+        Assert.Equal(1.0, exemplar.GetProperty("value").GetDouble());
+        Assert.Equal("1790000050000", exemplar.GetProperty("timestampMs").GetString());
+    }
+
+    [Fact]
     public void CountOverTime_IsTheWeightPerStep()
     {
         var result = TempoMetricsSeries.Build(Plan("{ } | count_over_time()"), [Row(1, 7, [7])], Window);

@@ -105,6 +105,130 @@ public class TraceQlMetricsQueryBuilderTests
         Assert.Equal("http.response.status_code", built.Parameters["mgKey0x1"].Value);
     }
 
+    private static SpanMetricsSql BuildValue(SpanMetricFunction function, SpanValueAttribute value, double[]? quantiles = null, IReadOnlyList<SpanGroupBy>? groupBy = null) =>
+        TraceQlMetricsQueryBuilder.Build(new SpanMetricsRequest(null, function, quantiles ?? [], groupBy ?? [], From, To, 60, value));
+
+    [Fact]
+    public void AttributeValue_IsCastToANumberAndSpansWithoutOneAreLeftOut()
+    {
+        var built = BuildValue(SpanMetricFunction.Avg, new SpanValueAttribute("span.size", SpanAttributeBag.Span, "size"));
+
+        Assert.Contains("AND ifNull(isFinite(toFloat64OrNull(SpanAttributes[{mvKey0:String}])), 0)\nGROUP BY", built.Sql);
+        Assert.Contains("sum(toFloat64(assumeNotNull(toFloat64OrNull(SpanAttributes[{mvKey0:String}]))) * SampleWeight) / sum(SampleWeight) AS V0", built.Sql);
+        Assert.DoesNotContain("DurationNano", built.Sql);
+        Assert.Equal("size", built.Parameters["mvKey0"].Value);
+    }
+
+    [Theory]
+    [InlineData(SpanMetricFunction.Min, "toFloat64(min(assumeNotNull(toFloat64OrNull(ResourceAttributes[{mvKey0:String}])))) AS V0")]
+    [InlineData(SpanMetricFunction.Max, "toFloat64(max(assumeNotNull(toFloat64OrNull(ResourceAttributes[{mvKey0:String}])))) AS V0")]
+    [InlineData(SpanMetricFunction.Sum, "sum(toFloat64(assumeNotNull(toFloat64OrNull(ResourceAttributes[{mvKey0:String}]))) * SampleWeight) AS V0")]
+    public void AttributeAggregates_ReadTheResourceBagAndWeighSumsOnly(SpanMetricFunction function, string expected) =>
+        Assert.Contains(", " + expected + "\n", BuildValue(function, new SpanValueAttribute("resource.cpu", SpanAttributeBag.Resource, "cpu")).Sql);
+
+    [Fact]
+    public void AttributeQuantiles_UseTheWeightedDigestOverTheNumber()
+    {
+        var built = BuildValue(SpanMetricFunction.Quantile, new SpanValueAttribute("span.size", SpanAttributeBag.Span, "size"), [0.5, 0.99]);
+
+        Assert.Contains(
+            "quantileTDigestWeighted(0.5)(assumeNotNull(toFloat64OrNull(SpanAttributes[{mvKey0:String}])), SampleWeight) AS V0, " +
+            "quantileTDigestWeighted(0.99)(assumeNotNull(toFloat64OrNull(SpanAttributes[{mvKey0:String}])), SampleWeight) AS V1",
+            built.Sql);
+    }
+
+    [Fact]
+    public void AttributeValue_ReadsWhicheverSemconvSpellingTheSpanHas()
+    {
+        var built = BuildValue(SpanMetricFunction.Sum, new SpanValueAttribute("span.http.status_code", SpanAttributeBag.Span, "http.status_code"));
+
+        Assert.Contains(
+            "multiIf(mapContains(SpanAttributes, {mvKey0:String}), toFloat64OrNull(SpanAttributes[{mvKey0:String}]), " +
+            "mapContains(SpanAttributes, {mvKey1:String}), toFloat64OrNull(SpanAttributes[{mvKey1:String}]), NULL)",
+            built.Sql);
+        Assert.Equal("http.response.status_code", built.Parameters["mvKey1"].Value);
+    }
+
+    [Fact]
+    public void AttributeValue_AlsoNarrowsTheRankingOfTheTopSeries()
+    {
+        var built = BuildValue(SpanMetricFunction.Avg, new SpanValueAttribute("span.size", SpanAttributeBag.Span, "size"), groupBy: [new SpanGroupBy("name", SpanGroupKind.Name)]);
+
+        Assert.Equal(2, built.Sql.Split("ifNull(isFinite(toFloat64OrNull(SpanAttributes[{mvKey0:String}])), 0)").Length - 1);
+    }
+
+    [Fact]
+    public void Histogram_GroupsByThePowerOfTwoBucketOfTheDuration()
+    {
+        var built = Build(SpanMetricFunction.Histogram);
+
+        Assert.Contains("AND DurationNano >= 2 AND DurationNano < 9.2e18\n", built.Sql.Replace("GROUP BY", "\nGROUP BY"));
+        Assert.Contains("toFloat64(sum(SampleWeight)) AS Weight, toUInt8(ceil(log2(toFloat64(toUInt64(DurationNano))))) AS V0", built.Sql);
+        Assert.EndsWith("GROUP BY Bucket, V0\nORDER BY Bucket, V0", built.Sql);
+    }
+
+    [Fact]
+    public void Histogram_RanksOnlyTheGroupsNotTheBuckets_AndKeepsFewerGroups()
+    {
+        var built = Build(SpanMetricFunction.Histogram, groupBy: [new SpanGroupBy("name", SpanGroupKind.Name)]);
+
+        Assert.Contains($"LIMIT {TraceQlMetricsQueryBuilder.MaxHistogramGroups + 1})", built.Sql);
+        Assert.EndsWith("GROUP BY Bucket, G0, V0\nORDER BY Bucket, G0, V0", built.Sql);
+    }
+
+    [Fact]
+    public void Histogram_OfAnAttribute_BucketsTheNumber()
+    {
+        var built = BuildValue(SpanMetricFunction.Histogram, new SpanValueAttribute("span.size", SpanAttributeBag.Span, "size"));
+
+        Assert.Contains("toUInt8(ceil(log2(toFloat64(toUInt64(assumeNotNull(toFloat64OrNull(SpanAttributes[{mvKey0:String}]))))))) AS V0", built.Sql);
+        Assert.Contains("assumeNotNull(toFloat64OrNull(SpanAttributes[{mvKey0:String}])) >= 2", built.Sql);
+    }
+
+    [Fact]
+    public void Exemplars_AreTheSlowestSpanPerStepAndGroup()
+    {
+        var request = new SpanMetricsRequest(null, SpanMetricFunction.Count, [], [new SpanGroupBy("name", SpanGroupKind.Name)], From, To, 60, Exemplars: 50);
+
+        var built = TraceQlMetricsQueryBuilder.BuildExemplars(request);
+
+        Assert.Equal(
+            "SELECT intDiv(toInt64(toUnixTimestamp(StartTime)) - {mStart:Int64}, {mStep:Int64}) AS Bucket, Name AS G0, " +
+            "argMax(TraceId, DurationNano) AS ExTrace, argMax(SpanId, DurationNano) AS ExSpan, toFloat64(max(DurationNano)) AS ExValue, " +
+            "toInt64(toUnixTimestamp64Milli(argMax(StartTime, DurationNano))) AS ExTime\n" +
+            "FROM spans WHERE StartTime >= {mFrom:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)} AND 1 AND " +
+            $"Name GLOBAL IN (SELECT Name FROM spans WHERE StartTime >= {{mFrom:DateTime64(9)}} AND StartTime < {{mTo:DateTime64(9)}} AND 1 GROUP BY Name ORDER BY sum(SampleWeight) DESC, Name LIMIT {TraceQlMetricsQueryBuilder.MaxSeries + 1})\n" +
+            "GROUP BY Bucket, G0\nORDER BY ExValue DESC, Bucket, G0, ExTrace\nLIMIT 50",
+            built.Sql);
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(7, 7)]
+    [InlineData(1_000_000, TraceQlMetricsQueryBuilder.MaxExemplars)]
+    public void Exemplars_AreCapped(int asked, int limit)
+    {
+        var request = new SpanMetricsRequest(null, SpanMetricFunction.Avg, [], [], From, To, 60, Exemplars: asked);
+
+        Assert.EndsWith($"LIMIT {limit}", TraceQlMetricsQueryBuilder.BuildExemplars(request).Sql);
+    }
+
+    [Fact]
+    public void Exemplars_OfAnAttribute_PickTheLargestNumber()
+    {
+        var request = new SpanMetricsRequest(null, SpanMetricFunction.Max, [], [], From, To, 60, new SpanValueAttribute("span.size", SpanAttributeBag.Span, "size"), 10);
+
+        Assert.Contains("argMax(TraceId, assumeNotNull(toFloat64OrNull(SpanAttributes[{mvKey0:String}]))) AS ExTrace", TraceQlMetricsQueryBuilder.BuildExemplars(request).Sql);
+    }
+
+    [Fact]
+    public void CountIgnoresTheValue()
+    {
+        var built = BuildValue(SpanMetricFunction.Count, new SpanValueAttribute("span.size", SpanAttributeBag.Span, "size"));
+
+        Assert.DoesNotContain("toFloat64OrNull", built.Sql);
+    }
+
     [Fact]
     public void AppliesTheServiceScope()
     {

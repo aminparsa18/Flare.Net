@@ -124,10 +124,17 @@ datasources:
 | `count_over_time()` | span 数 |
 | `quantile_over_time(duration, .5, .95)` | 时长的分位数（秒），每个分位数一条序列，带标签 `p` |
 | `avg_over_time(duration)`、`min_over_time(duration)`、`max_over_time(duration)`、`sum_over_time(duration)` | 时长（秒） |
+| `histogram_over_time(duration)` | 每一步中落在时长各 2 的幂桶里的 span 数，每个桶一条序列，带标签 `__bucket`，值为桶的上界（秒）。Grafana 会把它画成热力图 |
 
 `by (...)` 最多接受五个字段，可选 `name`、`status`、`kind`、`span.x`、`resource.x` 和 `.x`，每种组合一条序列：`{ kind = server } | quantile_over_time(duration, .95) by (resource.service.name, span.http.route)`。
 
-不支持：`histogram_over_time()`、`compare()`、`topk()` 之类的第二阶段、对 `duration` 以外的内容做聚合，以及 exemplar（`with(exemplars=true)` 会被接受但忽略）。
+`quantile_over_time`、`avg_over_time`、`min_over_time`、`max_over_time`、`sum_over_time` 和 `histogram_over_time` 也可以用数值属性代替 `duration`：`{ kind = server } | avg_over_time(span.http.response.body.size)`，写法为 `span.x`、`resource.x` 或 `.x`。值按原样返回，不换算成秒。值缺失或不是数字的 span 会被排除。
+
+在分组函数之后，`| topk(5)` 或 `| bottomk(5)` 会在每一步保留值最大（最小）的五条序列：`{ kind = server } | rate() by (span.http.route) | topk(5)`。
+
+**Exemplar** 把图表上的一个点链接到一条追踪。在 Metrics 选项中打开 **Exemplars**（Grafana 会发送 `exemplars=100`），或在查询里加上 `with(exemplars=true)`。之后每条序列的每一步都会带上其中最慢的 span（或属性值最大的 span）及追踪 ID，Grafana 把它显示为可以点开的点。仅限范围查询。
+
+不支持：`compare()`、函数之后的比较（`| rate() > 5`）、指标查询中的多个 spanset 或结构运算符（`{ a } >> { b }`），以及追踪级字段。
 
 ## 与 Tempo 的差异
 
@@ -136,9 +143,12 @@ datasources:
 - **`!=` 也会匹配没有该属性的 span。** 在 TraceQL 中该属性必须存在。
 - **搜索需要根 span。** 根 span 从未被摄入的追踪不会出现在列表中，但仍可按 ID 打开。
 - **匹配的 span 会列出查询比较过的属性。** 列出的每个 span 有 id、名称、开始时间、时长、`service.name` 和查询中点名的属性（最多 20 个），值均为字符串。同一属性有新旧两种写法时（`http.status_code`、`http.response.status_code`），列出 span 实际具有的那种。在包含多个 spanset 的查询（`{ a } >> { b }`）中，所有 spanset 的 span 合并列在同一组里，而不是每个 spanset 一组。
-- **指标按步长分桶。** 采样点带的是所在步长起点的时间戳，`start` 和 `end` 会向外取整到步长的整数倍，所以时间范围结束于当前时刻时，最后一步是不完整的。`rate()` 和 `count_over_time()` 在没有 span 的步长里为零；其他函数在这样的步长里没有采样点。
+- **指标按步长分桶。** 采样点带的是所在步长起点的时间戳，`start` 和 `end` 会向外取整到步长的整数倍，所以时间范围结束于当前时刻时，最后一步是不完整的。`rate()`、`count_over_time()` 和 `histogram_over_time()` 在没有 span 的步长里为零；其他函数在这样的步长里没有采样点。
 - **指标只对具有该属性的 span 分组。** 在 `by (span.http.route)` 中，没有 `http.route` 的 span 会被排除，而不是算到空值下。新旧写法并存的属性（`http.status_code`、`http.response.status_code`）按 span 实际具有的那种分组。
+- **`histogram_over_time()` 最多保留 20 个分组，** 每组最多 63 条桶序列；小于 2 的值（短于 2 纳秒的时长）不会计入任何桶，与 Tempo 一致。
+- **`topk()` 对 Flare 算出的序列排名。** 和下面 200 条序列的上限一样，它只处理 span 最多的那些分组，所以平均值最大的分组可能已经被截掉（响应会标记 `PARTIAL`）。
+- **Exemplar 是最慢的 span，** 而不是像 Tempo 那样随机选取，并且放在它所属分组的序列上（`quantile_over_time` 放在最大的分位数序列上，直方图放在其值所在的桶里）。
 - **一次指标查询最多返回 200 条序列。** 分组更多时，保留 span 最多的 200 条，并把响应标记为 `PARTIAL`。计数和分位数会按[追踪采样](../../explanation/sampling-clustering-and-cost.zh-CN.md)下每个已存储 span 所代表的数量加权，所以被采样的服务仍能报告真实速率。
 - **标签列表来自采样。** 名称取自时间窗口内最多 50,000 个 span，按出现频率从高到低排列。缩小 `start` 和 `end` 可获得完整列表。
 
-设计说明：[ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md)。
+设计说明：[ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md)、[ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md)、[ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md) 和 [ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md)。

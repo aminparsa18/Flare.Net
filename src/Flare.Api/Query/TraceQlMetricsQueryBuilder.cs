@@ -17,6 +17,12 @@ public enum SpanMetricFunction
     Min,
     Max,
     Sum,
+
+    /// <summary>
+    /// <c>histogram_over_time</c> (ADR-0223): the weighted span count per step, group and power-of-two bucket of the value.
+    /// A row's <see cref="SpanMetricRow.Values"/> holds the bucket's exponent <c>k</c>, the bucket being values up to <c>2^k</c>.
+    /// </summary>
+    Histogram,
 }
 
 /// <summary>What a <see cref="SpanGroupBy"/> reads from a span.</summary>
@@ -31,7 +37,12 @@ public enum SpanGroupKind
 /// <summary>One <c>by (...)</c> field. <see cref="Label"/> is how the query wrote it, and names the series label.</summary>
 public sealed record SpanGroupBy(string Label, SpanGroupKind Kind, SpanAttributeBag Bag = SpanAttributeBag.Span, string Key = "");
 
+/// <summary>A numeric span or resource attribute a metric aggregates in place of the duration (ADR-0222). <see cref="Label"/> is how the query wrote it.</summary>
+public sealed record SpanValueAttribute(string Label, SpanAttributeBag Bag, string Key);
+
 /// <param name="Condition">The span predicate of the query's spanset; null matches every span.</param>
+/// <param name="Exemplars">With <see cref="TraceQlMetricsQueryBuilder.BuildExemplars"/>: the most exemplars wanted; ignored by <see cref="TraceQlMetricsQueryBuilder.Build"/>.</param>
+/// <param name="Value">What <see cref="Function"/> aggregates; null is the span's duration. Ignored by <see cref="SpanMetricFunction.Count"/>.</param>
 /// <param name="From">A multiple of <paramref name="StepSeconds"/> from the unix epoch, as is <paramref name="To"/> (exclusive).</param>
 public sealed record SpanMetricsRequest(
     TraceSpanCondition? Condition,
@@ -40,13 +51,21 @@ public sealed record SpanMetricsRequest(
     IReadOnlyList<SpanGroupBy> GroupBy,
     DateTimeOffset From,
     DateTimeOffset To,
-    int StepSeconds);
+    int StepSeconds,
+    SpanValueAttribute? Value = null,
+    int Exemplars = 0);
 
 /// <summary>One group's aggregate in one step. <see cref="Values"/> holds one number, or one per quantile.</summary>
 /// <param name="Bucket">The step's index from <see cref="SpanMetricsRequest.From"/>.</param>
 /// <param name="Group">The <see cref="SpanMetricsRequest.GroupBy"/> values, as strings (status and kind still as ClickHouse stores them).</param>
 /// <param name="Weight">The summed <c>SampleWeight</c>, whatever the function: how many spans the row stands for.</param>
 public sealed record SpanMetricRow(long Bucket, IReadOnlyList<string> Group, double Weight, IReadOnlyList<double> Values);
+
+/// <summary>The span standing out in one step of one group: the one with the largest value, as a link into a trace (ADR-0223).</summary>
+/// <param name="Bucket">The step's index from <see cref="SpanMetricsRequest.From"/>.</param>
+/// <param name="Group">The <see cref="SpanMetricsRequest.GroupBy"/> values, as in <see cref="SpanMetricRow"/>.</param>
+/// <param name="Value">The span's duration in nanoseconds, or the attribute's number, as the query aggregates.</param>
+public sealed record SpanExemplarRow(long Bucket, IReadOnlyList<string> Group, string TraceId, string SpanId, double Value, long TimestampMs);
 
 /// <summary>Fully-built <c>SELECT</c> for <see cref="ISpanQueryService.GetSpanMetricsAsync"/>.</summary>
 public sealed record SpanMetricsSql(string Sql, ClickHouseParameterCollection Parameters);
@@ -67,11 +86,28 @@ public sealed record SpanMetricsSql(string Sql, ClickHouseParameterCollection Pa
 /// A span lacking a grouped attribute is left out (a <c>mapContains</c> in the filter), not grouped under an
 /// empty value. An attribute with old and new semantic-convention spellings reads whichever the span has.
 /// </para>
+/// <para>
+/// A function over an attribute (ADR-0222) reads it as <c>toFloat64OrNull</c> of the stored string and leaves out
+/// spans where it is absent, does not parse or is not finite, the same way: those spans take no part in the sums,
+/// the quantiles or the ranking of the top series, and the <c>Weight</c> counts only the spans that had a number.
+/// </para>
 /// </remarks>
 public static class TraceQlMetricsQueryBuilder
 {
     /// <summary>The most series a query returns.</summary>
     public const int MaxSeries = 200;
+
+    /// <summary>The most groups a <c>histogram_over_time</c> keeps: each is a series per bucket, up to <see cref="HistogramBuckets"/>.</summary>
+    public const int MaxHistogramGroups = 20;
+
+    /// <summary>The most power-of-two buckets: <c>2^1</c> to <c>2^63</c>.</summary>
+    public const int HistogramBuckets = 63;
+
+    /// <summary>The most exemplars a query returns, whatever it asks for.</summary>
+    public const int MaxExemplars = 1000;
+
+    /// <summary>The most groups (series, for the other functions) a query keeps.</summary>
+    public static int MaxGroups(SpanMetricFunction function) => function == SpanMetricFunction.Histogram ? MaxHistogramGroups : MaxSeries;
 
     /// <summary>The most steps a query spans.</summary>
     public const int MaxSteps = 1500;
@@ -79,7 +115,62 @@ public static class TraceQlMetricsQueryBuilder
     /// <summary>The most rows a query can produce: every step of every series, plus the one extra series that shows the cut.</summary>
     public const int MaxRows = MaxSteps * (MaxSeries + 1);
 
+    /// <summary>The most rows a <c>histogram_over_time</c> can produce: every step of every bucket of every group, plus the one extra group.</summary>
+    public const int MaxHistogramRows = MaxSteps * (MaxHistogramGroups + 1) * HistogramBuckets;
+
+    public static int MaxRowsFor(SpanMetricFunction function) => function == SpanMetricFunction.Histogram ? MaxHistogramRows : MaxRows;
+
     public static SpanMetricsSql Build(SpanMetricsRequest request, PromotedAttributeColumns? promoted = null)
+    {
+        var (parameters, groups, value, where, filter) = Prepare(request, promoted);
+        var histogram = request.Function == SpanMetricFunction.Histogram;
+
+        var select = new List<string>
+        {
+            "intDiv(toInt64(toUnixTimestamp(StartTime)) - {mStart:Int64}, {mStep:Int64}) AS Bucket",
+        };
+        select.AddRange(groups.Select((g, i) => $"{g.Value} AS G{i}"));
+        select.Add("toFloat64(sum(SampleWeight)) AS Weight");
+        select.AddRange(Aggregates(request, value));
+
+        var groupBy = new[] { "Bucket" }.Concat(groups.Select((_, i) => $"G{i}")).ToList();
+        if (histogram)
+        {
+            groupBy.Add("V0");
+        }
+
+        var sql = $"SELECT {string.Join(", ", select)}\nFROM spans WHERE {filter}\nGROUP BY {string.Join(", ", groupBy)}\nORDER BY {string.Join(", ", groupBy)}";
+        return new SpanMetricsSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// The span with the largest value in each step of each group, the largest <see cref="SpanMetricsRequest.Exemplars"/>
+    /// (at most <see cref="MaxExemplars"/>) of them: one more read of the same spans, for a link from a point on a chart to a trace.
+    /// </summary>
+    public static SpanMetricsSql BuildExemplars(SpanMetricsRequest request, PromotedAttributeColumns? promoted = null)
+    {
+        var (parameters, groups, value, _, filter) = Prepare(request, promoted);
+        var limit = Math.Clamp(request.Exemplars, 1, MaxExemplars);
+
+        var select = new List<string>
+        {
+            "intDiv(toInt64(toUnixTimestamp(StartTime)) - {mStart:Int64}, {mStep:Int64}) AS Bucket",
+        };
+        select.AddRange(groups.Select((g, i) => $"{g.Value} AS G{i}"));
+        select.Add($"argMax(TraceId, {value}) AS ExTrace");
+        select.Add($"argMax(SpanId, {value}) AS ExSpan");
+        select.Add($"toFloat64(max({value})) AS ExValue");
+        select.Add($"toInt64(toUnixTimestamp64Milli(argMax(StartTime, {value}))) AS ExTime");
+
+        var groupBy = new[] { "Bucket" }.Concat(groups.Select((_, i) => $"G{i}"));
+        var sql = $"SELECT {string.Join(", ", select)}\nFROM spans WHERE {filter}\nGROUP BY {string.Join(", ", groupBy)}\nORDER BY ExValue DESC, Bucket, {string.Join(", ", groups.Select((_, i) => $"G{i}").Append("ExTrace"))}\nLIMIT {limit}";
+        return new SpanMetricsSql(sql, parameters);
+    }
+
+    /// <summary>The parts <see cref="Build"/> and <see cref="BuildExemplars"/> share: the filter, the group expressions and the value expression.</summary>
+    /// <returns><c>Value</c> is the expression the function aggregates (<c>DurationNano</c> or the attribute's number); <c>Filter</c> is <c>Where</c> plus, with groups, the restriction to the top ones.</returns>
+    private static (ClickHouseParameterCollection Parameters, (string Value, string Present)[] Groups, string Value, string Where, string Filter) Prepare(
+        SpanMetricsRequest request, PromotedAttributeColumns? promoted)
     {
         if (request.StepSeconds < 1)
         {
@@ -105,36 +196,45 @@ public static class TraceQlMetricsQueryBuilder
         }
 
         clauses.AddRange(groups.Select(g => g.Present));
-        var where = string.Join(" AND ", clauses) + ServiceScope.Suffix(parameters);
 
-        var select = new List<string>
+        // Count (rate, count_over_time) takes no value; the histogram and the exemplars do, so for them the attribute is not optional.
+        var value = "DurationNano";
+        if (request.Value is { } attribute && request.Function != SpanMetricFunction.Count)
         {
-            "intDiv(toInt64(toUnixTimestamp(StartTime)) - {mStart:Int64}, {mStep:Int64}) AS Bucket",
-        };
-        select.AddRange(groups.Select((g, i) => $"{g.Value} AS G{i}"));
-        select.Add("toFloat64(sum(SampleWeight)) AS Weight");
-        select.AddRange(Aggregates(request));
+            var (number, present) = NumericExpression(attribute, parameters);
+            clauses.Add(present);
+            value = $"assumeNotNull({number})";
+        }
 
+        if (request.Function == SpanMetricFunction.Histogram)
+        {
+            // Tempo drops what Log2Bucketize returns -1 for (below 2) and what no uint64 holds.
+            clauses.Add($"{value} >= 2 AND {value} < 9.2e18");
+        }
+
+        var where = string.Join(" AND ", clauses) + ServiceScope.Suffix(parameters);
         var filter = where;
         if (groups.Length > 0)
         {
             var expressions = string.Join(", ", groups.Select(g => g.Value));
             var tuple = groups.Length == 1 ? expressions : $"({expressions})";
             filter += $" AND {tuple} GLOBAL IN (SELECT {expressions} FROM spans WHERE {where} GROUP BY {expressions} " +
-                $"ORDER BY sum(SampleWeight) DESC, {expressions} LIMIT {MaxSeries + 1})";
+                $"ORDER BY sum(SampleWeight) DESC, {expressions} LIMIT {MaxGroups(request.Function) + 1})";
         }
 
-        var groupBy = new[] { "Bucket" }.Concat(groups.Select((_, i) => $"G{i}"));
-        var sql = $"SELECT {string.Join(", ", select)}\nFROM spans WHERE {filter}\nGROUP BY {string.Join(", ", groupBy)}\nORDER BY {string.Join(", ", groupBy)}";
-        return new SpanMetricsSql(sql, parameters);
+        return (parameters, groups, value, where, filter);
     }
 
-    private static IEnumerable<string> Aggregates(SpanMetricsRequest request)
+    private static IEnumerable<string> Aggregates(SpanMetricsRequest request, string value)
     {
         switch (request.Function)
         {
             case SpanMetricFunction.Count:
                 yield break;
+            case SpanMetricFunction.Histogram:
+                // The smallest k with 2^k >= the value, as Tempo's Log2Bucketize does on the value truncated to an integer.
+                yield return $"toUInt8(ceil(log2(toFloat64(toUInt64({value}))))) AS V0";
+                break;
             case SpanMetricFunction.Quantile:
                 for (var i = 0; i < request.Quantiles.Count; i++)
                 {
@@ -145,21 +245,21 @@ public static class TraceQlMetricsQueryBuilder
                     }
 
                     // The level is a validated number, formatted invariantly: ClickHouse takes it as a function parameter, not a bind parameter.
-                    yield return $"quantileTDigestWeighted({q.ToString("R", CultureInfo.InvariantCulture)})(DurationNano, SampleWeight) AS V{i}";
+                    yield return $"quantileTDigestWeighted({q.ToString("R", CultureInfo.InvariantCulture)})({value}, SampleWeight) AS V{i}";
                 }
 
                 break;
             case SpanMetricFunction.Avg:
-                yield return "sum(toFloat64(DurationNano) * SampleWeight) / sum(SampleWeight) AS V0";
+                yield return $"sum(toFloat64({value}) * SampleWeight) / sum(SampleWeight) AS V0";
                 break;
             case SpanMetricFunction.Min:
-                yield return "toFloat64(min(DurationNano)) AS V0";
+                yield return $"toFloat64(min({value})) AS V0";
                 break;
             case SpanMetricFunction.Max:
-                yield return "toFloat64(max(DurationNano)) AS V0";
+                yield return $"toFloat64(max({value})) AS V0";
                 break;
             default:
-                yield return "sum(toFloat64(DurationNano) * SampleWeight) AS V0";
+                yield return $"sum(toFloat64({value}) * SampleWeight) AS V0";
                 break;
         }
     }
@@ -177,20 +277,50 @@ public static class TraceQlMetricsQueryBuilder
                 return ("toString(Kind)", "1");
         }
 
-        var column = SpanFilterSqlBuilder.ColumnFor(group.Bag);
-        var keys = group.Bag == SpanAttributeBag.Span && SemconvAliases.Group(group.Key) is { } aliases ? aliases : [group.Key];
+        var (value, present) = AttributeText(group.Bag, group.Key, $"mgKey{index}x", parameters);
+        return (value, present);
+    }
+
+    /// <summary>
+    /// The attribute's value as a number, <c>NULL</c> when it does not parse, and the clause that holds only for a span
+    /// whose value is a finite number (so the unparseable ones are left out, as are the spans without the attribute).
+    /// </summary>
+    private static (string Number, string Present) NumericExpression(SpanValueAttribute attribute, ClickHouseParameterCollection parameters)
+    {
+        var column = SpanFilterSqlBuilder.ColumnFor(attribute.Bag);
+        var keys = KeysOf(attribute.Bag, attribute.Key);
+        var names = keys.Select((key, k) =>
+        {
+            var name = $"mvKey{k}";
+            parameters.AddParameter(name, key);
+            return name;
+        }).ToArray();
+
+        var number = names.Length == 1
+            ? $"toFloat64OrNull({column}[{{{names[0]}:String}}])"
+            : $"multiIf({string.Join(", ", names.Select(n => $"mapContains({column}, {{{n}:String}}), toFloat64OrNull({column}[{{{n}:String}}])"))}, NULL)";
+        return (number, $"ifNull(isFinite({number}), 0)");
+    }
+
+    private static IReadOnlyList<string> KeysOf(SpanAttributeBag bag, string key) =>
+        bag == SpanAttributeBag.Span && SemconvAliases.Group(key) is { } aliases ? aliases : [key];
+
+    private static (string Value, string Present) AttributeText(SpanAttributeBag bag, string key, string namePrefix, ClickHouseParameterCollection parameters)
+    {
+        var column = SpanFilterSqlBuilder.ColumnFor(bag);
+        var keys = KeysOf(bag, key);
         var parts = new List<string>();
         var contains = new List<string>();
         for (var k = 0; k < keys.Count; k++)
         {
-            var name = $"mgKey{index}x{k}";
+            var name = $"{namePrefix}{k}";
             parameters.AddParameter(name, keys[k]);
             contains.Add($"mapContains({column}, {{{name}:String}})");
             parts.Add($"{contains[k]}, {column}[{{{name}:String}}]");
         }
 
         var present = contains.Count == 1 ? contains[0] : $"({string.Join(" OR ", contains)})";
-        var value = keys.Count == 1 ? $"{column}[{{mgKey{index}x0:String}}]" : $"multiIf({string.Join(", ", parts)}, '')";
+        var value = keys.Count == 1 ? $"{column}[{{{namePrefix}0:String}}]" : $"multiIf({string.Join(", ", parts)}, '')";
         return (value, present);
     }
 }

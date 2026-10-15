@@ -125,10 +125,17 @@ Non pris en charge dans une recherche : les pipelines `|` (`count()`, `avg()`, `
 | `count_over_time()` | Spans |
 | `quantile_over_time(duration, .5, .95)` | Quantiles de la durée en secondes, une série par quantile, étiquetée `p` |
 | `avg_over_time(duration)`, `min_over_time(duration)`, `max_over_time(duration)`, `sum_over_time(duration)` | La durée, en secondes |
+| `histogram_over_time(duration)` | Spans par pas dans chaque seau de la durée en puissance de deux, une série par seau, étiquetée `__bucket` avec la borne supérieure du seau en secondes. Grafana l'affiche en carte de chaleur |
 
 `by (...)` accepte jusqu'à cinq champs parmi `name`, `status`, `kind`, `span.x`, `resource.x` et `.x` et produit une série par combinaison : `{ kind = server } | quantile_over_time(duration, .95) by (resource.service.name, span.http.route)`.
 
-Non pris en charge : `histogram_over_time()`, `compare()`, une seconde étape comme `topk()`, l'agrégation d'autre chose que `duration`, et les exemplars (`with(exemplars=true)` est accepté et ignoré).
+`quantile_over_time`, `avg_over_time`, `min_over_time`, `max_over_time`, `sum_over_time` et `histogram_over_time` acceptent aussi un attribut numérique à la place de `duration` : `{ kind = server } | avg_over_time(span.http.response.body.size)`, avec `span.x`, `resource.x` ou `.x`. Les valeurs sont rapportées telles quelles, pas en secondes. Un span dont la valeur est absente ou n'est pas un nombre est écarté.
+
+Après une fonction groupée, `| topk(5)` ou `| bottomk(5)` garde, à chaque pas, les cinq séries à la valeur la plus grande (la plus petite) : `{ kind = server } | rate() by (span.http.route) | topk(5)`.
+
+Les **exemplars** relient un point d'un graphique à une trace. Activez **Exemplars** dans les options Metrics (Grafana envoie `exemplars=100`) ou ajoutez `with(exemplars=true)` à la requête. Chaque pas de chaque série porte alors son span le plus lent (ou celui dont la valeur d'attribut est la plus grande) avec un identifiant de trace, et Grafana l'affiche comme un point qu'on peut ouvrir. Requêtes sur plage uniquement.
+
+Non pris en charge : `compare()`, une comparaison après la fonction (`| rate() > 5`), plusieurs spansets ou opérateurs structurels (`{ a } >> { b }`) dans une requête de métriques, et les champs de niveau trace.
 
 ## Différences avec Tempo
 
@@ -137,9 +144,12 @@ Non pris en charge : `histogram_over_time()`, `compare()`, une seconde étape co
 - **`!=` correspond aussi aux spans sans l'attribut.** En TraceQL, l'attribut doit exister.
 - **La recherche a besoin du span racine.** Une trace dont la racine n'a jamais été ingérée n'apparaît pas dans la liste, mais s'ouvre par identifiant.
 - **Les spans correspondants listent les attributs comparés par la requête.** Chaque span listé a son identifiant, son nom, son début, sa durée, `service.name` et les attributs que la requête nomme (20 au plus), sous forme de chaînes. Un attribut aux orthographes ancienne et nouvelle (`http.status_code`, `http.response.status_code`) liste celle que le span possède. Dans une requête de plusieurs spansets (`{ a } >> { b }`), les spans de tous les spansets sont listés ensemble dans un seul groupe, pas un groupe par spanset.
-- **Les métriques sont regroupées par pas.** Un échantillon porte l'horodatage du début de son pas, et `start` et `end` sont arrondis vers l'extérieur à un multiple du pas ; quand la plage se termine maintenant, le dernier pas est donc partiel. `rate()` et `count_over_time()` valent zéro dans un pas sans span ; les autres fonctions n'y ont pas d'échantillon.
+- **Les métriques sont regroupées par pas.** Un échantillon porte l'horodatage du début de son pas, et `start` et `end` sont arrondis vers l'extérieur à un multiple du pas ; quand la plage se termine maintenant, le dernier pas est donc partiel. `rate()` et `count_over_time()` valent zéro dans un pas sans span, comme `histogram_over_time()` ; les autres fonctions n'y ont pas d'échantillon.
 - **Les métriques ne groupent que les spans qui ont l'attribut.** Dans `by (span.http.route)`, un span sans `http.route` est écarté, pas compté sous une valeur vide. Un attribut aux orthographes ancienne et nouvelle (`http.status_code`, `http.response.status_code`) groupe selon celle que le span possède.
+- **Un `histogram_over_time()` garde 20 groupes au plus,** chacun avec jusqu'à 63 séries de seaux, et une valeur inférieure à 2 (une durée de moins de 2 ns) n'est comptée dans aucun seau, comme dans Tempo.
+- **`topk()` classe les séries calculées par Flare.** Comme la limite de 200 séries ci-dessous, il travaille sur les groupes qui ont le plus de spans ; le groupe à la plus grande moyenne pourrait donc avoir été écarté (la réponse indique `PARTIAL`).
+- **Un exemplar est le span le plus lent,** pas un span tiré au hasard comme dans Tempo, et il est sur la série de son groupe (le plus grand quantile pour `quantile_over_time`, le seau où tombe sa valeur pour un histogramme).
 - **Une requête de métriques renvoie 200 séries au plus.** Avec plus de groupes, elle garde les 200 qui ont le plus de spans et marque la réponse `PARTIAL`. Les comptes et quantiles pondèrent chaque span stocké par ce qu'il représente avec l'[échantillonnage des traces](../../explanation/sampling-clustering-and-cost.fr.md), si bien qu'un service échantillonné rapporte toujours son vrai débit.
 - **Les listes de tags sont un échantillon.** Les noms viennent d'au plus 50 000 spans de la fenêtre, les plus fréquents d'abord. Réduisez `start` et `end` pour une liste complète.
 
-Notes de conception : [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md).
+Notes de conception : [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md), [ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md), [ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md) et [ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md).

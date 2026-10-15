@@ -31,6 +31,9 @@ public interface ISpanQueryService
     /// <summary>A TraceQL metrics query's per-step, per-group aggregates over the matching spans - the Tempo-compatible API's <c>/api/metrics</c> (ADR-0221). See <see cref="TraceQlMetricsQueryBuilder"/>.</summary>
     Task<IReadOnlyList<SpanMetricRow>> GetSpanMetricsAsync(SpanMetricsRequest request, CancellationToken cancellationToken);
 
+    /// <summary>The span with the largest value per step and group of a metrics query, to link a chart point to a trace (ADR-0223). See <see cref="TraceQlMetricsQueryBuilder.BuildExemplars"/>.</summary>
+    Task<IReadOnlyList<SpanExemplarRow>> GetSpanExemplarsAsync(SpanMetricsRequest request, CancellationToken cancellationToken);
+
     /// <summary>Where one span's duration ranks among same service + name spans around it - see <see cref="SpanDurationPercentileQueryBuilder"/>.</summary>
     Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken);
 }
@@ -292,14 +295,14 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
         // Steps x series is bounded by the builder, so lift the generic result-row cap to fit it and make an overflow an error:
         // 'break' would drop the last steps without saying so.
         var options = SafetyOptions();
-        options.CustomSettings!["max_result_rows"] = Math.Max(queryLimits.Value.MaxResultRows, TraceQlMetricsQueryBuilder.MaxRows);
+        options.CustomSettings!["max_result_rows"] = Math.Max(queryLimits.Value.MaxResultRows, TraceQlMetricsQueryBuilder.MaxRowsFor(request.Function));
         options.CustomSettings["result_overflow_mode"] = "throw";
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, options, cancellationToken);
 
         var rows = new List<SpanMetricRow>();
         var groups = request.GroupBy.Count;
-        var values = request.Function == SpanMetricFunction.Quantile ? request.Quantiles.Count : request.Function == SpanMetricFunction.Count ? 0 : 1;
+        var values = request.Function == SpanMetricFunction.Quantile ? request.Quantiles.Count : request.Function == SpanMetricFunction.Count ? 0 : 1; // Histogram: the bucket exponent
         while (reader.Read())
         {
             var group = new string[groups];
@@ -323,6 +326,33 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
             }
 
             rows.Add(new SpanMetricRow(Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture), group, weight, aggregate));
+        }
+
+        return rows;
+    }
+
+    public async Task<IReadOnlyList<SpanExemplarRow>> GetSpanExemplarsAsync(SpanMetricsRequest request, CancellationToken cancellationToken)
+    {
+        var built = TraceQlMetricsQueryBuilder.BuildExemplars(request, promotedAttributes.Spans);
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var rows = new List<SpanExemplarRow>();
+        var groups = request.GroupBy.Count;
+        while (reader.Read())
+        {
+            var group = new string[groups];
+            for (var i = 0; i < groups; i++)
+            {
+                group[i] = reader.GetString(1 + i);
+            }
+
+            rows.Add(new SpanExemplarRow(
+                Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture),
+                group,
+                reader.GetString(1 + groups),
+                reader.GetString(2 + groups),
+                Convert.ToDouble(reader.GetValue(3 + groups), CultureInfo.InvariantCulture),
+                Convert.ToInt64(reader.GetValue(4 + groups), CultureInfo.InvariantCulture)));
         }
 
         return rows;

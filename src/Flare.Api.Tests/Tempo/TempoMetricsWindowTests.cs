@@ -1,3 +1,4 @@
+using Flare.Api.Query;
 using Flare.Api.Tempo;
 using Xunit;
 
@@ -88,4 +89,18 @@ public class TempoMetricsWindowTests
 
         Assert.Contains(mentions, ex.Message);
     }
+}
+
+public class TempoExemplarCountTests
+{
+    [Theory]
+    [InlineData("100", false, 100)]
+    [InlineData("0", true, 0)]
+    [InlineData("1000000", false, TraceQlMetricsQueryBuilder.MaxExemplars)]
+    [InlineData(null, true, 100)]
+    [InlineData("", false, 0)]
+    [InlineData("-3", false, 0)]
+    [InlineData("many", true, 100)]
+    public void TheParameterWinsThenTheQueryHint(string? parameter, bool queryAsked, int expected) =>
+        Assert.Equal(expected, TempoEndpoints.ExemplarCount(parameter, queryAsked));
 }
