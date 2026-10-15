@@ -144,12 +144,24 @@ result is a time series; **Type** in the query's Metrics options picks a range o
 | `count_over_time()` | Spans |
 | `quantile_over_time(duration, .5, .95)` | Duration quantiles in seconds, one series per quantile, labelled `p` |
 | `avg_over_time(duration)`, `min_over_time(duration)`, `max_over_time(duration)`, `sum_over_time(duration)` | The duration, in seconds |
+| `histogram_over_time(duration)` | Spans per step in each power-of-two bucket of the duration, one series per bucket, labelled `__bucket` with the bucket's upper bound in seconds. Grafana draws it as a heatmap |
+
+`quantile_over_time`, `avg_over_time`, `min_over_time`, `max_over_time`, `sum_over_time` and `histogram_over_time` also take a
+numeric attribute in place of `duration`: `{ kind = server } | avg_over_time(span.http.response.body.size)`, with `span.x`,
+`resource.x` or `.x`. The values are reported as they are, not as seconds. A span whose value is missing or not a number is left out.
 
 `by (...)` takes up to five of `name`, `status`, `kind`, `span.x`, `resource.x` and `.x` and makes a series for each
 combination: `{ kind = server } | quantile_over_time(duration, .95) by (resource.service.name, span.http.route)`.
 
-Not supported: `histogram_over_time()`, `compare()`, a second stage such as `topk()`, aggregating anything but `duration`,
-and exemplars (`with(exemplars=true)` is accepted and ignored).
+After a grouped function, `| topk(5)` or `| bottomk(5)` keeps, at each step, the five series with the largest (smallest)
+value: `{ kind = server } | rate() by (span.http.route) | topk(5)`.
+
+**Exemplars** link a point on a chart to a trace. Turn on **Exemplars** in the Metrics options (Grafana sends `exemplars=100`)
+or add `with(exemplars=true)` to the query. Each step of each series then carries its slowest span (or the span with the
+largest attribute value) with a trace id, and Grafana shows it as a point you can open. Range queries only.
+
+Not supported: `compare()`, a comparison after the function (`| rate() > 5`), several spansets or structural operators
+(`{ a } >> { b }`) in a metrics query, and the trace-level intrinsics.
 
 ## Things that differ from Tempo
 
@@ -166,14 +178,23 @@ and exemplars (`with(exemplars=true)` is accepted and ignored).
   listed together in one group, not one group per spanset.
 - **Metrics are bucketed by the step.** A sample is stamped with the start of its step, and `start` and `end` are rounded
   out to a multiple of the step, so when the range ends now the last step is partial. `rate()` and `count_over_time()` are
-  zero in a step with no spans; the other functions have no sample there.
+  zero in a step with no spans, as is `histogram_over_time()`; the other functions have no sample there.
 - **Metrics group only spans that have the attribute.** In `by (span.http.route)` a span without `http.route` is left out,
   not counted under an empty value. An attribute with old and new spellings (`http.status_code`,
   `http.response.status_code`) groups by whichever the span has.
+- **A `histogram_over_time()` keeps at most 20 groups,** each of up to 63 bucket series, and a value below 2 (a duration of
+  under 2 ns) is not counted in any bucket, as in Tempo.
+- **`topk()` ranks the series Flare computed.** Like the 200-series limit below, it works on the groups with the most spans,
+  so the group with the largest average could be one that was cut (the response says `PARTIAL`).
+- **An exemplar is the slowest span,** not a random one as in Tempo, and it is on the series of its group (the largest
+  quantile for `quantile_over_time`, the bucket its value falls in for a histogram).
 - **A metrics query returns at most 200 series.** With more groups it keeps the 200 with the most spans and marks the
   response `PARTIAL`. Counts and quantiles weight each stored span by what it stands for under
   [trace sampling](../../explanation/sampling-clustering-and-cost.md), so a sampled service still reports its true rate.
 - **Tag lists are a sample.** Names come from up to 50,000 spans of the window, most common first. Narrow
   `start` and `end` for a complete list.
 
-Design notes: [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md).
+Design notes: [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md),
+[ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md),
+[ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md) and
+[ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md).

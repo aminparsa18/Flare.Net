@@ -193,18 +193,23 @@ public static class TempoEndpoints
             var window = TempoMetricsWindow.Resolve(
                 query["start"], query["end"], query["since"], query["step"], time.GetUtcNow(), instant, TraceQlMetricsQueryBuilder.MaxSteps);
 
-            var rows = await spans.GetSpanMetricsAsync(
-                new SpanMetricsRequest(
-                    plan.Condition,
-                    plan.Function,
-                    plan.Quantiles,
-                    plan.GroupBy,
-                    DateTimeOffset.FromUnixTimeSeconds(window.FromSeconds),
-                    DateTimeOffset.FromUnixTimeSeconds(window.ToSeconds),
-                    window.StepSeconds),
-                ct);
+            // Exemplars (ADR-0223) are for charts, so a range query only: `exemplars=n` as Grafana sends it, or with(exemplars=true) in the query.
+            var exemplarCount = instant ? 0 : ExemplarCount(query["exemplars"], plan.Exemplars);
+            var request = new SpanMetricsRequest(
+                plan.Condition,
+                plan.Function,
+                plan.Quantiles,
+                plan.GroupBy,
+                DateTimeOffset.FromUnixTimeSeconds(window.FromSeconds),
+                DateTimeOffset.FromUnixTimeSeconds(window.ToSeconds),
+                window.StepSeconds,
+                plan.Value,
+                exemplarCount);
 
-            var result = TempoMetricsSeries.Build(plan, rows, window);
+            var rows = await spans.GetSpanMetricsAsync(request, ct);
+            var exemplars = exemplarCount > 0 && rows.Count > 0 ? await spans.GetSpanExemplarsAsync(request, ct) : null;
+
+            var result = TempoMetricsSeries.Build(plan, rows, window, exemplars);
             return Json(w =>
             {
                 if (instant)
@@ -226,6 +231,19 @@ public static class TempoEndpoints
             return Error(StatusCodes.Status400BadRequest, "invalid regular expression in the query (RE2 syntax).");
         }
     }
+
+    /// <summary>How many exemplars to return: the <c>exemplars</c> parameter if it is a positive number, else <see cref="DefaultExemplars"/> when the query said <c>with(exemplars=true)</c>, else none.</summary>
+    internal static int ExemplarCount(string? parameter, bool queryAsked)
+    {
+        if (int.TryParse(parameter, NumberStyles.None, CultureInfo.InvariantCulture, out var count))
+        {
+            return Math.Min(count, TraceQlMetricsQueryBuilder.MaxExemplars);
+        }
+
+        return queryAsked ? DefaultExemplars : 0;
+    }
+
+    private const int DefaultExemplars = 100;
 
     internal static void WriteSpanSet(Utf8JsonWriter w, TraceMatchedSpans trace)
     {

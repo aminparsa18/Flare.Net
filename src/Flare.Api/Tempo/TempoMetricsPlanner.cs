@@ -9,13 +9,19 @@ namespace Flare.Api.Tempo;
 /// <param name="Condition">The spanset's predicate; null matches every span.</param>
 /// <param name="FunctionName">The TraceQL function's name, <c>rate</c> for example.</param>
 /// <param name="IsRate">True for <c>rate()</c>: the count per step is divided by the step's seconds.</param>
+/// <param name="Rank">The <c>| topk(n)</c> / <c>| bottomk(n)</c> stage, applied to the series after they are computed (ADR-0224).</param>
+/// <param name="Exemplars">Whether the query itself asked for exemplars; a request can also ask with <c>exemplars=n</c> (ADR-0223).</param>
+/// <param name="Value">The numeric attribute a value function aggregates (ADR-0222); null is the span's duration, which is reported in seconds.</param>
 public sealed record TempoMetricsPlan(
     TraceSpanCondition? Condition,
     SpanMetricFunction Function,
     string FunctionName,
     bool IsRate,
     IReadOnlyList<double> Quantiles,
-    IReadOnlyList<SpanGroupBy> GroupBy);
+    IReadOnlyList<SpanGroupBy> GroupBy,
+    SpanValueAttribute? Value = null,
+    TraceQlRank? Rank = null,
+    bool Exemplars = false);
 
 /// <summary>Compiles a parsed <see cref="TraceQlMetricsQuery"/> into a <see cref="TempoMetricsPlan"/>. Pure, no ClickHouse dependency.</summary>
 /// <remarks>
@@ -41,6 +47,7 @@ public static class TempoMetricsPlanner
             TraceQlMetricsFunction.AvgOverTime => SpanMetricFunction.Avg,
             TraceQlMetricsFunction.MinOverTime => SpanMetricFunction.Min,
             TraceQlMetricsFunction.MaxOverTime => SpanMetricFunction.Max,
+            TraceQlMetricsFunction.HistogramOverTime => SpanMetricFunction.Histogram,
             _ => SpanMetricFunction.Sum,
         };
 
@@ -50,7 +57,10 @@ public static class TempoMetricsPlanner
             query.FunctionName,
             query.Function == TraceQlMetricsFunction.Rate,
             query.Quantiles,
-            query.By.Select(GroupBy).ToArray());
+            query.By.Select(GroupBy).ToArray(),
+            query.ValueField is { } value ? ValueAttribute(value) : null,
+            query.Rank,
+            query.Exemplars);
     }
 
     private static SpanGroupBy GroupBy(string field)
@@ -65,19 +75,30 @@ public static class TempoMetricsPlanner
                 return new SpanGroupBy(field, SpanGroupKind.Kind);
         }
 
+        var (bag, key) = Attribute(field);
+        return new SpanGroupBy(field, SpanGroupKind.Attribute, bag, key);
+    }
+
+    private static SpanValueAttribute ValueAttribute(string field)
+    {
+        var (bag, key) = Attribute(field);
+        return new SpanValueAttribute(field, bag, key);
+    }
+
+    /// <summary>Which map an attribute reference reads and under what key; <c>.x</c> makes the same span-or-resource guess a predicate does.</summary>
+    private static (SpanAttributeBag Bag, string Key) Attribute(string field)
+    {
         if (field.StartsWith("span.", StringComparison.Ordinal))
         {
-            return new SpanGroupBy(field, SpanGroupKind.Attribute, SpanAttributeBag.Span, field["span.".Length..]);
+            return (SpanAttributeBag.Span, field["span.".Length..]);
         }
 
         if (field.StartsWith("resource.", StringComparison.Ordinal))
         {
-            return new SpanGroupBy(field, SpanGroupKind.Attribute, SpanAttributeBag.Resource, field["resource.".Length..]);
+            return (SpanAttributeBag.Resource, field["resource.".Length..]);
         }
 
-        // ".x": the same span-or-resource guess a predicate makes.
         var key = field[1..];
-        var bag = TempoSearchPlanner.ResourceNamespaces.Any(p => key.StartsWith(p, StringComparison.Ordinal)) ? SpanAttributeBag.Resource : SpanAttributeBag.Span;
-        return new SpanGroupBy(field, SpanGroupKind.Attribute, bag, key);
+        return (TempoSearchPlanner.ResourceNamespaces.Any(p => key.StartsWith(p, StringComparison.Ordinal)) ? SpanAttributeBag.Resource : SpanAttributeBag.Span, key);
     }
 }

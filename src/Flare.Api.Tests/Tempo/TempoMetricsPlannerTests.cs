@@ -20,6 +20,31 @@ public class TempoMetricsPlannerTests
         Assert.Equal("^(?:/c.*)$", Assert.Single(condition.Attributes!).Value);
     }
 
+    [Theory]
+    [InlineData("span.size", SpanAttributeBag.Span, "size")]
+    [InlineData("resource.k8s.pod.cpu", SpanAttributeBag.Resource, "k8s.pod.cpu")]
+    [InlineData(".k8s.pod.cpu", SpanAttributeBag.Resource, "k8s.pod.cpu")]
+    [InlineData(".http.response.body.size", SpanAttributeBag.Span, "http.response.body.size")]
+    public void ANumericAttribute_IsTheValueToAggregate(string field, SpanAttributeBag bag, string key)
+    {
+        var plan = Plan($"{{ }} | quantile_over_time({field}, .9)");
+
+        Assert.Equal(new SpanValueAttribute(field, bag, key), plan.Value);
+    }
+
+    [Fact]
+    public void Histogram_RankAndExemplars_AreCarriedOver()
+    {
+        var plan = Plan("{ } | histogram_over_time(duration) by (name) | topk(3) with(exemplars=true)");
+
+        Assert.Equal(SpanMetricFunction.Histogram, plan.Function);
+        Assert.Equal(new TraceQlRank(true, 3), plan.Rank);
+        Assert.True(plan.Exemplars);
+    }
+
+    [Fact]
+    public void Duration_HasNoValueAttribute() => Assert.Null(Plan("{ } | avg_over_time(duration)").Value);
+
     [Fact]
     public void AnEmptySpanset_MatchesEverySpan()
     {
