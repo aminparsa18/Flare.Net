@@ -2,8 +2,12 @@ using Flare.Api.Query;
 
 namespace Flare.Api.Tempo;
 
-/// <summary>One attribute of a listed span: <see cref="Number"/> for a nested-set position, else <see cref="Text"/>.</summary>
-public readonly record struct SelectedAttribute(string Key, string? Text, long? Number = null);
+/// <summary>
+/// One attribute of a listed span: <see cref="Number"/> for a nested-set position, else <see cref="Text"/>. <see cref="Infer"/> is set for
+/// the values of the span, resource and event attribute maps, which the writer types when the text is unambiguously a number or a
+/// bool (ADR-0230); the intrinsics and the service name are always text.
+/// </summary>
+public readonly record struct SelectedAttribute(string Key, string? Text, long? Number = null, bool Infer = false);
 
 public sealed record SelectedSpan(string SpanId, string Name, string ServiceName, DateTimeOffset StartTime, ulong DurationNano, IReadOnlyList<SelectedAttribute> Attributes);
 
@@ -32,7 +36,8 @@ public sealed record TraceSelectedSpans(string TraceId, int Matched, IReadOnlyLi
 /// <b>Attributes.</b> <c>service.name</c> first, then the selected fields in the order written, then whatever else the rows
 /// carry (the attributes the query compared on). An attribute is keyed by its name without the scope, as Tempo returns it
 /// (<c>resource.service.name</c> is <c>service.name</c>, <c>event.exception.type</c> is <c>exception.type</c>), and the first
-/// of a key wins. Event attributes come from the first event that has any of the selected event keys.
+/// of a key wins, except for event attributes: those of every event are listed, one event after the other, each event's together (ADR-0230).
+/// Attribute-map values are flagged for typing by the writer (<see cref="SelectedAttribute.Infer"/>).
 /// </para>
 /// </remarks>
 public static class TempoSpanSelector
@@ -41,6 +46,9 @@ public static class TempoSpanSelector
     public const int MaxWalkDepth = TraceStructureSqlBuilder.MaxWalkDepth;
 
     private const string ServiceNameKey = "service.name";
+
+    /// <summary>The most events of one span whose attributes a result lists.</summary>
+    public const int MaxEventsPerSpan = 50;
 
     /// <param name="rows">Grouped by trace, each trace's spans in start-time order.</param>
     public static IReadOnlyList<TraceSelectedSpans> Select(IReadOnlyList<SpanTreeRow> rows, TempoSearchPlan plan, int spansPerSpanSet)
@@ -247,11 +255,11 @@ public static class TempoSpanSelector
         var attributes = new List<SelectedAttribute>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        void Add(string key, string? text, long? number = null)
+        void Add(string key, string? text, long? number = null, bool infer = false)
         {
             if (seen.Add(key))
             {
-                attributes.Add(new SelectedAttribute(key, text, number));
+                attributes.Add(new SelectedAttribute(key, text, number, infer));
             }
         }
 
@@ -260,7 +268,7 @@ public static class TempoSpanSelector
             Add(ServiceNameKey, row.ServiceName);
         }
 
-        var eventAttributes = FirstEvent(row, plan);
+        var eventsWritten = false;
         foreach (var field in plan.Select)
         {
             switch (field.Scope)
@@ -274,6 +282,9 @@ public static class TempoSpanSelector
                         case "status":
                             Add("status", StatusKeyword(row.StatusCode));
                             break;
+                        case "statusMessage" when row.StatusMessage.Length > 0:
+                            Add("statusMessage", row.StatusMessage);
+                            break;
                         case "kind":
                             Add("kind", KindKeyword(row.Kind));
                             break;
@@ -286,6 +297,9 @@ public static class TempoSpanSelector
                         case "nestedSetParent" when parentLeft is { } p:
                             Add("nestedSetParent", null, p);
                             break;
+
+                        // rootName, rootServiceName and traceDuration are fields of the trace, which every result row already carries
+                        // (rootTraceName, rootServiceName, durationMs), as Tempo's own response does; duration is the span's durationNanos.
                     }
 
                     break;
@@ -296,7 +310,12 @@ public static class TempoSpanSelector
                     AddValue(field.Key, row.ResourceAttributes);
                     break;
                 default:
-                    AddValue(field.Key, eventAttributes);
+                    if (!eventsWritten)
+                    {
+                        eventsWritten = true;
+                        AddEvents(row, plan, attributes);
+                    }
+
                     break;
             }
         }
@@ -304,7 +323,7 @@ public static class TempoSpanSelector
         // What the query compared on, which the rows carry although no field asked for it.
         foreach (var (key, value) in TraceMatchedSpansQueryBuilder.MergeEchoed(row.SpanAttributes, row.ResourceAttributes))
         {
-            Add(key, value);
+            Add(key, value, infer: true);
         }
 
         return attributes;
@@ -313,30 +332,31 @@ public static class TempoSpanSelector
         {
             if (source.TryGetValue(key, out var value) && value.Length > 0)
             {
-                Add(key, value);
+                Add(key, value, infer: true);
             }
         }
     }
 
-    private static IReadOnlyDictionary<string, string> FirstEvent(SpanTreeRow row, TempoSearchPlan plan)
+    /// <summary>
+    /// The selected event attributes of every event of the span (at most <see cref="MaxEventsPerSpan"/>), one event after the other
+    /// in the span's event order, each event's attributes together in the order the fields were written: the message, type and
+    /// stack trace of one exception stay side by side. A key therefore appears once per event that has it (ADR-0230); a reader that
+    /// takes the first of a key sees the first event, one that keeps the last sees the last.
+    /// </summary>
+    private static void AddEvents(SpanTreeRow row, TempoSearchPlan plan, List<SelectedAttribute> attributes)
     {
-        if (!plan.Select.Any(f => f.Scope == TempoSelectScope.Event))
+        var keys = plan.Select.Where(f => f.Scope == TempoSelectScope.Event).Select(f => f.Key).Distinct(StringComparer.Ordinal).ToArray();
+        foreach (var eventAttributes in row.EventAttributes.Take(MaxEventsPerSpan))
         {
-            return EmptyMap;
-        }
-
-        foreach (var attributes in row.EventAttributes)
-        {
-            if (attributes.Count > 0)
+            foreach (var key in keys)
             {
-                return attributes;
+                if (eventAttributes.TryGetValue(key, out var value) && value.Length > 0)
+                {
+                    attributes.Add(new SelectedAttribute(key, value, Infer: true));
+                }
             }
         }
-
-        return EmptyMap;
     }
-
-    private static readonly IReadOnlyDictionary<string, string> EmptyMap = new Dictionary<string, string>();
 
     internal static string StatusKeyword(string statusCode) => statusCode switch
     {

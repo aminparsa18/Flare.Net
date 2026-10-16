@@ -395,6 +395,19 @@ public class TempoMetricsSeriesTests
     }
 
     [Fact]
+    public void WriteRange_WritesIntegerAndBooleanLabels()
+    {
+        var series = new TempoMetricSeries(
+            [TempoLabel.Attribute("span.http.status_code", "503"), TempoLabel.Attribute("span.cache.hit", "true"), TempoLabel.Attribute("span.id", "0123")],
+            []);
+
+        var json = Json(w => TempoMetricsSeries.WriteRange(w, new TempoMetricsResult([series], null)));
+
+        var labels = json.GetProperty("series")[0].GetProperty("labels").EnumerateArray().Select(l => l.GetProperty("value").ToString().Replace(" ", "")).ToArray();
+        Assert.Equal(["""{"intValue":"503"}""", """{"boolValue":true}""", """{"stringValue":"0123"}"""], labels);
+    }
+
+    [Fact]
     public void WriteRange_ReportsAPartialResult()
     {
         var json = Json(w => TempoMetricsSeries.WriteRange(w, new TempoMetricsResult([], "cut")));

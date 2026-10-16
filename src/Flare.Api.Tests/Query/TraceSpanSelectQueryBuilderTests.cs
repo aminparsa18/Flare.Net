@@ -21,7 +21,7 @@ public class TraceSpanSelectQueryBuilderTests
             "SELECT TraceId, SpanId, ParentSpanId, Name, ServiceName, StartTime, DurationNano, Kind, StatusCode, " +
             "toUInt32(toUInt32((ParentSpanId = '')) * 1 + toUInt32((Kind = {tsCKind:UInt8})) * 4) AS MatchMask, " +
             "CAST(map(), 'Map(String, String)') AS SelectedSpanAttributes, CAST(map(), 'Map(String, String)') AS SelectedResourceAttributes, " +
-            "CAST([], 'Array(Map(String, String))') AS SelectedEventAttributes\n" +
+            "CAST([], 'Array(Map(String, String))') AS SelectedEventAttributes, '' AS SelectedStatusMessage\n" +
             "FROM spans WHERE TraceId IN {ssTraceIds:Array(String)}\n" +
             "ORDER BY TraceId, StartTime, SpanId\n" +
             "LIMIT {ssPerTrace:UInt32} BY TraceId",
@@ -47,6 +47,17 @@ public class TraceSpanSelectQueryBuilderTests
         Assert.Contains("mapFilter((k, v) -> k IN {ssResourceKeys:Array(String)}, ResourceAttributes) AS SelectedResourceAttributes", built.Sql);
         Assert.Contains("arrayMap(m -> mapFilter((k, v) -> k IN {ssEventKeys:Array(String)}, m), `Events.Attributes`) AS SelectedEventAttributes", built.Sql);
         Assert.Equal(new[] { "exception.message", "exception.type" }, (string[])built.Parameters["ssEventKeys"].Value!);
+    }
+
+    [Fact]
+    public void Build_ReadsTheStatusMessageOnlyWhenAsked()
+    {
+        var structure = new TraceStructureFilter { Conditions = [Root], Expression = "A" };
+
+        var asked = TraceSpanSelectQueryBuilder.Build(new SelectedSpansRequest(["t1"], structure, [], [], [], false, StatusMessage: true));
+
+        Assert.Contains(", StatusMessage AS SelectedStatusMessage\n", asked.Sql);
+        Assert.Contains(", '' AS SelectedStatusMessage\n", TraceSpanSelectQueryBuilder.Build(Request(false)).Sql);
     }
 
     [Fact]

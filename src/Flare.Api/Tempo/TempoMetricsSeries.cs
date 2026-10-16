@@ -5,8 +5,29 @@ using Flare.Api.Query;
 namespace Flare.Api.Tempo;
 
 /// <summary>A series label: <see cref="Text"/> for a string value, <see cref="Number"/> for the <c>p</c> of a quantile.</summary>
-public sealed record TempoLabel(string Key, string? Text, double? Number = null)
+public sealed record TempoLabel(string Key, string? Text, double? Number = null, long? Integer = null, bool? Boolean = null)
 {
+    /// <summary>
+    /// The label of an attribute value from <c>compare()</c> (ADR-0230): a <c>span.x</c> or <c>resource.x</c> value that is unambiguously
+    /// a whole number, a decimal or a bool is written as one (<see cref="TempoTypedValue.Infer"/>); a <c>name</c>, <c>status</c> or <c>kind</c> stays text.
+    /// </summary>
+    public static TempoLabel Attribute(string key, string value)
+    {
+        if (!key.StartsWith("span.", StringComparison.Ordinal) && !key.StartsWith("resource.", StringComparison.Ordinal))
+        {
+            return new TempoLabel(key, value);
+        }
+
+        var typed = TempoTypedValue.Infer(value);
+        return typed.Kind switch
+        {
+            TempoValueKind.Int => new TempoLabel(key, null, Integer: typed.Integer),
+            TempoValueKind.Double => new TempoLabel(key, null, typed.Number),
+            TempoValueKind.Bool => new TempoLabel(key, null, Boolean: typed.Boolean),
+            _ => new TempoLabel(key, value),
+        };
+    }
+
     /// <summary>A label whose value is <c>nil</c>, as <c>compare()</c> labels its totals and its too-many-values marker (ADR-0226): written as an empty value.</summary>
     public static TempoLabel Nil(string key) => new(key, null);
 }
@@ -322,7 +343,15 @@ public static class TempoMetricsSeries
             w.WriteStartObject();
             w.WriteString("key", label.Key);
             w.WriteStartObject("value");
-            if (label.Number is { } number)
+            if (label.Integer is { } integer)
+            {
+                w.WriteString("intValue", integer.ToString(CultureInfo.InvariantCulture));
+            }
+            else if (label.Boolean is { } boolean)
+            {
+                w.WriteBoolean("boolValue", boolean);
+            }
+            else if (label.Number is { } number)
             {
                 w.WriteNumber("doubleValue", number);
             }

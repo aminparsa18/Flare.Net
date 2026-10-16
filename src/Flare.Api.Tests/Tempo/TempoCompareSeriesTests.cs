@@ -119,4 +119,28 @@ public class TempoCompareSeriesTests
         Assert.Equal("name", attribute.GetProperty("key").GetString());
         Assert.Empty(attribute.GetProperty("value").EnumerateObject());
     }
+
+    [Theory]
+    [InlineData("span.http.status_code", "500", null, 500L, null)]
+    [InlineData("resource.k8s.replicas", "3", null, 3L, null)]
+    [InlineData("span.ratio", "0.5", 0.5, null, null)]
+    [InlineData("span.cache.hit", "false", null, null, false)]
+    public void AttributeLabels_AreTypedWhenTheValueIsUnambiguous(string key, string value, double? number, long? integer, bool? boolean)
+    {
+        var label = TempoLabel.Attribute(key, value);
+
+        Assert.Null(label.Text);
+        Assert.Equal(number, label.Number);
+        Assert.Equal(integer, label.Integer);
+        Assert.Equal(boolean, label.Boolean);
+    }
+
+    [Theory]
+    [InlineData("span.id", "0123")]
+    [InlineData("span.route", "/cart")]
+    [InlineData("name", "200")]
+    [InlineData("status", "error")]
+    [InlineData("kind", "server")]
+    public void AttributeLabels_StayTextForAmbiguousValuesAndForIntrinsics(string key, string value) =>
+        Assert.Equal(new TempoLabel(key, value), TempoLabel.Attribute(key, value));
 }
