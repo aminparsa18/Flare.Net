@@ -175,7 +175,7 @@ public class TempoMetricsPlannerTests
         Assert.Equal(SpanMetricFunction.Compare, plan.Function);
         Assert.True(plan.Condition!.RootSpan);
         var compare = Assert.IsType<SpanCompare>(plan.Compare);
-        Assert.Equal("STATUS_CODE_ERROR", compare.Selection.StatusCode);
+        Assert.Equal("STATUS_CODE_ERROR", Assert.IsType<SpanSetCondition>(compare.Selection).Condition.StatusCode);
         Assert.Equal(5, compare.TopN);
         Assert.Null(compare.From);
     }
@@ -196,7 +196,7 @@ public class TempoMetricsPlannerTests
 
     [Fact]
     public void Compare_OfAnEmptySelection_SelectsEverySpan() =>
-        Assert.Equal(0UL, Plan("{ } | compare({ })").Compare!.Selection.MinDurationNano);
+        Assert.Equal(0UL, Assert.IsType<SpanSetCondition>(Plan("{ } | compare({ })").Compare!.Selection).Condition.MinDurationNano);
 
     [Fact]
     public void ANonCompareQuery_HasNoCompare() => Assert.Null(Plan("{ } | rate()").Compare);
@@ -282,4 +282,50 @@ public class TempoMetricsPlannerTests
     [InlineData("""{ name = "a" } && { true } | rate()""", "empty spanset")]
     public void ACombination_RejectsWhatTheSearchPlannerRejects(string traceQl, string message) =>
         Assert.Contains(message, Assert.Throws<TraceQlException>(() => Plan(traceQl)).Message);
+
+    [Fact]
+    public void Compare_OfACombination_IsASpanSetExpressionOverItsSpansets()
+    {
+        var compare = Plan("{ } | compare({ status = error } || { name = \"x\" } && { kind = server })").Compare!;
+
+        var or = Assert.IsType<SpanSetOr>(compare.Selection);
+        Assert.Equal("STATUS_CODE_ERROR", Assert.IsType<SpanSetCondition>(or.Left).Condition.StatusCode);
+        var and = Assert.IsType<SpanSetAnd>(or.Right);
+        Assert.Equal("x", Assert.IsType<SpanSetCondition>(and.Left).Condition.SpanName);
+        Assert.Equal((byte)2, Assert.IsType<SpanSetCondition>(and.Right).Condition.Kind);
+    }
+
+    [Fact]
+    public void Compare_OfACombination_KeepsTheWindowAndTheNumberOfValues()
+    {
+        var compare = Plan("{ } | compare({ status = error } || { name = \"x\" }, 7, 1700000000000000000, 1700000003600000000)").Compare!;
+
+        Assert.Equal(7, compare.TopN);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), compare.From);
+    }
+
+    [Fact]
+    public void Compare_OfARelation_IsASpanSetRelation()
+    {
+        var compare = Plan("{ } | compare({ name = \"a\" } !> { name = \"b\" })").Compare!;
+
+        var relation = Assert.IsType<SpanSetRelation>(compare.Selection);
+        Assert.Equal((TraceRelationKind.Child, true), (relation.Kind, relation.Negated));
+    }
+
+    [Fact]
+    public void Compare_OfACombination_AlsoWorksBesideACombinationQuery()
+    {
+        var plan = Plan("{ span.a = 1 } || { name = \"y\" } | compare({ status = error } || { name = \"x\" })");
+
+        Assert.IsType<SpanSetOr>(plan.Spansets);
+        Assert.IsType<SpanSetOr>(plan.Compare!.Selection);
+    }
+
+    [Theory]
+    [InlineData("{ } | compare({ rootName = \"x\" } || { name = \"y\" })")]
+    [InlineData("{ } | compare({ } || { name = \"y\" })")]
+    [InlineData("{ } | compare({ name = \"y\" } && { span.a = \"b\" } && { rootServiceName = \"x\" })")]
+    public void Compare_OfACombination_NeedsASpanConditionInEverySpanset(string traceQl) =>
+        Assert.Throws<TraceQlException>(() => Plan(traceQl));
 }

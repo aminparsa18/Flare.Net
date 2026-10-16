@@ -325,4 +325,41 @@ public class TraceQlMetricsParserTests
         Assert.Equal(2, query.Stages.Count);
         Assert.True(query.Exemplars);
     }
+
+    [Fact]
+    public void Compare_TakesACombinationOfSpansetsAsItsSelection()
+    {
+        var query = TraceQlParser.ParseMetrics("{ } | compare({ status = error } || { name = \"x\" }, 25)");
+
+        var combination = Assert.IsType<TraceQlCombination>(query.CompareCombination);
+        Assert.Equal(2, combination.Spansets.Count);
+        Assert.Equal("(A || B)", combination.Expression);
+        Assert.IsType<TraceStructureOr>(combination.Tree);
+        Assert.Empty(combination.Relations);
+        Assert.Equal("status", Assert.Single(query.CompareSelection!.Predicates).Field);
+        Assert.Equal(25, query.CompareTopN);
+        Assert.Null(query.Combination);
+    }
+
+    [Fact]
+    public void Compare_SelectionRelationsStayWithTheSelection_NotTheQuery()
+    {
+        var query = TraceQlParser.ParseMetrics("{ span.a = 1 } &>> { span.b = 2 } | compare({ name = \"x\" } !> { name = \"y\" } || { status = error })");
+
+        var selection = Assert.IsType<TraceQlCombination>(query.CompareCombination);
+        var relation = Assert.Single(selection.Relations);
+        Assert.Equal((TraceRelationKind.Child, true, false), (relation.Kind, relation.Negated, relation.Union));
+        // The query's own union relation is the only one on the query.
+        var main = Assert.IsType<TraceQlCombination>(query.Combination);
+        Assert.True(Assert.Single(main.Relations).Union);
+    }
+
+    [Fact]
+    public void Compare_OneSpansetInParentheses_IsStillOneSpanset() =>
+        Assert.Null(TraceQlParser.ParseMetrics("{ } | compare(({ status = error }))").CompareCombination);
+
+    [Fact]
+    public void Compare_SelectionOfTooManySpansets_IsRejected() =>
+        Assert.Contains("at most", Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics(
+            "{ } | compare({ span.a = 1 } || { span.a = 2 } || { span.a = 3 } || { span.a = 4 } || { span.a = 5 } || { span.a = 6 } || { span.a = 7 })")).Message);
 }

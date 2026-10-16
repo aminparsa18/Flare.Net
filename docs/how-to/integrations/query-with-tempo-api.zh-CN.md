@@ -151,7 +151,7 @@ datasources:
 
 **Exemplar** 把图表上的一个点链接到一条追踪。在 Metrics 选项中打开 **Exemplars**（Grafana 会发送 `exemplars=100`），或在查询里加上 `with(exemplars=true)`。之后每条序列的每一步都会带上其中最慢的 span（或属性值最大的 span）及追踪 ID，Grafana 把它显示为可以点开的点。仅限范围查询。
 
-**`compare()`** 把查询中的 span 分成选中组和基线组（baseline），并统计两组中每个属性的每个取值：`{ nestedSetParent < 0 } | compare({ status = error }, 10)`。第二个参数是每个属性保留的取值个数（默认 10，最多 1,000），其后可再给两个以纳秒为单位的 unix 时间戳，把选中组限制为在该窗口内开始的 span。响应中每个取值对应一条序列 `{ __meta_type="selection", span.http.route="/cart" }`（以及 `baseline`），每个属性还有一条 `selection_total` 和 `baseline_total` 序列，统计所有带有该属性的 span；取值多于保留个数的属性会多出一条带 `__meta_error="__too_many_values__"` 标签的序列。属性包括 `name`、`status`、`kind` 以及所有 `span.` 和 `resource.` 属性。它不接受 `by`，其后也不能再跟阶段，查询最多 200 步。
+**`compare()`** 把查询中的 span 分成选中组和基线组（baseline），并统计两组中每个属性的每个取值：`{ nestedSetParent < 0 } | compare({ status = error }, 10)`。第二个参数是每个属性保留的取值个数（默认 10，最多 1,000），其后可再给两个以纳秒为单位的 unix 时间戳，把选中组限制为在该窗口内开始的 span。选中组也可以是 spanset 的组合，`compare({ status = error } || { duration > 2s })`，可使用 `&&`、`||`、括号和结构运算符，与查询中一样（最多六个 spanset，不能用 `rootName`、`rootServiceName` 和 `traceDuration`）；表达式结果中的 span 即为选中组（这是 Flare 的扩展：Tempo 的语法只接受一个 spanset）。响应中每个取值对应一条序列 `{ __meta_type="selection", span.http.route="/cart" }`（以及 `baseline`），每个属性还有一条 `selection_total` 和 `baseline_total` 序列，统计所有带有该属性的 span；取值多于保留个数的属性会多出一条带 `__meta_error="__too_many_values__"` 标签的序列。属性包括 `name`、`status`、`kind` 以及所有 `span.` 和 `resource.` 属性。它不接受 `by`，其后也不能再跟阶段，查询最多 200 步。
 
 `with(sample=true)` 会被接受并忽略（Flare 的结果是精确的），可以与 `exemplars` 一起使用：`with(exemplars=true, sample=true)`。
 
@@ -159,7 +159,7 @@ datasources:
 `{ status = error } || { duration > 2s } | rate()`、`{ name = "checkout" } && { name = "payment" } | count_over_time()`。括号和结构运算符也可以组合，包括并集运算符（`&>>`、`&>`、`&~`，统计两侧的 span）：
 `({ name = "a" } ~ { name = "b" }) || { status = error } | rate() by (name)`。最多六个 spanset；`rootName`、`rootServiceName` 和 `traceDuration` 不能与其他 spanset 一起使用。追踪中的 span 从范围开始前一小时起查找，与关系查询相同。
 
-不支持：`compare()` 的选择部分不接受 spanset 的组合，以及 `<`、`<<` 及其否定与并集形式。
+不支持：`<`、`<<` 及其否定与并集形式。
 
 ## Grafana Traces Drilldown
 

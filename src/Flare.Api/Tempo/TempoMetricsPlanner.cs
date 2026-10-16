@@ -80,7 +80,7 @@ public static class TempoMetricsPlanner
             query.Exemplars,
             query.Ancestor is null ? null : new SpanAncestor(search.Conditions[0], query.AncestorKind, query.AncestorNegated),
             TraceRoot(search),
-            query.CompareSelection is { } selection ? PlanCompare(query, selection) : null);
+            PlanCompare(query));
     }
 
     /// <summary>
@@ -90,23 +90,7 @@ public static class TempoMetricsPlanner
     /// </summary>
     private static TempoMetricsPlan PlanCombination(TraceQlMetricsQuery query, TraceQlCombination combination)
     {
-        var search = TempoSearchPlanner.Plan(new TraceQlQuery(combination.Spansets, combination.Expression));
-        var conditions = search.Conditions.ToDictionary(c => char.ToUpperInvariant(c.Name[0]));
-
-        TraceSpanCondition Condition(char letter) => conditions.TryGetValue(letter, out var condition)
-            ? condition
-            : throw new TraceQlException($"spanset {letter - 'A' + 1} of the query has no span condition; each spanset of a combination needs at least one.");
-
-        SpanSetExpression Node(TraceStructureNode node) => node switch
-        {
-            TraceStructureHas has => new SpanSetCondition(Condition(has.Condition)),
-            TraceStructureRelation r => new SpanSetRelation(
-                Condition(r.Parent), Condition(r.Child), r.Kind, r.Negated,
-                combination.Relations.Any(x => x.Union && x.Left == r.Parent && x.Right == r.Child)),
-            TraceStructureAnd and => new SpanSetAnd(Node(and.Left), Node(and.Right)),
-            TraceStructureOr or => new SpanSetOr(Node(or.Left), Node(or.Right)),
-            _ => throw new TraceQlException("a metrics query combines spansets with &&, || and the structural operators only."),
-        };
+        var spansets = SpanSets(combination, "the query");
 
         var function = query.Function switch
         {
@@ -132,21 +116,60 @@ public static class TempoMetricsPlanner
             query.Exemplars,
             null,
             null,
-            query.CompareSelection is { } selection ? PlanCompare(query, selection) : null,
-            Node(combination.Tree));
+            PlanCompare(query),
+            spansets);
     }
 
-    /// <summary>The selection of <c>compare()</c> is one span predicate, planned like a spanset; trace-level fields have no per-span meaning in it.</summary>
-    private static SpanCompare PlanCompare(TraceQlMetricsQuery query, TraceQlSpanset selection)
+    /// <summary>
+    /// The tree of <paramref name="combination"/> as the <see cref="SpanSetExpression"/> the builder compiles (ADR-0232): every spanset is planned as a search
+    /// condition (<paramref name="owner"/> names what it belongs to in an error), and the tree of <c>&amp;&amp;</c>, <c>||</c> and structural operators over
+    /// the conditions becomes the expression.
+    /// </summary>
+    private static SpanSetExpression SpanSets(TraceQlCombination combination, string owner)
     {
+        var search = TempoSearchPlanner.Plan(new TraceQlQuery(combination.Spansets, combination.Expression));
+        var conditions = search.Conditions.ToDictionary(c => char.ToUpperInvariant(c.Name[0]));
+
+        TraceSpanCondition Condition(char letter) => conditions.TryGetValue(letter, out var condition)
+            ? condition
+            : throw new TraceQlException($"spanset {letter - 'A' + 1} of {owner} has no span condition; each spanset of a combination needs at least one.");
+
+        SpanSetExpression Node(TraceStructureNode node) => node switch
+        {
+            TraceStructureHas has => new SpanSetCondition(Condition(has.Condition)),
+            TraceStructureRelation r => new SpanSetRelation(
+                Condition(r.Parent), Condition(r.Child), r.Kind, r.Negated,
+                combination.Relations.Any(x => x.Union && x.Left == r.Parent && x.Right == r.Child)),
+            TraceStructureAnd and => new SpanSetAnd(Node(and.Left), Node(and.Right)),
+            TraceStructureOr or => new SpanSetOr(Node(or.Left), Node(or.Right)),
+            _ => throw new TraceQlException($"{owner} combines spansets with &&, || and the structural operators only."),
+        };
+
+        return Node(combination.Tree);
+    }
+
+    /// <summary>
+    /// The selection of <c>compare()</c>: one span predicate, planned like a spanset, or a combination of spansets (ADR-0234) planned like a metrics query's own;
+    /// trace-level fields have no per-span meaning in it. Null for a query that is not <c>compare()</c>.
+    /// </summary>
+    private static SpanCompare? PlanCompare(TraceQlMetricsQuery query)
+    {
+        if (query.CompareSelection is not { } selection)
+        {
+            return null;
+        }
+
+        var from = query.CompareStartNanos is { } start ? FromNanos(start) : (DateTimeOffset?)null;
+        var to = query.CompareEndNanos is { } end ? FromNanos(end) : (DateTimeOffset?)null;
+        if (query.CompareCombination is { } combination)
+        {
+            return new SpanCompare(SpanSets(combination, "compare()'s selection"), query.CompareTopN, from, to);
+        }
+
         // compare({}) selects every span (Traces Drilldown's duration Comparison tab sends it before a range is dragged), so the baseline is empty.
         if (selection.Predicates.Count == 0)
         {
-            return new SpanCompare(
-                new TraceSpanCondition { Name = "A", MinDurationNano = 0 },
-                query.CompareTopN,
-                query.CompareStartNanos is { } from ? FromNanos(from) : null,
-                query.CompareEndNanos is { } to ? FromNanos(to) : null);
+            return new SpanCompare(new SpanSetCondition(new TraceSpanCondition { Name = "A", MinDurationNano = 0 }), query.CompareTopN, from, to);
         }
 
         var plan = TempoSearchPlanner.Plan(new TraceQlQuery([selection], "A"));
@@ -155,11 +178,7 @@ public static class TempoMetricsPlanner
             throw new TraceQlException("compare() needs a selection of spans, e.g. compare({ status = error }); rootName, rootServiceName and traceDuration cannot select spans.");
         }
 
-        return new SpanCompare(
-            plan.Conditions[0],
-            query.CompareTopN,
-            query.CompareStartNanos is { } start ? FromNanos(start) : null,
-            query.CompareEndNanos is { } end ? FromNanos(end) : null);
+        return new SpanCompare(new SpanSetCondition(plan.Conditions[0]), query.CompareTopN, from, to);
     }
 
     private static DateTimeOffset FromNanos(ulong nanos) =>
