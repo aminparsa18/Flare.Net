@@ -80,7 +80,6 @@ public class TraceQlParserTests
     [InlineData("{ name = }", "unexpected")]
     [InlineData("{ name }", "needs a comparison")]
     [InlineData("{ name = \"unterminated }", "not closed")]
-    [InlineData("{ span.x = nil }", "nil")]
     [InlineData("{ span.x = span.y }", "not a value")]
     [InlineData("{ duration > 5q }", "valid number or duration")]
     [InlineData("{ name = \"a\" ", "ends")]
@@ -114,4 +113,32 @@ public class TraceQlParserTests
     [InlineData("s")]
     [InlineData("5x")]
     public void NotADuration_IsRejected(string text) => Assert.False(TraceQlParser.TryParseDuration(text, out _));
+
+    [Theory]
+    [InlineData("{ true }")]
+    [InlineData("{ true && status = error }")]
+    [InlineData("{ status = error && true }")]
+    [InlineData("{ nestedSetParent<0 && true && status = error }")]
+    public void ABareTrue_IsAPredicateThatChangesNothing(string traceQl)
+    {
+        var spanset = Assert.Single(TraceQlParser.Parse(traceQl).Spansets);
+
+        Assert.DoesNotContain(spanset.Predicates, p => p.Field == "true");
+    }
+
+    [Fact]
+    public void ABareFalse_IsRejected()
+    {
+        var ex = Assert.Throws<TraceQlException>(() => TraceQlParser.Parse("{ false }"));
+
+        Assert.Contains("matches no span", ex.Message);
+    }
+
+    [Fact]
+    public void TrueAsAValue_StillParses() =>
+        Assert.Equal(TraceQlValueKind.Bool, Assert.Single(TraceQlParser.Parse("{ span.cached = true }").Spansets[0].Predicates).Value.Kind);
+
+    [Fact]
+    public void Nil_IsAValue() =>
+        Assert.Equal(TraceQlValueKind.Nil, Assert.Single(TraceQlParser.Parse("{ span.x != nil }").Spansets[0].Predicates).Value.Kind);
 }

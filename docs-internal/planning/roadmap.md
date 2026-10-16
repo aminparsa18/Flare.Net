@@ -90,12 +90,13 @@ folders are where "what happened and why" actually lives.
   ([ADR-0155](../adr/0155-otlp-forwarding.md)), a read-only Prometheus API a Grafana data source can query
   ([ADR-0109](../adr/0109-prometheus-query-api.md)) and a read-only Tempo-compatible trace API
   ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)). Remaining, roughly in priority order:
-  - Tempo API follow-ups (ADR-0217, ADR-0221 to ADR-0225): TraceQL metrics take one spanset, or one `{ a } >> { b }`
-    relation, and one function, then `topk`, `bottomk` and comparison stages. Still missing, in this order: Grafana's
-    Traces Drilldown app (the only consumer of `compare()`), which fails on its first request because it sends
-    `nestedSetParent<0` for root spans, a bare `true`, `!= nil`, `with(sample=true)` and `by(` without a space (found by
-    installing the app into Grafana 13.2.4); then `compare({ selection })` itself (ADR-0224, ADR-0225); then `&&` and `||`
-    between spansets in a metrics query. Trace-to-logs needs the Loki-compatible API below.
+  - Tempo API follow-ups (ADR-0217, ADR-0221 to ADR-0226): TraceQL metrics take one spanset, or one `{ a } >> { b }`
+    relation, and one function (including `compare()`), then `topk`, `bottomk` and comparison stages. Grafana's Traces
+    Drilldown works for its overview, Breakdown, Comparison and Traces views. Still missing, in this order: its Service
+    structure and Root cause errors tabs (the union structural operator `&>>`, `select()` and the nested-set positions of a
+    trace's spans); its Exceptions tab (`select()` over span events, `event.` as an attribute scope, `with(most_recent=true)`
+    in search); `&&` and `||` between spansets in a metrics query, which no known consumer uses. Trace-to-logs needs the
+    Loki-compatible API below.
   - A Loki-compatible log API (a LogQL subset), the same idea for logs.
   - A fuller Prometheus API: operators between series (`a / b`), `offset`, `topk`, `quantile` and more functions, which
     error ratios and "top N hosts by CPU" panels need. Exemplars, so a latency chart links to a sample trace.

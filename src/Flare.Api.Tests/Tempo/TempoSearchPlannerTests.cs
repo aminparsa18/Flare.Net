@@ -230,4 +230,59 @@ public class TempoSearchPlannerTests
     [Fact]
     public void InvalidDurationParameter_IsRejected() =>
         Assert.Throws<TraceQlException>(() => TempoSearchPlanner.WithDurations(new TempoSearchPlan(), "soon", null));
+
+    [Theory]
+    [InlineData("{ nestedSetParent < 0 }", true)]
+    [InlineData("{ nestedSetParent <= -1 }", true)]
+    [InlineData("{ nestedSetParent = -1 }", true)]
+    [InlineData("{ nestedSetParent<0 && true }", true)]
+    [InlineData("{ nestedSetParent > 0 }", false)]
+    [InlineData("{ nestedSetParent >= 1 }", false)]
+    [InlineData("{ nestedSetParent != -1 }", false)]
+    [InlineData("{ nestedSetParent > -1 }", false)]
+    [InlineData("{ nestedSetParent = 3 }", false)]
+    public void NestedSetParent_SelectsRootOrNonRootSpans(string traceQl, bool root)
+    {
+        var condition = Assert.Single(Plan(traceQl).Conditions);
+
+        Assert.Equal(root, condition.RootSpan);
+    }
+
+    [Theory]
+    [InlineData("{ nestedSetParent < 100 }")]
+    [InlineData("{ nestedSetParent >= -1 }")]
+    [InlineData("{ nestedSetParent != 0 }")]
+    public void NestedSetParent_TheEverySpanCanSatisfy_AddsNoRestriction(string traceQl) => Assert.Empty(Plan(traceQl).Conditions);
+
+    [Theory]
+    [InlineData("{ nestedSetParent < -1 }")]
+    [InlineData("{ nestedSetParent > 0 && nestedSetParent < 0 }")]
+    public void NestedSetParent_NoSpanCanSatisfy_IsRejected(string traceQl) => Assert.Throws<TraceQlException>(() => Plan(traceQl));
+
+    [Fact]
+    public void NestedSetParent_NeedsAWholeNumber() => Assert.Throws<TraceQlException>(() => Plan("{ nestedSetParent < 0.5 }"));
+
+    [Fact]
+    public void RootSpanAlone_IsAConditionOfItsOwn_AndCombinesWithOthers()
+    {
+        var condition = Assert.Single(Plan("{ nestedSetParent<0 && true && status = error }").Conditions);
+
+        Assert.True(condition.RootSpan);
+        Assert.Equal("STATUS_CODE_ERROR", condition.StatusCode);
+    }
+
+    [Fact]
+    public void NotNil_IsAttributePresence_AndNil_IsAbsence()
+    {
+        var present = Assert.Single(Assert.Single(Plan("{ resource.service.name != nil }").Conditions).Attributes!);
+        var absent = Assert.Single(Assert.Single(Plan("{ span.http.route = nil }").Conditions).Attributes!);
+
+        Assert.Equal((SpanAttributeBag.Resource, "service.name", SpanAttributeFilterOperator.Exists), (present.Bag, present.Key, present.Operator));
+        Assert.Equal((SpanAttributeBag.Span, "http.route", SpanAttributeFilterOperator.Absent), (absent.Bag, absent.Key, absent.Operator));
+    }
+
+    [Theory]
+    [InlineData("{ span.x > nil }")]
+    [InlineData("{ span.x =~ nil }")]
+    public void Nil_OnlyWorksWithEqualityOperators(string traceQl) => Assert.Throws<TraceQlException>(() => Plan(traceQl));
 }

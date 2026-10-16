@@ -30,6 +30,9 @@ public enum TraceQlValueKind
     /// <summary>The bare words <c>error</c>, <c>ok</c> and <c>unset</c>.</summary>
     Status,
 
+    /// <summary>The literal <c>nil</c>: <c>x != nil</c> is "has the attribute".</summary>
+    Nil,
+
     /// <summary>The bare span kind words (<c>server</c>, <c>client</c>, ...). Compared with <c>kind</c>.</summary>
     Kind,
 }
@@ -59,6 +62,9 @@ public enum TraceQlMetricsFunction
     MaxOverTime,
     SumOverTime,
     HistogramOverTime,
+
+    /// <summary><c>compare({ selection })</c> (ADR-0226): not an aggregate of the spans but a comparison of two groups of them.</summary>
+    Compare,
 }
 
 /// <summary>A stage after the metrics function, applied to its series in the order written (ADR-0224, ADR-0225).</summary>
@@ -97,10 +103,14 @@ public sealed record TraceQlFilter(TraceQlComparison Op, double Value) : TraceQl
 /// <param name="By">The <c>by (...)</c> fields as written: <c>name</c>, <c>status</c>, <c>kind</c>, <c>span.x</c>, <c>resource.x</c> or <c>.x</c>.</param>
 /// <param name="Stages">What follows the function, in order: <c>| topk(n)</c>, <c>| bottomk(n)</c> and comparisons (<c>&gt; 5</c>); empty if none.</param>
 /// <param name="Exemplars">Whether the query asked for exemplars with <c>with(exemplars=true)</c>.</param>
+/// <param name="CompareSelection">For <see cref="TraceQlMetricsFunction.Compare"/>, the <c>{ selection }</c> argument: the spans it matches are compared with the rest of <see cref="Spanset"/>'s.</param>
+/// <param name="CompareTopN">The values kept per attribute by <c>compare()</c>, 10 unless the query says.</param>
+/// <param name="CompareStartNanos">With <paramref name="CompareEndNanos"/>: only spans that started in this window (unix nanoseconds, start exclusive, end inclusive) can be in the selection.</param>
 /// <param name="Ancestor">For <c>{ a } &gt;&gt; { b } | rate()</c>, the left spanset <c>{ a }</c>: <see cref="Spanset"/> (the right one) counts only spans that have a span matching it above them (ADR-0225). Null for a plain spanset.</param>
 /// <param name="AncestorDirect">True for <c>&gt;</c> (the matching span is the parent), false for <c>&gt;&gt;</c> (any ancestor).</param>
 /// <param name="ValueField">What <c>avg_over_time</c> and the other value functions aggregate, as written: <c>span.x</c>, <c>resource.x</c> or <c>.x</c> for a numeric attribute (ADR-0222); null is <c>duration</c> (and for <c>rate</c> and <c>count_over_time</c>, which take no argument).</param>
-public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, IReadOnlyList<TraceQlMetricsStage>? Stages = null, bool Exemplars = false, TraceQlSpanset? Ancestor = null, bool AncestorDirect = false)
+public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, IReadOnlyList<TraceQlMetricsStage>? Stages = null, bool Exemplars = false, TraceQlSpanset? Ancestor = null, bool AncestorDirect = false,
+    TraceQlSpanset? CompareSelection = null, int CompareTopN = TraceQlParser.DefaultCompareTopN, ulong? CompareStartNanos = null, ulong? CompareEndNanos = null)
 {
     public IReadOnlyList<TraceQlMetricsStage> Stages { get; } = Stages ?? [];
 
@@ -114,6 +124,7 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
         TraceQlMetricsFunction.MinOverTime => "min_over_time",
         TraceQlMetricsFunction.MaxOverTime => "max_over_time",
         TraceQlMetricsFunction.HistogramOverTime => "histogram_over_time",
+        TraceQlMetricsFunction.Compare => "compare",
         _ => "sum_over_time",
     };
 }
@@ -142,7 +153,8 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 /// metrics := [spanset (">" | ">>")] spanset "|" function ["by" "(" field ("," field)* ")"] stage* ["with" "(" "exemplars" "=" bool ")"]
 /// stage   := "|" ("topk" | "bottomk") "(" integer ")" | compare number
 /// compare := "=" | "!=" | "&lt;" | "&lt;=" | "&gt;" | "&gt;="
-/// function := "rate" "(" ")" | "count_over_time" "(" ")" | "quantile_over_time" "(" value ("," number)+ ")"
+/// function := "compare" "(" spanset ["," topN ["," startNanos "," endNanos]] ")"
+///           | "rate" "(" ")" | "count_over_time" "(" ")" | "quantile_over_time" "(" value ("," number)+ ")"
 ///           | ("avg_over_time" | "min_over_time" | "max_over_time" | "sum_over_time" | "histogram_over_time") "(" value ")"
 /// value    := "duration" | "span." name | "resource." name | "." name
 /// </code>
@@ -157,11 +169,17 @@ public static class TraceQlParser
     /// <summary>The most stages (<c>| topk(n)</c>, comparisons) after a metrics function.</summary>
     public const int MaxStages = 10;
 
+    /// <summary>The values per attribute <c>compare()</c> keeps unless the query names a number, as in Tempo.</summary>
+    public const int DefaultCompareTopN = 10;
+
+    /// <summary>The most values per attribute <c>compare()</c> can keep.</summary>
+    public const int MaxCompareTopN = 1000;
+
     /// <summary>The most <c>by (...)</c> fields.</summary>
     public const int MaxGroupFields = 5;
 
     private static readonly string[] SupportedFunctions =
-        ["rate", "count_over_time", "quantile_over_time", "avg_over_time", "min_over_time", "max_over_time", "sum_over_time", "histogram_over_time"];
+        ["rate", "count_over_time", "quantile_over_time", "avg_over_time", "min_over_time", "max_over_time", "sum_over_time", "histogram_over_time", "compare"];
 
     /// <summary>
     /// Parses <c>{ spanset } | function(...) [by (...)]</c>. The spanset is one <c>{ ... }</c>, or two related by <c>&gt;</c>
@@ -374,9 +392,17 @@ public static class TraceQlParser
             Expect(TokenKind.LParen, "(");
             var quantiles = new List<double>();
             string? valueField = null;
+            TraceQlSpanset? selection = null;
+            var topN = DefaultCompareTopN;
+            ulong? selectionStart = null;
+            ulong? selectionEnd = null;
             TraceQlMetricsFunction function;
             switch (name)
             {
+                case "compare":
+                    function = TraceQlMetricsFunction.Compare;
+                    (selection, topN, selectionStart, selectionEnd) = ParseCompareArguments();
+                    break;
                 case "rate" or "count_over_time":
                     function = name == "rate" ? TraceQlMetricsFunction.Rate : TraceQlMetricsFunction.CountOverTime;
                     break;
@@ -412,6 +438,11 @@ public static class TraceQlParser
 
             Expect(TokenKind.RParen, ")");
             var by = new List<string>();
+            if (function == TraceQlMetricsFunction.Compare && Peek.Kind == TokenKind.Word && Peek.Text == "by")
+            {
+                throw new TraceQlException("compare() takes no by (...); it compares every attribute.");
+            }
+
             if (Peek.Kind == TokenKind.Word && Peek.Text == "by")
             {
                 _pos++;
@@ -433,12 +464,17 @@ public static class TraceQlParser
             var exemplars = false;
             if (Peek.Kind == TokenKind.Word && Peek.Text == "with")
             {
-                exemplars = ParseHints();
+                exemplars = ParseHints() ?? exemplars;
             }
 
             var stages = new List<TraceQlMetricsStage>();
             while (Peek.Kind == TokenKind.Pipe || IsComparison(Peek))
             {
+                if (function == TraceQlMetricsFunction.Compare)
+                {
+                    throw new TraceQlException("compare() cannot be followed by topk(), bottomk() or a comparison.");
+                }
+
                 if (stages.Count == MaxStages)
                 {
                     throw new TraceQlException($"at most {MaxStages} stages can follow the metrics function.");
@@ -447,7 +483,7 @@ public static class TraceQlParser
                 stages.Add(Peek.Kind == TokenKind.Pipe ? ParseRankStage() : ParseFilterStage());
                 if (Peek.Kind == TokenKind.Word && Peek.Text == "with")
                 {
-                    exemplars = ParseHints();
+                    exemplars = ParseHints() ?? exemplars;
                 }
             }
 
@@ -456,7 +492,7 @@ public static class TraceQlParser
                 throw Unexpected(Peek);
             }
 
-            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorDirect);
+            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorDirect, selection, topN, selectionStart, selectionEnd);
         }
 
         /// <summary>
@@ -508,6 +544,57 @@ public static class TraceQlParser
             _pos++;
             Expect(TokenKind.RParen, ")");
             return new TraceQlRank(token.Text == "topk", k);
+        }
+
+        /// <summary><c>{ selection }</c> and, optionally, the number of values to keep per attribute and the selection's time window in unix nanoseconds (both or neither).</summary>
+        private (TraceQlSpanset Selection, int TopN, ulong? Start, ulong? End) ParseCompareArguments()
+        {
+            if (Peek.Kind != TokenKind.LBrace)
+            {
+                throw new TraceQlException("compare() needs the spans to select as its first argument, e.g. compare({ status = error }).");
+            }
+
+            var selections = new List<TraceQlSpanset>();
+            ParseOperand(selections);
+            var topN = DefaultCompareTopN;
+            ulong? start = null;
+            ulong? end = null;
+            if (Peek.Kind == TokenKind.Comma)
+            {
+                _pos++;
+                var count = Peek;
+                if (count.Kind != TokenKind.Word || !int.TryParse(count.Text, NumberStyles.None, CultureInfo.InvariantCulture, out topN) || topN is < 1 or > MaxCompareTopN)
+                {
+                    throw new TraceQlException($"compare()'s second argument is the number of values to keep per attribute, 1 to {MaxCompareTopN}.");
+                }
+
+                _pos++;
+                if (Peek.Kind == TokenKind.Comma)
+                {
+                    _pos++;
+                    start = ParseNanos();
+                    Expect(TokenKind.Comma, ",");
+                    end = ParseNanos();
+                    if (end <= start)
+                    {
+                        throw new TraceQlException("compare()'s end timestamp must be after its start timestamp.");
+                    }
+                }
+            }
+
+            return (selections[0], topN, start, end);
+        }
+
+        private ulong ParseNanos()
+        {
+            var token = Peek;
+            if (token.Kind != TokenKind.Word || !ulong.TryParse(token.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var nanos))
+            {
+                throw new TraceQlException("compare()'s start and end are unix timestamps in nanoseconds, both or neither.");
+            }
+
+            _pos++;
+            return nanos;
         }
 
         private static bool IsComparison(Token token) =>
@@ -571,33 +658,55 @@ public static class TraceQlParser
                 : throw new TraceQlException($"'{field}' cannot be grouped by; use name, status, kind, span.x, resource.x or .x.");
         }
 
-        /// <summary><c>with(exemplars = true)</c>: whether exemplars were asked for (ADR-0223). Any other hint is an error.</summary>
-        private bool ParseHints()
+        /// <summary>
+        /// <c>with(exemplars = true, sample = true)</c>: the hints, comma-separated. <c>exemplars</c> is returned (ADR-0223), null when the
+        /// clause does not set it; <c>sample</c> (Traces Drilldown adds <c>sample=true</c> to ask Tempo for an approximate answer) is
+        /// read and ignored, since Flare's answer is exact (ADR-0226). Any other hint is an error.
+        /// </summary>
+        private bool? ParseHints()
         {
             _pos++;
             Expect(TokenKind.LParen, "(");
-            var hint = Peek;
-            if (hint.Kind != TokenKind.Word || hint.Text != "exemplars")
+            bool? exemplars = null;
+            while (true)
             {
-                throw new TraceQlException($"the query hint '{(hint.Kind == TokenKind.Word ? hint.Text : hint.Kind.ToString())}' is not supported; only with(exemplars=...) is accepted.");
+                var hint = Peek;
+                if (hint.Kind != TokenKind.Word || hint.Text is not ("exemplars" or "sample"))
+                {
+                    throw new TraceQlException($"the query hint '{(hint.Kind == TokenKind.Word ? hint.Text : hint.Kind.ToString())}' is not supported; only with(exemplars=...) and with(sample=...) are accepted.");
+                }
+
+                _pos++;
+                if (!IsOperator("="))
+                {
+                    throw Unexpected(Peek);
+                }
+
+                _pos++;
+                var value = Peek;
+                var isBool = value.Kind == TokenKind.Word && value.Text is "true" or "false";
+                var isNumber = hint.Text == "sample" && value.Kind == TokenKind.Word && double.TryParse(value.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+                if (!isBool && !isNumber)
+                {
+                    throw Unexpected(value);
+                }
+
+                if (hint.Text == "exemplars")
+                {
+                    exemplars = value.Text == "true";
+                }
+
+                _pos++;
+                if (Peek.Kind != TokenKind.Comma)
+                {
+                    break;
+                }
+
+                _pos++;
             }
 
-            _pos++;
-            if (!IsOperator("="))
-            {
-                throw Unexpected(Peek);
-            }
-
-            _pos++;
-            if (Peek.Kind != TokenKind.Word || Peek.Text is not ("true" or "false"))
-            {
-                throw Unexpected(Peek);
-            }
-
-            var enabled = Peek.Text == "true";
-            _pos++;
             Expect(TokenKind.RParen, ")");
-            return enabled;
+            return exemplars;
         }
 
         public Token Peek => tokens[_pos];
@@ -670,11 +779,11 @@ public static class TraceQlParser
             var predicates = new List<TraceQlPredicate>();
             if (Peek.Kind != TokenKind.RBrace)
             {
-                predicates.Add(ParsePredicate());
+                AddPredicate(predicates);
                 while (IsOperator("&&"))
                 {
                     _pos++;
-                    predicates.Add(ParsePredicate());
+                    AddPredicate(predicates);
                 }
 
                 if (IsOperator("||"))
@@ -693,6 +802,27 @@ public static class TraceQlParser
             // Letter 'A' + index; the caller bounds the count by MaxConditions (< 26).
             return ((char)('A' + spansets.Count - 1)).ToString();
         }
+
+        /// <summary>A predicate, or nothing for a bare <c>true</c>: Traces Drilldown writes <c>{ nestedSetParent&lt;0 &amp;&amp; true }</c> to have something to append filters to.</summary>
+        private void AddPredicate(List<TraceQlPredicate> predicates)
+        {
+            var token = Peek;
+            var standsAlone = tokens[_pos + 1].Kind is TokenKind.RBrace or TokenKind.End || IsOperatorAt(_pos + 1, "&&");
+            if (token.Kind == TokenKind.Word && token.Text is "true" or "false" && standsAlone)
+            {
+                _pos++;
+                if (token.Text == "false")
+                {
+                    throw new TraceQlException("'false' as a condition matches no span.");
+                }
+
+                return;
+            }
+
+            predicates.Add(ParsePredicate());
+        }
+
+        private bool IsOperatorAt(int index, string op) => tokens[index].Kind == TokenKind.Operator && tokens[index].Text == op;
 
         private TraceQlPredicate ParsePredicate()
         {
@@ -755,7 +885,7 @@ public static class TraceQlParser
                 case "unspecified" or "internal" or "server" or "client" or "producer" or "consumer":
                     return new TraceQlValue(TraceQlValueKind.Kind, text);
                 case "nil":
-                    throw new TraceQlException("nil comparisons are not supported.");
+                    return new TraceQlValue(TraceQlValueKind.Nil, text);
             }
 
             if (!char.IsDigit(text[0]) && !(text[0] == '-' && text.Length > 1 && char.IsDigit(text[1])))

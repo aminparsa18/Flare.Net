@@ -162,4 +162,35 @@ public class TempoMetricsPlannerTests
     {
         Assert.Throws<TraceQlException>(() => Plan("{ statusMessage = \"x\" } | rate()"));
     }
+
+    [Fact]
+    public void Compare_PlansTheSelectionAsASpanCondition()
+    {
+        var plan = Plan("{nestedSetParent<0 && true} | compare({status = error && span.http.route = \"/x\"}, 5)");
+
+        Assert.Equal(SpanMetricFunction.Compare, plan.Function);
+        Assert.True(plan.Condition!.RootSpan);
+        var compare = Assert.IsType<SpanCompare>(plan.Compare);
+        Assert.Equal("STATUS_CODE_ERROR", compare.Selection.StatusCode);
+        Assert.Equal(5, compare.TopN);
+        Assert.Null(compare.From);
+    }
+
+    [Fact]
+    public void Compare_TurnsTheWindowFromNanosecondsIntoTimes()
+    {
+        var compare = Plan("{ } | compare({ status = error }, 10, 1700000000000000000, 1700000003600000000)").Compare!;
+
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), compare.From);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_700_000_003) + TimeSpan.FromMilliseconds(600), compare.To);
+    }
+
+    [Theory]
+    [InlineData("{ } | compare({ }) ")]
+    [InlineData("{ } | compare({ rootName = \"x\" })")]
+    [InlineData("{ } | compare({ traceDuration > 1s })")]
+    public void Compare_NeedsASpanSelection(string traceQl) => Assert.Throws<TraceQlException>(() => Plan(traceQl));
+
+    [Fact]
+    public void ANonCompareQuery_HasNoCompare() => Assert.Null(Plan("{ } | rate()").Compare);
 }

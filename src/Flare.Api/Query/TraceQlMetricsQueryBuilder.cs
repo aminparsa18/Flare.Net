@@ -23,6 +23,9 @@ public enum SpanMetricFunction
     /// A row's <see cref="SpanMetricRow.Values"/> holds the bucket's exponent <c>k</c>, the bucket being values up to <c>2^k</c>.
     /// </summary>
     Histogram,
+
+    /// <summary><c>compare()</c> (ADR-0226): built by <see cref="TraceQlMetricsQueryBuilder.BuildCompare"/>, read as <see cref="SpanCompareRow"/>s.</summary>
+    Compare,
 }
 
 /// <summary>What a <see cref="SpanGroupBy"/> reads from a span.</summary>
@@ -52,6 +55,19 @@ public sealed record SpanAncestor(TraceSpanCondition Condition, bool Direct);
 /// </summary>
 public sealed record SpanTraceRoot(IReadOnlyList<string> Services, IReadOnlyList<string> Names, ulong? MinDurationNano, ulong? MaxDurationNano);
 
+/// <summary>
+/// The arguments of <c>compare({ selection }, topN, start, end)</c> (ADR-0226): the spans matching <see cref="Selection"/>
+/// (and, with <see cref="From"/> and <see cref="To"/>, that started after the first and at or before the second) are the
+/// selection, the other spans of the query the baseline. Per attribute, the <see cref="TopN"/> most common values of each.
+/// </summary>
+public sealed record SpanCompare(TraceSpanCondition Selection, int TopN, DateTimeOffset? From, DateTimeOffset? To);
+
+/// <summary>One attribute value's span count in one step, for the selection or the baseline (ADR-0226).</summary>
+/// <param name="Bucket">The step's index from <see cref="SpanMetricsRequest.From"/>.</param>
+/// <param name="Attribute">As TraceQL names it: <c>name</c>, <c>status</c>, <c>kind</c>, <c>span.x</c> or <c>resource.x</c>.</param>
+/// <param name="Value">The attribute's value; empty for the spans whose value is not among the top ones, which only count towards the attribute's total.</param>
+public sealed record SpanCompareRow(long Bucket, bool Selection, string Attribute, string Value, double Weight);
+
 /// <param name="Condition">The span predicate of the query's spanset; null matches every span.</param>
 /// <param name="Exemplars">With <see cref="TraceQlMetricsQueryBuilder.BuildExemplars"/>: the most exemplars wanted; ignored by <see cref="TraceQlMetricsQueryBuilder.Build"/>.</param>
 /// <param name="Value">What <see cref="Function"/> aggregates; null is the span's duration. Ignored by <see cref="SpanMetricFunction.Count"/>.</param>
@@ -67,7 +83,8 @@ public sealed record SpanMetricsRequest(
     SpanValueAttribute? Value = null,
     int Exemplars = 0,
     SpanAncestor? Ancestor = null,
-    SpanTraceRoot? Root = null);
+    SpanTraceRoot? Root = null,
+    SpanCompare? Compare = null);
 
 /// <summary>One group's aggregate in one step. <see cref="Values"/> holds one number, or one per quantile.</summary>
 /// <param name="Bucket">The step's index from <see cref="SpanMetricsRequest.From"/>.</param>
@@ -134,6 +151,15 @@ public static class TraceQlMetricsQueryBuilder
     /// <summary>The most groups (series, for the other functions) a query keeps.</summary>
     public static int MaxGroups(SpanMetricFunction function) => function == SpanMetricFunction.Histogram ? MaxHistogramGroups : MaxSeries;
 
+    /// <summary>The longest value of an attribute <c>compare()</c> looks at; a longer one (a URL with a query string, a stack trace) is not a category.</summary>
+    public const int MaxCompareValueLength = 256;
+
+    /// <summary>The most steps a <c>compare()</c> spans: it returns a series per attribute value and step.</summary>
+    public const int MaxCompareSteps = 200;
+
+    /// <summary>The most rows a <c>compare()</c> can return; more is an error, never a silent cut.</summary>
+    public const int MaxCompareRows = 500_000;
+
     /// <summary>The most steps a query spans.</summary>
     public const int MaxSteps = 1500;
 
@@ -165,6 +191,52 @@ public static class TraceQlMetricsQueryBuilder
         }
 
         var sql = $"SELECT {string.Join(", ", select)}\nFROM spans WHERE {filter}\nGROUP BY {string.Join(", ", groupBy)}\nORDER BY {string.Join(", ", groupBy)}";
+        return new SpanMetricsSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// <c>compare()</c> (ADR-0226), in two passes over the spans of the query. The first finds, per attribute and per group
+    /// (selection or baseline), the <see cref="SpanCompare.TopN"/> + 1 most common values; the extra one lets the caller see that
+    /// an attribute has more values than it keeps. The second counts spans per step, group, attribute and value, with every
+    /// value outside the first pass's list read as empty, so the rows still add up to the attribute's total per step.
+    /// An attribute is every <c>span.x</c> and <c>resource.x</c> the span carries and its <c>name</c>, <c>status</c> and <c>kind</c>;
+    /// an empty value, or one longer than <see cref="MaxCompareValueLength"/>, is not counted.
+    /// </summary>
+    public static SpanMetricsSql BuildCompare(SpanMetricsRequest request, PromotedAttributeColumns? promoted = null)
+    {
+        var compare = request.Compare ?? throw new ArgumentException("compare() needs its arguments.", nameof(request));
+        if ((request.To - request.From).TotalSeconds / request.StepSeconds > MaxCompareSteps)
+        {
+            throw new ArgumentException($"compare() spans at most {MaxCompareSteps} steps; use a larger step or a shorter range.", nameof(request));
+        }
+
+        var (parameters, _, _, _, filter) = Prepare(request, promoted);
+        var selected = TraceStructureSqlBuilder.ConditionMatch(compare.Selection, 'S', parameters, promoted);
+        if (compare.From is { } from && compare.To is { } to)
+        {
+            parameters.AddParameter("mSelFrom", from.UtcDateTime);
+            parameters.AddParameter("mSelTo", to.UtcDateTime);
+            selected += " AND StartTime > {mSelFrom:DateTime64(9)} AND StartTime <= {mSelTo:DateTime64(9)}";
+        }
+
+        parameters.AddParameter("mTopN", (long)compare.TopN + 1);
+        var attributes =
+            "arrayFilter(x -> x.2 != '' AND length(x.2) <= " + MaxCompareValueLength + ", arrayConcat(" +
+            "[('name', Name), " +
+            "('status', multiIf(StatusCode = 'STATUS_CODE_ERROR', 'error', StatusCode = 'STATUS_CODE_OK', 'ok', 'unset')), " +
+            "('kind', ['unspecified', 'internal', 'server', 'client', 'producer', 'consumer'][least(toUInt16(Kind), 5) + 1])], " +
+            "arrayMap((k, v) -> (concat('span.', k), v), mapKeys(SpanAttributes), mapValues(SpanAttributes)), " +
+            "arrayMap((k, v) -> (concat('resource.', k), v), mapKeys(ResourceAttributes), mapValues(ResourceAttributes))))";
+        var spans = "SELECT intDiv(toInt64(toUnixTimestamp(StartTime)) - {mStart:Int64}, {mStep:Int64}) AS Bucket, " +
+            $"({selected}) AS IsSel, SampleWeight AS W, {attributes} AS Attrs FROM spans WHERE {filter}";
+        // One row per span and attribute value; the pair is split in a subquery because ClickHouse's analyzer cannot reach into the ARRAY JOIN alias from an IN.
+        var expanded = $"SELECT Bucket, IsSel, W, p.1 AS A, p.2 AS V FROM ({spans}) ARRAY JOIN Attrs AS p";
+        var top = $"SELECT IsSel, A, V FROM ({expanded}) GROUP BY IsSel, A, V ORDER BY sum(W) DESC, V LIMIT {{mTopN:Int64}} BY IsSel, A";
+
+        // The IN is evaluated in its own SELECT, below the GROUP BY: ClickHouse's analyzer loses the column when it is inside the grouped expression.
+        var kept = $"SELECT Bucket, IsSel, W, A, if((IsSel, A, V) GLOBAL IN ({top}), V, '') AS Kept FROM ({expanded})";
+        var sql = $"SELECT Bucket, IsSel, A, Kept, toFloat64(sum(W)) AS Weight\nFROM ({kept})\n" +
+            "GROUP BY Bucket, IsSel, A, Kept\nORDER BY Bucket, IsSel, A, Kept";
         return new SpanMetricsSql(sql, parameters);
     }
 

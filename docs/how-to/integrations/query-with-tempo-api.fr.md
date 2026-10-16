@@ -112,6 +112,9 @@ correspondants (`spanSets`), avec les attributs sur lesquels la requête a compa
 | Champs intrinsèques de la trace, dans une requête à un seul spanset : `rootName`, `rootServiceName`, `traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
 | Combinaison de spansets : `&&`, `\|\|`, enfant `>`, descendant `>>` | `{ resource.service.name = "checkout" } >> { status = error }` |
 | Attributs sans portée | `{ .service.name = "api" }` |
+| Spans racines : `nestedSetParent < 0` (`> 0` pour les spans qui ont un parent) | `{ nestedSetParent < 0 && status = error }` |
+| Un attribut défini, `!= nil`, ou non, `= nil` | `{ resource.k8s.pod.name != nil }` |
+| Un `true` seul, qui ne change rien | `{ nestedSetParent < 0 && true }` |
 
 Non pris en charge dans une recherche : les pipelines `|` (`count()`, `avg()`, `select()`, `by()`, ... ; une requête de métriques en accepte un, ci-dessous), `||` à l'intérieur d'un même spanset, `statusMessage` et la comparaison de deux champs.
 
@@ -139,7 +142,21 @@ Après la fonction, les étapes s'exécutent de gauche à droite. `| topk(5)` ou
 
 Les **exemplars** relient un point d'un graphique à une trace. Activez **Exemplars** dans les options Metrics (Grafana envoie `exemplars=100`) ou ajoutez `with(exemplars=true)` à la requête. Chaque pas de chaque série porte alors son span le plus lent (ou celui dont la valeur d'attribut est la plus grande) avec un identifiant de trace, et Grafana l'affiche comme un point qu'on peut ouvrir. Requêtes sur plage uniquement.
 
-Non pris en charge : `compare()`, et `&&` ou `||` entre spansets dans une requête de métriques.
+**`compare()`** répartit les spans de la requête entre une sélection et une référence (baseline) et compte chaque valeur de chaque attribut dans les deux : `{ nestedSetParent < 0 } | compare({ status = error }, 10)`. Le deuxième argument est le nombre de valeurs gardées par attribut (10 par défaut, 1 000 au plus), et deux horodatages unix en nanosecondes à sa suite limitent la sélection aux spans démarrés dans cette fenêtre. La réponse contient une série `{ __meta_type="selection", span.http.route="/cart" }` (et `baseline`) pour chaque valeur, une série `selection_total` et `baseline_total` par attribut qui compte tous les spans qui le possèdent, et, pour un attribut qui a plus de valeurs que celles gardées, une série portant le label `__meta_error="__too_many_values__"`. Les attributs sont `name`, `status`, `kind` et tous les attributs `span.` et `resource.`. Elle n'accepte ni `by` ni étape après elle, et une requête est limitée à 200 pas.
+
+`with(sample=true)` est accepté et ignoré (les réponses de Flare sont exactes) ; il se combine avec `exemplars` : `with(exemplars=true, sample=true)`.
+
+Non pris en charge : `&&` ou `||` entre spansets dans une requête de métriques.
+
+## Grafana Traces Drilldown
+
+L'application **Traces Drilldown** (Drilldown > Traces dans Grafana 12 et suivants) fonctionne avec la source de données Tempo configurée plus haut, pour ces parties :
+
+- **Débit de spans, taux d'erreurs et durée**, la carte de chaleur des durées, et la **répartition** (Breakdown) de chacun par n'importe quel attribut.
+- **Comparison**, qui classe les attributs selon l'écart de répartition entre les spans sélectionnés (par exemple les erreurs) et les autres. Elle exécute `compare()`.
+- **Traces**, la liste des traces correspondantes.
+
+Ces parties demandent des requêtes que Flare ne sait pas encore lire et affichent une erreur ou une vue vide : **Service structure** et **Root cause errors** (elles utilisent `&>>`, `select()` et les positions imbriquées des spans) et **Exceptions** (elle sélectionne les attributs des événements de span). Voir [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md).
 
 ## Différences avec Tempo
 
@@ -153,9 +170,10 @@ Non pris en charge : `compare()`, et `&&` ou `||` entre spansets dans une requê
 - **Un `histogram_over_time()` garde 20 groupes au plus,** chacun avec jusqu'à 63 séries de seaux, et une valeur inférieure à 2 (une durée de moins de 2 ns) n'est comptée dans aucun seau, comme dans Tempo.
 - **`topk()` classe les séries calculées par Flare.** Comme la limite de 200 séries ci-dessous, il travaille sur les groupes qui ont le plus de spans ; le groupe à la plus grande moyenne pourrait donc avoir été écarté (la réponse indique `PARTIAL`).
 - **Les relations et les champs de trace remontent d'une heure.** L'ancêtre d'un span, et la racine d'une trace, sont cherchés à partir d'une heure avant la plage ; un span dont l'ancêtre a commencé plus tôt n'est donc pas compté. Les deux lisent les spans des traces candidates, ce qui coûte plus qu'un spanset simple.
+- **`compare()` compte des chaînes et ignore les valeurs longues.** Un attribut entier est un label texte, et une valeur de plus de 256 caractères (une URL avec query string, une stack trace) n'est pas comptée. Elle lit tous les attributs de tous les spans de la plage : c'est la requête de métriques la plus coûteuse ; réduisez la plage avec un filtre dans le spanset.
 - **Les exemplars concernent les requêtes sur plage.** La réponse instantanée de Tempo n'a pas non plus de place pour eux.
 - **Un exemplar est le span le plus lent,** pas un span tiré au hasard comme dans Tempo, et il est sur la série de son groupe (le plus grand quantile pour `quantile_over_time`, le seau où tombe sa valeur pour un histogramme).
 - **Une requête de métriques renvoie 200 séries au plus.** Avec plus de groupes, elle garde les 200 qui ont le plus de spans et marque la réponse `PARTIAL`. Les comptes et quantiles pondèrent chaque span stocké par ce qu'il représente avec l'[échantillonnage des traces](../../explanation/sampling-clustering-and-cost.fr.md), si bien qu'un service échantillonné rapporte toujours son vrai débit.
 - **Les listes de tags sont un échantillon.** Les noms viennent d'au plus 50 000 spans de la fenêtre, les plus fréquents d'abord. Réduisez `start` et `end` pour une liste complète.
 
-Notes de conception : [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md), [ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md), [ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md), [ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md) et [ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md).
+Notes de conception : [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md), [ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md), [ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md), [ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md), [ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md) et [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md).

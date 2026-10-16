@@ -197,4 +197,22 @@ public class TraceStructureSqlBuilderTests
         Assert.Contains("ParentSpanId = '' AND TraceId GLOBAL IN (SELECT TraceId FROM (SELECT TraceId, countIf(", result.WhereSql);
         Assert.Equal(Now.AddHours(-1).UtcDateTime, result.Parameters["from"].Value);
     }
+
+    [Theory]
+    [InlineData(true, "ParentSpanId = ''")]
+    [InlineData(false, "ParentSpanId != ''")]
+    public void RootSpan_MatchesOnTheParentId(bool root, string clause)
+    {
+        var (sql, _) = Build(Structure("A", new TraceSpanCondition { Name = "A", RootSpan = root }));
+
+        Assert.Contains($"({clause})", sql);
+    }
+
+    [Fact]
+    public void RootSpan_CountsAsSomethingToMatchOn()
+    {
+        var ex = Record.Exception(() => Build(Structure("A", new TraceSpanCondition { Name = "A", RootSpan = true })));
+
+        Assert.Null(ex);
+    }
 }

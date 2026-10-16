@@ -50,6 +50,12 @@ public sealed partial record TraceSpanCondition
 
     /// <summary>True when <see cref="Kind"/> must <em>differ</em> (TraceQL <c>kind != server</c>).</summary>
     public bool KindNegated { get; init; }
+
+    /// <summary>
+    /// True: only a root span (no parent), false: only a span that has a parent, null: either. Appended last (MemoryPack
+    /// wire-compatible); the Tempo API's TraceQL <c>nestedSetParent &lt; 0</c> (ADR-0226) is what needs it.
+    /// </summary>
+    public bool? RootSpan { get; init; }
 }
 
 /// <summary>How a <see cref="TraceSpanCondition.SpanName"/> is compared with a span's name.</summary>

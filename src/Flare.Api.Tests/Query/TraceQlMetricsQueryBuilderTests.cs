@@ -331,4 +331,70 @@ public class TraceQlMetricsQueryBuilderTests
         Assert.Throws<ArgumentException>(() => TraceQlMetricsQueryBuilder.Build(request with { Function = SpanMetricFunction.Quantile, Quantiles = [1.5] }));
         Assert.Throws<ArgumentException>(() => TraceQlMetricsQueryBuilder.Build(request with { Function = SpanMetricFunction.Quantile, Quantiles = [double.NaN] }));
     }
+
+    private static SpanMetricsSql BuildCompare(int topN = 10, DateTimeOffset? selectionFrom = null, DateTimeOffset? selectionTo = null, TraceSpanCondition? condition = null) =>
+        TraceQlMetricsQueryBuilder.BuildCompare(new SpanMetricsRequest(
+            condition, SpanMetricFunction.Compare, [], [], From, To, 600,
+            Compare: new SpanCompare(new TraceSpanCondition { Name = "A", StatusCode = "STATUS_CODE_ERROR" }, topN, selectionFrom, selectionTo)));
+
+    [Fact]
+    public void Compare_RanksTheValuesOfEachAttributeInTwoPasses()
+    {
+        var built = BuildCompare(topN: 3);
+
+        // Pass one: the topN + 1 most common values per group and attribute; pass two counts every value, the others as empty.
+        Assert.Contains("ORDER BY sum(W) DESC, V LIMIT {mTopN:Int64} BY IsSel, A", built.Sql);
+        Assert.Equal(4L, built.Parameters["mTopN"].Value);
+        Assert.Contains("if((IsSel, A, V) GLOBAL IN (SELECT IsSel, A, V FROM", built.Sql);
+        Assert.EndsWith("GROUP BY Bucket, IsSel, A, Kept\nORDER BY Bucket, IsSel, A, Kept", built.Sql);
+        Assert.Contains("toFloat64(sum(W)) AS Weight", built.Sql);
+    }
+
+    [Fact]
+    public void Compare_ReadsTheIntrinsicsAndBothAttributeMaps()
+    {
+        var sql = BuildCompare().Sql;
+
+        Assert.Contains("('name', Name)", sql);
+        Assert.Contains("multiIf(StatusCode = 'STATUS_CODE_ERROR', 'error', StatusCode = 'STATUS_CODE_OK', 'ok', 'unset')", sql);
+        Assert.Contains("['unspecified', 'internal', 'server', 'client', 'producer', 'consumer'][least(toUInt16(Kind), 5) + 1]", sql);
+        Assert.Contains("concat('span.', k), v), mapKeys(SpanAttributes), mapValues(SpanAttributes)", sql);
+        Assert.Contains("concat('resource.', k), v), mapKeys(ResourceAttributes), mapValues(ResourceAttributes)", sql);
+        Assert.Contains($"x.2 != '' AND length(x.2) <= {TraceQlMetricsQueryBuilder.MaxCompareValueLength}", sql);
+    }
+
+    [Fact]
+    public void Compare_SplitsTheSpansOnTheSelectionsPredicate()
+    {
+        var built = BuildCompare(condition: new TraceSpanCondition { Name = "A", RootSpan = true });
+
+        Assert.Contains("(StatusCode = {tsSStatus:String})) AS IsSel", built.Sql);
+        Assert.Equal("STATUS_CODE_ERROR", built.Parameters["tsSStatus"].Value);
+        Assert.Contains("(ParentSpanId = '')", built.Sql);
+    }
+
+    [Fact]
+    public void Compare_WithAWindow_OnlySelectsSpansThatStartedInIt()
+    {
+        var built = BuildCompare(selectionFrom: From.AddMinutes(1), selectionTo: From.AddMinutes(2));
+
+        Assert.Contains("AND StartTime > {mSelFrom:DateTime64(9)} AND StartTime <= {mSelTo:DateTime64(9)}) AS IsSel", built.Sql);
+        Assert.Equal(From.AddMinutes(1).UtcDateTime, built.Parameters["mSelFrom"].Value);
+    }
+
+    [Fact]
+    public void Compare_WithoutAWindow_HasNoSelectionWindow() => Assert.DoesNotContain("mSelFrom", BuildCompare().Sql);
+
+    [Fact]
+    public void Compare_LimitsTheNumberOfSteps()
+    {
+        var request = new SpanMetricsRequest(null, SpanMetricFunction.Compare, [], [], From, From.AddSeconds(60 * (TraceQlMetricsQueryBuilder.MaxCompareSteps + 1)), 60,
+            Compare: new SpanCompare(new TraceSpanCondition { Name = "A", StatusCode = "STATUS_CODE_ERROR" }, 10, null, null));
+
+        Assert.Throws<ArgumentException>(() => TraceQlMetricsQueryBuilder.BuildCompare(request));
+    }
+
+    [Fact]
+    public void Compare_NeedsItsArguments() =>
+        Assert.Throws<ArgumentException>(() => TraceQlMetricsQueryBuilder.BuildCompare(new SpanMetricsRequest(null, SpanMetricFunction.Compare, [], [], From, To, 60)));
 }

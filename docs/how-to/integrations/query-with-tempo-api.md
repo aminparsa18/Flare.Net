@@ -127,6 +127,9 @@ TraceQL results table.
 | Trace intrinsics, in a query of one spanset: `rootName`, `rootServiceName`, `traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
 | Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>` | `{ resource.service.name = "checkout" } >> { status = error }` |
 | Unscoped attributes | `{ .service.name = "api" }` |
+| Root spans: `nestedSetParent < 0` (`> 0` for spans with a parent) | `{ nestedSetParent < 0 && status = error }` |
+| An attribute that is set, `!= nil`, or not, `= nil` | `{ resource.k8s.pod.name != nil }` |
+| A bare `true`, which changes nothing | `{ nestedSetParent < 0 && true }` |
 
 Not supported in a search: `|` pipelines (`count()`, `avg()`, `select()`, `by()`, ...; a metrics query takes one, below),
 `||` inside one spanset, `statusMessage`, and comparing two fields.
@@ -170,7 +173,31 @@ span matches: `{ rootName = "GET /checkout" && name = "db.query" } | rate()`. Th
 or add `with(exemplars=true)` to the query. Each step of each series then carries its slowest span (or the span with the
 largest attribute value) with a trace id, and Grafana shows it as a point you can open. Range queries only.
 
-Not supported: `compare()`, and `&&` or `||` between spansets in a metrics query.
+**`compare()`** splits the spans of the query into a selection and a baseline and counts every attribute value in each:
+`{ nestedSetParent < 0 } | compare({ status = error }, 10)`. The second argument is how many values to keep per attribute
+(10 by default, at most 1,000), and two unix-nanosecond timestamps after it limit the selection to spans that started in
+that window. The response has a series `{ __meta_type="selection", span.http.route="/cart" }` (and `baseline`) for each
+value, a `selection_total` and `baseline_total` series per attribute counting every span that has it, and, for an attribute
+with more values than were kept, a series labelled `__meta_error="__too_many_values__"`. The attributes are `name`, `status`,
+`kind` and every `span.` and `resource.` attribute. It takes no `by` and no stage after it, and a query is limited to 200 steps.
+
+`with(sample=true)` is accepted and ignored (Flare's answers are exact), and can be combined with `exemplars` as
+`with(exemplars=true, sample=true)`.
+
+Not supported: `&&` or `||` between spansets in a metrics query.
+
+## Grafana Traces Drilldown
+
+The **Traces Drilldown** app (Drilldown > Traces in Grafana 12 and later) works against the Tempo data source you set up above, with these parts of it:
+
+- **Span rate, error rate and duration**, the heatmap of durations, and the **Breakdown** of each by any attribute.
+- **Comparison**, which ranks the attributes by how differently the selected spans (for example the errors) are
+  distributed from the rest. It runs `compare()`.
+- **Traces**, the list of matching traces.
+
+These parts need queries Flare does not read yet, and show an error or an empty view: **Service structure** and **Root cause
+errors** (they use `&>>`, `select()` and the nested-set positions of spans) and **Exceptions** (it selects span event
+attributes). See [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md).
 
 ## Things that differ from Tempo
 
@@ -198,6 +225,9 @@ Not supported: `compare()`, and `&&` or `||` between spansets in a metrics query
 - **Relations and root fields look back an hour.** The ancestor of a span, and a trace's root, are looked for from an hour
   before the range, so a span whose ancestor started earlier than that is not counted. Both read the spans of the traces
   that could match, which costs more than a plain spanset.
+- **`compare()` counts strings and looks at short values.** An integer attribute is a string label, and a value longer
+  than 256 characters (a URL with a query string, a stack trace) is not counted. It reads every attribute of every span in
+  the range, so it is the most expensive metrics query; narrow the range with a filter in the spanset.
 - **Exemplars are for range queries.** Tempo's instant response has no place for them either.
 - **An exemplar is the slowest span,** not a random one as in Tempo, and it is on the series of its group (the largest
   quantile for `quantile_over_time`, the bucket its value falls in for a histogram).
@@ -211,4 +241,5 @@ Design notes: [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-
 [ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md),
 [ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md) and
 [ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md) and
-[ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md).
+[ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md) and
+[ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md).

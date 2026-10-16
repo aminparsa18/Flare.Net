@@ -5,7 +5,11 @@ using Flare.Api.Query;
 namespace Flare.Api.Tempo;
 
 /// <summary>A series label: <see cref="Text"/> for a string value, <see cref="Number"/> for the <c>p</c> of a quantile.</summary>
-public sealed record TempoLabel(string Key, string? Text, double? Number = null);
+public sealed record TempoLabel(string Key, string? Text, double? Number = null)
+{
+    /// <summary>A label whose value is <c>nil</c>, as <c>compare()</c> labels its totals and its too-many-values marker (ADR-0226): written as an empty value.</summary>
+    public static TempoLabel Nil(string key) => new(key, null);
+}
 
 public sealed record TempoSample(long TimestampMs, double Value);
 
@@ -322,7 +326,7 @@ public static class TempoMetricsSeries
             {
                 w.WriteNumber("doubleValue", number);
             }
-            else
+            else if (label.Text is not null)
             {
                 w.WriteString("stringValue", label.Text);
             }
