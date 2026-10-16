@@ -11,6 +11,13 @@ public enum SpanAttributeBag
 
     /// <summary>The attributes of the span's events (<c>exception.message</c> of an <c>exception</c> event): the span matches when any one event does (ADR-0227).</summary>
     Event,
+
+    /// <summary>
+    /// Not an attribute map but a column or per-element value of the span, named by <see cref="SpanAttributeFilter.Key"/> (ADR-0229):
+    /// <c>SpanId</c>, <c>ParentSpanId</c>, <c>TraceId</c>, <c>ScopeName</c>, <c>ScopeVersion</c>, <c>Links.SpanId</c>, <c>Links.TraceId</c> and
+    /// <c>Events.TimeSinceStart</c> (nanoseconds from the span's start to an event). Any other key is rejected.
+    /// </summary>
+    Intrinsic,
 }
 
 /// <summary>

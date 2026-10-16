@@ -309,9 +309,9 @@ public static class TempoSearchPlanner
     {
         var field = predicate.Field;
         if (predicate.Alternatives is not null && field is "duration" or "nestedSetParent" or "nestedSetLeft" or "nestedSetRight"
-            or "statusMessage" or "childCount" or "parent" or "traceID" or "spanID")
+            or "statusMessage" or "childCount" or "parent" or "event:timeSinceStart")
         {
-            throw new TraceQlException($"a '||' group of values is supported for name, status, kind, rootName, rootServiceName and attributes, not '{field}'.");
+            throw new TraceQlException($"a '||' group of values is supported for name, status, kind, rootName, rootServiceName, ids and attributes, not '{field}'.");
         }
 
         switch (field)
@@ -341,7 +341,31 @@ public static class TempoSearchPlanner
             case "nestedSetParent":
                 ApplyNestedSetParent(predicate, builder);
                 return;
-            case "statusMessage" or "childCount" or "parent" or "nestedSetLeft" or "nestedSetRight" or "traceID" or "spanID":
+            case "span:id":
+                ApplyColumn(predicate, builder, "SpanId", IdLength.Span);
+                return;
+            case "span:parentID":
+                ApplyColumn(predicate, builder, "ParentSpanId", IdLength.Span);
+                return;
+            case "trace:id":
+                ApplyColumn(predicate, builder, "TraceId", IdLength.Trace);
+                return;
+            case "instrumentation:name":
+                ApplyColumn(predicate, builder, "ScopeName", IdLength.None);
+                return;
+            case "instrumentation:version":
+                ApplyColumn(predicate, builder, "ScopeVersion", IdLength.None);
+                return;
+            case "link:spanID":
+                ApplyColumn(predicate, builder, "Links.SpanId", IdLength.Span);
+                return;
+            case "link:traceID":
+                ApplyColumn(predicate, builder, "Links.TraceId", IdLength.Trace);
+                return;
+            case "event:timeSinceStart":
+                ApplyEventTimeSinceStart(predicate, builder);
+                return;
+            case "statusMessage" or "childCount" or "parent" or "nestedSetLeft" or "nestedSetRight":
                 throw new TraceQlException($"the intrinsic '{field}' is not supported.");
         }
 
@@ -365,13 +389,115 @@ public static class TempoSearchPlanner
         }
         else if (field.Contains(':'))
         {
-            // Tempo's scoped intrinsics with no counterpart here (span:parentID, event:timeSinceStart, instrumentation:*, link:*).
+            // A scoped intrinsic Flare keeps no data for (span:statusMessage as a filter, ...).
             throw new TraceQlException($"the intrinsic '{field}' is not supported.");
         }
         else
         {
             throw new TraceQlException($"'{field}' is not a field; scope attributes as span.{field}, resource.{field} or .{field}.");
         }
+    }
+
+    /// <summary>How long a hexadecimal id is when written in full; shorter ones are zero-padded on the left, as Tempo reads them.</summary>
+    private enum IdLength
+    {
+        None = 0,
+        Span = 16,
+        Trace = 32,
+    }
+
+    /// <summary>
+    /// A test on a column of the span that TraceQL names with a scoped intrinsic (ADR-0229): the span, parent and trace ids, the
+    /// instrumentation scope's name and version, and the ids of the span's links. Text compares with <c>=</c>, <c>!=</c>, <c>=~</c> and
+    /// <c>!~</c> (or a <c>||</c> group of <c>=</c>); <c>= nil</c> and <c>!= nil</c> test for empty and non-empty. For a link the test holds
+    /// when some link satisfies it. An id is lower-cased and left-padded with zeros before it is compared; a pattern is not touched.
+    /// </summary>
+    private static void ApplyColumn(TraceQlPredicate predicate, ConditionBuilder builder, string column, IdLength idLength)
+    {
+        string Id(TraceQlValue value) => NormalizeId(value.Kind == TraceQlValueKind.String
+            ? value.Text
+            : throw new TraceQlException($"{predicate.Field} {OperatorText(predicate.Op)} needs a quoted string."), idLength);
+
+        SpanAttributeFilter Filter(SpanAttributeFilterOperator op, string value, IReadOnlyList<string>? values = null) =>
+            new() { Bag = SpanAttributeBag.Intrinsic, Key = column, Value = value, Operator = op, Values = values };
+
+        if (predicate.Value.Kind == TraceQlValueKind.Nil)
+        {
+            builder.Attributes.Add(Filter(predicate.Op switch
+            {
+                TraceQlOp.Eq => SpanAttributeFilterOperator.Absent,
+                TraceQlOp.Neq => SpanAttributeFilterOperator.Exists,
+                _ => throw new TraceQlException($"{predicate.Field} can only be compared with nil using = or !="),
+            }, string.Empty));
+            return;
+        }
+
+        if (predicate.Alternatives is { Count: > 0 } alternatives)
+        {
+            builder.Attributes.Add(Filter(SpanAttributeFilterOperator.In, string.Empty, alternatives.Prepend(predicate.Value).Select(Id).Distinct(StringComparer.Ordinal).ToList()));
+            return;
+        }
+
+        switch (predicate.Op)
+        {
+            case TraceQlOp.Eq:
+                builder.Attributes.Add(Filter(SpanAttributeFilterOperator.Equals, Id(predicate.Value)));
+                return;
+            case TraceQlOp.Neq:
+                builder.Attributes.Add(Filter(SpanAttributeFilterOperator.NotEquals, Id(predicate.Value)));
+                return;
+            case TraceQlOp.Re:
+                builder.Attributes.Add(Filter(SpanAttributeFilterOperator.Regex, Anchor(RegexText(predicate.Value, predicate))));
+                return;
+            case TraceQlOp.Nre:
+                builder.Attributes.Add(Filter(SpanAttributeFilterOperator.NotRegex, Anchor(RegexText(predicate.Value, predicate))));
+                return;
+            default:
+                throw new TraceQlException($"'{predicate.Field}' supports =, !=, =~ and !~.");
+        }
+    }
+
+    private static string NormalizeId(string text, IdLength length) =>
+        length != IdLength.None && text.Length <= (int)length && text.All(char.IsAsciiHexDigit)
+            ? text.ToLowerInvariant().PadLeft((int)length, '0')
+            : text;
+
+    private static string OperatorText(TraceQlOp op) => op switch
+    {
+        TraceQlOp.Eq => "=",
+        TraceQlOp.Neq => "!=",
+        TraceQlOp.Re => "=~",
+        TraceQlOp.Nre => "!~",
+        TraceQlOp.Gt => ">",
+        TraceQlOp.Gte => ">=",
+        TraceQlOp.Lt => "<",
+        _ => "<=",
+    };
+
+    /// <summary>
+    /// <c>event:timeSinceStart</c> (ADR-0229): the span has an event at that offset from its start, compared with a duration (a plain number
+    /// is nanoseconds, as for <c>duration</c>). Each test is made against the events on its own, so <c>&gt; 1ms &amp;&amp; &lt; 5ms</c> is satisfied by one event
+    /// above 1 ms and another below 5 ms, as two <c>event.x</c> tests are.
+    /// </summary>
+    private static void ApplyEventTimeSinceStart(TraceQlPredicate predicate, ConditionBuilder builder)
+    {
+        var op = predicate.Op switch
+        {
+            TraceQlOp.Eq => SpanAttributeFilterOperator.Equals,
+            TraceQlOp.Neq => SpanAttributeFilterOperator.NotEquals,
+            TraceQlOp.Gt => SpanAttributeFilterOperator.GreaterThan,
+            TraceQlOp.Gte => SpanAttributeFilterOperator.GreaterThanOrEqual,
+            TraceQlOp.Lt => SpanAttributeFilterOperator.LessThan,
+            TraceQlOp.Lte => SpanAttributeFilterOperator.LessThanOrEqual,
+            _ => throw new TraceQlException("'event:timeSinceStart' supports =, !=, >, >=, < and <=."),
+        };
+        builder.Attributes.Add(new SpanAttributeFilter
+        {
+            Bag = SpanAttributeBag.Intrinsic,
+            Key = Query.SpanFilterSqlBuilder.EventTimeSinceStartKey,
+            Value = DurationNanos(predicate).ToString(CultureInfo.InvariantCulture),
+            Operator = op,
+        });
     }
 
     /// <summary>
@@ -705,7 +831,7 @@ public static class TempoSearchPlanner
         public bool? RootSpan => _rootAllowed == _nonRootAllowed ? null : _rootAllowed;
 
         public bool IsBlank =>
-            Service is null && _services is null && ResolveName().Text is null && ResolveStatus().Label is null && ResolveKind().Kind is null
+            Service is null && _services is null && ResolveName().Text is null && ResolveStatus().Label is null && ResolveKind() is { Kind: null, Set: null }
             && RootSpan is null && Duration.Min is null && Duration.Max is null && Attributes.Count == 0;
 
         /// <summary>Narrows to the spans a <c>nestedSetParent</c> test lets through; one that no span passes is an error rather than an empty result.</summary>
@@ -793,20 +919,21 @@ public static class TempoSearchPlanner
             };
         }
 
-        private (byte? Kind, bool Negated) ResolveKind()
+        /// <summary>One kind, all but one (negated), a set of two to four (ADR-0229), or none for no test.</summary>
+        private (byte? Kind, bool Negated, IReadOnlyList<byte>? Set) ResolveKind()
         {
             if (_kinds is null)
             {
-                return (null, false);
+                return (null, false, null);
             }
 
             return _kinds.Count switch
             {
                 0 => throw new TraceQlException("no span satisfies the 'kind' tests of this spanset."),
-                1 => (_kinds[0], false),
-                5 => (AllKinds.First(k => !_kinds.Contains(k)), true),
-                6 => (null, false),
-                _ => throw new TraceQlException("'kind' can be tested for one value, or for all but one."),
+                1 => (_kinds[0], false, null),
+                5 => (AllKinds.First(k => !_kinds.Contains(k)), true, null),
+                6 => (null, false, null),
+                _ => (null, false, _kinds.Order().ToArray()),
             };
         }
 
@@ -814,7 +941,7 @@ public static class TempoSearchPlanner
         {
             var (name, nameMatch) = ResolveName();
             var (status, statusNegated) = ResolveStatus();
-            var (kind, kindNegated) = ResolveKind();
+            var (kind, kindNegated, kindSet) = ResolveKind();
             var service = Service;
             var services = _services;
             if (services is not null)
@@ -847,6 +974,7 @@ public static class TempoSearchPlanner
                 SpanNameMatch = nameMatch,
                 Kind = kind,
                 KindNegated = kindNegated,
+                Kinds = kindSet,
                 RootSpan = RootSpan,
                 MinDurationNano = Duration.Min,
                 MaxDurationNano = Duration.Max,

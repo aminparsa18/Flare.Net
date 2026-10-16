@@ -63,6 +63,13 @@ public sealed partial record TraceSpanCondition
     /// Search tab writes for a multi-value Service Name, is what needs it (ADR-0228). Null/empty = no such restriction.
     /// </summary>
     public IReadOnlyList<string>? ServiceNames { get; init; }
+
+    /// <summary>
+    /// The span's <c>Kind</c> is any of these (two to four of the OTel numbers), ANDed with <see cref="Kind"/> when both are set. Appended last
+    /// (MemoryPack wire-compatible); the Tempo API's TraceQL <c>kind = server || kind = client</c> is what needs it (ADR-0229).
+    /// Null/empty = no such restriction.
+    /// </summary>
+    public IReadOnlyList<byte>? Kinds { get; init; }
 }
 
 /// <summary>How a <see cref="TraceSpanCondition.SpanName"/> is compared with a span's name.</summary>

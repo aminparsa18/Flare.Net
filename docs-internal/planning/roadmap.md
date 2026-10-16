@@ -90,14 +90,13 @@ folders are where "what happened and why" actually lives.
   ([ADR-0155](../adr/0155-otlp-forwarding.md)), a read-only Prometheus API a Grafana data source can query
   ([ADR-0109](../adr/0109-prometheus-query-api.md)) and a read-only Tempo-compatible trace API
   ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)). Remaining, roughly in priority order:
-  - Tempo API follow-ups (ADR-0217, ADR-0221 to ADR-0228): TraceQL metrics take one spanset, or one `{ a } >> { b }`
+  - Tempo API follow-ups (ADR-0217, ADR-0221 to ADR-0229): TraceQL metrics take one spanset, or one `{ a } >> { b }`
     relation, and one function (including `compare()`), then `topk`, `bottomk` and comparison stages; a search takes
-    `select()`, `&>>`, `event.` attributes, value groups `(f = a || f = b)` and Tempo's `span:` / `trace:` intrinsics.
+    `select()`, `&>>`, `event.` attributes, value groups `(f = a || f = b)`, sets of span kinds and Tempo's scoped intrinsics (`span:`, `trace:`, `link:`, ...).
     Every tab of Grafana's Traces Drilldown and the Search tab load without a query error. Checked 2026-10-16 against
     Explore, Drilldown and the Tempo docs, and left because no client sends them: `&&` and `||` between spansets in a
     metrics query, the other structural operators (`&>`, `&~`, `!>>`, ...), `select()` of trace-level fields
-    (`rootName`, ...), typed attribute values, event attributes beyond a span's first event, and sets of two to four span
-    kinds. Trace-to-logs needs the Loki-compatible API below.
+    (`rootName`, ...), typed attribute values and event attributes beyond a span's first event. Trace-to-logs needs the Loki-compatible API below.
   - A Loki-compatible log API (a LogQL subset), the same idea for logs.
   - A fuller Prometheus API: operators between series (`a / b`), `offset`, `topk`, `quantile` and more functions, which
     error ratios and "top N hosts by CPU" panels need. Exemplars, so a latency chart links to a sample trace.
