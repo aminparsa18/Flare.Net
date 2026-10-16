@@ -434,4 +434,143 @@ public class TraceQlMetricsQueryBuilderTests
 
         Assert.Contains("AND NOT ((TraceId, ParentSpanId) GLOBAL IN (SELECT TraceId, ParentSpanId FROM spans", built.Sql);
     }
+
+    private static readonly TraceSpanCondition CondA = new() { Name = "A", SpanName = "a" };
+    private static readonly TraceSpanCondition CondB = new() { Name = "B", SpanName = "b" };
+    private static readonly TraceSpanCondition CondC = new() { Name = "C", SpanName = "c" };
+
+    private static SpanMetricsSql BuildSpansets(SpanSetExpression spansets, IReadOnlyList<SpanGroupBy>? groupBy = null) =>
+        TraceQlMetricsQueryBuilder.Build(new SpanMetricsRequest(null, SpanMetricFunction.Count, [], groupBy ?? [], From, To, 60, Spansets: spansets));
+
+    private const string Lookback = "StartTime >= {mLookback:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)}";
+
+    [Fact]
+    public void Or_IsTheUnionOfTheSides_CountingASpanOnce()
+    {
+        var built = BuildSpansets(new SpanSetOr(new SpanSetCondition(CondA), new SpanSetCondition(CondB)));
+
+        Assert.Contains("AND ((Name = {tsAName:String}) OR (Name = {tsBName:String}))\nGROUP BY Bucket", built.Sql);
+        Assert.Equal("a", built.Parameters["tsAName"].Value);
+        Assert.Equal("b", built.Parameters["tsBName"].Value);
+    }
+
+    [Fact]
+    public void And_IsTheUnionOfTheSides_InATraceThatHasASpanInEach()
+    {
+        var built = BuildSpansets(new SpanSetAnd(new SpanSetCondition(CondA), new SpanSetCondition(CondB)));
+
+        Assert.Contains(
+            "(((Name = {tsAName:String}) OR (Name = {tsBName:String})) AND TraceId GLOBAL IN (SELECT TraceId FROM (SELECT TraceId, (Name = {tsAName:String}) AS L, (Name = {tsBName:String}) AS R " +
+            $"FROM spans WHERE {Lookback} AND (L OR R)) GROUP BY TraceId HAVING max(L) > 0 AND max(R) > 0))",
+            built.Sql);
+    }
+
+    [Fact]
+    public void Nested_AndInsideOr_EvaluatesTheInnerSidesInsideTheirOwnSelect()
+    {
+        var built = BuildSpansets(new SpanSetOr(new SpanSetAnd(new SpanSetCondition(CondA), new SpanSetCondition(CondB)), new SpanSetCondition(CondC)));
+
+        Assert.Contains("OR (Name = {tsCName:String}))", built.Sql);
+        Assert.Contains("max(L) > 0 AND max(R) > 0", built.Sql);
+    }
+
+    [Fact]
+    public void AnAndWithinAnAnd_CompilesItsInnerPredicateIntoBothSelects()
+    {
+        var built = BuildSpansets(new SpanSetAnd(new SpanSetCondition(CondA), new SpanSetAnd(new SpanSetCondition(CondB), new SpanSetCondition(CondC))));
+
+        // The outer pair's right side is the inner And, written twice (in the union and in the trace-level select) with its own select each time.
+        Assert.Equal(3, built.Sql.Split("HAVING max(L) > 0 AND max(R) > 0").Length - 1);
+    }
+
+    [Fact]
+    public void ARelation_CountsTheRightSpansWithTheLeftSpanRelated()
+    {
+        var built = BuildSpansets(new SpanSetRelation(CondA, CondB, TraceRelationKind.Child, Negated: false, Union: false));
+
+        Assert.Contains(
+            $"((Name = {{tsBName:String}}) AND (TraceId, ParentSpanId) GLOBAL IN (SELECT TraceId, SpanId FROM spans WHERE {Lookback} AND (Name = {{tsAName:String}})))",
+            built.Sql);
+    }
+
+    [Fact]
+    public void AUnionChild_AlsoCountsTheLeftSpansThatAreAParent()
+    {
+        var built = BuildSpansets(new SpanSetRelation(CondA, CondB, TraceRelationKind.Child, Negated: false, Union: true));
+
+        Assert.Contains(
+            $" OR ((Name = {{tsAName:String}}) AND (TraceId, SpanId) GLOBAL IN (SELECT TraceId, ParentSpanId FROM spans WHERE {Lookback} AND (Name = {{tsBName:String}}))))",
+            built.Sql);
+    }
+
+    [Fact]
+    public void AUnionSibling_IsTheSiblingTestInBothDirections()
+    {
+        var built = BuildSpansets(new SpanSetRelation(CondA, CondB, TraceRelationKind.Sibling, Negated: false, Union: true));
+
+        Assert.Equal(2, built.Sql.Split("GROUP BY TraceId, ParentSpanId HAVING count() >= 2").Length - 1);
+        // Left spans with a right sibling: the parents holding a right span, and the counted span not itself a right one.
+        Assert.Contains($"NOT ((Name = {{tsBName:String}})) AND (TraceId, ParentSpanId) GLOBAL IN (SELECT TraceId, ParentSpanId FROM spans WHERE {Lookback} AND (Name = {{tsBName:String}}))", built.Sql);
+    }
+
+    [Fact]
+    public void AUnionDescendant_CollectsEveryAncestorOfARightSpan_ByHashedId()
+    {
+        var built = BuildSpansets(new SpanSetRelation(CondA, CondB, TraceRelationKind.Descendant, Negated: false, Union: true));
+
+        Assert.Contains("(TraceId, cityHash64(SpanId)) GLOBAL IN (SELECT TraceId, h FROM (SELECT TraceId, groupArray(cityHash64(SpanId)) AS allS", built.Sql);
+        Assert.Contains("groupArrayIf(if(ParentSpanId = '', toUInt64(0), cityHash64(ParentSpanId)), (Name = {tsBName:String})) AS rightP", built.Sql);
+        Assert.Contains("ARRAY JOIN arrayDistinct(arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), arrayConcat(acc.2, acc.1)), " +
+            $"range(least({TraceStructureSqlBuilder.MaxWalkDepth}, length(allS))), (rightP, CAST([], 'Array(UInt64)'))).2) AS h WHERE h != 0)", built.Sql);
+    }
+
+    [Fact]
+    public void ANegatedRelation_InACombination_UsesTheSameClauseAsAPlainQuery()
+    {
+        var combined = BuildSpansets(new SpanSetRelation(CondA, CondB, TraceRelationKind.Child, Negated: true, Union: false));
+
+        Assert.Contains($"(TraceId, ParentSpanId) GLOBAL NOT IN (SELECT TraceId, SpanId FROM spans WHERE {Lookback} AND (Name = {{tsAName:String}}))", combined.Sql);
+    }
+
+    [Fact]
+    public void Spansets_ReplaceTheConditionTheAncestorAndTheRoot()
+    {
+        var request = new SpanMetricsRequest(
+            CondC, SpanMetricFunction.Count, [], [], From, To, 60,
+            Ancestor: new SpanAncestor(CondA, Direct: true), Root: new SpanTraceRoot(["web"], [], null, null),
+            Spansets: new SpanSetCondition(CondB));
+
+        var built = TraceQlMetricsQueryBuilder.Build(request);
+
+        Assert.Contains("(Name = {tsBName:String})", built.Sql);
+        Assert.DoesNotContain("tsCName", built.Sql);
+        Assert.DoesNotContain("tsPName", built.Sql);
+        Assert.DoesNotContain("mrServices", built.Sql);
+    }
+
+    [Fact]
+    public void Spansets_AlsoNarrowTheRankingOfTheTopGroups()
+    {
+        var built = BuildSpansets(new SpanSetOr(new SpanSetCondition(CondA), new SpanSetCondition(CondB)), [new SpanGroupBy("name", SpanGroupKind.Name)]);
+
+        Assert.Equal(2, built.Sql.Split("((Name = {tsAName:String}) OR (Name = {tsBName:String}))").Length - 1);
+    }
+
+    [Fact]
+    public void AnUnknownSpansetNode_OrABadConditionName_IsRejected()
+    {
+        Assert.Throws<ArgumentException>(() => BuildSpansets(new SpanSetCondition(CondA with { Name = "AB" })));
+    }
+
+    [Fact]
+    public void Spansets_FeedCompareToo()
+    {
+        var request = new SpanMetricsRequest(
+            null, SpanMetricFunction.Compare, [], [], From, From.AddSeconds(600), 60,
+            Compare: new SpanCompare(CondA, 10, null, null), Spansets: new SpanSetOr(new SpanSetCondition(CondA), new SpanSetCondition(CondB)));
+
+        var built = TraceQlMetricsQueryBuilder.BuildCompare(request);
+
+        Assert.Contains("((Name = {tsAName:String}) OR (Name = {tsBName:String}))", built.Sql);
+    }
 }

@@ -61,6 +61,26 @@ public sealed record SpanAncestor(TraceSpanCondition Condition, TraceRelationKin
 }
 
 /// <summary>
+/// The spans a metrics query counts, when it combines spansets (ADR-0232): the result of a Tempo spanset expression, a set of spans.
+/// <see cref="SpanSetOr"/> (<c>||</c>) is the union of its sides; <see cref="SpanSetAnd"/> (<c>&amp;&amp;</c>) is the union too, but only in a trace that
+/// has a span in each side; a <see cref="SpanSetRelation"/> is a structural operator's result; a <see cref="SpanSetCondition"/> the spans matching one
+/// condition. A span in more than one side is counted once.
+/// </summary>
+public abstract record SpanSetExpression;
+
+public sealed record SpanSetCondition(TraceSpanCondition Condition) : SpanSetExpression;
+
+/// <summary>
+/// <c>Left &lt;op&gt; Right</c>: the <see cref="Right"/> spans that stand in <see cref="Kind"/> to a <see cref="Left"/> span (or, <see cref="Negated"/>, to none);
+/// with <see cref="Union"/> also the <see cref="Left"/> spans that have such a <see cref="Right"/> span. The two conditions must have different names.
+/// </summary>
+public sealed record SpanSetRelation(TraceSpanCondition Left, TraceSpanCondition Right, TraceRelationKind Kind, bool Negated, bool Union) : SpanSetExpression;
+
+public sealed record SpanSetAnd(SpanSetExpression Left, SpanSetExpression Right) : SpanSetExpression;
+
+public sealed record SpanSetOr(SpanSetExpression Left, SpanSetExpression Right) : SpanSetExpression;
+
+/// <summary>
 /// What a query says about the trace's root span (<c>rootServiceName</c>, <c>rootName</c>, <c>traceDuration</c>, ADR-0225): the counted
 /// spans must belong to a trace whose root row (the span with no parent) matches all of it. Services and names are alternatives within their list.
 /// </summary>
@@ -80,6 +100,7 @@ public sealed record SpanCompare(TraceSpanCondition Selection, int TopN, DateTim
 public sealed record SpanCompareRow(long Bucket, bool Selection, string Attribute, string Value, double Weight);
 
 /// <param name="Condition">The span predicate of the query's spanset; null matches every span.</param>
+/// <param name="Spansets">Set for a query that combines spansets (ADR-0232): the spans counted are its result, and <paramref name="Condition"/>, <paramref name="Ancestor"/> and <paramref name="Root"/> are not used.</param>
 /// <param name="Exemplars">With <see cref="TraceQlMetricsQueryBuilder.BuildExemplars"/>: the most exemplars wanted; ignored by <see cref="TraceQlMetricsQueryBuilder.Build"/>.</param>
 /// <param name="Value">What <see cref="Function"/> aggregates; null is the span's duration. Ignored by <see cref="SpanMetricFunction.Count"/>.</param>
 /// <param name="From">A multiple of <paramref name="StepSeconds"/> from the unix epoch, as is <paramref name="To"/> (exclusive).</param>
@@ -95,7 +116,8 @@ public sealed record SpanMetricsRequest(
     int Exemplars = 0,
     SpanAncestor? Ancestor = null,
     SpanTraceRoot? Root = null,
-    SpanCompare? Compare = null);
+    SpanCompare? Compare = null,
+    SpanSetExpression? Spansets = null);
 
 /// <summary>One group's aggregate in one step. <see cref="Values"/> holds one number, or one per quantile.</summary>
 /// <param name="Bucket">The step's index from <see cref="SpanMetricsRequest.From"/>.</param>
@@ -299,21 +321,28 @@ public static class TraceQlMetricsQueryBuilder
 
         var groups = request.GroupBy.Select((g, i) => GroupExpression(g, i, parameters)).ToArray();
         var clauses = new List<string> { "StartTime >= {mFrom:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)}" };
-        if (request.Condition is { } condition)
+        if (request.Spansets is { } spansets)
         {
-            clauses.Add(TraceStructureSqlBuilder.ConditionMatch(condition, 'A', parameters, promoted));
+            clauses.Add(new SpanSetCompiler(parameters, promoted).Predicate(spansets));
         }
-
-        if (request.Root is { } root)
+        else
         {
-            clauses.Add(RootClause(root, parameters));
-        }
+            if (request.Condition is { } condition)
+            {
+                clauses.Add(TraceStructureSqlBuilder.ConditionMatch(condition, 'A', parameters, promoted));
+            }
 
-        if (request.Ancestor is { } ancestor)
-        {
-            clauses.Add(request.Condition is { } span
-                ? AncestorClause(ancestor, span, parameters, promoted)
-                : throw new ArgumentException("A relation to an ancestor needs a span condition for the counted spans.", nameof(request)));
+            if (request.Root is { } root)
+            {
+                clauses.Add(RootClause(root, parameters));
+            }
+
+            if (request.Ancestor is { } ancestor)
+            {
+                clauses.Add(request.Condition is { } span
+                    ? AncestorClause(ancestor, span, parameters, promoted)
+                    : throw new ArgumentException("A relation to an ancestor needs a span condition for the counted spans.", nameof(request)));
+            }
         }
 
         clauses.AddRange(groups.Select(g => g.Present));
@@ -384,12 +413,23 @@ public static class TraceQlMetricsQueryBuilder
     /// The counted spans that stand in <paramref name="ancestor"/>'s relation to a span matching its condition (ADR-0225, ADR-0231), as a restriction
     /// on the span: a parent or ancestor above it, a sibling beside it, or, negated, none of them.
     /// </summary>
-    private static string AncestorClause(SpanAncestor ancestor, TraceSpanCondition span, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
+    private static string AncestorClause(SpanAncestor ancestor, TraceSpanCondition span, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted) =>
+        RelationClause(
+            ancestor.Kind,
+            ancestor.Negated,
+            TraceStructureSqlBuilder.ConditionMatch(ancestor.Condition, 'P', parameters, promoted),
+            TraceStructureSqlBuilder.ConditionMatch(span, 'A', parameters, promoted),
+            parameters);
+
+    /// <summary>
+    /// The counted spans (matching <paramref name="below"/>, the right-hand condition) that stand in <paramref name="kind"/> to a span matching
+    /// <paramref name="above"/>, the left-hand one (ADR-0225, ADR-0231): a parent or ancestor above it, a sibling beside it, or, negated, none of them.
+    /// </summary>
+    private static string RelationClause(TraceRelationKind kind, bool negated, string above, string below, ClickHouseParameterCollection parameters)
     {
-        var above = TraceStructureSqlBuilder.ConditionMatch(ancestor.Condition, 'P', parameters, promoted);
         var scope = ServiceScope.Suffix(parameters);
-        var inside = ancestor.Negated ? "GLOBAL NOT IN" : "GLOBAL IN";
-        switch (ancestor.Kind)
+        var inside = negated ? "GLOBAL NOT IN" : "GLOBAL IN";
+        switch (kind)
         {
             case TraceRelationKind.Child:
                 return $"(TraceId, ParentSpanId) {inside} (SELECT TraceId, SpanId FROM spans WHERE {LookbackWindow} AND {above}{scope})";
@@ -400,12 +440,11 @@ public static class TraceQlMetricsQueryBuilder
                 var parents = $"SELECT TraceId, ParentSpanId FROM spans WHERE {LookbackWindow} AND {above}{scope}";
                 var clause = $"((TraceId, ParentSpanId) GLOBAL IN ({parents} GROUP BY TraceId, ParentSpanId HAVING count() >= 2) " +
                     $"OR (NOT ({above}) AND (TraceId, ParentSpanId) GLOBAL IN ({parents})))";
-                return ancestor.Negated ? $"NOT {clause}" : clause;
+                return negated ? $"NOT {clause}" : clause;
             }
         }
 
         // The ancestor walk, one level per step, as the structure builder's descendant test does; a span that is its own match is not its own ancestor.
-        var below = TraceStructureSqlBuilder.ConditionMatch(span, 'A', parameters, promoted);
         var spanHash = TraceStructureSqlBuilder.SpanHash;
         var parentHash = TraceStructureSqlBuilder.ParentHash;
         var depth = TraceStructureSqlBuilder.MaxWalkDepth;
@@ -416,6 +455,94 @@ public static class TraceQlMetricsQueryBuilder
             $"SELECT TraceId FROM spans WHERE {LookbackWindow}{scope} AND ({above} OR {below}) GROUP BY TraceId HAVING countIf({above}) > 0 AND countIf({below}) > 0) " +
             "GROUP BY TraceId) ARRAY JOIN belowIds AS SpanId, belowP AS startP " +
             $"WHERE arrayFold((acc, x) -> (if(acc.1 = 0, toUInt64(0), allP[indexOf(allS, acc.1)]), acc.2 OR has(aboveS, acc.1)), range(least({depth}, length(allS))), (startP, false)).2)";
+    }
+
+    /// <summary>
+    /// The other side of a union relation (ADR-0232): the spans matching <paramref name="left"/> that have a parent, ancestor or sibling matching
+    /// <paramref name="right"/> - the same relation with the roles of the two conditions exchanged.
+    /// </summary>
+    private static string InverseRelationClause(TraceRelationKind kind, string left, string right, ClickHouseParameterCollection parameters)
+    {
+        var scope = ServiceScope.Suffix(parameters);
+        switch (kind)
+        {
+            case TraceRelationKind.Child:
+                // A left span is a parent of a right span.
+                return $"(TraceId, SpanId) GLOBAL IN (SELECT TraceId, ParentSpanId FROM spans WHERE {LookbackWindow} AND {right}{scope})";
+            case TraceRelationKind.Sibling:
+                return RelationClause(TraceRelationKind.Sibling, false, right, left, parameters);
+        }
+
+        // Every ancestor, within the depth limit, of a right span: collected per trace by the walk, then compared by hashed id.
+        var spanHash = TraceStructureSqlBuilder.SpanHash;
+        var parentHash = TraceStructureSqlBuilder.ParentHash;
+        var depth = TraceStructureSqlBuilder.MaxWalkDepth;
+        return "(TraceId, " + spanHash + ") GLOBAL IN (SELECT TraceId, h FROM (" +
+            $"SELECT TraceId, groupArray({spanHash}) AS allS, groupArray({parentHash}) AS allP, groupArrayIf({parentHash}, {right}) AS rightP " +
+            $"FROM spans WHERE {LookbackWindow}{scope} AND TraceId GLOBAL IN (" +
+            $"SELECT TraceId FROM spans WHERE {LookbackWindow}{scope} AND ({left} OR {right}) GROUP BY TraceId HAVING countIf({left}) > 0 AND countIf({right}) > 0) " +
+            "GROUP BY TraceId) ARRAY JOIN arrayDistinct(arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), arrayConcat(acc.2, acc.1)), " +
+            $"range(least({depth}, length(allS))), (rightP, CAST([], 'Array(UInt64)'))).2) AS h WHERE h != 0)";
+    }
+
+    /// <summary>
+    /// Compiles a <see cref="SpanSetExpression"/> into one boolean over a span row (ADR-0232). A condition is compiled once, so its bound parameters
+    /// are added once however often the expression repeats it.
+    /// </summary>
+    private sealed class SpanSetCompiler(ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
+    {
+        private readonly Dictionary<string, string> _matches = new(StringComparer.OrdinalIgnoreCase);
+
+        public string Predicate(SpanSetExpression node)
+        {
+            switch (node)
+            {
+                case SpanSetCondition leaf:
+                    return Match(leaf.Condition);
+                case SpanSetRelation relation:
+                {
+                    var left = Match(relation.Left);
+                    var right = Match(relation.Right);
+                    var counted = $"({right} AND {RelationClause(relation.Kind, relation.Negated, left, right, parameters)})";
+                    return relation.Union
+                        ? $"({counted} OR ({left} AND {InverseRelationClause(relation.Kind, left, right, parameters)}))"
+                        : counted;
+                }
+
+                case SpanSetOr or:
+                    return $"({Predicate(or.Left)} OR {Predicate(or.Right)})";
+                case SpanSetAnd and:
+                {
+                    // The union of both sides, in a trace that has a span in each. The two are evaluated in their own SELECT, below the GROUP BY:
+                    // ClickHouse's analyzer loses a column when an IN subquery is inside a grouped expression.
+                    var left = Predicate(and.Left);
+                    var right = Predicate(and.Right);
+                    var scope = ServiceScope.Suffix(parameters);
+                    return $"(({left} OR {right}) AND TraceId GLOBAL IN (SELECT TraceId FROM (SELECT TraceId, {left} AS L, {right} AS R FROM spans " +
+                        $"WHERE {LookbackWindow}{scope} AND (L OR R)) GROUP BY TraceId HAVING max(L) > 0 AND max(R) > 0))";
+                }
+
+                default:
+                    throw new ArgumentException($"Unknown span set expression {node.GetType().Name}.");
+            }
+        }
+
+        private string Match(TraceSpanCondition condition)
+        {
+            var letter = condition.Name.Trim().ToUpperInvariant();
+            if (letter.Length != 1)
+            {
+                throw new ArgumentException($"Condition name '{condition.Name}' must be a single letter.");
+            }
+
+            if (!_matches.TryGetValue(letter, out var match))
+            {
+                match = TraceStructureSqlBuilder.ConditionMatch(condition, letter[0], parameters, promoted);
+                _matches[letter] = match;
+            }
+
+            return match;
+        }
     }
 
     private static IEnumerable<string> Aggregates(SpanMetricsRequest request, string value)

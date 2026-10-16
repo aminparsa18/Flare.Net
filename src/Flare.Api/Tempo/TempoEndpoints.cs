@@ -253,7 +253,8 @@ public static class TempoEndpoints
                 exemplarCount,
                 plan.Ancestor,
                 plan.Root,
-                plan.Compare);
+                plan.Compare,
+                plan.Spansets);
 
             TempoMetricsResult result;
             if (plan.Function == SpanMetricFunction.Compare)

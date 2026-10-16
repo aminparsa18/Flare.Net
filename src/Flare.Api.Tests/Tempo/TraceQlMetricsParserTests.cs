@@ -1,3 +1,4 @@
+using Flare.Api.Query;
 using Flare.Api.Tempo;
 using Xunit;
 
@@ -183,9 +184,7 @@ public class TraceQlMetricsParserTests
     [InlineData("{ } | rate() with(sample_rate=true)", "hint")]
     [InlineData("{ }", "needs a function")]
     [InlineData("{ } | rate() extra", "unexpected")]
-    [InlineData("{ a = \"1\" } && { b = \"2\" } | rate()", "one spanset")]
-    [InlineData("{ a = \"1\" } || { b = \"2\" } | rate()", "one spanset")]
-    [InlineData("{ a = \"1\" } >> { b = \"2\" } && { c = \"3\" } | rate()", "one spanset")]
+    [InlineData("{ a = \"1\" } && { b = \"2\" } && { c = \"3\" } && { d = \"4\" } && { e = \"5\" } && { f = \"6\" } && { g = \"7\" } | rate()", "at most 6")]
     [InlineData("| rate()", "pipeline")]
     [InlineData("", "empty")]
     public void Unsupported_IsRejectedNamingTheConstruct(string traceQl, string mentions)
@@ -283,4 +282,47 @@ public class TraceQlMetricsParserTests
     [InlineData("with(unknown=true)")]
     [InlineData("with(exemplars=0.5)")]
     public void OtherHints_AreRejected(string hint) => Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics("{ } | rate() " + hint));
+
+    [Theory]
+    [InlineData("{ a = \"1\" } && { b = \"2\" } | rate()", "(A && B)")]
+    [InlineData("{ a = \"1\" } || { b = \"2\" } | rate()", "(A || B)")]
+    [InlineData("{ a = \"1\" } || { b = \"2\" } && { c = \"3\" } | rate()", "(A || (B && C))")]
+    [InlineData("({ a = \"1\" } || { b = \"2\" }) && { c = \"3\" } | rate()", "((A || B) && C)")]
+    [InlineData("{ a = \"1\" } >> { b = \"2\" } && { c = \"3\" } | rate()", "(A => B && C)")]
+    [InlineData("{ a = \"1\" } &>> { b = \"2\" } | rate()", "A => B")]
+    public void CombinedSpansets_AreKeptAsATree(string traceQl, string expression)
+    {
+        var query = TraceQlParser.ParseMetrics(traceQl);
+
+        Assert.Equal(expression, query.Combination!.Expression);
+        Assert.Null(query.Ancestor);
+    }
+
+    [Fact]
+    public void CombinedSpansets_RememberWhichRelationsAreUnions()
+    {
+        var query = TraceQlParser.ParseMetrics("{ a = 1 } &~ { b = 2 } || { c = 3 } | rate()");
+
+        Assert.Equal(new TraceQlRelation('A', 'B', TraceRelationKind.Sibling, false, true), Assert.Single(query.Combination!.Relations));
+        Assert.Equal(3, query.Combination.Spansets.Count);
+    }
+
+    [Fact]
+    public void ASingleSpansetOrPlainRelation_IsNotACombination()
+    {
+        Assert.Null(TraceQlParser.ParseMetrics("{ a = 1 } | rate()").Combination);
+        Assert.Null(TraceQlParser.ParseMetrics("{ a = 1 } >> { b = 2 } | rate()").Combination);
+        Assert.Null(TraceQlParser.ParseMetrics("{ a = 1 } !~ { b = 2 } | rate()").Combination);
+    }
+
+    [Fact]
+    public void ACombination_TakesTheFunctionByStagesAndHintsLikeASpanset()
+    {
+        var query = TraceQlParser.ParseMetrics("({ a = 1 } || { b = 2 }) | quantile_over_time(duration, .9) by (name) > 1 | topk(2) with(exemplars=true)");
+
+        Assert.Equal(TraceQlMetricsFunction.QuantileOverTime, query.Function);
+        Assert.Equal(["name"], query.By);
+        Assert.Equal(2, query.Stages.Count);
+        Assert.True(query.Exemplars);
+    }
 }

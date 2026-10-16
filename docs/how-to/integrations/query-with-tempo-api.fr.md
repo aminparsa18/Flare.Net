@@ -124,7 +124,7 @@ correspondants (`spanSets`), avec les attributs sur lesquels la requête a compa
 | Attributs d'événement, `event.x` : le span correspond quand l'un de ses événements correspond | `{ status = error && event.exception.type = "TimeoutException" }` |
 | `\| select(...)` après la requête, pour ajouter des champs à chaque span listé : `name`, `status`, `statusMessage`, `kind`, `duration`, `rootName`, `rootServiceName`, `traceDuration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (20 au plus), et `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-Non pris en charge dans une recherche : les pipelines `|` autres que `select()` (`count()`, `avg()`, `by()`, ... ; une requête de métriques en accepte un, ci-dessous), `||` à l'intérieur d'un même spanset entre autre chose que des tests `=` d'un même champ, `statusMessage` comme filtre, `<`, `<<` et leurs formes niées et union, un opérateur union dans une requête de métriques et la comparaison de deux champs.
+Non pris en charge dans une recherche : les pipelines `|` autres que `select()` (`count()`, `avg()`, `by()`, ... ; une requête de métriques en accepte un, ci-dessous), `||` à l'intérieur d'un même spanset entre autre chose que des tests `=` d'un même champ, `statusMessage` comme filtre, `<`, `<<` et leurs formes niées et union et la comparaison de deux champs.
 
 `nestedSetLeft`, `nestedSetRight` et `nestedSetParent` numérotent les spans d'une trace comme le fait Tempo : un parcours en profondeur où le numéro gauche d'un span est le numéro suivant quand le parcours y entre et son numéro droit le suivant quand il en sort ; un span est donc sous un autre exactement quand ses numéros sont à l'intérieur de ceux de l'autre. Le parent est le numéro gauche du parent, ou -1 pour une racine. Un span dont le parent n'a jamais été ingéré est numéroté comme une racine. La numérotation lit au plus 2 000 spans par trace.
 
@@ -156,7 +156,11 @@ Les **exemplars** relient un point d'un graphique à une trace. Activez **Exempl
 
 `with(sample=true)` est accepté et ignoré (les réponses de Flare sont exactes) ; il se combine avec `exemplars` : `with(exemplars=true, sample=true)`.
 
-Non pris en charge : `&&` ou `||` entre spansets dans une requête de métriques.
+**Combiner des spansets.** `||` compte les spans de l'un ou l'autre spanset, une seule fois chacun, et `&&` ceux des deux, mais seulement dans une trace qui a un span dans chacun :
+`{ status = error } || { duration > 2s } | rate()`, `{ name = "checkout" } && { name = "payment" } | count_over_time()`. Les parenthèses et les opérateurs structurels se combinent aussi, y compris les opérateurs union (`&>>`, `&>`, `&~`, qui comptent les spans des deux côtés) :
+`({ name = "a" } ~ { name = "b" }) || { status = error } | rate() by (name)`. Six spansets au plus ; `rootName`, `rootServiceName` et `traceDuration` ne peuvent pas être utilisés à côté d'un autre spanset. Les spans d'une trace sont cherchés à partir d'une heure avant la plage, comme pour une relation.
+
+Non pris en charge : la sélection de `compare()` n'accepte pas de combinaison de spansets, ni `<`, `<<` et leurs formes niées et union.
 
 ## Grafana Traces Drilldown
 
