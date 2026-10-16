@@ -42,7 +42,11 @@ public enum TraceQlValueKind
 public sealed record TraceQlValue(TraceQlValueKind Kind, string Text, ulong Nanos = 0);
 
 /// <param name="Field">As written: an intrinsic (<c>name</c>), or <c>span.x</c> / <c>resource.x</c> / <c>.x</c>.</param>
-public sealed record TraceQlPredicate(string Field, TraceQlOp Op, TraceQlValue Value);
+/// <param name="Alternatives">
+/// The other values of <c>(f = a || f = b || f = c)</c>, the multi-value form Grafana's Search tab writes (ADR-0228): the predicate then
+/// holds when the field equals <paramref name="Value"/> or any of these. Only ever set when <paramref name="Op"/> is <see cref="TraceQlOp.Eq"/>.
+/// </param>
+public sealed record TraceQlPredicate(string Field, TraceQlOp Op, TraceQlValue Value, IReadOnlyList<TraceQlValue>? Alternatives = null);
 
 /// <summary>One <c>{ ... }</c>: predicates that must all hold for the same span. Empty means any span.</summary>
 public sealed record TraceQlSpanset(IReadOnlyList<TraceQlPredicate> Predicates);
@@ -148,7 +152,10 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 /// and       := relation ("&amp;&amp;" relation)*
 /// relation  := operand ((">" | ">>" | "&amp;>>") operand)?
 /// operand   := spanset | "(" or ")"
-/// spanset   := "{" [predicate ("&amp;&amp;" predicate)*] "}"
+/// spanset   := "{" [fields] "}"
+/// fields    := term ("||" term)*          -- only as "f = a || f = b": the same field, = each time
+/// term      := item ("&amp;&amp;" item)*
+/// item      := predicate | "(" fields ")"
 /// predicate := field op value
 /// op        := "=" | "!=" | "=~" | "!~" | ">" | ">=" | "&lt;" | "&lt;="
 /// value     := string | number | duration | "true" | "false" | "error" | "ok" | "unset"
@@ -156,7 +163,7 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 /// <c>&gt;</c> between spansets is "has a direct child matching", <c>&gt;&gt;</c> is "has a descendant
 /// matching" - the same relations the structural trace query builds (ADR-0069); <c>&amp;&gt;&gt;</c> is
 /// <c>&gt;&gt;</c> that lists the spans of both sides (ADR-0227). The one pipeline stage of a search is
-/// <c>select(...)</c>. Any other (<c>count()</c>, ...), a <c>||</c> inside a spanset, sibling and negated
+/// <c>select(...)</c>. Any other (<c>count()</c>, ...), a <c>||</c> inside a spanset between anything but values of one field, sibling and negated
 /// structural operators and arithmetic are rejected with a message that names them, never half-evaluated.
 /// <see cref="ParseMetrics"/> reads the one pipeline stage a metrics query adds (ADR-0221):
 /// <code>
@@ -172,6 +179,9 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 public static class TraceQlParser
 {
     public const int MaxLength = 4000;
+
+    /// <summary>The most values one <c>(f = a || f = b || ...)</c> group lists.</summary>
+    public const int MaxAlternatives = 200;
 
     /// <summary>The most quantiles one <c>quantile_over_time</c> asks for.</summary>
     public const int MaxQuantiles = 10;
@@ -243,6 +253,27 @@ public static class TraceQlParser
 
         return new TraceQlQuery(spansets, expression, select, parser.Unions);
     }
+
+    /// <summary>
+    /// Tempo's scoped intrinsics (<c>span:duration</c>, <c>trace:rootService</c>, ...) are the form its docs and cookbook recommend (ADR-0228);
+    /// each is read as the unscoped name Flare already knows. Ones with no unscoped equivalent here keep their spelling, and the planner
+    /// says they are not supported.
+    /// </summary>
+    private static string Canonical(string word) => word switch
+    {
+        "span:duration" => "duration",
+        "span:name" => "name",
+        "span:status" => "status",
+        "span:kind" => "kind",
+        "span:statusMessage" => "statusMessage",
+        "span:id" => "spanID",
+        "trace:duration" => "traceDuration",
+        "trace:rootName" => "rootName",
+        "trace:rootService" => "rootServiceName",
+        "trace:id" => "traceID",
+        "event:name" => "event.name",
+        _ => word,
+    };
 
     private static void CheckLength(string? query)
     {
@@ -349,7 +380,7 @@ public static class TraceQlParser
                     i++;
                 }
 
-                tokens.Add(new Token(TokenKind.Word, text[start..i], start));
+                tokens.Add(new Token(TokenKind.Word, Canonical(text[start..i]), start));
                 continue;
             }
 
@@ -917,17 +948,7 @@ public static class TraceQlParser
             var predicates = new List<TraceQlPredicate>();
             if (Peek.Kind != TokenKind.RBrace)
             {
-                AddPredicate(predicates);
-                while (IsOperator("&&"))
-                {
-                    _pos++;
-                    AddPredicate(predicates);
-                }
-
-                if (IsOperator("||"))
-                {
-                    throw new TraceQlException("'||' inside a spanset is not supported; combine whole spansets instead, e.g. { a } || { b }.");
-                }
+                ParseFields(predicates);
             }
 
             Expect(TokenKind.RBrace, "}");
@@ -941,11 +962,90 @@ public static class TraceQlParser
             return ((char)('A' + spansets.Count - 1)).ToString();
         }
 
+        /// <summary>
+        /// The body of a spanset (or of a parenthesised group in it): terms joined by <c>||</c>. Grafana's Search tab writes
+        /// <c>(resource.service.name="a" || resource.service.name="b") &amp;&amp; (name!="x" &amp;&amp; name!="y")</c> when several values are
+        /// picked (ADR-0228). A <c>&amp;&amp;</c> group is the same as its predicates written out; a <c>||</c> group becomes one predicate with
+        /// <see cref="TraceQlPredicate.Alternatives"/>, which is all a span condition can say about a disjunction.
+        /// </summary>
+        private void ParseFields(List<TraceQlPredicate> into)
+        {
+            var branches = new List<List<TraceQlPredicate>>();
+            while (true)
+            {
+                var branch = new List<TraceQlPredicate>();
+                ParseTerm(branch);
+                branches.Add(branch);
+                if (!IsOperator("||"))
+                {
+                    break;
+                }
+
+                _pos++;
+            }
+
+            if (branches.Count == 1)
+            {
+                into.AddRange(branches[0]);
+                return;
+            }
+
+            // A branch that tests nothing (a bare `true`) holds for every span, so the whole disjunction does.
+            if (branches.Any(b => b.Count == 0))
+            {
+                return;
+            }
+
+            if (branches.Count > MaxAlternatives)
+            {
+                throw new TraceQlException($"a '||' group can list at most {MaxAlternatives} values.");
+            }
+
+            into.Add(Alternatives(branches));
+        }
+
+        private void ParseTerm(List<TraceQlPredicate> into)
+        {
+            ParseItem(into);
+            while (IsOperator("&&"))
+            {
+                _pos++;
+                ParseItem(into);
+            }
+        }
+
+        private void ParseItem(List<TraceQlPredicate> into)
+        {
+            if (Peek.Kind != TokenKind.LParen)
+            {
+                AddPredicate(into);
+                return;
+            }
+
+            _pos++;
+            ParseFields(into);
+            Expect(TokenKind.RParen, ")");
+        }
+
+        /// <summary><c>f = a || f = b</c>: every branch one equality on the same field. Anything else is a disjunction a span condition cannot hold.</summary>
+        private static TraceQlPredicate Alternatives(List<List<TraceQlPredicate>> branches)
+        {
+            var first = branches[0].Count == 1 ? branches[0][0] : null;
+            if (first is null || first.Alternatives is not null
+                || branches.Any(b => b.Count != 1 || b[0].Alternatives is not null || b[0].Op != TraceQlOp.Eq || b[0].Field != first.Field || b[0].Value.Kind == TraceQlValueKind.Nil))
+            {
+                throw new TraceQlException(
+                    "'||' inside a spanset only combines '=' tests of one field, e.g. { span.http.status_code = 500 || span.http.status_code = 503 }; combine anything else as whole spansets, { a } || { b }.");
+            }
+
+            return first with { Alternatives = branches.Skip(1).Select(b => b[0].Value).ToArray() };
+        }
+
         /// <summary>A predicate, or nothing for a bare <c>true</c>: Traces Drilldown writes <c>{ nestedSetParent&lt;0 &amp;&amp; true }</c> to have something to append filters to.</summary>
         private void AddPredicate(List<TraceQlPredicate> predicates)
         {
             var token = Peek;
-            var standsAlone = tokens[_pos + 1].Kind is TokenKind.RBrace or TokenKind.End || IsOperatorAt(_pos + 1, "&&");
+            var standsAlone = tokens[_pos + 1].Kind is TokenKind.RBrace or TokenKind.RParen or TokenKind.End || IsOperatorAt(_pos + 1, "&&") || IsOperatorAt(_pos + 1, "||");
             if (token.Kind == TokenKind.Word && token.Text is "true" or "false" && standsAlone)
             {
                 _pos++;

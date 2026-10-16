@@ -308,6 +308,12 @@ public static class TempoSearchPlanner
     private static void Apply(TraceQlPredicate predicate, ConditionBuilder builder, TraceLevel? trace)
     {
         var field = predicate.Field;
+        if (predicate.Alternatives is not null && field is "duration" or "nestedSetParent" or "nestedSetLeft" or "nestedSetRight"
+            or "statusMessage" or "childCount" or "parent" or "traceID" or "spanID")
+        {
+            throw new TraceQlException($"a '||' group of values is supported for name, status, kind, rootName, rootServiceName and attributes, not '{field}'.");
+        }
+
         switch (field)
         {
             case "name":
@@ -356,6 +362,11 @@ public static class TempoSearchPlanner
             var key = field[1..];
             var bag = ResourceNamespaces.Any(p => key.StartsWith(p, StringComparison.Ordinal)) ? SpanAttributeBag.Resource : SpanAttributeBag.Span;
             ApplyAttribute(predicate, key, bag, builder);
+        }
+        else if (field.Contains(':'))
+        {
+            // Tempo's scoped intrinsics with no counterpart here (span:parentID, event:timeSinceStart, instrumentation:*, link:*).
+            throw new TraceQlException($"the intrinsic '{field}' is not supported.");
         }
         else
         {
@@ -411,6 +422,20 @@ public static class TempoSearchPlanner
             return;
         }
 
+        // `(f = a || f = b)`, which Grafana's Search tab writes for several picked values (ADR-0228): a membership test.
+        if (predicate.Alternatives is { Count: > 0 } alternatives)
+        {
+            var values = alternatives.Prepend(predicate.Value).Select(AttributeText).Distinct(StringComparer.Ordinal).ToList();
+            if (bag == SpanAttributeBag.Resource && key == "service.name")
+            {
+                builder.RestrictServices(values);
+                return;
+            }
+
+            builder.Attributes.Add(new SpanAttributeFilter { Bag = bag, Key = key, Value = string.Empty, Operator = SpanAttributeFilterOperator.In, Values = values });
+            return;
+        }
+
         // The service is a first-class column, which the structure filter matches exactly (and the ingest sort key favours).
         if (bag == SpanAttributeBag.Resource && key == "service.name" && predicate.Op == TraceQlOp.Eq
             && predicate.Value.Kind == TraceQlValueKind.String && builder.Service is null)
@@ -449,60 +474,86 @@ public static class TempoSearchPlanner
         ? value.Text
         : throw new TraceQlException($"{predicate.Field} can only be compared with <, <=, > or >= against a number.");
 
-    private static string RequireEquality(TraceQlPredicate predicate, string field)
+    /// <summary>The exact strings a <c>rootName = ...</c> (or a group of them) tests for.</summary>
+    private static IEnumerable<string> RequireEquality(TraceQlPredicate predicate, string field)
     {
         if (predicate.Op != TraceQlOp.Eq)
         {
             throw new TraceQlException($"'{field}' supports only = in this subset (an exact match).");
         }
 
-        return predicate.Value.Kind == TraceQlValueKind.String
-            ? predicate.Value.Text
-            : throw new TraceQlException($"{field} = needs a quoted string.");
+        foreach (var value in AllValues(predicate))
+        {
+            yield return value.Kind == TraceQlValueKind.String
+                ? value.Text
+                : throw new TraceQlException($"{field} = needs a quoted string.");
+        }
     }
+
+    private static IEnumerable<TraceQlValue> AllValues(TraceQlPredicate predicate) =>
+        predicate.Alternatives is null ? [predicate.Value] : predicate.Alternatives.Prepend(predicate.Value);
 
     private static void ApplyName(TraceQlPredicate predicate, ConditionBuilder builder)
     {
-        var (match, text) = predicate.Op switch
+        switch (predicate.Op)
         {
-            TraceQlOp.Eq => (SpanNameMatch.Equals, RequireString(predicate)),
-            TraceQlOp.Neq => (SpanNameMatch.NotEquals, RequireString(predicate)),
+            case TraceQlOp.Eq:
+                builder.NameIn(AllValues(predicate).Select(v => RequireString(predicate, v)).ToList());
+                return;
+            case TraceQlOp.Neq:
+                builder.NameNotIn(RequireString(predicate, predicate.Value));
+                return;
             // Tempo anchors regular expressions; ClickHouse's match() does not.
-            TraceQlOp.Re => (SpanNameMatch.Regex, Anchor(RegexText(predicate.Value, predicate))),
-            TraceQlOp.Nre => (SpanNameMatch.NotRegex, Anchor(RegexText(predicate.Value, predicate))),
-            _ => throw new TraceQlException("'name' supports =, !=, =~ and !~."),
-        };
-        builder.SetSpanName(text, match);
+            case TraceQlOp.Re:
+                builder.SetSpanNamePattern(Anchor(RegexText(predicate.Value, predicate)), SpanNameMatch.Regex);
+                return;
+            case TraceQlOp.Nre:
+                builder.SetSpanNamePattern(Anchor(RegexText(predicate.Value, predicate)), SpanNameMatch.NotRegex);
+                return;
+            default:
+                throw new TraceQlException("'name' supports =, !=, =~ and !~.");
+        }
     }
 
-    private static string RequireString(TraceQlPredicate predicate) => predicate.Value.Kind == TraceQlValueKind.String
-        ? predicate.Value.Text
+    private static string RequireString(TraceQlPredicate predicate, TraceQlValue value) => value.Kind == TraceQlValueKind.String
+        ? value.Text
         : throw new TraceQlException($"{predicate.Field} {(predicate.Op == TraceQlOp.Eq ? "=" : "!=")} needs a quoted string.");
+
+    /// <summary>RE2 metacharacters, escaped so a literal value can be one branch of an alternation.</summary>
+    private static string RegexQuote(string literal)
+    {
+        var quoted = new StringBuilder(literal.Length + 4);
+        foreach (var c in literal)
+        {
+            if (@"\.+*?()|[]{}^$".Contains(c))
+            {
+                quoted.Append('\\');
+            }
+
+            quoted.Append(c);
+        }
+
+        return quoted.ToString();
+    }
 
     private static void ApplyStatus(TraceQlPredicate predicate, ConditionBuilder builder)
     {
-        if (predicate.Op is not (TraceQlOp.Eq or TraceQlOp.Neq))
+        switch (predicate.Op)
         {
-            throw new TraceQlException("'status' supports = and !=, e.g. status = error.");
+            case TraceQlOp.Eq:
+                builder.RestrictStatus(AllValues(predicate).Select(StatusLabel).ToList());
+                return;
+            case TraceQlOp.Neq:
+                builder.ExcludeStatus(StatusLabel(predicate.Value));
+                return;
+            default:
+                throw new TraceQlException("'status' supports = and !=, e.g. status = error.");
         }
-
-        builder.SetStatus(StatusLabel(predicate), negated: predicate.Op == TraceQlOp.Neq);
     }
 
-    private static void ApplyKind(TraceQlPredicate predicate, ConditionBuilder builder)
-    {
-        if (predicate.Op is not (TraceQlOp.Eq or TraceQlOp.Neq))
-        {
-            throw new TraceQlException("'kind' supports = and !=, e.g. kind = server.");
-        }
-
-        if (predicate.Value.Kind != TraceQlValueKind.Kind)
-        {
-            throw new TraceQlException("'kind' is compared with unspecified, internal, server, client, producer or consumer.");
-        }
-
-        // OTel SpanKind numbers.
-        var number = predicate.Value.Text switch
+    /// <summary>OTel <c>SpanKind</c> numbers.</summary>
+    private static byte KindNumber(TraceQlValue value) => value.Kind == TraceQlValueKind.Kind
+        ? value.Text switch
         {
             "unspecified" => (byte)0,
             "internal" => (byte)1,
@@ -510,13 +561,27 @@ public static class TempoSearchPlanner
             "client" => (byte)3,
             "producer" => (byte)4,
             _ => (byte)5,
-        };
-        builder.SetKind(number, negated: predicate.Op == TraceQlOp.Neq);
+        }
+        : throw new TraceQlException("'kind' is compared with unspecified, internal, server, client, producer or consumer.");
+
+    private static void ApplyKind(TraceQlPredicate predicate, ConditionBuilder builder)
+    {
+        switch (predicate.Op)
+        {
+            case TraceQlOp.Eq:
+                builder.RestrictKind(AllValues(predicate).Select(KindNumber).ToList());
+                return;
+            case TraceQlOp.Neq:
+                builder.ExcludeKind(KindNumber(predicate.Value));
+                return;
+            default:
+                throw new TraceQlException("'kind' supports = and !=, e.g. kind = server.");
+        }
     }
 
-    private static string StatusLabel(TraceQlPredicate predicate)
+    private static string StatusLabel(TraceQlValue value)
     {
-        var name = predicate.Value.Text;
+        var name = value.Text;
         return name switch
         {
             "error" => "STATUS_CODE_ERROR",
@@ -575,10 +640,10 @@ public static class TempoSearchPlanner
         switch (predicate.Field)
         {
             case "rootName":
-                trace.Names.Add(RequireEquality(predicate, "rootName"));
+                trace.Names.AddRange(RequireEquality(predicate, "rootName"));
                 break;
             case "rootServiceName":
-                trace.Services.Add(RequireEquality(predicate, "rootServiceName"));
+                trace.Services.AddRange(RequireEquality(predicate, "rootServiceName"));
                 break;
             default:
                 var range = new DurationRange();
@@ -613,12 +678,19 @@ public static class TempoSearchPlanner
 
     private sealed class ConditionBuilder
     {
+        private static readonly string[] AllStatuses = ["STATUS_CODE_UNSET", "STATUS_CODE_OK", "STATUS_CODE_ERROR"];
+        private static readonly byte[] AllKinds = [0, 1, 2, 3, 4, 5];
+
+        // A span name is either one pattern (=~ / !~) or sets of exact names: some `=` (their intersection) minus every `!=`.
         private string? _spanName;
         private SpanNameMatch _spanNameMatch;
-        private string? _status;
-        private bool _statusNegated;
-        private byte? _kind;
-        private bool _kindNegated;
+        private List<string>? _nameIn;
+        private readonly List<string> _nameNotIn = [];
+
+        // Status and kind are small enumerations, so `=`, `!=` and groups of them narrow a set of the allowed values.
+        private List<string>? _statuses;
+        private List<byte>? _kinds;
+        private List<string>? _services;
 
         public string? Service { get; set; }
 
@@ -633,7 +705,8 @@ public static class TempoSearchPlanner
         public bool? RootSpan => _rootAllowed == _nonRootAllowed ? null : _rootAllowed;
 
         public bool IsBlank =>
-            Service is null && _spanName is null && _status is null && _kind is null && RootSpan is null && Duration.Min is null && Duration.Max is null && Attributes.Count == 0;
+            Service is null && _services is null && ResolveName().Text is null && ResolveStatus().Label is null && ResolveKind().Kind is null
+            && RootSpan is null && Duration.Min is null && Duration.Max is null && Attributes.Count == 0;
 
         /// <summary>Narrows to the spans a <c>nestedSetParent</c> test lets through; one that no span passes is an error rather than an empty result.</summary>
         public void RestrictParent(bool rootMatches, bool nonRootMatches, string text)
@@ -646,53 +719,139 @@ public static class TempoSearchPlanner
             }
         }
 
-        public void SetSpanName(string name, SpanNameMatch match)
+        public void SetSpanNamePattern(string pattern, SpanNameMatch match)
         {
-            if (_spanName is not null && (_spanName != name || _spanNameMatch != match))
+            if (_spanName is not null && (_spanName != pattern || _spanNameMatch != match))
             {
                 throw new TraceQlException("'name' is compared twice in one spanset; no single span name test covers both.");
             }
 
-            _spanName = name;
+            _spanName = pattern;
             _spanNameMatch = match;
         }
 
-        public void SetStatus(string label, bool negated)
+        public void NameIn(List<string> names) => _nameIn = Narrow(_nameIn, names);
+
+        public void NameNotIn(string name) => _nameNotIn.Add(name);
+
+        public void RestrictServices(List<string> services) => _services = Narrow(_services, services);
+
+        public void RestrictStatus(List<string> labels) => _statuses = Narrow(_statuses, labels);
+
+        public void ExcludeStatus(string label) => _statuses = (_statuses ?? [.. AllStatuses]).Where(l => l != label).ToList();
+
+        public void RestrictKind(List<byte> kinds) => _kinds = Narrow(_kinds, kinds);
+
+        public void ExcludeKind(byte kind) => _kinds = (_kinds ?? [.. AllKinds]).Where(k => k != kind).ToList();
+
+        private static List<T> Narrow<T>(List<T>? current, List<T> values) =>
+            current is null ? values.Distinct().ToList() : current.Intersect(values).ToList();
+
+        private (string? Text, SpanNameMatch Match) ResolveName()
         {
-            if (_status is not null && (_status != label || _statusNegated != negated))
+            if (_spanName is not null)
             {
-                throw new TraceQlException("'status' is compared twice in one spanset; no single status test covers both.");
+                return _nameIn is null && _nameNotIn.Count == 0
+                    ? (_spanName, _spanNameMatch)
+                    : throw new TraceQlException("'name' is compared twice in one spanset; no single span name test covers both.");
             }
 
-            _status = label;
-            _statusNegated = negated;
-        }
-
-        public void SetKind(byte kind, bool negated)
-        {
-            if (_kind is not null && (_kind != kind || _kindNegated != negated))
+            if (_nameIn is not null)
             {
-                throw new TraceQlException("'kind' is compared twice in one spanset; no single kind test covers both.");
+                var names = _nameIn.Where(n => !_nameNotIn.Contains(n)).ToList();
+                return names.Count switch
+                {
+                    0 => throw new TraceQlException("no span name satisfies the 'name' tests of this spanset."),
+                    1 => (names[0], SpanNameMatch.Equals),
+                    _ => (Anchor(string.Join('|', names.Select(RegexQuote))), SpanNameMatch.Regex),
+                };
             }
 
-            _kind = kind;
-            _kindNegated = negated;
+            var excluded = _nameNotIn.Distinct().ToList();
+            return excluded.Count switch
+            {
+                0 => (null, default),
+                1 => (excluded[0], SpanNameMatch.NotEquals),
+                _ => (Anchor(string.Join('|', excluded.Select(RegexQuote))), SpanNameMatch.NotRegex),
+            };
         }
 
-        public TraceSpanCondition Build(string letter) => new()
+        /// <summary>One label, negated when two of the three remain (<c>status = error || status = ok</c> is <c>status != unset</c>); none for no test.</summary>
+        private (string? Label, bool Negated) ResolveStatus()
         {
-            Name = letter,
-            ServiceName = Service,
-            SpanName = _spanName,
-            StatusCode = _status,
-            StatusCodeNegated = _statusNegated,
-            SpanNameMatch = _spanNameMatch,
-            Kind = _kind,
-            KindNegated = _kindNegated,
-            RootSpan = RootSpan,
-            MinDurationNano = Duration.Min,
-            MaxDurationNano = Duration.Max,
-            Attributes = Attributes.Count == 0 ? null : Attributes,
-        };
+            if (_statuses is null)
+            {
+                return (null, false);
+            }
+
+            return _statuses.Count switch
+            {
+                0 => throw new TraceQlException("no span satisfies the 'status' tests of this spanset."),
+                1 => (_statuses[0], false),
+                2 => (AllStatuses.First(l => !_statuses.Contains(l)), true),
+                _ => (null, false),
+            };
+        }
+
+        private (byte? Kind, bool Negated) ResolveKind()
+        {
+            if (_kinds is null)
+            {
+                return (null, false);
+            }
+
+            return _kinds.Count switch
+            {
+                0 => throw new TraceQlException("no span satisfies the 'kind' tests of this spanset."),
+                1 => (_kinds[0], false),
+                5 => (AllKinds.First(k => !_kinds.Contains(k)), true),
+                6 => (null, false),
+                _ => throw new TraceQlException("'kind' can be tested for one value, or for all but one."),
+            };
+        }
+
+        public TraceSpanCondition Build(string letter)
+        {
+            var (name, nameMatch) = ResolveName();
+            var (status, statusNegated) = ResolveStatus();
+            var (kind, kindNegated) = ResolveKind();
+            var service = Service;
+            var services = _services;
+            if (services is not null)
+            {
+                if (service is not null)
+                {
+                    // An exact service and a list of them: the list only matters if it admits that service.
+                    services = services.Contains(service) ? null : [];
+                }
+                else if (services.Count == 1)
+                {
+                    service = services[0];
+                    services = null;
+                }
+
+                if (services is { Count: 0 })
+                {
+                    throw new TraceQlException("no span satisfies the 'resource.service.name' tests of this spanset.");
+                }
+            }
+
+            return new()
+            {
+                Name = letter,
+                ServiceName = service,
+                ServiceNames = services,
+                SpanName = name,
+                StatusCode = status,
+                StatusCodeNegated = statusNegated,
+                SpanNameMatch = nameMatch,
+                Kind = kind,
+                KindNegated = kindNegated,
+                RootSpan = RootSpan,
+                MinDurationNano = Duration.Min,
+                MaxDurationNano = Duration.Max,
+                Attributes = Attributes.Count == 0 ? null : Attributes,
+            };
+        }
     }
 }

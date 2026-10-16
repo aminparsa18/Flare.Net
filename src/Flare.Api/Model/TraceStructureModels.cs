@@ -56,6 +56,13 @@ public sealed partial record TraceSpanCondition
     /// wire-compatible); the Tempo API's TraceQL <c>nestedSetParent &lt; 0</c> (ADR-0226) is what needs it.
     /// </summary>
     public bool? RootSpan { get; init; }
+
+    /// <summary>
+    /// The span's <c>ServiceName</c> is any of these, ANDed with <see cref="ServiceName"/> when both are set. Appended last (MemoryPack
+    /// wire-compatible); the Tempo API's TraceQL <c>(resource.service.name = "a" || resource.service.name = "b")</c>, which Grafana's
+    /// Search tab writes for a multi-value Service Name, is what needs it (ADR-0228). Null/empty = no such restriction.
+    /// </summary>
+    public IReadOnlyList<string>? ServiceNames { get; init; }
 }
 
 /// <summary>How a <see cref="TraceSpanCondition.SpanName"/> is compared with a span's name.</summary>

@@ -109,6 +109,8 @@ datasources:
 | Операторы `=`, `!=`, `=~`, `!~`, `>`, `>=`, `<`, `<=` | `{ span.http.status_code >= 500 }` |
 | Встроенные поля спана: `name` (`=`, `!=`, `=~`, `!~`), `status` (`=`, `!=`: `error`, `ok`, `unset`), `kind` (`=`, `!=`: `unspecified`, `internal`, `server`, `client`, `producer`, `consumer`), `duration` | `{ kind = server && name =~ "POST .*" && status != ok }` |
 | Встроенные поля трейса в запросе из одного спансета: `rootName`, `rootServiceName`, `traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
+| Встроенные поля Tempo с областью, как их пишет документация Tempo: `span:duration`, `span:name`, `span:status`, `span:kind`, `trace:duration`, `trace:rootName`, `trace:rootService`, `event:name` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
+| Несколько значений одного поля, `(f = a \|\| f = b)`, которые вкладка Search в Grafana пишет, когда выбрано больше одного: сервис, имя спана, статус, атрибут, `rootName`, `rootServiceName` (и `f != a && f != b`) | `{ (resource.service.name = "api" \|\| resource.service.name = "web") && (name != "GET /health" && name != "GET /ready") }` |
 | Объединение спансетов: `&&`, `\|\|`, дочерний `>`, потомок `>>`. Пустой `{ }` рядом с `>`, `>>` или `&>>` означает любой спан | `{ resource.service.name = "checkout" } >> { status = error }` |
 | `&>>` — спаны обеих сторон: спан справа, у которого есть подходящий предок, и спан слева, у которого есть подходящий потомок | `{ nestedSetParent < 0 } &>> { kind = server }` |
 | Атрибуты без указания области | `{ .service.name = "api" }` |
@@ -118,7 +120,7 @@ datasources:
 | Атрибуты событий, `event.x`: спан подходит, если подходит одно из его событий | `{ status = error && event.exception.type = "TimeoutException" }` |
 | `\| select(...)` после запроса, чтобы добавить поля каждому показанному спану: `name`, `status`, `kind`, `duration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (не больше 20) и `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-Не поддерживаются в поиске: конвейеры `|`, кроме `select()` (`count()`, `avg()`, `by()` и т. д.; запрос метрик принимает один, см. ниже), `||` внутри одного спансета, `statusMessage`, `&>>` в запросе метрик и сравнение двух полей.
+Не поддерживаются в поиске: конвейеры `|`, кроме `select()` (`count()`, `avg()`, `by()` и т. д.; запрос метрик принимает один, см. ниже), `||` внутри одного спансета между чем-либо, кроме проверок `=` одного поля, `statusMessage`, `kind` в наборе из двух–четырёх значений, `&>>` в запросе метрик и сравнение двух полей.
 
 `nestedSetLeft`, `nestedSetRight` и `nestedSetParent` нумеруют спаны трейса так же, как Tempo: обход в глубину, где левое число спана — следующее число при входе в него, а правое — следующее при выходе, поэтому один спан находится под другим ровно тогда, когда его числа лежат внутри чисел другого. Родитель — это левое число родителя или -1 для корня. Спан, чей родитель не был принят, нумеруется как корень. Для нумерации читается не больше 2 000 спанов трейса.
 
