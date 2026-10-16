@@ -151,6 +151,7 @@ public static class TempoSpanSelector
             var leftBit = Bit(relation.Left);
             var rightBit = Bit(relation.Right);
             var siblings = relation.Kind == TraceRelationKind.Sibling ? SiblingGroups(rows, start, count, leftBit) : null;
+            var children = relation.Kind is TraceRelationKind.Parent or TraceRelationKind.Ancestor ? ChildLists(parent) : null;
             for (var i = 0; i < count; i++)
             {
                 if ((rows[start + i].MatchMask & rightBit) == 0)
@@ -159,7 +160,7 @@ public static class TempoSpanSelector
                 }
 
                 // The left-hand spans related to this right-hand one.
-                var related = Related(rows, start, parent, i, relation.Kind, leftBit, siblings);
+                var related = Related(rows, start, parent, i, relation.Kind, leftBit, siblings, children);
                 if (related.Count > 0 != relation.Negated)
                 {
                     included[i] = true;
@@ -179,12 +180,53 @@ public static class TempoSpanSelector
         return included;
     }
 
-    /// <summary>The spans (indexes within the trace) matching <paramref name="leftBit"/> that stand in <paramref name="kind"/> to span <paramref name="i"/>: its parent, its ancestors, or its siblings.</summary>
-    private static List<int> Related(IReadOnlyList<SpanTreeRow> rows, int start, int[] parent, int i, TraceRelationKind kind, uint leftBit, Dictionary<string, List<int>>? siblings)
+    /// <summary>
+    /// The spans (indexes within the trace) matching <paramref name="leftBit"/> that stand in <paramref name="kind"/> to span <paramref name="i"/>: its parent, its
+    /// ancestors, its siblings, or - for the turned-round operators (ADR-0235) - its children or its descendants.
+    /// </summary>
+    private static List<int> Related(IReadOnlyList<SpanTreeRow> rows, int start, int[] parent, int i, TraceRelationKind kind, uint leftBit, Dictionary<string, List<int>>? siblings, List<int>?[]? children)
     {
         var related = new List<int>();
         switch (kind)
         {
+            case TraceRelationKind.Parent:
+                foreach (var child in children![i] ?? [])
+                {
+                    if ((rows[start + child].MatchMask & leftBit) != 0)
+                    {
+                        related.Add(child);
+                    }
+                }
+
+                break;
+            case TraceRelationKind.Ancestor:
+                // Every descendant down to MaxWalkDepth levels, breadth first (a span cannot be its own descendant: a parent cycle is cut by the visited set).
+                var level = new List<int> { i };
+                var seen = new HashSet<int> { i };
+                for (var depth = 0; depth < MaxWalkDepth && level.Count > 0; depth++)
+                {
+                    var next = new List<int>();
+                    foreach (var node in level)
+                    {
+                        foreach (var child in children![node] ?? [])
+                        {
+                            if (!seen.Add(child))
+                            {
+                                continue;
+                            }
+
+                            next.Add(child);
+                            if ((rows[start + child].MatchMask & leftBit) != 0)
+                            {
+                                related.Add(child);
+                            }
+                        }
+                    }
+
+                    level = next;
+                }
+
+                break;
             case TraceRelationKind.Child:
                 if (parent[i] >= 0 && (rows[start + parent[i]].MatchMask & leftBit) != 0)
                 {
@@ -213,6 +255,21 @@ public static class TempoSpanSelector
         }
 
         return related;
+    }
+
+    /// <summary>For each span of a trace, the indexes of its children, given every span's parent index (-1 for a root).</summary>
+    private static List<int>?[] ChildLists(int[] parent)
+    {
+        var children = new List<int>?[parent.Length];
+        for (var i = 0; i < parent.Length; i++)
+        {
+            if (parent[i] >= 0)
+            {
+                (children[parent[i]] ??= []).Add(i);
+            }
+        }
+
+        return children;
     }
 
     /// <summary>The spans matching <paramref name="leftBit"/>, grouped by their parent id (the empty id groups the roots, which are siblings of each other, as in Tempo).</summary>

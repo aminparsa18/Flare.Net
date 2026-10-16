@@ -95,6 +95,10 @@ public class TraceStructureExpressionTests
     [InlineData("a !=> b", TraceRelationKind.Descendant, true)]
     [InlineData("A !~ B", TraceRelationKind.Sibling, true)]
     [InlineData("A!~B", TraceRelationKind.Sibling, true)]
+    [InlineData("A <- B", TraceRelationKind.Parent, false)]
+    [InlineData("A<=B", TraceRelationKind.Ancestor, false)]
+    [InlineData("a !<- b", TraceRelationKind.Parent, true)]
+    [InlineData("A!<=B", TraceRelationKind.Ancestor, true)]
     public void Parse_SiblingAndNegatedRelations(string expression, TraceRelationKind kind, bool negated) =>
         Assert.Equal(new TraceStructureRelation('A', 'B', kind, negated), TraceStructureExpression.Parse(expression));
 
@@ -121,9 +125,30 @@ public class TraceStructureExpressionTests
     [InlineData(TraceRelationKind.Child, true, "!->")]
     [InlineData(TraceRelationKind.Descendant, true, "!=>")]
     [InlineData(TraceRelationKind.Sibling, true, "!~")]
+    [InlineData(TraceRelationKind.Parent, false, "<-")]
+    [InlineData(TraceRelationKind.Ancestor, false, "<=")]
+    [InlineData(TraceRelationKind.Parent, true, "!<-")]
+    [InlineData(TraceRelationKind.Ancestor, true, "!<=")]
     public void Operator_WritesWhatParseReads(TraceRelationKind kind, bool negated, string expected)
     {
         Assert.Equal(expected, TraceStructureExpression.Operator(kind, negated));
         Assert.Equal(new TraceStructureRelation('A', 'B', kind, negated), TraceStructureExpression.Parse($"A {expected} B"));
     }
+
+    [Theory]
+    [InlineData(TraceRelationKind.Child, 'A', 'B')]
+    [InlineData(TraceRelationKind.Descendant, 'A', 'B')]
+    [InlineData(TraceRelationKind.Parent, 'B', 'A')]
+    [InlineData(TraceRelationKind.Ancestor, 'B', 'A')]
+    public void UpperAndLower_NameTheHigherAndTheLowerSideWhicheverWayTheOperatorReads(TraceRelationKind kind, char upper, char lower)
+    {
+        var relation = new TraceStructureRelation('A', 'B', kind);
+
+        Assert.Equal((upper, lower), (relation.Upper, relation.Lower));
+        Assert.Equal(kind is TraceRelationKind.Parent or TraceRelationKind.Ancestor, relation.Reversed);
+    }
+
+    [Fact]
+    public void Parse_RejectsAChainOfTurnedRoundRelations() =>
+        Assert.Throws<ArgumentException>(() => TraceStructureExpression.Parse("A <- B <= C"));
 }

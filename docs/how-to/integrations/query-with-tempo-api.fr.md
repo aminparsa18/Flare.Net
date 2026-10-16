@@ -117,6 +117,7 @@ correspondants (`spanSets`), avec les attributs sur lesquels la requête a compa
 | `&>>`, `&>` et `&~`, les spans des deux côtés : un span de droite qui a un ancêtre (parent, frère) correspondant, et un span de gauche qui a un tel span à sa droite | `{ nestedSetParent < 0 } &>> { kind = server }` |
 | `~`, les spans de droite qui ont un frère correspondant à gauche (même parent, jamais le span lui-même ; deux racines d'une trace sont frères, comme chez Tempo) | `{ name = "GET /a" } ~ { name = "GET /b" }` |
 | `!>`, `!>>` et `!~`, les spans de droite qui n'ont **aucun** parent, ancêtre ou frère correspondant ; une trace sans span de gauche correspondant liste tous ses spans de droite correspondants | `{ name = "cache.get" } !>> { name = "db.query" }` |
+| `<` et `<<`, les spans de droite qui sont le **parent**, ou un ancêtre, d'un span de gauche correspondant (`>` et `>>` lus de l'autre côté : ils listent le span en dessous, ceux-ci le span au-dessus) ; `!<` et `!<<` les spans de droite qui ne sont le parent ni un ancêtre d'aucun ; `&<` et `&<<` les spans des deux côtés | `{ name = "db.query" } << { kind = server }` |
 | Attributs sans portée | `{ .service.name = "api" }` |
 | Spans racines : `nestedSetParent < 0` (`> 0` pour les spans qui ont un parent) | `{ nestedSetParent < 0 && status = error }` |
 | Un attribut défini, `!= nil`, ou non, `= nil` | `{ resource.k8s.pod.name != nil }` |
@@ -124,7 +125,7 @@ correspondants (`spanSets`), avec les attributs sur lesquels la requête a compa
 | Attributs d'événement, `event.x` : le span correspond quand l'un de ses événements correspond | `{ status = error && event.exception.type = "TimeoutException" }` |
 | `\| select(...)` après la requête, pour ajouter des champs à chaque span listé : `name`, `status`, `statusMessage`, `kind`, `duration`, `rootName`, `rootServiceName`, `traceDuration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (20 au plus), et `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-Non pris en charge dans une recherche : les pipelines `|` autres que `select()` (`count()`, `avg()`, `by()`, ... ; une requête de métriques en accepte un, ci-dessous), `||` à l'intérieur d'un même spanset entre autre chose que des tests `=` d'un même champ, `<`, `<<` et leurs formes niées et union et la comparaison de deux champs.
+Non pris en charge dans une recherche : les pipelines `|` autres que `select()` (`count()`, `avg()`, `by()`, ... ; une requête de métriques en accepte un, ci-dessous), `||` à l'intérieur d'un même spanset entre autre chose que des tests `=` d'un même champ, et la comparaison de deux champs.
 
 `nestedSetLeft`, `nestedSetRight` et `nestedSetParent` numérotent les spans d'une trace comme le fait Tempo : un parcours en profondeur où le numéro gauche d'un span est le numéro suivant quand le parcours y entre et son numéro droit le suivant quand il en sort ; un span est donc sous un autre exactement quand ses numéros sont à l'intérieur de ceux de l'autre. Le parent est le numéro gauche du parent, ou -1 pour une racine. Un span dont le parent n'a jamais été ingéré est numéroté comme une racine. La numérotation lit au plus 2 000 spans par trace.
 
@@ -146,7 +147,7 @@ Non pris en charge dans une recherche : les pipelines `|` autres que `select()` 
 
 Après la fonction, les étapes s'exécutent de gauche à droite. `| topk(5)` ou `| bottomk(5)` garde, à chaque pas, les cinq séries à la valeur la plus grande (la plus petite) : `{ kind = server } | rate() by (span.http.route) | topk(5)`. Une comparaison (`=`, `!=`, `<`, `<=`, `>`, `>=` et un nombre simple) écarte les échantillons qui ne la satisfont pas, ainsi que la série qui n'en garde aucun : `| rate() by (name) > 5`. Le nombre est dans l'unité de la fonction, donc en secondes pour une durée. L'ordre compte : `| rate() > 0 | topk(5)` ne classe que les échantillons non nuls, `| topk(5) > 10` écarte les gagnants inférieurs à 10.
 
-**Relations.** `{ a } >> { b } | rate()` compte les spans `b` qui ont un span `a` au-dessus d'eux, `{ a } > { b }` ceux dont le parent est un span `a`. `{ resource.service.name = "web" } >> { name = "db.query" } | quantile_over_time(duration, .95)` est la latence des requêtes de base de données issues d'un span `web`. `~` compte les spans `b` qui ont un frère `a`, et `!>`, `!>>` et `!~` les spans `b` sans parent, ancêtre ni frère `a` (tous les spans `b` d'une trace sans span `a`) : `{ name = "cache.get" } !>> { name = "db.query" } | count_over_time()`.
+**Relations.** `{ a } >> { b } | rate()` compte les spans `b` qui ont un span `a` au-dessus d'eux, `{ a } > { b }` ceux dont le parent est un span `a`. `{ resource.service.name = "web" } >> { name = "db.query" } | quantile_over_time(duration, .95)` est la latence des requêtes de base de données issues d'un span `web`. `~` compte les spans `b` qui ont un frère `a`, et `!>`, `!>>` et `!~` les spans `b` sans parent, ancêtre ni frère `a` (tous les spans `b` d'une trace sans span `a`) : `{ name = "cache.get" } !>> { name = "db.query" } | count_over_time()`. Les opérateurs retournés comptent les spans `b` qui sont le parent (`<`) ou un ancêtre (`<<`) d'un span `a`, ou d'aucun (`!<`, `!<<`) : `{ name = "db.query" } << { kind = server } | count_over_time()`.
 
 **Champs de trace.** `rootName`, `rootServiceName` et `traceDuration` limitent la requête aux spans des traces dont le span racine correspond : `{ rootName = "GET /checkout" && name = "db.query" } | rate()`. Ils ne se combinent pas avec une relation.
 
@@ -157,10 +158,8 @@ Les **exemplars** relient un point d'un graphique à une trace. Activez **Exempl
 `with(sample=true)` est accepté et ignoré (les réponses de Flare sont exactes) ; il se combine avec `exemplars` : `with(exemplars=true, sample=true)`.
 
 **Combiner des spansets.** `||` compte les spans de l'un ou l'autre spanset, une seule fois chacun, et `&&` ceux des deux, mais seulement dans une trace qui a un span dans chacun :
-`{ status = error } || { duration > 2s } | rate()`, `{ name = "checkout" } && { name = "payment" } | count_over_time()`. Les parenthèses et les opérateurs structurels se combinent aussi, y compris les opérateurs union (`&>>`, `&>`, `&~`, qui comptent les spans des deux côtés) :
+`{ status = error } || { duration > 2s } | rate()`, `{ name = "checkout" } && { name = "payment" } | count_over_time()`. Les parenthèses et les opérateurs structurels se combinent aussi, y compris les opérateurs union (`&>>`, `&>`, `&<<`, `&<`, `&~`, qui comptent les spans des deux côtés) :
 `({ name = "a" } ~ { name = "b" }) || { status = error } | rate() by (name)`. Six spansets au plus ; `rootName`, `rootServiceName` et `traceDuration` ne peuvent pas être utilisés à côté d'un autre spanset. Les spans d'une trace sont cherchés à partir d'une heure avant la plage, comme pour une relation.
-
-Non pris en charge : `<`, `<<` et leurs formes niées et union.
 
 ## Grafana Traces Drilldown
 

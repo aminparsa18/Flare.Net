@@ -351,4 +351,56 @@ public class TempoSpanSelectorTests
 
         Assert.Equal(new[] { "pay", "render" }, trace.Spans.Select(s => s.SpanId).Order());
     }
+
+    // root -> [cart -> db], [pay -> charge], render.  A = 1 (the left side), B = 2 (the right side).
+    [Theory]
+    [InlineData("{ span.a = 1 } < { span.b = 1 }", new[] { "cart", "pay" })]                                  // the right-hand spans that are a left-hand span's parent
+    [InlineData("{ span.a = 1 } << { span.b = 1 }", new[] { "cart", "pay", "root" })]                         // ... or its ancestor
+    [InlineData("{ span.a = 1 } !< { span.b = 1 }", new[] { "render", "root" })]                              // the right-hand spans that are no left-hand span's parent
+    [InlineData("{ span.a = 1 } !<< { span.b = 1 }", new[] { "render" })]                                     // ... or ancestor
+    [InlineData("{ span.a = 1 } &< { span.b = 1 }", new[] { "cart", "charge", "db", "pay" })]                 // both sides: parents, and the children they have
+    [InlineData("{ span.a = 1 } &<< { span.b = 1 }", new[] { "cart", "charge", "db", "pay", "root" })]        // both sides: ancestors, and the descendants they have
+    public void ParentAndAncestor_ListTheRightHandSpansAbove_AndForAUnionBothSides(string traceQl, string[] expected) =>
+        Assert.Equal(expected, Listed(traceQl, ("db", 1u), ("charge", 1u), ("cart", 2u), ("pay", 2u), ("render", 2u), ("root", 2u)));
+
+    [Fact]
+    public void ParentAndAncestor_ListNothingWhenNoRightHandSpanIsAbove()
+    {
+        // The left-hand span is the root: nothing is above it.
+        Assert.Empty(Listed("{ span.a = 1 } < { span.b = 1 }", ("root", 1u), ("cart", 2u), ("db", 2u)));
+        Assert.Empty(Listed("{ span.a = 1 } << { span.b = 1 }", ("root", 1u), ("cart", 2u), ("db", 2u)));
+        Assert.Empty(Listed("{ span.a = 1 } &<< { span.b = 1 }", ("root", 1u), ("cart", 2u), ("db", 2u)));
+    }
+
+    [Fact]
+    public void NegatedParentAndAncestor_ListEveryRightHandSpanWhenThereIsNoLeftHandSpan()
+    {
+        Assert.Equal(new[] { "charge", "db" }, Listed("{ span.a = 1 } !< { span.b = 1 }", ("db", 2u), ("charge", 2u)));
+        Assert.Equal(new[] { "charge", "db" }, Listed("{ span.a = 1 } !<< { span.b = 1 }", ("db", 2u), ("charge", 2u)));
+    }
+
+    [Fact]
+    public void ASpanMatchingBothSides_IsNeitherItsOwnParentNorItsOwnAncestor()
+    {
+        // cart and db match both sides: cart is db's parent (and ancestor); db is above nothing; cart is above only db.
+        Assert.Equal(new[] { "cart" }, Listed("{ span.a = 1 } < { span.b = 1 }", ("cart", 3u), ("db", 3u)));
+        Assert.Equal(new[] { "cart" }, Listed("{ span.a = 1 } << { span.b = 1 }", ("cart", 3u), ("db", 3u)));
+        // A lone span matching both sides is above nothing, so the negated forms list it.
+        Assert.Equal(new[] { "cart" }, Listed("{ span.a = 1 } !<< { span.b = 1 }", ("cart", 3u)));
+    }
+
+    [Fact]
+    public void Ancestor_FollowsDescendantsOnlyAsDeepAsTheWalkDepth()
+    {
+        var chain = Enumerable.Range(0, TempoSpanSelector.MaxWalkDepth + 2)
+            .Select(i => Row($"s{i}", i == 0 ? null : $"s{i - 1}", "s", "n", i == 0 ? 2u : i == TempoSpanSelector.MaxWalkDepth ? 1u : i == TempoSpanSelector.MaxWalkDepth + 1 ? 1u : 0u, i))
+            .ToArray();
+
+        var trace = Assert.Single(TempoSpanSelector.Select(chain, Plan("{ span.a = 1 } << { span.b = 1 }"), 20));
+
+        // s0 is above s64 (64 levels down: reached) and s65 (65 levels down: not), so it is listed once either way.
+        Assert.Equal(["s0"], trace.Spans.Select(s => s.SpanId));
+        var tooDeep = chain.Select(r => r with { MatchMask = r.SpanId == "s0" ? 2u : r.SpanId == $"s{TempoSpanSelector.MaxWalkDepth + 1}" ? 1u : 0u }).ToArray();
+        Assert.Empty(Assert.Single(TempoSpanSelector.Select(tooDeep, Plan("{ span.a = 1 } << { span.b = 1 }"), 20)).Spans);
+    }
 }

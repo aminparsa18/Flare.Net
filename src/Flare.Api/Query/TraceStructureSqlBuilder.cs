@@ -67,20 +67,21 @@ public static class TraceStructureSqlBuilder
 
         var relations = new List<TraceStructureRelation>();
         CollectRelations(expression, relations);
-        var parents = relations.Select(r => r.Parent).ToHashSet();
-        var children = relations.Select(r => r.Child).ToHashSet();
-        var hasDescendant = relations.Any(r => r.Kind == TraceRelationKind.Descendant);
+        // A walk over the whole trace is needed for a descendant or ancestor test, in either direction.
+        var hasDescendant = relations.Any(r => r.Kind is TraceRelationKind.Descendant or TraceRelationKind.Ancestor);
 
         var aliases = new List<string>();
         foreach (var (letter, match) in matches)
         {
             aliases.Add($"countIf({match}) > 0 AS h{letter}");
-            if (parents.Contains(letter) && relations.Any(r => r.Parent == letter && r.Kind != TraceRelationKind.Sibling))
+
+            // sX: the span hashes of the side that is the parent or ancestor; pX: the parent hashes of the side that is the child or descendant.
+            if (relations.Any(r => r.Kind != TraceRelationKind.Sibling && r.Upper == letter))
             {
                 aliases.Add($"groupArrayIf({SpanHash}, {match}) AS s{letter}");
             }
 
-            if (children.Contains(letter) && relations.Any(r => r.Child == letter && r.Kind != TraceRelationKind.Sibling)
+            if (relations.Any(r => r.Kind != TraceRelationKind.Sibling && r.Lower == letter)
                 || relations.Any(r => r.Kind == TraceRelationKind.Sibling && r.Parent == letter))
             {
                 aliases.Add($"groupArrayIf({ParentHash}, {match}) AS p{letter}");
@@ -215,17 +216,25 @@ public static class TraceStructureSqlBuilder
 
     /// <summary>
     /// One relation over the per-trace aliases: whether some right-hand span (<c>Child</c>) has a left-hand one (<c>Parent</c>) related to it as
-    /// <see cref="TraceStructureRelation.Kind"/> says, or - negated - has none. Children, siblings and their negations are exact in stage 1.
-    /// A descendant test needs the spans in between, so stage 1 (<paramref name="exact"/> false) uses a bound that can only err towards
-    /// keeping a trace: <c>hA AND hB</c> for <c>=></c> (the direct-child test, a sub-case, when negated); for <c>!=></c> <c>hB</c>
+    /// <see cref="TraceStructureRelation.Kind"/> says, or - negated - has none. For <see cref="TraceRelationKind.Parent"/> and
+    /// <see cref="TraceRelationKind.Ancestor"/> (ADR-0235) the question is turned round: some right-hand span is the parent or ancestor of a left-hand
+    /// one, or - negated - of none; the aliases are then <c>s</c> of the right-hand letter (the upper spans) and <c>p</c> of the left-hand one.
+    /// Children, parents, siblings and their negations are exact in stage 1.
+    /// A descendant or ancestor test needs the spans in between, so stage 1 (<paramref name="exact"/> false) uses a bound that can only err towards
+    /// keeping a trace: <c>hA AND hB</c> for <c>=></c> (the direct test, a sub-case, when negated); for <c>!=></c> <c>hB</c>
     /// (some right-hand span exists) in a positive position and false in a negated one.
     /// </summary>
     private static string RelationSql(TraceStructureRelation r, bool exact, bool positive)
     {
+        var upper = r.Upper;
+        var lower = r.Lower;
         switch (r.Kind)
         {
             case TraceRelationKind.Child:
                 return r.Negated ? $"arrayExists(p -> NOT has(s{r.Parent}, p), p{r.Child})" : DirectChildSql(r);
+            case TraceRelationKind.Parent:
+                // Some right-hand span that is no left-hand span's parent: its hash is not among the left-hand spans' parent hashes.
+                return r.Negated ? $"arrayExists(u -> NOT has(p{lower}, u), s{upper})" : DirectChildSql(r);
             case TraceRelationKind.Sibling:
             {
                 var sibling = $"arrayExists(b -> if(b.2 = 1, countEqual(p{r.Parent}, b.1) >= 2, has(p{r.Parent}, b.1)), b{r.Parent}{r.Child})";
@@ -233,22 +242,33 @@ public static class TraceStructureSqlBuilder
             }
         }
 
+        var ancestor = r.Kind == TraceRelationKind.Ancestor;
         if (!r.Negated)
         {
             return exact
-                ? $"({DirectChildSql(r)} OR arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), acc.2 OR hasAny(acc.1, s{r.Parent})), " +
-                  $"range(least({MaxWalkDepth}, length(allS))), (p{r.Child}, false)).2)"
+                ? $"({DirectChildSql(r)} OR arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), acc.2 OR hasAny(acc.1, s{upper})), " +
+                  $"range(least({MaxWalkDepth}, length(allS))), (p{lower}, false)).2)"
                 : positive ? $"(h{r.Parent} AND h{r.Child})" : DirectChildSql(r);
         }
 
+        if (!exact)
+        {
+            return positive ? $"h{r.Child}" : "0";
+        }
+
+        // Not an ancestor: some right-hand span that is above no left-hand span. The fold collects every ancestor of every left-hand span.
+        if (ancestor)
+        {
+            return "arrayExists(u -> NOT has(arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), arrayConcat(acc.2, acc.1)), " +
+                $"range(least({MaxWalkDepth}, length(allS))), (p{lower}, CAST([], 'Array(UInt64)'))).2, u), s{upper})";
+        }
+
         // Not a descendant: some right-hand span whose chain of ancestors holds no left-hand span. The fold keeps, per right-hand span, whether it has met one.
-        return exact
-            ? "arrayExists(f -> f = 0, arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), " +
-              $"arrayMap((h, f) -> f OR has(s{r.Parent}, h), acc.1, acc.2)), range(least({MaxWalkDepth}, length(allS))), (p{r.Child}, arrayMap(x -> toUInt8(0), p{r.Child}))).2)"
-            : positive ? $"h{r.Child}" : "0";
+        return "arrayExists(f -> f = 0, arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), " +
+            $"arrayMap((h, f) -> f OR has(s{upper}, h), acc.1, acc.2)), range(least({MaxWalkDepth}, length(allS))), (p{lower}, arrayMap(x -> toUInt8(0), p{lower}))).2)";
     }
 
-    private static string DirectChildSql(TraceStructureRelation r) => $"hasAny(s{r.Parent}, p{r.Child})";
+    private static string DirectChildSql(TraceStructureRelation r) => $"hasAny(s{r.Upper}, p{r.Lower})";
 
     /// <summary>The expression's value for a trace with no span matching any condition - every leaf is false there.</summary>
     private static bool MatchesEmptyTrace(TraceStructureNode node) => node switch

@@ -113,7 +113,7 @@ public static class TempoSearchPlanner
                 // combined with && or || it would change nothing or everything, so that stays an error.
                 if (!IsRelationOperand(query.Expression, (char)('A' + i)))
                 {
-                    throw new TraceQlException("an empty spanset { } can only be the whole query, or a side of a structural operator (> , >> , ~ , !> , !>> , !~ , &> , &>> or &~).");
+                    throw new TraceQlException("an empty spanset { } can only be the whole query, or a side of a structural operator (> , >> , < , << , ~ , !> , !>> , !< , !<< , !~ , &> , &>> , &< , &<< or &~).");
                 }
 
                 conditions.Add(new TraceSpanCondition { Name = ((char)('A' + i)).ToString(), MinDurationNano = 0 });
@@ -138,9 +138,9 @@ public static class TempoSearchPlanner
         return plan with { Select = query.Select.Select(SelectField).ToArray(), Relations = query.Relations };
     }
 
-    /// <summary>Whether the letter stands directly beside a structural operator (<c>-&gt;</c>, <c>=&gt;</c>, <c>~</c> or their negations) in the structural expression.</summary>
+    /// <summary>Whether the letter stands directly beside a structural operator (<c>-&gt;</c>, <c>=&gt;</c>, <c>~</c>, <c>&lt;-</c>, <c>&lt;=</c> or their negations) in the structural expression.</summary>
     private static bool IsRelationOperand(string expression, char letter) =>
-        new[] { "->", "=>", "~", "!->", "!=>", "!~" }.Any(op => expression.Contains($"{letter} {op}", StringComparison.Ordinal) || expression.Contains($"{op} {letter}", StringComparison.Ordinal));
+        new[] { "->", "=>", "~", "<-", "<=", "!->", "!=>", "!~", "!<-", "!<=" }.Any(op => expression.Contains($"{letter} {op}", StringComparison.Ordinal) || expression.Contains($"{op} {letter}", StringComparison.Ordinal));
 
     /// <summary>A <c>select()</c> field as written, resolved like a filter's: an unscoped <c>.x</c> is a resource attribute in a resource namespace and a span attribute otherwise.</summary>
     internal static TempoSelectField SelectField(string field)
