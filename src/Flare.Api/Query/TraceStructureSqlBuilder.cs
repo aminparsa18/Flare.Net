@@ -146,9 +146,9 @@ public static class TraceStructureSqlBuilder
                 throw new ArgumentException($"Condition {letter} has an unknown status '{condition.StatusCode}'.");
             }
 
-            if (condition.Kind > MaxSpanKind)
+            if (condition.Kind > MaxSpanKind || condition.Kinds?.Any(k => k > MaxSpanKind) == true)
             {
-                throw new ArgumentException($"Condition {letter} has an unknown span kind {condition.Kind}; use 0 (unspecified) to {MaxSpanKind} (consumer).");
+                throw new ArgumentException($"Condition {letter} has an unknown span kind {condition.Kinds?.Max() ?? condition.Kind}; use 0 (unspecified) to {MaxSpanKind} (consumer).");
             }
 
             if (!Enum.IsDefined(condition.SpanNameMatch))
@@ -169,7 +169,7 @@ public static class TraceStructureSqlBuilder
             // Only a referenced condition must match on something - an unused blank one (a
             // card the user added but hasn't filled in yet) is just ignored.
             if (string.IsNullOrEmpty(condition.ServiceName) && condition.ServiceNames is not { Count: > 0 } && string.IsNullOrEmpty(condition.SpanName) && string.IsNullOrEmpty(condition.StatusCode)
-                && condition.Kind is null && condition.RootSpan is null && condition.MinDurationNano is null && condition.MaxDurationNano is null && condition.Attributes is not { Count: > 0 })
+                && condition.Kind is null && condition.Kinds is not { Count: > 0 } && condition.RootSpan is null && condition.MinDurationNano is null && condition.MaxDurationNano is null && condition.Attributes is not { Count: > 0 })
             {
                 throw new ArgumentException($"Condition {letter} needs a service, span name, status, duration or attribute filter.");
             }
@@ -282,6 +282,12 @@ public static class TraceStructureSqlBuilder
         {
             parameters.AddParameter($"ts{letter}Kind", kind);
             clauses.Add($"Kind {(condition.KindNegated ? "!=" : "=")} {{ts{letter}Kind:UInt8}}");
+        }
+
+        if (condition.Kinds is { Count: > 0 } kinds)
+        {
+            parameters.AddParameter($"ts{letter}Kinds", kinds.ToArray());
+            clauses.Add($"Kind IN {{ts{letter}Kinds:Array(UInt8)}}");
         }
 
         if (condition.RootSpan is { } root)

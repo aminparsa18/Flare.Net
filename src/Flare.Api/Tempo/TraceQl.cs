@@ -256,8 +256,9 @@ public static class TraceQlParser
 
     /// <summary>
     /// Tempo's scoped intrinsics (<c>span:duration</c>, <c>trace:rootService</c>, ...) are the form its docs and cookbook recommend (ADR-0228);
-    /// each is read as the unscoped name Flare already knows. Ones with no unscoped equivalent here keep their spelling, and the planner
-    /// says they are not supported.
+    /// each is read as the unscoped name Flare already knows. Ones with no unscoped equivalent here keep their spelling: the planner maps
+    /// <c>span:id</c>, <c>span:parentID</c>, <c>trace:id</c>, <c>event:timeSinceStart</c>, <c>instrumentation:*</c> and <c>link:*</c> to what Flare
+    /// stores (ADR-0229) and says the rest are not supported.
     /// </summary>
     private static string Canonical(string word) => word switch
     {
@@ -266,11 +267,9 @@ public static class TraceQlParser
         "span:status" => "status",
         "span:kind" => "kind",
         "span:statusMessage" => "statusMessage",
-        "span:id" => "spanID",
         "trace:duration" => "traceDuration",
         "trace:rootName" => "rootName",
         "trace:rootService" => "rootServiceName",
-        "trace:id" => "traceID",
         "event:name" => "event.name",
         _ => word,
     };

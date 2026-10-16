@@ -443,7 +443,29 @@ public class TempoSearchPlannerTests
         var allButServer = Assert.Single(Plan("{ kind != server && kind != client && kind != internal && kind != producer && kind != consumer }").Conditions);
         Assert.Equal((byte)0, allButServer.Kind);
         Assert.False(allButServer.KindNegated);
-        Assert.Contains("one value, or for all but one", Assert.Throws<TraceQlException>(() => Plan("{ kind = server || kind = client }")).Message);
+    }
+
+    [Theory]
+    [InlineData("{ kind = server || kind = client }", new byte[] { 2, 3 })]
+    [InlineData("{ (kind = client || kind = server || kind = producer) }", new byte[] { 2, 3, 4 })]
+    [InlineData("{ kind != internal && kind != unspecified }", new byte[] { 2, 3, 4, 5 })]
+    [InlineData("{ kind != server && kind != client && kind != internal && kind != unspecified }", new byte[] { 4, 5 })]
+    public void KindSetsOfTwoToFour_AreAMembershipTest(string traceQl, byte[] expected)
+    {
+        var condition = Assert.Single(Plan(traceQl).Conditions);
+
+        Assert.Equal(expected, condition.Kinds);
+        Assert.Null(condition.Kind);
+        Assert.False(condition.KindNegated);
+    }
+
+    [Fact]
+    public void KindSet_NarrowedByAnotherTest_ShrinksToTheIntersection()
+    {
+        var condition = Assert.Single(Plan("{ (kind = server || kind = client) && kind != client }").Conditions);
+
+        Assert.Equal((byte)2, condition.Kind);
+        Assert.Null(condition.Kinds);
     }
 
     [Fact]
@@ -489,12 +511,94 @@ public class TempoSearchPlannerTests
     }
 
     [Theory]
-    [InlineData("{ span:parentID = \"x\" }")]
-    [InlineData("{ span:id = \"x\" }")]
-    [InlineData("{ trace:id = \"x\" }")]
-    [InlineData("{ event:timeSinceStart > 1ms }")]
-    [InlineData("{ instrumentation:name = \"x\" }")]
-    [InlineData("{ link:spanID = \"x\" }")]
+    [InlineData("{ span:statusMessage = \"x\" }")]
+    [InlineData("{ span:childCount > 1 }")]
     public void ScopedIntrinsicsWithNoCounterpart_AreNamedAsUnsupported(string traceQl) =>
         Assert.Contains("is not supported", Assert.Throws<TraceQlException>(() => Plan(traceQl)).Message);
+
+    [Theory]
+    [InlineData("span:id", "SpanId", "00000000000000ab")]
+    [InlineData("span:parentID", "ParentSpanId", "00000000000000ab")]
+    [InlineData("trace:id", "TraceId", "000000000000000000000000000000ab")]
+    [InlineData("link:spanID", "Links.SpanId", "00000000000000ab")]
+    [InlineData("link:traceID", "Links.TraceId", "000000000000000000000000000000ab")]
+    public void IdIntrinsics_MapToTheirColumn_LowerCasedAndLeftPadded(string field, string column, string expected)
+    {
+        var attribute = Assert.Single(Assert.Single(Plan($"{{ {field} = \"AB\" }}").Conditions).Attributes!);
+
+        Assert.Equal(SpanAttributeBag.Intrinsic, attribute.Bag);
+        Assert.Equal(column, attribute.Key);
+        Assert.Equal(SpanAttributeFilterOperator.Equals, attribute.Operator);
+        Assert.Equal(expected, attribute.Value);
+    }
+
+    [Fact]
+    public void IdIntrinsic_LongerThanAnIdOrNotHex_IsLeftAsWritten()
+    {
+        Assert.Equal("not-hex", Assert.Single(Assert.Single(Plan("""{ span:id = "not-hex" }""").Conditions).Attributes!).Value);
+        var tooLong = new string('a', 17);
+        Assert.Equal(tooLong, Assert.Single(Assert.Single(Plan($$"""{ span:id = "{{tooLong}}" }""").Conditions).Attributes!).Value);
+    }
+
+    [Theory]
+    [InlineData("{ span:id != \"ab\" }", SpanAttributeFilterOperator.NotEquals)]
+    [InlineData("{ span:id =~ \"ab.*\" }", SpanAttributeFilterOperator.Regex)]
+    [InlineData("{ span:id !~ \"ab.*\" }", SpanAttributeFilterOperator.NotRegex)]
+    [InlineData("{ span:parentID = nil }", SpanAttributeFilterOperator.Absent)]
+    [InlineData("{ span:parentID != nil }", SpanAttributeFilterOperator.Exists)]
+    public void IdIntrinsics_TakeTheTextOperatorsAndNil(string traceQl, SpanAttributeFilterOperator expected) =>
+        Assert.Equal(expected, Assert.Single(Assert.Single(Plan(traceQl).Conditions).Attributes!).Operator);
+
+    [Fact]
+    public void IdIntrinsic_RegexIsAnchored_AndNotNormalised() =>
+        Assert.Equal("^(?:AB.*)$", Assert.Single(Assert.Single(Plan("""{ span:id =~ "AB.*" }""").Conditions).Attributes!).Value);
+
+    [Fact]
+    public void IdIntrinsic_OrGroup_IsAMembershipTestOfNormalisedIds()
+    {
+        var attribute = Assert.Single(Assert.Single(Plan("""{ (trace:id = "A" || trace:id = "b") }""").Conditions).Attributes!);
+
+        Assert.Equal(SpanAttributeFilterOperator.In, attribute.Operator);
+        Assert.Equal(new[] { new string('0', 31) + "a", new string('0', 31) + "b" }, attribute.Values);
+    }
+
+    [Theory]
+    [InlineData("{ span:id > \"a\" }", "supports =, !=, =~ and !~")]
+    [InlineData("{ span:id = 5 }", "needs a quoted string")]
+    [InlineData("{ span:id < nil }", "nil using = or !=")]
+    public void IdIntrinsics_RejectOtherOperatorsAndValues(string traceQl, string message) =>
+        Assert.Contains(message, Assert.Throws<TraceQlException>(() => Plan(traceQl)).Message);
+
+    [Theory]
+    [InlineData("instrumentation:name", "ScopeName")]
+    [InlineData("instrumentation:version", "ScopeVersion")]
+    public void InstrumentationIntrinsics_AreTheScopeColumns_AsWritten(string field, string column)
+    {
+        var attribute = Assert.Single(Assert.Single(Plan($$"""{ {{field}} = "Ab" }""").Conditions).Attributes!);
+
+        Assert.Equal(column, attribute.Key);
+        Assert.Equal("Ab", attribute.Value);
+    }
+
+    [Theory]
+    [InlineData("{ event:timeSinceStart > 1ms }", SpanAttributeFilterOperator.GreaterThan, "1000000")]
+    [InlineData("{ event:timeSinceStart <= 2s }", SpanAttributeFilterOperator.LessThanOrEqual, "2000000000")]
+    [InlineData("{ event:timeSinceStart = 500 }", SpanAttributeFilterOperator.Equals, "500")]
+    [InlineData("{ event:timeSinceStart != 1us }", SpanAttributeFilterOperator.NotEquals, "1000")]
+    public void EventTimeSinceStart_IsADurationInNanoseconds(string traceQl, SpanAttributeFilterOperator op, string nanos)
+    {
+        var attribute = Assert.Single(Assert.Single(Plan(traceQl).Conditions).Attributes!);
+
+        Assert.Equal(SpanAttributeBag.Intrinsic, attribute.Bag);
+        Assert.Equal("Events.TimeSinceStart", attribute.Key);
+        Assert.Equal(op, attribute.Operator);
+        Assert.Equal(nanos, attribute.Value);
+    }
+
+    [Theory]
+    [InlineData("{ event:timeSinceStart =~ \"x\" }", "supports =, !=, >")]
+    [InlineData("{ event:timeSinceStart > \"x\" }", "must be compared with a duration")]
+    [InlineData("{ event:timeSinceStart = 1ms || event:timeSinceStart = 2ms }", "not 'event:timeSinceStart'")]
+    public void EventTimeSinceStart_RejectsWhatIsNotADurationComparison(string traceQl, string message) =>
+        Assert.Contains(message, Assert.Throws<TraceQlException>(() => Plan(traceQl)).Message);
 }

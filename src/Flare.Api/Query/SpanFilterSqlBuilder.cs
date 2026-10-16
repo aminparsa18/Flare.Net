@@ -179,6 +179,11 @@ public static class SpanFilterSqlBuilder
             return EventClause(attribute, suffix, parameters);
         }
 
+        if (attribute.Bag == SpanAttributeBag.Intrinsic)
+        {
+            return IntrinsicClause(attribute, suffix, parameters);
+        }
+
         // Old/new semconv spellings of one attribute count as the same key: a positive
         // operator matches if any spelling does, a negative one only if none does.
         if (attribute.Bag == SpanAttributeBag.Span && SemconvAliases.Group(attribute.Key) is { } group)
@@ -209,6 +214,115 @@ public static class SpanFilterSqlBuilder
         }
 
         return $"arrayExists(m -> {SingleKeyClause(attribute, suffix, parameters, null, "m")}, {Events})";
+    }
+
+    /// <summary>The span columns an <see cref="SpanAttributeBag.Intrinsic"/> filter may name, and what each is (ADR-0229).</summary>
+    private static readonly Dictionary<string, (string Expression, bool IsArray)> IntrinsicColumns = new(StringComparer.Ordinal)
+    {
+        ["SpanId"] = ("SpanId", false),
+        ["ParentSpanId"] = ("ParentSpanId", false),
+        ["TraceId"] = ("TraceId", false),
+        ["ScopeName"] = ("ScopeName", false),
+        ["ScopeVersion"] = ("ScopeVersion", false),
+        ["Links.SpanId"] = ("`Links.SpanId`", true),
+        ["Links.TraceId"] = ("`Links.TraceId`", true),
+    };
+
+    /// <summary>The key of an intrinsic filter on the time from a span's start to one of its events, in nanoseconds.</summary>
+    internal const string EventTimeSinceStartKey = "Events.TimeSinceStart";
+
+    /// <summary>Whether <paramref name="key"/> is one of the columns an <see cref="SpanAttributeBag.Intrinsic"/> filter can name.</summary>
+    internal static bool IsIntrinsicKey(string key) => IntrinsicColumns.ContainsKey(key) || key == EventTimeSinceStartKey;
+
+    /// <summary>
+    /// A filter on a column of the span rather than an attribute map (ADR-0229). A string column takes every operator a string
+    /// attribute does, <c>Exists</c> and <c>Absent</c> meaning non-empty and empty; an array column (the span's links) is true when some
+    /// element satisfies it, and <c>Absent</c> when none is set. The time since start compares each event's offset in nanoseconds.
+    /// </summary>
+    private static string IntrinsicClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters)
+    {
+        if (attribute.Key == EventTimeSinceStartKey)
+        {
+            return EventTimeClause(attribute, suffix, parameters);
+        }
+
+        if (!IntrinsicColumns.TryGetValue(attribute.Key, out var column))
+        {
+            throw new ArgumentException($"'{attribute.Key}' is not a span column that can be filtered.");
+        }
+
+        if (!column.IsArray)
+        {
+            return ColumnValueClause(attribute, column.Expression, suffix, parameters);
+        }
+
+        var element = ColumnValueClause(attribute with { Operator = attribute.Operator == SpanAttributeFilterOperator.Absent ? SpanAttributeFilterOperator.Exists : attribute.Operator }, "l", suffix, parameters);
+        var any = $"arrayExists(l -> {element}, {column.Expression})";
+        return attribute.Operator == SpanAttributeFilterOperator.Absent ? $"NOT {any}" : any;
+    }
+
+    private static string ColumnValueClause(SpanAttributeFilter attribute, string expression, string suffix, ClickHouseParameterCollection parameters)
+    {
+        var valueParam = $"attrValue{suffix}";
+        var valuesParam = $"attrValues{suffix}";
+        switch (attribute.Operator)
+        {
+            case SpanAttributeFilterOperator.Exists:
+                return $"{expression} != ''";
+            case SpanAttributeFilterOperator.Absent:
+                return $"{expression} = ''";
+            case SpanAttributeFilterOperator.NotEquals:
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"{expression} != {{{valueParam}:String}}";
+            case SpanAttributeFilterOperator.Regex:
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"match({expression}, {{{valueParam}:String}})";
+            case SpanAttributeFilterOperator.NotRegex:
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"NOT match({expression}, {{{valueParam}:String}})";
+            case SpanAttributeFilterOperator.In:
+                parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
+                return $"{expression} IN {{{valuesParam}:Array(String)}}";
+            case SpanAttributeFilterOperator.NotIn:
+                parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
+                return $"{expression} NOT IN {{{valuesParam}:Array(String)}}";
+            case SpanAttributeFilterOperator.Equals:
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"{expression} = {{{valueParam}:String}}";
+            default:
+                throw new ArgumentException($"'{attribute.Key}' is text; it supports =, !=, =~ and !~, not an ordering.");
+        }
+    }
+
+    private static string EventTimeClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters)
+    {
+        const string Events = "`Events.TimeUnixNano`";
+        switch (attribute.Operator)
+        {
+            case SpanAttributeFilterOperator.Exists:
+                return $"notEmpty({Events})";
+            case SpanAttributeFilterOperator.Absent:
+                return $"empty({Events})";
+        }
+
+        var symbol = attribute.Operator switch
+        {
+            SpanAttributeFilterOperator.Equals => "=",
+            SpanAttributeFilterOperator.NotEquals => "!=",
+            SpanAttributeFilterOperator.GreaterThan => ">",
+            SpanAttributeFilterOperator.GreaterThanOrEqual => ">=",
+            SpanAttributeFilterOperator.LessThan => "<",
+            SpanAttributeFilterOperator.LessThanOrEqual => "<=",
+            _ => throw new ArgumentException("The time since the span's start is a duration; it supports =, !=, >, >=, < and <=."),
+        };
+        if (!long.TryParse(attribute.Value, System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out var nanos))
+        {
+            throw new ArgumentException("The time since the span's start is compared with a whole number of nanoseconds.");
+        }
+
+        var valueParam = $"attrValue{suffix}";
+        parameters.AddParameter(valueParam, nanos);
+        return $"arrayExists(t -> toUnixTimestamp64Nano(t) - toUnixTimestamp64Nano(StartTime) {symbol} {{{valueParam}:Int64}}, {Events})";
     }
 
     private static string SingleKeyClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted, string? columnOverride = null)

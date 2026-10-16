@@ -239,4 +239,24 @@ public class TraceStructureSqlBuilderTests
 
         Assert.DoesNotContain("{tsServices:", sql);
     }
+
+    [Fact]
+    public void KindSet_IsAMembershipTestOnTheKindColumn()
+    {
+        var condition = new TraceSpanCondition { Name = "A", Kinds = [2, 3] };
+
+        var (sql, parameters) = Build(Structure("A", condition));
+
+        Assert.Contains("Kind IN {tsAKinds:Array(UInt8)}", sql);
+        Assert.Equal(new byte[] { 2, 3 }, (byte[])parameters["tsAKinds"].Value!);
+    }
+
+    [Fact]
+    public void KindSet_AloneIsACondition_AndAnUnknownKindInItIsRejected()
+    {
+        Build(Structure("A", new TraceSpanCondition { Name = "A", Kinds = [4, 5] }));
+
+        var error = Assert.Throws<ArgumentException>(() => Build(Structure("A", new TraceSpanCondition { Name = "A", Kinds = [2, 6] })));
+        Assert.Contains("unknown span kind 6", error.Message);
+    }
 }

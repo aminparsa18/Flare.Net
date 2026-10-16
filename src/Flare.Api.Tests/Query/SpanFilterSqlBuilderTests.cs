@@ -362,4 +362,92 @@ public class SpanFilterSqlBuilderTests
 
         Assert.StartsWith("arrayExists(", sql);
     }
+
+    [Theory]
+    [InlineData("SpanId", SpanAttributeFilterOperator.Equals, "SpanId = {attrValuex:String}")]
+    [InlineData("ParentSpanId", SpanAttributeFilterOperator.NotEquals, "ParentSpanId != {attrValuex:String}")]
+    [InlineData("TraceId", SpanAttributeFilterOperator.Regex, "match(TraceId, {attrValuex:String})")]
+    [InlineData("ScopeName", SpanAttributeFilterOperator.NotRegex, "NOT match(ScopeName, {attrValuex:String})")]
+    [InlineData("ScopeVersion", SpanAttributeFilterOperator.In, "ScopeVersion IN {attrValuesx:Array(String)}")]
+    [InlineData("ScopeVersion", SpanAttributeFilterOperator.NotIn, "ScopeVersion NOT IN {attrValuesx:Array(String)}")]
+    [InlineData("ParentSpanId", SpanAttributeFilterOperator.Exists, "ParentSpanId != ''")]
+    [InlineData("ParentSpanId", SpanAttributeFilterOperator.Absent, "ParentSpanId = ''")]
+    public void AttributeClause_IntrinsicBag_ComparesTheColumn(string key, SpanAttributeFilterOperator op, string expected)
+    {
+        var parameters = new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection();
+        var filter = new SpanAttributeFilter { Bag = SpanAttributeBag.Intrinsic, Key = key, Value = "v", Operator = op, Values = ["a", "b"] };
+
+        Assert.Equal(expected, SpanFilterSqlBuilder.AttributeClause(filter, "x", parameters, promoted: null));
+    }
+
+    [Theory]
+    [InlineData(SpanAttributeFilterOperator.Equals, "arrayExists(l -> l = {attrValuex:String}, `Links.SpanId`)")]
+    [InlineData(SpanAttributeFilterOperator.Exists, "arrayExists(l -> l != '', `Links.SpanId`)")]
+    [InlineData(SpanAttributeFilterOperator.Absent, "NOT arrayExists(l -> l != '', `Links.SpanId`)")]
+    [InlineData(SpanAttributeFilterOperator.Regex, "arrayExists(l -> match(l, {attrValuex:String}), `Links.SpanId`)")]
+    public void AttributeClause_IntrinsicBag_LinkIdsAreTrueWhenSomeLinkSatisfies(SpanAttributeFilterOperator op, string expected)
+    {
+        var parameters = new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection();
+        var filter = new SpanAttributeFilter { Bag = SpanAttributeBag.Intrinsic, Key = "Links.SpanId", Value = "v", Operator = op };
+
+        Assert.Equal(expected, SpanFilterSqlBuilder.AttributeClause(filter, "x", parameters, promoted: null));
+    }
+
+    [Theory]
+    [InlineData(SpanAttributeFilterOperator.GreaterThan, ">")]
+    [InlineData(SpanAttributeFilterOperator.GreaterThanOrEqual, ">=")]
+    [InlineData(SpanAttributeFilterOperator.LessThan, "<")]
+    [InlineData(SpanAttributeFilterOperator.LessThanOrEqual, "<=")]
+    [InlineData(SpanAttributeFilterOperator.Equals, "=")]
+    [InlineData(SpanAttributeFilterOperator.NotEquals, "!=")]
+    public void AttributeClause_IntrinsicBag_EventTimeComparesEachEventsOffsetFromTheStart(SpanAttributeFilterOperator op, string symbol)
+    {
+        var parameters = new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection();
+        var filter = new SpanAttributeFilter { Bag = SpanAttributeBag.Intrinsic, Key = "Events.TimeSinceStart", Value = "1500", Operator = op };
+
+        Assert.Equal(
+            $"arrayExists(t -> toUnixTimestamp64Nano(t) - toUnixTimestamp64Nano(StartTime) {symbol} {{attrValuex:Int64}}, `Events.TimeUnixNano`)",
+            SpanFilterSqlBuilder.AttributeClause(filter, "x", parameters, promoted: null));
+        Assert.Equal(1500L, parameters["attrValuex"].Value);
+    }
+
+    [Fact]
+    public void AttributeClause_IntrinsicBag_EventTimePresence()
+    {
+        string Clause(SpanAttributeFilterOperator op) => SpanFilterSqlBuilder.AttributeClause(
+            new SpanAttributeFilter { Bag = SpanAttributeBag.Intrinsic, Key = "Events.TimeSinceStart", Value = "", Operator = op },
+            "x", new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection(), promoted: null);
+
+        Assert.Equal("notEmpty(`Events.TimeUnixNano`)", Clause(SpanAttributeFilterOperator.Exists));
+        Assert.Equal("empty(`Events.TimeUnixNano`)", Clause(SpanAttributeFilterOperator.Absent));
+    }
+
+    [Fact]
+    public void AttributeClause_IntrinsicBag_IgnoresPromotedColumns()
+    {
+        var filter = new SpanAttributeFilter { Bag = SpanAttributeBag.Intrinsic, Key = "SpanId", Value = "v" };
+
+        var sql = SpanFilterSqlBuilder.AttributeClause(
+            filter, "x", new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection(), new PromotedAttributeColumns([(AttributeBag.Log, "SpanId", "attr_spanid")]));
+
+        Assert.Equal("SpanId = {attrValuex:String}", sql);
+    }
+
+    [Theory]
+    [InlineData("Name", SpanAttributeFilterOperator.Equals, "is not a span column")]
+    [InlineData("SpanId", SpanAttributeFilterOperator.GreaterThan, "is text")]
+    [InlineData("Events.TimeSinceStart", SpanAttributeFilterOperator.Regex, "supports =, !=, >")]
+    public void AttributeClause_IntrinsicBag_RejectsAColumnOrOperatorItDoesNotTake(string key, SpanAttributeFilterOperator op, string message)
+    {
+        var filter = new SpanAttributeFilter { Bag = SpanAttributeBag.Intrinsic, Key = key, Value = "1", Operator = op };
+
+        var error = Assert.Throws<ArgumentException>(() => SpanFilterSqlBuilder.AttributeClause(filter, "x", new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection(), promoted: null));
+        Assert.Contains(message, error.Message);
+    }
+
+    [Fact]
+    public void AttributeClause_IntrinsicBag_EventTimeNeedsAWholeNumber() =>
+        Assert.Contains("whole number", Assert.Throws<ArgumentException>(() => SpanFilterSqlBuilder.AttributeClause(
+            new SpanAttributeFilter { Bag = SpanAttributeBag.Intrinsic, Key = "Events.TimeSinceStart", Value = "1.5", Operator = SpanAttributeFilterOperator.GreaterThan },
+            "x", new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection(), promoted: null)).Message);
 }
