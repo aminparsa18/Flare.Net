@@ -13,6 +13,7 @@ using Flare.Api.Export;
 using Flare.Api.HostStats;
 using Flare.Api.KubernetesResources;
 using Flare.Api.LiveTail;
+using Flare.Api.Loki;
 using Flare.Api.Pipeline;
 using Flare.Api.Prometheus;
 using Flare.Api.Tempo;
@@ -253,6 +254,8 @@ builder.Services.AddSingleton<IMetricQueryService>(sp => new CachingMetricQueryS
     sp.GetRequiredService<TimeProvider>()));
 // Prometheus-compatible query API subset (ADR-0109) - a PromQL translator over IMetricQueryService.
 builder.Services.AddSingleton(sp => new Flare.Api.Prometheus.PromEvaluator(sp.GetRequiredService<IMetricQueryService>()));
+// Loki-compatible log query API subset (ADR-0236) - a LogQL translator straight over the logs table.
+builder.Services.AddSingleton<LokiQueryService>();
 // ServiceMetricsOptions - the ADR-0030 rollback valve for the pre-aggregated
 // service_metrics path; see ServiceOverviewQueryService.GetOverviewAsync.
 builder.Services.Configure<ServiceMetricsOptions>(builder.Configuration.GetSection(ServiceMetricsOptions.SectionName));
@@ -624,6 +627,8 @@ authenticatedRoutes.MapMetricsEndpoints();
 authenticatedRoutes.MapPrometheusEndpoints();
 // Tempo-compatible trace API subset (ADR-0217) under /tempo, over ISpanQueryService.
 authenticatedRoutes.MapTempoEndpoints();
+// Loki-compatible log API subset (ADR-0236) under /loki/api/v1.
+authenticatedRoutes.MapLokiEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSourceLinkReadEndpoints();
 authenticatedRoutes.MapSourceMapReadEndpoints();

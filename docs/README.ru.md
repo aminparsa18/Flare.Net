@@ -108,6 +108,7 @@
 - [Дать ИИ-ассистенту доступ к Flare](how-to/integrations/connect-ai-assistants.ru.md)
 - [Как запрашивать Flare из Grafana или через API Prometheus](how-to/integrations/query-with-prometheus-api.ru.md)
 - [Как читать трейсы Flare из Grafana через API Tempo](how-to/integrations/query-with-tempo-api.ru.md)
+- [Как читать логи Flare из Grafana через API Loki](how-to/integrations/query-with-loki-api.ru.md)
 
 **Справочник**
 - [Команды CLI](reference/cli-commands.ru.md)

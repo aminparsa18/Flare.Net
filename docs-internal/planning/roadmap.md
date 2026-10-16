@@ -88,9 +88,11 @@ folders are where "what happened and why" actually lives.
     rollback.
 - **Grafana interoperability.** Today there is OTLP forwarding to a Grafana endpoint
   ([ADR-0155](../adr/0155-otlp-forwarding.md)), a read-only Prometheus API a Grafana data source can query
-  ([ADR-0109](../adr/0109-prometheus-query-api.md)) and a read-only Tempo-compatible trace API
-  ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)). Remaining, roughly in priority order:
-  - A Loki-compatible log API (a LogQL subset), the same idea for logs; Grafana's Trace-to-logs needs it.
+  ([ADR-0109](../adr/0109-prometheus-query-api.md)), a read-only Tempo-compatible trace API
+  ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)) and a read-only Loki-compatible log API
+  ([ADR-0236](../adr/0236-loki-compatible-log-api.md)). Remaining, roughly in priority order:
+  - Loki API follow-ups: `logfmt`, `line_format` and `unwrap` (with the `*_over_time` functions), live tail
+    (`/tail`), and Logs Drilldown's `detected_fields`, `detected_labels` and `patterns` endpoints.
   - A fuller Prometheus API: operators between series (`a / b`), `offset`, `topk`, `quantile` and more functions, which
     error ratios and "top N hosts by CPU" panels need. Exemplars, so a latency chart links to a sample trace.
   - Deep links both ways: an "Open in Grafana" action on a TraceId from a configurable URL template, and Grafana data
