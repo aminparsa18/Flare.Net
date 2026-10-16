@@ -397,4 +397,41 @@ public class TraceQlMetricsQueryBuilderTests
     [Fact]
     public void Compare_NeedsItsArguments() =>
         Assert.Throws<ArgumentException>(() => TraceQlMetricsQueryBuilder.BuildCompare(new SpanMetricsRequest(null, SpanMetricFunction.Compare, [], [], From, To, 60)));
+
+    [Fact]
+    public void NotAParent_IsAnAntiJoinOnTheParentId()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Child, Negated: true));
+
+        Assert.Contains("(TraceId, ParentSpanId) GLOBAL NOT IN (SELECT TraceId, SpanId FROM spans WHERE StartTime >= {mLookback:DateTime64(9)}", built.Sql);
+    }
+
+    [Fact]
+    public void NotAnAncestor_NegatesTheSetOfCountedSpansThatHaveOne()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Descendant, Negated: true));
+
+        Assert.Contains("(TraceId, SpanId) GLOBAL NOT IN (SELECT TraceId, SpanId FROM (SELECT TraceId, groupArray(cityHash64(SpanId)) AS allS", built.Sql);
+        // The negation is over the set of counted spans that do have an ancestor, so a trace with no left-hand span at all counts every right-hand one.
+        Assert.Contains("HAVING countIf((Name = {tsPName:String})) > 0 AND countIf((Name = {tsAName:String})) > 0", built.Sql);
+    }
+
+    [Fact]
+    public void ASibling_IsAnotherSpanUnderTheSameParent_TwoWhenTheCountedSpanIsItselfOne()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Sibling));
+
+        var parents = "SELECT TraceId, ParentSpanId FROM spans WHERE StartTime >= {mLookback:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)} AND (Name = {tsPName:String})";
+        Assert.Contains($"((TraceId, ParentSpanId) GLOBAL IN ({parents} GROUP BY TraceId, ParentSpanId HAVING count() >= 2) " +
+            $"OR (NOT ((Name = {{tsPName:String}})) AND (TraceId, ParentSpanId) GLOBAL IN ({parents})))", built.Sql);
+        Assert.Equal("svc.call", built.Parameters["tsPName"].Value);
+    }
+
+    [Fact]
+    public void NotASibling_NegatesTheSiblingTest()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Sibling, Negated: true));
+
+        Assert.Contains("AND NOT ((TraceId, ParentSpanId) GLOBAL IN (SELECT TraceId, ParentSpanId FROM spans", built.Sql);
+    }
 }

@@ -259,4 +259,61 @@ public class TraceStructureSqlBuilderTests
         var error = Assert.Throws<ArgumentException>(() => Build(Structure("A", new TraceSpanCondition { Name = "A", Kinds = [2, 6] })));
         Assert.Contains("unknown span kind 6", error.Message);
     }
+
+    [Fact]
+    public void NotChild_SomeRightHandSpanHasNoLeftHandParent()
+    {
+        var (sql, _) = Build(Structure("A !-> B", Checkout, Payment));
+
+        Assert.Contains("groupArrayIf(cityHash64(SpanId), (ServiceName = {tsAService:String})) AS sA", sql);
+        Assert.Contains("AS pB", sql);
+        Assert.EndsWith("WHERE arrayExists(p -> NOT has(sA, p), pB)", sql);
+        // One pass: no second stage.
+        Assert.DoesNotContain("allS", sql);
+    }
+
+    [Fact]
+    public void Sibling_ComparesParentsAndKnowsWhetherARightHandSpanIsItselfLeftHand()
+    {
+        var (sql, _) = Build(Structure("A ~ B", Checkout, Payment));
+
+        Assert.Contains("groupArrayIf(if(ParentSpanId = '', toUInt64(0), cityHash64(ParentSpanId)), (ServiceName = {tsAService:String})) AS pA", sql);
+        Assert.Contains("groupArrayIf((if(ParentSpanId = '', toUInt64(0), cityHash64(ParentSpanId)), toUInt8((ServiceName = {tsAService:String}))), (ServiceName = {tsBService:String})) AS bAB", sql);
+        Assert.EndsWith("WHERE arrayExists(b -> if(b.2 = 1, countEqual(pA, b.1) >= 2, has(pA, b.1)), bAB)", sql);
+        Assert.DoesNotContain(" AS sA", sql);
+        Assert.DoesNotContain("allS", sql);
+    }
+
+    [Fact]
+    public void NotSibling_NegatesTheSiblingTestPerRightHandSpan()
+    {
+        var (sql, _) = Build(Structure("A !~ B", Checkout, Payment));
+
+        Assert.EndsWith("WHERE arrayExists(b -> NOT if(b.2 = 1, countEqual(pA, b.1) >= 2, has(pA, b.1)), bAB)", sql);
+    }
+
+    [Fact]
+    public void NotDescendant_WalksEveryRightHandSpansAncestors_InASecondStage()
+    {
+        var (sql, _) = Build(Structure("A !=> B", Checkout, Payment));
+
+        // Stage 1 keeps every trace with a right-hand span; stage 2 reads the whole trace and keeps a flag per right-hand span.
+        Assert.Contains("AS pB FROM spans WHERE StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)} AND ServiceName IN {tsServices:Array(String)} AND ((ServiceName = {tsAService:String}) OR (ServiceName = {tsBService:String})) GROUP BY TraceId) WHERE hB)", sql);
+        Assert.Contains("groupArray(cityHash64(SpanId)) AS allS", sql);
+        Assert.Contains("arrayExists(f -> f = 0, arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), arrayMap((h, f) -> f OR has(sA, h), acc.1, acc.2)), " +
+            $"range(least({TraceStructureSqlBuilder.MaxWalkDepth}, length(allS))), (pB, arrayMap(x -> toUInt8(0), pB))).2)", sql);
+    }
+
+    [Fact]
+    public void NotDescendant_UnderANot_HasNoStageOneBoundThatCouldDropATrace()
+    {
+        var (sql, _) = Build(Structure("A AND NOT (A !=> B)", Checkout, Payment));
+
+        // Under a NOT the stage-1 bound has to be a lower bound of the relation, which for 'no ancestor' is nothing at all: false.
+        Assert.Contains("GROUP BY TraceId) WHERE (hA AND NOT 0)) GROUP BY TraceId)", sql);
+    }
+
+    [Fact]
+    public void NegatedAndSiblingRelations_NeedBothConditionsToBeDefined() =>
+        Assert.Contains("isn't defined", Assert.Throws<ArgumentException>(() => TraceStructureSqlBuilder.Validate(Structure("A !~ D", Checkout))).Message);
 }

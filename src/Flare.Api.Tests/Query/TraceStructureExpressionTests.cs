@@ -87,4 +87,43 @@ public class TraceStructureExpressionTests
 
         Assert.Equal(['A', 'B', 'C', 'D'], letters);
     }
+
+    [Theory]
+    [InlineData("A ~ B", TraceRelationKind.Sibling, false)]
+    [InlineData("A~B", TraceRelationKind.Sibling, false)]
+    [InlineData("A !-> B", TraceRelationKind.Child, true)]
+    [InlineData("a !=> b", TraceRelationKind.Descendant, true)]
+    [InlineData("A !~ B", TraceRelationKind.Sibling, true)]
+    [InlineData("A!~B", TraceRelationKind.Sibling, true)]
+    public void Parse_SiblingAndNegatedRelations(string expression, TraceRelationKind kind, bool negated) =>
+        Assert.Equal(new TraceStructureRelation('A', 'B', kind, negated), TraceStructureExpression.Parse(expression));
+
+    [Fact]
+    public void Parse_ANegatedRelationIsNotTheNotOfARelation()
+    {
+        // `!->` is one operator; `! A -> B` is NOT applied to the whole relation.
+        Assert.Equal(new TraceStructureRelation('A', 'B', TraceRelationKind.Child, true), TraceStructureExpression.Parse("A !-> B"));
+        Assert.Equal(new TraceStructureNot(new TraceStructureRelation('A', 'B', TraceRelationKind.Child)), TraceStructureExpression.Parse("! A -> B"));
+    }
+
+    [Theory]
+    [InlineData("A ~ B ~ C")]
+    [InlineData("A !~ B -> C")]
+    [InlineData("~ B")]
+    [InlineData("A !->")]
+    public void Parse_RejectsAChainOrAMissingOperand(string expression) =>
+        Assert.Throws<ArgumentException>(() => TraceStructureExpression.Parse(expression));
+
+    [Theory]
+    [InlineData(TraceRelationKind.Child, false, "->")]
+    [InlineData(TraceRelationKind.Descendant, false, "=>")]
+    [InlineData(TraceRelationKind.Sibling, false, "~")]
+    [InlineData(TraceRelationKind.Child, true, "!->")]
+    [InlineData(TraceRelationKind.Descendant, true, "!=>")]
+    [InlineData(TraceRelationKind.Sibling, true, "!~")]
+    public void Operator_WritesWhatParseReads(TraceRelationKind kind, bool negated, string expected)
+    {
+        Assert.Equal(expected, TraceStructureExpression.Operator(kind, negated));
+        Assert.Equal(new TraceStructureRelation('A', 'B', kind, negated), TraceStructureExpression.Parse($"A {expected} B"));
+    }
 }

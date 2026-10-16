@@ -11,7 +11,7 @@ namespace Flare.Api.Tempo;
 /// <param name="IsRate">True for <c>rate()</c>: the count per step is divided by the step's seconds.</param>
 /// <param name="Stages">The <c>| topk(n)</c>, <c>| bottomk(n)</c> and comparison stages, applied in order to the series after they are computed (ADR-0224, ADR-0225).</param>
 /// <param name="Exemplars">Whether the query itself asked for exemplars; a request can also ask with <c>exemplars=n</c> (ADR-0223).</param>
-/// <param name="Ancestor">Set for <c>{ a } &gt;&gt; { b } | rate()</c>: only the spans matching <paramref name="Condition"/> that have a span matching this above them are counted (ADR-0225).</param>
+/// <param name="Ancestor">Set for <c>{ a } &gt;&gt; { b } | rate()</c>: only the spans matching <paramref name="Condition"/> that have a span matching this above them (or beside them, or none of those, for the other operators) are counted (ADR-0225, ADR-0231).</param>
 /// <param name="Root">Set when the spanset names the trace's root (<c>rootName</c>, <c>rootServiceName</c>, <c>traceDuration</c>): only spans of traces whose root row matches are counted (ADR-0225).</param>
 /// <param name="Compare">Set for <c>compare({ selection })</c> (ADR-0226).</param>
 /// <param name="Value">The numeric attribute a value function aggregates (ADR-0222); null is the span's duration, which is reported in seconds.</param>
@@ -43,7 +43,7 @@ public static class TempoMetricsPlanner
     public static TempoMetricsPlan Plan(TraceQlMetricsQuery query)
     {
         IReadOnlyList<TraceQlSpanset> spansets = query.Ancestor is null ? [query.Spanset] : [query.Ancestor, query.Spanset];
-        var search = TempoSearchPlanner.Plan(new TraceQlQuery(spansets, query.Ancestor is null ? "A" : query.AncestorDirect ? "A -> B" : "A => B"));
+        var search = TempoSearchPlanner.Plan(new TraceQlQuery(spansets, query.Ancestor is null ? "A" : $"A {TraceStructureExpression.Operator(query.AncestorKind, query.AncestorNegated)} B"));
         if (query.Ancestor is not null && search.Conditions.Count != 2)
         {
             throw new TraceQlException("each side of > or >> needs at least one span condition.");
@@ -71,7 +71,7 @@ public static class TempoMetricsPlanner
             query.ValueField is { } value ? ValueAttribute(value) : null,
             query.Stages,
             query.Exemplars,
-            query.Ancestor is null ? null : new SpanAncestor(search.Conditions[0], query.AncestorDirect),
+            query.Ancestor is null ? null : new SpanAncestor(search.Conditions[0], query.AncestorKind, query.AncestorNegated),
             TraceRoot(search),
             query.CompareSelection is { } selection ? PlanCompare(query, selection) : null);
     }
