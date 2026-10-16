@@ -117,7 +117,7 @@ Non pris en charge dans une recherche : les pipelines `|` (`count()`, `avg()`, `
 
 ### Métriques TraceQL
 
-`/tempo/api/metrics` prend un spanset et une fonction : `{ status = error } | rate() by (resource.service.name)`. Le spanset est tout ce qu'une recherche accepte pour un seul span, sauf les spansets combinés et les champs de trace (`rootName`, `rootServiceName`, `traceDuration`). Dans Grafana, utilisez le type de requête **TraceQL** avec une requête qui se termine par une fonction : le résultat est une série temporelle ; **Type**, dans les options Metrics de la requête, choisit une requête sur plage ou instantanée (une valeur).
+`/tempo/api/metrics` prend un spanset et une fonction : `{ status = error } | rate() by (resource.service.name)`. Le spanset est tout ce qu'une recherche accepte pour un seul span, ou deux spansets reliés par `>` ou `>>` (voir plus bas), mais pas des spansets combinés avec `&&` ou `||`. Dans Grafana, utilisez le type de requête **TraceQL** avec une requête qui se termine par une fonction : le résultat est une série temporelle ; **Type**, dans les options Metrics de la requête, choisit une requête sur plage ou instantanée (une valeur).
 
 | Fonction | Valeur par pas |
 |---|---|
@@ -131,11 +131,15 @@ Non pris en charge dans une recherche : les pipelines `|` (`count()`, `avg()`, `
 
 `quantile_over_time`, `avg_over_time`, `min_over_time`, `max_over_time`, `sum_over_time` et `histogram_over_time` acceptent aussi un attribut numérique à la place de `duration` : `{ kind = server } | avg_over_time(span.http.response.body.size)`, avec `span.x`, `resource.x` ou `.x`. Les valeurs sont rapportées telles quelles, pas en secondes. Un span dont la valeur est absente ou n'est pas un nombre est écarté.
 
-Après une fonction groupée, `| topk(5)` ou `| bottomk(5)` garde, à chaque pas, les cinq séries à la valeur la plus grande (la plus petite) : `{ kind = server } | rate() by (span.http.route) | topk(5)`.
+Après la fonction, les étapes s'exécutent de gauche à droite. `| topk(5)` ou `| bottomk(5)` garde, à chaque pas, les cinq séries à la valeur la plus grande (la plus petite) : `{ kind = server } | rate() by (span.http.route) | topk(5)`. Une comparaison (`=`, `!=`, `<`, `<=`, `>`, `>=` et un nombre simple) écarte les échantillons qui ne la satisfont pas, ainsi que la série qui n'en garde aucun : `| rate() by (name) > 5`. Le nombre est dans l'unité de la fonction, donc en secondes pour une durée. L'ordre compte : `| rate() > 0 | topk(5)` ne classe que les échantillons non nuls, `| topk(5) > 10` écarte les gagnants inférieurs à 10.
+
+**Relations.** `{ a } >> { b } | rate()` compte les spans `b` qui ont un span `a` au-dessus d'eux, `{ a } > { b }` ceux dont le parent est un span `a`. `{ resource.service.name = "web" } >> { name = "db.query" } | quantile_over_time(duration, .95)` est la latence des requêtes de base de données issues d'un span `web`.
+
+**Champs de trace.** `rootName`, `rootServiceName` et `traceDuration` limitent la requête aux spans des traces dont le span racine correspond : `{ rootName = "GET /checkout" && name = "db.query" } | rate()`. Ils ne se combinent pas avec une relation.
 
 Les **exemplars** relient un point d'un graphique à une trace. Activez **Exemplars** dans les options Metrics (Grafana envoie `exemplars=100`) ou ajoutez `with(exemplars=true)` à la requête. Chaque pas de chaque série porte alors son span le plus lent (ou celui dont la valeur d'attribut est la plus grande) avec un identifiant de trace, et Grafana l'affiche comme un point qu'on peut ouvrir. Requêtes sur plage uniquement.
 
-Non pris en charge : `compare()`, une comparaison après la fonction (`| rate() > 5`), plusieurs spansets ou opérateurs structurels (`{ a } >> { b }`) dans une requête de métriques, et les champs de niveau trace.
+Non pris en charge : `compare()`, et `&&` ou `||` entre spansets dans une requête de métriques.
 
 ## Différences avec Tempo
 
@@ -148,8 +152,10 @@ Non pris en charge : `compare()`, une comparaison après la fonction (`| rate() 
 - **Les métriques ne groupent que les spans qui ont l'attribut.** Dans `by (span.http.route)`, un span sans `http.route` est écarté, pas compté sous une valeur vide. Un attribut aux orthographes ancienne et nouvelle (`http.status_code`, `http.response.status_code`) groupe selon celle que le span possède.
 - **Un `histogram_over_time()` garde 20 groupes au plus,** chacun avec jusqu'à 63 séries de seaux, et une valeur inférieure à 2 (une durée de moins de 2 ns) n'est comptée dans aucun seau, comme dans Tempo.
 - **`topk()` classe les séries calculées par Flare.** Comme la limite de 200 séries ci-dessous, il travaille sur les groupes qui ont le plus de spans ; le groupe à la plus grande moyenne pourrait donc avoir été écarté (la réponse indique `PARTIAL`).
+- **Les relations et les champs de trace remontent d'une heure.** L'ancêtre d'un span, et la racine d'une trace, sont cherchés à partir d'une heure avant la plage ; un span dont l'ancêtre a commencé plus tôt n'est donc pas compté. Les deux lisent les spans des traces candidates, ce qui coûte plus qu'un spanset simple.
+- **Les exemplars concernent les requêtes sur plage.** La réponse instantanée de Tempo n'a pas non plus de place pour eux.
 - **Un exemplar est le span le plus lent,** pas un span tiré au hasard comme dans Tempo, et il est sur la série de son groupe (le plus grand quantile pour `quantile_over_time`, le seau où tombe sa valeur pour un histogramme).
 - **Une requête de métriques renvoie 200 séries au plus.** Avec plus de groupes, elle garde les 200 qui ont le plus de spans et marque la réponse `PARTIAL`. Les comptes et quantiles pondèrent chaque span stocké par ce qu'il représente avec l'[échantillonnage des traces](../../explanation/sampling-clustering-and-cost.fr.md), si bien qu'un service échantillonné rapporte toujours son vrai débit.
 - **Les listes de tags sont un échantillon.** Les noms viennent d'au plus 50 000 spans de la fenêtre, les plus fréquents d'abord. Réduisez `start` et `end` pour une liste complète.
 
-Notes de conception : [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md), [ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md), [ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md) et [ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md).
+Notes de conception : [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md), [ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md), [ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md), [ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md) et [ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md).

@@ -61,17 +61,49 @@ public enum TraceQlMetricsFunction
     HistogramOverTime,
 }
 
+/// <summary>A stage after the metrics function, applied to its series in the order written (ADR-0224, ADR-0225).</summary>
+public abstract record TraceQlMetricsStage;
+
 /// <summary>The second stage <c>| topk(n)</c> or <c>| bottomk(n)</c> (ADR-0224): at each step, keep the <paramref name="K"/> series with the largest (or smallest) value.</summary>
-public sealed record TraceQlRank(bool Top, int K);
+public sealed record TraceQlRank(bool Top, int K) : TraceQlMetricsStage;
+
+/// <summary>The comparison operators of a <see cref="TraceQlFilter"/>, as Tempo's <c>metricsFilterOperation</c>.</summary>
+public enum TraceQlComparison
+{
+    Equal,
+    NotEqual,
+    Less,
+    LessOrEqual,
+    Greater,
+    GreaterOrEqual,
+}
+
+/// <summary>A comparison after the function, <c>| rate() &gt; 5</c> (ADR-0225): a sample that does not satisfy it is dropped.</summary>
+public sealed record TraceQlFilter(TraceQlComparison Op, double Value) : TraceQlMetricsStage
+{
+    public bool Keeps(double sample) => Op switch
+    {
+        TraceQlComparison.Equal => sample == Value,
+        TraceQlComparison.NotEqual => sample != Value,
+        TraceQlComparison.Less => sample < Value,
+        TraceQlComparison.LessOrEqual => sample <= Value,
+        TraceQlComparison.Greater => sample > Value,
+        _ => sample >= Value,
+    };
+}
 
 /// <summary>A TraceQL metrics query: <c>{ spanset } | function(...) [by (...)]</c>.</summary>
 /// <param name="Quantiles">The quantiles of <see cref="TraceQlMetricsFunction.QuantileOverTime"/>, in order; empty for every other function.</param>
 /// <param name="By">The <c>by (...)</c> fields as written: <c>name</c>, <c>status</c>, <c>kind</c>, <c>span.x</c>, <c>resource.x</c> or <c>.x</c>.</param>
-/// <param name="Rank">The <c>| topk(n)</c> / <c>| bottomk(n)</c> stage, if any.</param>
+/// <param name="Stages">What follows the function, in order: <c>| topk(n)</c>, <c>| bottomk(n)</c> and comparisons (<c>&gt; 5</c>); empty if none.</param>
 /// <param name="Exemplars">Whether the query asked for exemplars with <c>with(exemplars=true)</c>.</param>
+/// <param name="Ancestor">For <c>{ a } &gt;&gt; { b } | rate()</c>, the left spanset <c>{ a }</c>: <see cref="Spanset"/> (the right one) counts only spans that have a span matching it above them (ADR-0225). Null for a plain spanset.</param>
+/// <param name="AncestorDirect">True for <c>&gt;</c> (the matching span is the parent), false for <c>&gt;&gt;</c> (any ancestor).</param>
 /// <param name="ValueField">What <c>avg_over_time</c> and the other value functions aggregate, as written: <c>span.x</c>, <c>resource.x</c> or <c>.x</c> for a numeric attribute (ADR-0222); null is <c>duration</c> (and for <c>rate</c> and <c>count_over_time</c>, which take no argument).</param>
-public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, TraceQlRank? Rank = null, bool Exemplars = false)
+public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, IReadOnlyList<TraceQlMetricsStage>? Stages = null, bool Exemplars = false, TraceQlSpanset? Ancestor = null, bool AncestorDirect = false)
 {
+    public IReadOnlyList<TraceQlMetricsStage> Stages { get; } = Stages ?? [];
+
     /// <summary>The function's TraceQL name, which is also the <c>__name__</c> of its series.</summary>
     public string FunctionName => Function switch
     {
@@ -107,7 +139,9 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 /// names them, never half-evaluated.
 /// <see cref="ParseMetrics"/> reads the one pipeline stage a metrics query adds (ADR-0221):
 /// <code>
-/// metrics := spanset "|" function ["by" "(" field ("," field)* ")"] ["|" ("topk" | "bottomk") "(" integer ")"] ["with" "(" "exemplars" "=" bool ")"]
+/// metrics := [spanset (">" | ">>")] spanset "|" function ["by" "(" field ("," field)* ")"] stage* ["with" "(" "exemplars" "=" bool ")"]
+/// stage   := "|" ("topk" | "bottomk") "(" integer ")" | compare number
+/// compare := "=" | "!=" | "&lt;" | "&lt;=" | "&gt;" | "&gt;="
 /// function := "rate" "(" ")" | "count_over_time" "(" ")" | "quantile_over_time" "(" value ("," number)+ ")"
 ///           | ("avg_over_time" | "min_over_time" | "max_over_time" | "sum_over_time" | "histogram_over_time") "(" value ")"
 /// value    := "duration" | "span." name | "resource." name | "." name
@@ -120,6 +154,9 @@ public static class TraceQlParser
     /// <summary>The most quantiles one <c>quantile_over_time</c> asks for.</summary>
     public const int MaxQuantiles = 10;
 
+    /// <summary>The most stages (<c>| topk(n)</c>, comparisons) after a metrics function.</summary>
+    public const int MaxStages = 10;
+
     /// <summary>The most <c>by (...)</c> fields.</summary>
     public const int MaxGroupFields = 5;
 
@@ -127,8 +164,8 @@ public static class TraceQlParser
         ["rate", "count_over_time", "quantile_over_time", "avg_over_time", "min_over_time", "max_over_time", "sum_over_time", "histogram_over_time"];
 
     /// <summary>
-    /// Parses <c>{ spanset } | function(...) [by (...)]</c>. The spanset is one <c>{ ... }</c>; several, structural
-    /// operators and a second pipeline stage are rejected, naming the construct.
+    /// Parses <c>{ spanset } | function(...) [by (...)]</c>. The spanset is one <c>{ ... }</c>, or two related by <c>&gt;</c>
+    /// or <c>&gt;&gt;</c>; other combinations of spansets and unsupported stages are rejected, naming the construct.
     /// </summary>
     public static TraceQlMetricsQuery ParseMetrics(string? query)
     {
@@ -136,12 +173,19 @@ public static class TraceQlParser
         var parser = new Parser(Tokenize(query!), allowPipe: true);
         var spansets = new List<TraceQlSpanset>();
         var expression = parser.ParseOr(spansets);
-        if (spansets.Count != 1 || expression != "A")
+        if (spansets.Count == 1 && expression == "A")
         {
-            throw new TraceQlException("a metrics query takes one spanset, e.g. { status = error } | rate(); combining spansets is not supported.");
+            return parser.ParseMetricsStage(spansets[0], null, false);
         }
 
-        return parser.ParseMetricsStage(spansets[0]);
+        // One structural relation, whose right-hand spans are the ones counted (ADR-0225).
+        if (spansets.Count == 2 && expression is "A -> B" or "A => B")
+        {
+            return parser.ParseMetricsStage(spansets[1], spansets[0], expression == "A -> B");
+        }
+
+        throw new TraceQlException(
+            "a metrics query takes one spanset, e.g. { status = error } | rate(), or one structural relation, e.g. { name = \"a\" } >> { name = \"b\" } | rate(); combining spansets with && or || is not supported.");
     }
 
     public static TraceQlQuery Parse(string? query)
@@ -309,7 +353,7 @@ public static class TraceQlParser
         public bool AtEnd => Peek.Kind == TokenKind.End;
 
         /// <summary>The <c>| function(...) [by (...)] [with (...)]</c> after the spanset of a metrics query.</summary>
-        public TraceQlMetricsQuery ParseMetricsStage(TraceQlSpanset spanset)
+        public TraceQlMetricsQuery ParseMetricsStage(TraceQlSpanset spanset, TraceQlSpanset? ancestor, bool ancestorDirect)
         {
             if (Peek.Kind != TokenKind.Pipe)
             {
@@ -392,19 +436,19 @@ public static class TraceQlParser
                 exemplars = ParseHints();
             }
 
-            TraceQlRank? rank = null;
-            if (Peek.Kind == TokenKind.Pipe)
+            var stages = new List<TraceQlMetricsStage>();
+            while (Peek.Kind == TokenKind.Pipe || IsComparison(Peek))
             {
-                rank = ParseRankStage();
+                if (stages.Count == MaxStages)
+                {
+                    throw new TraceQlException($"at most {MaxStages} stages can follow the metrics function.");
+                }
+
+                stages.Add(Peek.Kind == TokenKind.Pipe ? ParseRankStage() : ParseFilterStage());
                 if (Peek.Kind == TokenKind.Word && Peek.Text == "with")
                 {
                     exemplars = ParseHints();
                 }
-            }
-
-            if (Peek.Kind == TokenKind.Pipe)
-            {
-                throw new TraceQlException("only one second pipeline stage, | topk(n) or | bottomk(n), is supported after the metrics function.");
             }
 
             if (!AtEnd)
@@ -412,7 +456,7 @@ public static class TraceQlParser
                 throw Unexpected(Peek);
             }
 
-            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, rank, exemplars);
+            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorDirect);
         }
 
         /// <summary>
@@ -450,7 +494,7 @@ public static class TraceQlParser
             if (token.Kind != TokenKind.Word || token.Text is not ("topk" or "bottomk"))
             {
                 throw new TraceQlException(
-                    $"the second pipeline stage '{(token.Kind == TokenKind.Word ? token.Text : token.Kind.ToString())}' is not supported; only | topk(n) and | bottomk(n) are.");
+                    $"the second pipeline stage '{(token.Kind == TokenKind.Word ? token.Text : token.Kind.ToString())}' is not supported; only | topk(n), | bottomk(n) and a comparison such as > 5 are.");
             }
 
             _pos++;
@@ -464,6 +508,34 @@ public static class TraceQlParser
             _pos++;
             Expect(TokenKind.RParen, ")");
             return new TraceQlRank(token.Text == "topk", k);
+        }
+
+        private static bool IsComparison(Token token) =>
+            token.Kind == TokenKind.Operator && token.Text is "=" or "!=" or "<" or "<=" or ">" or ">=";
+
+        /// <summary>A comparison after the function, <c>&gt; 5</c>: a plain number, in the function's unit (seconds for a duration).</summary>
+        private TraceQlFilter ParseFilterStage()
+        {
+            var op = Peek.Text switch
+            {
+                "=" => TraceQlComparison.Equal,
+                "!=" => TraceQlComparison.NotEqual,
+                "<" => TraceQlComparison.Less,
+                "<=" => TraceQlComparison.LessOrEqual,
+                ">" => TraceQlComparison.Greater,
+                _ => TraceQlComparison.GreaterOrEqual,
+            };
+            _pos++;
+            var token = Peek;
+            if (token.Kind != TokenKind.Word || !double.TryParse(token.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
+            {
+                throw token.Kind == TokenKind.End
+                    ? new TraceQlException("the query ends unexpectedly; a comparison needs a number, e.g. > 5.")
+                    : new TraceQlException($"'{token.Text}' is not a number; compare the metric with a plain number (durations are in seconds), e.g. > 0.5.");
+            }
+
+            _pos++;
+            return new TraceQlFilter(op, value);
         }
 
         private double ParseQuantile()

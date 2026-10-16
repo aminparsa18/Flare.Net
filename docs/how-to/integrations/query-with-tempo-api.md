@@ -134,8 +134,8 @@ Not supported in a search: `|` pipelines (`count()`, `avg()`, `select()`, `by()`
 ### TraceQL metrics
 
 `/tempo/api/metrics` takes one spanset and one function: `{ status = error } | rate() by (resource.service.name)`. The
-spanset is anything a search accepts for a single span, except combined spansets and the trace intrinsics (`rootName`,
-`rootServiceName`, `traceDuration`). In Grafana, use the **TraceQL** query type with a query that ends in a function and the
+spanset is anything a search accepts for a single span, or two spansets related by `>` or `>>` (below), but not spansets
+combined with `&&` or `||`. In Grafana, use the **TraceQL** query type with a query that ends in a function and the
 result is a time series; **Type** in the query's Metrics options picks a range or an instant (one value) query.
 
 | Function | Value per step |
@@ -153,15 +153,24 @@ numeric attribute in place of `duration`: `{ kind = server } | avg_over_time(spa
 `by (...)` takes up to five of `name`, `status`, `kind`, `span.x`, `resource.x` and `.x` and makes a series for each
 combination: `{ kind = server } | quantile_over_time(duration, .95) by (resource.service.name, span.http.route)`.
 
-After a grouped function, `| topk(5)` or `| bottomk(5)` keeps, at each step, the five series with the largest (smallest)
-value: `{ kind = server } | rate() by (span.http.route) | topk(5)`.
+After the function, stages run left to right. `| topk(5)` or `| bottomk(5)` keeps, at each step, the five series with the
+largest (smallest) value: `{ kind = server } | rate() by (span.http.route) | topk(5)`. A comparison (`=`, `!=`, `<`, `<=`,
+`>`, `>=` and a plain number) drops the samples that fail it, and a series left with none: `| rate() by (name) > 5`. The
+number is in the function's unit, so seconds for a duration. The order matters: `| rate() > 0 | topk(5)` ranks only the
+non-zero samples, `| topk(5) > 10` drops the winners below 10.
+
+**Relations.** `{ a } >> { b } | rate()` counts the `b` spans that have an `a` span above them, `{ a } > { b }` the ones whose
+parent is an `a` span. `{ resource.service.name = "web" } >> { name = "db.query" } | quantile_over_time(duration, .95)` is
+the latency of the queries a `web` span led to.
+
+**Trace fields.** `rootName`, `rootServiceName` and `traceDuration` restrict the query to the spans of traces whose root
+span matches: `{ rootName = "GET /checkout" && name = "db.query" } | rate()`. They cannot be combined with a relation.
 
 **Exemplars** link a point on a chart to a trace. Turn on **Exemplars** in the Metrics options (Grafana sends `exemplars=100`)
 or add `with(exemplars=true)` to the query. Each step of each series then carries its slowest span (or the span with the
 largest attribute value) with a trace id, and Grafana shows it as a point you can open. Range queries only.
 
-Not supported: `compare()`, a comparison after the function (`| rate() > 5`), several spansets or structural operators
-(`{ a } >> { b }`) in a metrics query, and the trace-level intrinsics.
+Not supported: `compare()`, and `&&` or `||` between spansets in a metrics query.
 
 ## Things that differ from Tempo
 
@@ -186,6 +195,10 @@ Not supported: `compare()`, a comparison after the function (`| rate() > 5`), se
   under 2 ns) is not counted in any bucket, as in Tempo.
 - **`topk()` ranks the series Flare computed.** Like the 200-series limit below, it works on the groups with the most spans,
   so the group with the largest average could be one that was cut (the response says `PARTIAL`).
+- **Relations and root fields look back an hour.** The ancestor of a span, and a trace's root, are looked for from an hour
+  before the range, so a span whose ancestor started earlier than that is not counted. Both read the spans of the traces
+  that could match, which costs more than a plain spanset.
+- **Exemplars are for range queries.** Tempo's instant response has no place for them either.
 - **An exemplar is the slowest span,** not a random one as in Tempo, and it is on the series of its group (the largest
   quantile for `quantile_over_time`, the bucket its value falls in for a histogram).
 - **A metrics query returns at most 200 series.** With more groups it keeps the 200 with the most spans and marks the
@@ -197,4 +210,5 @@ Not supported: `compare()`, a comparison after the function (`| rate() > 5`), se
 Design notes: [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md),
 [ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md),
 [ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md) and
-[ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md).
+[ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md) and
+[ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md).

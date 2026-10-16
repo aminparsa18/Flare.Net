@@ -9,8 +9,10 @@ namespace Flare.Api.Tempo;
 /// <param name="Condition">The spanset's predicate; null matches every span.</param>
 /// <param name="FunctionName">The TraceQL function's name, <c>rate</c> for example.</param>
 /// <param name="IsRate">True for <c>rate()</c>: the count per step is divided by the step's seconds.</param>
-/// <param name="Rank">The <c>| topk(n)</c> / <c>| bottomk(n)</c> stage, applied to the series after they are computed (ADR-0224).</param>
+/// <param name="Stages">The <c>| topk(n)</c>, <c>| bottomk(n)</c> and comparison stages, applied in order to the series after they are computed (ADR-0224, ADR-0225).</param>
 /// <param name="Exemplars">Whether the query itself asked for exemplars; a request can also ask with <c>exemplars=n</c> (ADR-0223).</param>
+/// <param name="Ancestor">Set for <c>{ a } &gt;&gt; { b } | rate()</c>: only the spans matching <paramref name="Condition"/> that have a span matching this above them are counted (ADR-0225).</param>
+/// <param name="Root">Set when the spanset names the trace's root (<c>rootName</c>, <c>rootServiceName</c>, <c>traceDuration</c>): only spans of traces whose root row matches are counted (ADR-0225).</param>
 /// <param name="Value">The numeric attribute a value function aggregates (ADR-0222); null is the span's duration, which is reported in seconds.</param>
 public sealed record TempoMetricsPlan(
     TraceSpanCondition? Condition,
@@ -20,24 +22,29 @@ public sealed record TempoMetricsPlan(
     IReadOnlyList<double> Quantiles,
     IReadOnlyList<SpanGroupBy> GroupBy,
     SpanValueAttribute? Value = null,
-    TraceQlRank? Rank = null,
-    bool Exemplars = false);
+    IReadOnlyList<TraceQlMetricsStage>? Stages = null,
+    bool Exemplars = false,
+    SpanAncestor? Ancestor = null,
+    SpanTraceRoot? Root = null)
+{
+    public IReadOnlyList<TraceQlMetricsStage> Stages { get; } = Stages ?? [];
+}
 
 /// <summary>Compiles a parsed <see cref="TraceQlMetricsQuery"/> into a <see cref="TempoMetricsPlan"/>. Pure, no ClickHouse dependency.</summary>
 /// <remarks>
 /// The spanset goes through <see cref="TempoSearchPlanner"/>, so a metrics query and a search read a predicate the
 /// same way (anchored regular expressions, the unscoped-attribute guess). Trace-level fields filter a trace's root
-/// row in a search and have no per-span meaning here, so they are rejected.
+/// row in a search; here they restrict the spans counted to those of traces whose root row matches (ADR-0225).
 /// </remarks>
 public static class TempoMetricsPlanner
 {
     public static TempoMetricsPlan Plan(TraceQlMetricsQuery query)
     {
-        var search = TempoSearchPlanner.Plan(new TraceQlQuery([query.Spanset], "A"));
-        if (search.RootServices.Count > 0 || search.RootNames.Count > 0
-            || search.MinTraceDurationNano is not null || search.MaxTraceDurationNano is not null)
+        IReadOnlyList<TraceQlSpanset> spansets = query.Ancestor is null ? [query.Spanset] : [query.Ancestor, query.Spanset];
+        var search = TempoSearchPlanner.Plan(new TraceQlQuery(spansets, query.Ancestor is null ? "A" : query.AncestorDirect ? "A -> B" : "A => B"));
+        if (query.Ancestor is not null && search.Conditions.Count != 2)
         {
-            throw new TraceQlException("rootName, rootServiceName and traceDuration describe the whole trace, so they cannot be used in a metrics query.");
+            throw new TraceQlException("each side of > or >> needs at least one span condition.");
         }
 
         var function = query.Function switch
@@ -52,16 +59,23 @@ public static class TempoMetricsPlanner
         };
 
         return new TempoMetricsPlan(
-            search.Conditions.FirstOrDefault(),
+            search.Conditions.LastOrDefault(),
             function,
             query.FunctionName,
             query.Function == TraceQlMetricsFunction.Rate,
             query.Quantiles,
             query.By.Select(GroupBy).ToArray(),
             query.ValueField is { } value ? ValueAttribute(value) : null,
-            query.Rank,
-            query.Exemplars);
+            query.Stages,
+            query.Exemplars,
+            query.Ancestor is null ? null : new SpanAncestor(search.Conditions[0], query.AncestorDirect),
+            TraceRoot(search));
     }
+
+    private static SpanTraceRoot? TraceRoot(TempoSearchPlan search) =>
+        search.RootServices.Count == 0 && search.RootNames.Count == 0 && search.MinTraceDurationNano is null && search.MaxTraceDurationNano is null
+            ? null
+            : new SpanTraceRoot(search.RootServices, search.RootNames, search.MinTraceDurationNano, search.MaxTraceDurationNano);
 
     private static SpanGroupBy GroupBy(string field)
     {

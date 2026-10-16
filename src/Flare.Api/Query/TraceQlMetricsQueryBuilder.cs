@@ -40,6 +40,18 @@ public sealed record SpanGroupBy(string Label, SpanGroupKind Kind, SpanAttribute
 /// <summary>A numeric span or resource attribute a metric aggregates in place of the duration (ADR-0222). <see cref="Label"/> is how the query wrote it.</summary>
 public sealed record SpanValueAttribute(string Label, SpanAttributeBag Bag, string Key);
 
+/// <summary>
+/// The left side of <c>{ a } &gt;&gt; { b }</c> (ADR-0225): the counted spans must have a span matching <see cref="Condition"/> above them,
+/// as their parent when <see cref="Direct"/>, as any ancestor otherwise.
+/// </summary>
+public sealed record SpanAncestor(TraceSpanCondition Condition, bool Direct);
+
+/// <summary>
+/// What a query says about the trace's root span (<c>rootServiceName</c>, <c>rootName</c>, <c>traceDuration</c>, ADR-0225): the counted
+/// spans must belong to a trace whose root row (the span with no parent) matches all of it. Services and names are alternatives within their list.
+/// </summary>
+public sealed record SpanTraceRoot(IReadOnlyList<string> Services, IReadOnlyList<string> Names, ulong? MinDurationNano, ulong? MaxDurationNano);
+
 /// <param name="Condition">The span predicate of the query's spanset; null matches every span.</param>
 /// <param name="Exemplars">With <see cref="TraceQlMetricsQueryBuilder.BuildExemplars"/>: the most exemplars wanted; ignored by <see cref="TraceQlMetricsQueryBuilder.Build"/>.</param>
 /// <param name="Value">What <see cref="Function"/> aggregates; null is the span's duration. Ignored by <see cref="SpanMetricFunction.Count"/>.</param>
@@ -53,7 +65,9 @@ public sealed record SpanMetricsRequest(
     DateTimeOffset To,
     int StepSeconds,
     SpanValueAttribute? Value = null,
-    int Exemplars = 0);
+    int Exemplars = 0,
+    SpanAncestor? Ancestor = null,
+    SpanTraceRoot? Root = null);
 
 /// <summary>One group's aggregate in one step. <see cref="Values"/> holds one number, or one per quantile.</summary>
 /// <param name="Bucket">The step's index from <see cref="SpanMetricsRequest.From"/>.</param>
@@ -91,9 +105,20 @@ public sealed record SpanMetricsSql(string Sql, ClickHouseParameterCollection Pa
 /// spans where it is absent, does not parse or is not finite, the same way: those spans take no part in the sums,
 /// the quantiles or the ranking of the top series, and the <c>Weight</c> counts only the spans that had a number.
 /// </para>
+/// <para>
+/// <b>Relations to other spans (ADR-0225).</b> A structural query counts the right-hand spans that have a matching ancestor. A direct
+/// parent is a semi-join on <c>(TraceId, ParentSpanId)</c>. An ancestor at any depth is found per trace, as the structure builder's
+/// <c>=&gt;</c> is (ADR-0069): the traces with both a left and a right span are collected, each of their spans' parent chains is
+/// walked up to <see cref="TraceStructureSqlBuilder.MaxWalkDepth"/> steps, and the right-hand spans whose chain meets a left span are
+/// the counted ones. A trace-level restriction is a <c>TraceId</c> lookup of the traces whose root row matches. Both look at spans
+/// that started up to <see cref="Lookback"/> before the window, since the ancestor and the root come before the span.
+/// </para>
 /// </remarks>
 public static class TraceQlMetricsQueryBuilder
 {
+    /// <summary>How long before the window an ancestor or a trace's root may have started and still count (the same slack as the service map's parent side, ADR-0043).</summary>
+    public static readonly TimeSpan Lookback = ServiceDependencyQueryBuilder.ParentStartSlack;
+
     /// <summary>The most series a query returns.</summary>
     public const int MaxSeries = 200;
 
@@ -187,12 +212,25 @@ public static class TraceQlMetricsQueryBuilder
         parameters.AddParameter("mTo", request.To.UtcDateTime);
         parameters.AddParameter("mStart", request.From.ToUnixTimeSeconds());
         parameters.AddParameter("mStep", (long)request.StepSeconds);
+        parameters.AddParameter("mLookback", (request.From - Lookback).UtcDateTime);
 
         var groups = request.GroupBy.Select((g, i) => GroupExpression(g, i, parameters)).ToArray();
         var clauses = new List<string> { "StartTime >= {mFrom:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)}" };
         if (request.Condition is { } condition)
         {
             clauses.Add(TraceStructureSqlBuilder.ConditionMatch(condition, 'A', parameters, promoted));
+        }
+
+        if (request.Root is { } root)
+        {
+            clauses.Add(RootClause(root, parameters));
+        }
+
+        if (request.Ancestor is { } ancestor)
+        {
+            clauses.Add(request.Condition is { } span
+                ? AncestorClause(ancestor, span, parameters, promoted)
+                : throw new ArgumentException("A relation to an ancestor needs a span condition for the counted spans.", nameof(request)));
         }
 
         clauses.AddRange(groups.Select(g => g.Present));
@@ -223,6 +261,64 @@ public static class TraceQlMetricsQueryBuilder
         }
 
         return (parameters, groups, value, where, filter);
+    }
+
+    /// <summary>The window widened backwards by <see cref="Lookback"/>, where ancestors and roots are looked for.</summary>
+    private const string LookbackWindow = "StartTime >= {mLookback:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)}";
+
+    /// <summary>The spans of traces whose root row matches (ADR-0225): <c>TraceId GLOBAL IN</c> the roots that do.</summary>
+    private static string RootClause(SpanTraceRoot root, ClickHouseParameterCollection parameters)
+    {
+        var clauses = new List<string> { LookbackWindow, "ParentSpanId = ''" };
+        if (root.Services.Count > 0)
+        {
+            parameters.AddParameter("mrServices", root.Services.ToArray());
+            clauses.Add("ServiceName IN {mrServices:Array(String)}");
+        }
+
+        if (root.Names.Count > 0)
+        {
+            parameters.AddParameter("mrNames", root.Names.ToArray());
+            clauses.Add("Name IN {mrNames:Array(String)}");
+        }
+
+        if (root.MinDurationNano is { } min)
+        {
+            parameters.AddParameter("mrMin", min);
+            clauses.Add("DurationNano >= {mrMin:UInt64}");
+        }
+
+        if (root.MaxDurationNano is { } max)
+        {
+            parameters.AddParameter("mrMax", max);
+            clauses.Add("DurationNano <= {mrMax:UInt64}");
+        }
+
+        return $"TraceId GLOBAL IN (SELECT TraceId FROM spans WHERE {string.Join(" AND ", clauses)}{ServiceScope.Suffix(parameters)})";
+    }
+
+    /// <summary>The counted spans that have a span matching <paramref name="ancestor"/> above them (ADR-0225), as a restriction on <c>(TraceId, SpanId)</c>.</summary>
+    private static string AncestorClause(SpanAncestor ancestor, TraceSpanCondition span, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
+    {
+        var above = TraceStructureSqlBuilder.ConditionMatch(ancestor.Condition, 'P', parameters, promoted);
+        var scope = ServiceScope.Suffix(parameters);
+        if (ancestor.Direct)
+        {
+            return $"(TraceId, ParentSpanId) GLOBAL IN (SELECT TraceId, SpanId FROM spans WHERE {LookbackWindow} AND {above}{scope})";
+        }
+
+        // The ancestor walk, one level per step, as the structure builder's descendant test does; a span that is its own match is not its own ancestor.
+        var below = TraceStructureSqlBuilder.ConditionMatch(span, 'A', parameters, promoted);
+        var spanHash = TraceStructureSqlBuilder.SpanHash;
+        var parentHash = TraceStructureSqlBuilder.ParentHash;
+        var depth = TraceStructureSqlBuilder.MaxWalkDepth;
+        return "(TraceId, SpanId) GLOBAL IN (SELECT TraceId, SpanId FROM (" +
+            $"SELECT TraceId, groupArray({spanHash}) AS allS, groupArray({parentHash}) AS allP, " +
+            $"groupArrayIf({spanHash}, {above}) AS aboveS, groupArrayIf(SpanId, {below}) AS belowIds, groupArrayIf({parentHash}, {below}) AS belowP " +
+            $"FROM spans WHERE {LookbackWindow}{scope} AND TraceId GLOBAL IN (" +
+            $"SELECT TraceId FROM spans WHERE {LookbackWindow}{scope} AND ({above} OR {below}) GROUP BY TraceId HAVING countIf({above}) > 0 AND countIf({below}) > 0) " +
+            "GROUP BY TraceId) ARRAY JOIN belowIds AS SpanId, belowP AS startP " +
+            $"WHERE arrayFold((acc, x) -> (if(acc.1 = 0, toUInt64(0), allP[indexOf(allS, acc.1)]), acc.2 OR has(aboveS, acc.1)), range(least({depth}, length(allS))), (startP, false)).2)";
     }
 
     private static IEnumerable<string> Aggregates(SpanMetricsRequest request, string value)
