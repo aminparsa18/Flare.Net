@@ -123,7 +123,7 @@ datasources:
 | 事件属性 `event.x`：当 span 的某个事件匹配时，该 span 匹配 | `{ status = error && event.exception.type = "TimeoutException" }` |
 | 查询之后的 `\| select(...)`，为每个列出的 span 附加字段：`name`、`status`、`statusMessage`、`kind`、`duration`、`rootName`、`rootServiceName`、`traceDuration`、`nestedSetParent`、`nestedSetLeft`、`nestedSetRight`、`span.x`、`resource.x`、`.x`、`event.x`（最多 20 个），以及 `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内除同一字段的 `=` 测试之外的 `||`、作为过滤条件的 `statusMessage`、`<`、`<<` 及其否定与并集形式、指标查询中的并集运算符，以及两个字段之间的比较。
+搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内除同一字段的 `=` 测试之外的 `||`、作为过滤条件的 `statusMessage`、`<`、`<<` 及其否定与并集形式，以及两个字段之间的比较。
 
 `nestedSetLeft`、`nestedSetRight` 和 `nestedSetParent` 按 Tempo 的方式给追踪中的 span 编号：深度优先遍历，span 的左编号是进入它时的下一个数字，右编号是离开它时的下一个数字，因此一个 span 在另一个之下，当且仅当它的编号落在另一个的编号之内；父编号是父 span 的左编号，根为 -1。父 span 从未被摄入的 span 按根编号。编号最多读取每条追踪的 2,000 个 span。
 
@@ -155,7 +155,11 @@ datasources:
 
 `with(sample=true)` 会被接受并忽略（Flare 的结果是精确的），可以与 `exemplars` 一起使用：`with(exemplars=true, sample=true)`。
 
-不支持：指标查询中用 `&&` 或 `||` 连接 spanset。
+**组合 spanset。** `||` 统计任一 spanset 的 span，每个只算一次；`&&` 统计两者的 span，但只在两边各有一个 span 的追踪里统计：
+`{ status = error } || { duration > 2s } | rate()`、`{ name = "checkout" } && { name = "payment" } | count_over_time()`。括号和结构运算符也可以组合，包括并集运算符（`&>>`、`&>`、`&~`，统计两侧的 span）：
+`({ name = "a" } ~ { name = "b" }) || { status = error } | rate() by (name)`。最多六个 spanset；`rootName`、`rootServiceName` 和 `traceDuration` 不能与其他 spanset 一起使用。追踪中的 span 从范围开始前一小时起查找，与关系查询相同。
+
+不支持：`compare()` 的选择部分不接受 spanset 的组合，以及 `<`、`<<` 及其否定与并集形式。
 
 ## Grafana Traces Drilldown
 

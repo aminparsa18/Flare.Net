@@ -14,6 +14,7 @@ namespace Flare.Api.Tempo;
 /// <param name="Ancestor">Set for <c>{ a } &gt;&gt; { b } | rate()</c>: only the spans matching <paramref name="Condition"/> that have a span matching this above them (or beside them, or none of those, for the other operators) are counted (ADR-0225, ADR-0231).</param>
 /// <param name="Root">Set when the spanset names the trace's root (<c>rootName</c>, <c>rootServiceName</c>, <c>traceDuration</c>): only spans of traces whose root row matches are counted (ADR-0225).</param>
 /// <param name="Compare">Set for <c>compare({ selection })</c> (ADR-0226).</param>
+/// <param name="Spansets">Set when the query combines spansets with <c>&amp;&amp;</c>, <c>||</c> or a union operator (ADR-0232): the spans counted are its result, and <paramref name="Condition"/> and <paramref name="Ancestor"/> are null.</param>
 /// <param name="Value">The numeric attribute a value function aggregates (ADR-0222); null is the span's duration, which is reported in seconds.</param>
 public sealed record TempoMetricsPlan(
     TraceSpanCondition? Condition,
@@ -27,7 +28,8 @@ public sealed record TempoMetricsPlan(
     bool Exemplars = false,
     SpanAncestor? Ancestor = null,
     SpanTraceRoot? Root = null,
-    SpanCompare? Compare = null)
+    SpanCompare? Compare = null,
+    SpanSetExpression? Spansets = null)
 {
     public IReadOnlyList<TraceQlMetricsStage> Stages { get; } = Stages ?? [];
 }
@@ -42,6 +44,11 @@ public static class TempoMetricsPlanner
 {
     public static TempoMetricsPlan Plan(TraceQlMetricsQuery query)
     {
+        if (query.Combination is { } combination)
+        {
+            return PlanCombination(query, combination);
+        }
+
         IReadOnlyList<TraceQlSpanset> spansets = query.Ancestor is null ? [query.Spanset] : [query.Ancestor, query.Spanset];
         var search = TempoSearchPlanner.Plan(new TraceQlQuery(spansets, query.Ancestor is null ? "A" : $"A {TraceStructureExpression.Operator(query.AncestorKind, query.AncestorNegated)} B"));
         if (query.Ancestor is not null && search.Conditions.Count != 2)
@@ -74,6 +81,59 @@ public static class TempoMetricsPlanner
             query.Ancestor is null ? null : new SpanAncestor(search.Conditions[0], query.AncestorKind, query.AncestorNegated),
             TraceRoot(search),
             query.CompareSelection is { } selection ? PlanCompare(query, selection) : null);
+    }
+
+    /// <summary>
+    /// A query of several spansets (ADR-0232): each spanset becomes a condition exactly as in a search (so a value group, an empty side of a structural
+    /// operator and the unscoped-attribute guess read the same), and the tree of <c>&amp;&amp;</c>, <c>||</c> and structural operators over them becomes the
+    /// <see cref="SpanSetExpression"/> the builder compiles into one predicate on a span.
+    /// </summary>
+    private static TempoMetricsPlan PlanCombination(TraceQlMetricsQuery query, TraceQlCombination combination)
+    {
+        var search = TempoSearchPlanner.Plan(new TraceQlQuery(combination.Spansets, combination.Expression));
+        var conditions = search.Conditions.ToDictionary(c => char.ToUpperInvariant(c.Name[0]));
+
+        TraceSpanCondition Condition(char letter) => conditions.TryGetValue(letter, out var condition)
+            ? condition
+            : throw new TraceQlException($"spanset {letter - 'A' + 1} of the query has no span condition; each spanset of a combination needs at least one.");
+
+        SpanSetExpression Node(TraceStructureNode node) => node switch
+        {
+            TraceStructureHas has => new SpanSetCondition(Condition(has.Condition)),
+            TraceStructureRelation r => new SpanSetRelation(
+                Condition(r.Parent), Condition(r.Child), r.Kind, r.Negated,
+                combination.Relations.Any(x => x.Union && x.Left == r.Parent && x.Right == r.Child)),
+            TraceStructureAnd and => new SpanSetAnd(Node(and.Left), Node(and.Right)),
+            TraceStructureOr or => new SpanSetOr(Node(or.Left), Node(or.Right)),
+            _ => throw new TraceQlException("a metrics query combines spansets with &&, || and the structural operators only."),
+        };
+
+        var function = query.Function switch
+        {
+            TraceQlMetricsFunction.Rate or TraceQlMetricsFunction.CountOverTime => SpanMetricFunction.Count,
+            TraceQlMetricsFunction.QuantileOverTime => SpanMetricFunction.Quantile,
+            TraceQlMetricsFunction.AvgOverTime => SpanMetricFunction.Avg,
+            TraceQlMetricsFunction.MinOverTime => SpanMetricFunction.Min,
+            TraceQlMetricsFunction.MaxOverTime => SpanMetricFunction.Max,
+            TraceQlMetricsFunction.HistogramOverTime => SpanMetricFunction.Histogram,
+            TraceQlMetricsFunction.Compare => SpanMetricFunction.Compare,
+            _ => SpanMetricFunction.Sum,
+        };
+
+        return new TempoMetricsPlan(
+            null,
+            function,
+            query.FunctionName,
+            query.Function == TraceQlMetricsFunction.Rate,
+            query.Quantiles,
+            query.By.Select(GroupBy).ToArray(),
+            query.ValueField is { } value ? ValueAttribute(value) : null,
+            query.Stages,
+            query.Exemplars,
+            null,
+            null,
+            query.CompareSelection is { } selection ? PlanCompare(query, selection) : null,
+            Node(combination.Tree));
     }
 
     /// <summary>The selection of <c>compare()</c> is one span predicate, planned like a spanset; trace-level fields have no per-span meaning in it.</summary>

@@ -217,11 +217,22 @@ public class TempoMetricsPlannerTests
     }
 
     [Theory]
-    [InlineData("&>>")]
-    [InlineData("&>")]
-    [InlineData("&~")]
-    public void UnionOperators_AreRejectedInAMetricsQuery_NamingTheOperator(string op) =>
-        Assert.Contains("union operator", Assert.Throws<TraceQlException>(() => Plan($$"""{ name = "a" } {{op}} { name = "b" } | rate()""")).Message);
+    [InlineData("&>>", TraceRelationKind.Descendant)]
+    [InlineData("&>", TraceRelationKind.Child)]
+    [InlineData("&~", TraceRelationKind.Sibling)]
+    public void UnionOperators_CountTheSpansOfBothSides(string op, TraceRelationKind kind)
+    {
+        var plan = Plan($$"""{ name = "a" } {{op}} { name = "b" } | rate()""");
+
+        var relation = Assert.IsType<SpanSetRelation>(plan.Spansets);
+        Assert.Equal("a", relation.Left.SpanName);
+        Assert.Equal("b", relation.Right.SpanName);
+        Assert.Equal(kind, relation.Kind);
+        Assert.True(relation.Union);
+        Assert.False(relation.Negated);
+        Assert.Null(plan.Condition);
+        Assert.Null(plan.Ancestor);
+    }
 
     [Fact]
     public void AnEmptySideOfAnyRelation_IsAnySpan()
@@ -231,4 +242,44 @@ public class TempoMetricsPlannerTests
         Assert.Equal(0UL, plan.Condition!.MinDurationNano);
         Assert.True(plan.Ancestor!.Negated);
     }
+
+    [Fact]
+    public void AndAndOr_BuildATreeOverTheSpansetsConditions()
+    {
+        var plan = Plan("""({ name = "a" } && { name = "b" }) || { status = error } | rate()""");
+
+        var or = Assert.IsType<SpanSetOr>(plan.Spansets);
+        var and = Assert.IsType<SpanSetAnd>(or.Left);
+        Assert.Equal("a", Assert.IsType<SpanSetCondition>(and.Left).Condition.SpanName);
+        Assert.Equal("b", Assert.IsType<SpanSetCondition>(and.Right).Condition.SpanName);
+        Assert.Equal("STATUS_CODE_ERROR", Assert.IsType<SpanSetCondition>(or.Right).Condition.StatusCode);
+        Assert.Equal(["A", "B", "C"], new[] { and.Left, and.Right, or.Right }.Select(n => ((SpanSetCondition)n).Condition.Name));
+        Assert.Null(plan.Condition);
+    }
+
+    [Fact]
+    public void ARelationInsideACombination_KeepsItsKindAndSides()
+    {
+        var plan = Plan("""{ name = "a" } !>> { name = "b" } && { name = "c" } | rate()""");
+
+        var and = Assert.IsType<SpanSetAnd>(plan.Spansets);
+        var relation = Assert.IsType<SpanSetRelation>(and.Left);
+        Assert.Equal((TraceRelationKind.Descendant, true, false), (relation.Kind, relation.Negated, relation.Union));
+    }
+
+    [Fact]
+    public void ACombination_GroupsAndAggregatesLikeASpanset()
+    {
+        var plan = Plan("""{ name = "a" } || { name = "b" } | quantile_over_time(duration, .5) by (resource.service.name)""");
+
+        Assert.Equal(SpanMetricFunction.Quantile, plan.Function);
+        Assert.Equal("resource.service.name", Assert.Single(plan.GroupBy).Label);
+    }
+
+    [Theory]
+    [InlineData("""{ rootName = "x" } || { name = "b" } | rate()""", "single spanset")]
+    [InlineData("""{ name = "a" } || { } | rate()""", "empty spanset")]
+    [InlineData("""{ name = "a" } && { true } | rate()""", "empty spanset")]
+    public void ACombination_RejectsWhatTheSearchPlannerRejects(string traceQl, string message) =>
+        Assert.Contains(message, Assert.Throws<TraceQlException>(() => Plan(traceQl)).Message);
 }

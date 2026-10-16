@@ -140,7 +140,7 @@ TraceQL results table.
 | `\| select(...)` after the query, to put fields on each listed span: `name`, `status`, `statusMessage`, `kind`, `duration`, `rootName`, `rootServiceName`, `traceDuration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (at most 20), and `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
 Not supported in a search: `|` pipelines other than `select()` (`count()`, `avg()`, `by()`, ...; a metrics query takes one,
-below), `||` inside one spanset between anything but `=` tests of one field, `statusMessage` as a filter, `<`, `<<` and their negated and union forms, a union operator in a metrics query, and comparing two fields.
+below), `||` inside one spanset between anything but `=` tests of one field, `statusMessage` as a filter, `<`, `<<` and their negated and union forms, and comparing two fields.
 
 `nestedSetLeft`, `nestedSetRight` and `nestedSetParent` number the spans of a trace the way Tempo does: a depth-first walk
 in which a span's left number is the next number when the walk enters it and its right number the next when it leaves, so
@@ -197,7 +197,13 @@ with more values than were kept, a series labelled `__meta_error="__too_many_val
 `with(sample=true)` is accepted and ignored (Flare's answers are exact), and can be combined with `exemplars` as
 `with(exemplars=true, sample=true)`.
 
-Not supported: `&&` or `||` between spansets in a metrics query.
+**Combining spansets.** `||` counts the spans of either spanset, once each, and `&&` the spans of both, but only in a trace that has a span in each:
+`{ status = error } || { duration > 2s } | rate()`, `{ name = "checkout" } && { name = "payment" } | count_over_time()`. Parentheses and the structural
+operators combine too, including the union ones (`&>>`, `&>`, `&~`, which count the spans of both sides):
+`({ name = "a" } ~ { name = "b" }) || { status = error } | rate() by (name)`. At most six spansets, and `rootName`, `rootServiceName` and `traceDuration`
+cannot be used next to another spanset. A trace's spans are looked for from an hour before the range, as for a relation.
+
+Not supported: a combination of spansets as the selection of `compare()`, and `<`, `<<` and their negated and union forms.
 
 ## Grafana Traces Drilldown
 

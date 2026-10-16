@@ -200,10 +200,6 @@ public class TraceQlParserTests
         Assert.Throws<TraceQlException>(() => TraceQlParser.Parse("({ a = 1 } && { b = 2 }) &>> { c = 3 }"));
 
     [Fact]
-    public void UnionDescendant_IsRejectedInAMetricsQuery() =>
-        Assert.Contains("&>>", Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics("{ a = 1 } &>> { b = 2 } | rate()")).Message);
-
-    [Fact]
     public void AnOrGroupOfOneField_IsOnePredicateWithAlternatives()
     {
         var query = TraceQlParser.Parse("""{ (resource.service.name = "a" || resource.service.name = "b" || resource.service.name = "c") && status = error }""");

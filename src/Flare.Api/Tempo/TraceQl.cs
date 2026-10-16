@@ -71,6 +71,14 @@ public sealed record TraceQlQuery(IReadOnlyList<TraceQlSpanset> Spansets, string
 /// </summary>
 public readonly record struct TraceQlRelation(char Left, char Right, Query.TraceRelationKind Kind, bool Negated, bool Union);
 
+/// <summary>
+/// The spansets of a metrics query that is a boolean combination of them (ADR-0232): spanset <c>i</c> is condition <c>A + i</c> in <see cref="Tree"/>,
+/// which only has <see cref="Query.TraceStructureAnd"/>, <see cref="Query.TraceStructureOr"/> and <see cref="Query.TraceStructureRelation"/> nodes.
+/// </summary>
+/// <param name="Expression">The structure expression the tree was parsed from, as the search planner reads it.</param>
+/// <param name="Relations">The union, negated and sibling operators written (the union ones return the spans of both sides).</param>
+public sealed record TraceQlCombination(IReadOnlyList<TraceQlSpanset> Spansets, string Expression, Query.TraceStructureNode Tree, IReadOnlyList<TraceQlRelation> Relations);
+
 /// <summary>The metrics functions a TraceQL metrics query can apply to a spanset (ADR-0221).</summary>
 public enum TraceQlMetricsFunction
 {
@@ -129,9 +137,10 @@ public sealed record TraceQlFilter(TraceQlComparison Op, double Value) : TraceQl
 /// <param name="Ancestor">For <c>{ a } &gt;&gt; { b } | rate()</c>, the left spanset <c>{ a }</c>: <see cref="Spanset"/> (the right one) counts only spans that have a span matching it above them (ADR-0225). Null for a plain spanset.</param>
 /// <param name="AncestorKind"><c>&gt;</c> (the matching span is the parent), <c>&gt;&gt;</c> (any ancestor) or <c>~</c> (a sibling); with <paramref name="AncestorNegated"/> the counted spans are the ones with no such span (<c>!&gt;</c>, <c>!&gt;&gt;</c>, <c>!~</c>).</param>
 /// <param name="AncestorNegated">See <paramref name="AncestorKind"/>.</param>
+/// <param name="Combination">Set when the query combines spansets with <c>&amp;&amp;</c>, <c>||</c> or a union operator (ADR-0232), in place of one spanset or one relation: <paramref name="Spanset"/> is then the first spanset and is not used.</param>
 /// <param name="ValueField">What <c>avg_over_time</c> and the other value functions aggregate, as written: <c>span.x</c>, <c>resource.x</c> or <c>.x</c> for a numeric attribute (ADR-0222); null is <c>duration</c> (and for <c>rate</c> and <c>count_over_time</c>, which take no argument).</param>
 public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, IReadOnlyList<TraceQlMetricsStage>? Stages = null, bool Exemplars = false, TraceQlSpanset? Ancestor = null, Query.TraceRelationKind AncestorKind = Query.TraceRelationKind.Descendant,
-    TraceQlSpanset? CompareSelection = null, int CompareTopN = TraceQlParser.DefaultCompareTopN, ulong? CompareStartNanos = null, ulong? CompareEndNanos = null, bool AncestorNegated = false)
+    TraceQlSpanset? CompareSelection = null, int CompareTopN = TraceQlParser.DefaultCompareTopN, ulong? CompareStartNanos = null, ulong? CompareEndNanos = null, bool AncestorNegated = false, TraceQlCombination? Combination = null)
 {
     /// <summary>True for <c>&gt;</c> (the matching span is the parent).</summary>
     public bool AncestorDirect => AncestorKind == Query.TraceRelationKind.Child;
@@ -177,7 +186,7 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 /// structural operators and arithmetic are rejected with a message that names them, never half-evaluated.
 /// <see cref="ParseMetrics"/> reads the one pipeline stage a metrics query adds (ADR-0221):
 /// <code>
-/// metrics := [spanset (">" | ">>")] spanset "|" function ["by" "(" field ("," field)* ")"] stage* ["with" "(" "exemplars" "=" bool ")"]
+/// metrics := (or | spanset) "|" function ["by" "(" field ("," field)* ")"] stage* ["with" "(" "exemplars" "=" bool ")"]
 /// stage   := "|" ("topk" | "bottomk") "(" integer ")" | compare number
 /// compare := "=" | "!=" | "&lt;" | "&lt;=" | "&gt;" | "&gt;="
 /// function := "compare" "(" spanset ["," topN ["," startNanos "," endNanos]] ")"
@@ -224,10 +233,7 @@ public static class TraceQlParser
         var parser = new Parser(Tokenize(query!), allowPipe: true);
         var spansets = new List<TraceQlSpanset>();
         var expression = parser.ParseOr(spansets);
-        if (parser.Relations.Any(r => r.Union))
-        {
-            throw new TraceQlException("a union operator (&>>, &> or &~) returns the spans of both sides, which a metrics query has no use for; use >>, > or ~ in a metrics query.");
-        }
+        var unions = parser.Relations.Any(r => r.Union);
 
         if (spansets.Count == 1 && expression == "A")
         {
@@ -235,13 +241,19 @@ public static class TraceQlParser
         }
 
         // One structural relation, whose right-hand spans are the ones counted (ADR-0225, ADR-0231).
-        if (spansets.Count == 2 && TraceStructureRelationOf(expression) is { } relation)
+        if (!unions && spansets.Count == 2 && TraceStructureRelationOf(expression) is { } relation)
         {
             return parser.ParseMetricsStage(spansets[1], spansets[0], relation.Kind, relation.Negated);
         }
 
-        throw new TraceQlException(
-            "a metrics query takes one spanset, e.g. { status = error } | rate(), or one structural relation, e.g. { name = \"a\" } >> { name = \"b\" } | rate(); combining spansets with && or || is not supported.");
+        // Anything else is a combination of spansets with && and || (and relations among them): the spans counted are those in the result (ADR-0232).
+        if (spansets.Count > Query.TraceStructureSqlBuilder.MaxConditions)
+        {
+            throw new TraceQlException($"a query can combine at most {Query.TraceStructureSqlBuilder.MaxConditions} spansets.");
+        }
+
+        var combination = new TraceQlCombination(spansets, expression, Query.TraceStructureExpression.Parse(expression), parser.Relations);
+        return parser.ParseMetricsStage(spansets[0], null, Query.TraceRelationKind.Descendant, false, combination);
     }
 
     /// <summary>The relation of the expression <c>A &lt;op&gt; B</c> exactly, or null when it is anything else.</summary>
@@ -561,7 +573,7 @@ public static class TraceQlParser
         }
 
         /// <summary>The <c>| function(...) [by (...)] [with (...)]</c> after the spanset of a metrics query.</summary>
-        public TraceQlMetricsQuery ParseMetricsStage(TraceQlSpanset spanset, TraceQlSpanset? ancestor, Query.TraceRelationKind ancestorKind, bool ancestorNegated)
+        public TraceQlMetricsQuery ParseMetricsStage(TraceQlSpanset spanset, TraceQlSpanset? ancestor, Query.TraceRelationKind ancestorKind, bool ancestorNegated, TraceQlCombination? combination = null)
         {
             if (Peek.Kind != TokenKind.Pipe)
             {
@@ -682,7 +694,7 @@ public static class TraceQlParser
                 throw Unexpected(Peek);
             }
 
-            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorKind, selection, topN, selectionStart, selectionEnd, ancestorNegated);
+            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorKind, selection, topN, selectionStart, selectionEnd, ancestorNegated, combination);
         }
 
         /// <summary>
