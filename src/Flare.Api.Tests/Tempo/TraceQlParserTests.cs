@@ -74,7 +74,7 @@ public class TraceQlParserTests
 
     [Theory]
     [InlineData("{ } | count() > 2", "pipeline")]
-    [InlineData("{ name = \"a\" } | select(span.x)", "pipeline")]
+    [InlineData("{ name = \"a\" } | avg(duration)", "pipeline")]
     [InlineData("{ span.a = 1 || span.b = 2 }", "||")]
     [InlineData("{ name = \"a\" } &&& { }", "unexpected")]
     [InlineData("{ name = }", "unexpected")]
@@ -141,4 +141,56 @@ public class TraceQlParserTests
     [Fact]
     public void Nil_IsAValue() =>
         Assert.Equal(TraceQlValueKind.Nil, Assert.Single(TraceQlParser.Parse("{ span.x != nil }").Spansets[0].Predicates).Value.Kind);
+    [Fact]
+    public void SelectStage_ReadsTheFieldsInOrderWithoutRepeats()
+    {
+        var query = TraceQlParser.Parse("{ status = error } | select(status, resource.service.name, name, nestedSetLeft, event.exception.message, status) with(most_recent=true)");
+
+        Assert.Equal(["status", "resource.service.name", "name", "nestedSetLeft", "event.exception.message"], query.Select);
+    }
+
+    [Fact]
+    public void SelectStage_FollowsAParenthesizedExpression()
+    {
+        var query = TraceQlParser.Parse("({ a = 1 } || { b = 2 }) | select(duration)");
+
+        Assert.Equal(2, query.Spansets.Count);
+        Assert.Equal(["duration"], query.Select);
+    }
+
+    [Theory]
+    [InlineData("{ } | count() > 1", "pipeline stages")]
+    [InlineData("{ } | select(statusMessage)", "select(statusMessage)")]
+    [InlineData("{ } | select(rootName)", "select(rootName)")]
+    [InlineData("{ } | select()", "unexpected")]
+    [InlineData("{ } | select(name) with(sample=true)", "most_recent")]
+    [InlineData("{ } | select(name) with(most_recent=2)", "unexpected")]
+    [InlineData("{ } | select(name) | select(status)", "unexpected")]
+    public void SelectStage_RejectsWhatItCannotRead(string traceQl, string message) =>
+        Assert.Contains(message, Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(traceQl)).Message);
+
+    [Fact]
+    public void SelectStage_TakesAtMostTwentyFields()
+    {
+        var fields = string.Join(", ", Enumerable.Range(0, TraceQlParser.MaxSelectFields + 1).Select(i => $"span.f{i}"));
+
+        Assert.Contains("at most", Assert.Throws<TraceQlException>(() => TraceQlParser.Parse($"{{ }} | select({fields})")).Message);
+    }
+
+    [Fact]
+    public void UnionDescendant_IsADescendantRelationThatRemembersItsSides()
+    {
+        var query = TraceQlParser.Parse("({ a = 1 } &>> { b = 2 }) || ({ c = 3 })");
+
+        Assert.Equal("(A => B || C)", query.Expression);
+        Assert.Equal(new TraceQlUnionRelation('A', 'B'), Assert.Single(query.UnionDescendants));
+    }
+
+    [Fact]
+    public void UnionDescendant_RelatesSpansetsNotGroups() =>
+        Assert.Throws<TraceQlException>(() => TraceQlParser.Parse("({ a = 1 } && { b = 2 }) &>> { c = 3 }"));
+
+    [Fact]
+    public void UnionDescendant_IsRejectedInAMetricsQuery() =>
+        Assert.Contains("&>>", Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics("{ a = 1 } &>> { b = 2 } | rate()")).Message);
 }

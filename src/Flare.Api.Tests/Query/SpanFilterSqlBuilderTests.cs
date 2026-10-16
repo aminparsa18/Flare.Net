@@ -339,4 +339,27 @@ public class SpanFilterSqlBuilderTests
         Assert.Equal(["net.peer.name", "server.address"], SemconvAliases.Group("net.peer.name"));
         Assert.Null(SemconvAliases.Group("tenant.id"));
     }
+    [Theory]
+    [InlineData(SpanAttributeFilterOperator.Equals, "arrayExists(m -> m[{attrKeyx:String}] = {attrValuex:String}, `Events.Attributes`)")]
+    [InlineData(SpanAttributeFilterOperator.Exists, "arrayExists(m -> mapContains(m, {attrKeyx:String}), `Events.Attributes`)")]
+    [InlineData(SpanAttributeFilterOperator.Absent, "NOT arrayExists(m -> mapContains(m, {attrKeyx:String}), `Events.Attributes`)")]
+    [InlineData(SpanAttributeFilterOperator.Regex, "arrayExists(m -> (mapContains(m, {attrKeyx:String}) AND match(m[{attrKeyx:String}], {attrValuex:String})), `Events.Attributes`)")]
+    public void AttributeClause_EventBag_ComparesEachEventsMap(SpanAttributeFilterOperator op, string expected)
+    {
+        var parameters = new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection();
+        var filter = new SpanAttributeFilter { Bag = SpanAttributeBag.Event, Key = "exception.type", Value = "Boom", Operator = op };
+
+        Assert.Equal(expected, SpanFilterSqlBuilder.AttributeClause(filter, "x", parameters, promoted: null));
+    }
+
+    [Fact]
+    public void AttributeClause_EventBag_IgnoresPromotedColumns()
+    {
+        var parameters = new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection();
+        var filter = new SpanAttributeFilter { Bag = SpanAttributeBag.Event, Key = "exception.type", Value = "Boom", Operator = SpanAttributeFilterOperator.Equals };
+
+        var sql = SpanFilterSqlBuilder.AttributeClause(filter, "x", parameters, new PromotedAttributeColumns([(AttributeBag.Log, "exception.type", "attr_exception_type")]));
+
+        Assert.StartsWith("arrayExists(", sql);
+    }
 }

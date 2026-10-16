@@ -174,6 +174,11 @@ public static class SpanFilterSqlBuilder
     /// </summary>
     internal static string AttributeClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
     {
+        if (attribute.Bag == SpanAttributeBag.Event)
+        {
+            return EventClause(attribute, suffix, parameters);
+        }
+
         // Old/new semconv spellings of one attribute count as the same key: a positive
         // operator matches if any spelling does, a negative one only if none does.
         if (attribute.Bag == SpanAttributeBag.Span && SemconvAliases.Group(attribute.Key) is { } group)
@@ -189,7 +194,24 @@ public static class SpanFilterSqlBuilder
         return SingleKeyClause(attribute, suffix, parameters, promoted);
     }
 
-    private static string SingleKeyClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
+    /// <summary>
+    /// An event attribute (ADR-0227): the span matches when some event of it does, so the ordinary clause is evaluated against each
+    /// event's attribute map (<c>m</c>) inside <c>arrayExists</c>. <c>Absent</c> is "no event has the key", the negation of that, so a
+    /// span without events is a span without the attribute. Event attributes are never promoted to columns.
+    /// </summary>
+    private static string EventClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters)
+    {
+        const string Events = "`Events.Attributes`";
+        if (attribute.Operator == SpanAttributeFilterOperator.Absent)
+        {
+            var present = SingleKeyClause(attribute with { Operator = SpanAttributeFilterOperator.Exists }, suffix, parameters, null, "m");
+            return $"NOT arrayExists(m -> {present}, {Events})";
+        }
+
+        return $"arrayExists(m -> {SingleKeyClause(attribute, suffix, parameters, null, "m")}, {Events})";
+    }
+
+    private static string SingleKeyClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted, string? columnOverride = null)
     {
         if (promoted is not null && promoted.TryGetColumn(PromotedBag(attribute.Bag), attribute.Key, out var promotedColumn)
             && PromotedClause(attribute, suffix, parameters, promotedColumn) is { } promotedSql)
@@ -197,7 +219,7 @@ public static class SpanFilterSqlBuilder
             return promotedSql;
         }
 
-        var column = ColumnFor(attribute.Bag);
+        var column = columnOverride ?? ColumnFor(attribute.Bag);
         var keyParam = $"attrKey{suffix}";
         parameters.AddParameter(keyParam, attribute.Key);
         var containsSql = $"mapContains({column}, {{{keyParam}:String}})";

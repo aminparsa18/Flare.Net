@@ -28,6 +28,9 @@ public interface ISpanQueryService
     /// <summary>For each given trace, its spans matching a structure's conditions - the Tempo-compatible API's <c>spanSets</c>. See <see cref="TraceMatchedSpansQueryBuilder"/>.</summary>
     Task<IReadOnlyList<TraceMatchedSpans>> GetMatchedSpansAsync(MatchedSpansRequest request, CancellationToken cancellationToken);
 
+    /// <summary>For each given trace, its spans with which structure conditions each matches and the attribute values asked for - the Tempo-compatible API's <c>select()</c> and <c>&amp;&gt;&gt;</c> (ADR-0227). See <see cref="TraceSpanSelectQueryBuilder"/>.</summary>
+    Task<IReadOnlyList<SpanTreeRow>> GetSelectedSpansAsync(SelectedSpansRequest request, CancellationToken cancellationToken);
+
     /// <summary>A TraceQL metrics query's per-step, per-group aggregates over the matching spans - the Tempo-compatible API's <c>/api/metrics</c> (ADR-0221). See <see cref="TraceQlMetricsQueryBuilder"/>.</summary>
     Task<IReadOnlyList<SpanMetricRow>> GetSpanMetricsAsync(SpanMetricsRequest request, CancellationToken cancellationToken);
 
@@ -289,6 +292,44 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
         }
 
         return traces;
+    }
+
+    public async Task<IReadOnlyList<SpanTreeRow>> GetSelectedSpansAsync(SelectedSpansRequest request, CancellationToken cancellationToken)
+    {
+        if (request.TraceIds.Count == 0)
+        {
+            return [];
+        }
+
+        var built = TraceSpanSelectQueryBuilder.Build(request, promotedAttributes.Spans);
+
+        // Up to MaxSpansPerTrace rows for each of at most MaxTraces traces; lift the generic cap to fit that.
+        var options = SafetyOptions();
+        options.CustomSettings!["max_result_rows"] = Math.Max(queryLimits.Value.MaxResultRows, TraceSpanSelectQueryBuilder.MaxRows);
+        options.CustomSettings["result_overflow_mode"] = "throw";
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, options, cancellationToken);
+
+        var rows = new List<SpanTreeRow>();
+        while (reader.Read())
+        {
+            rows.Add(new SpanTreeRow(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetString(4),
+                ReadUtc(reader, 5),
+                reader.GetFieldValue<ulong>(6),
+                reader.GetFieldValue<byte>(7),
+                reader.GetString(8),
+                reader.GetFieldValue<uint>(9),
+                reader.GetFieldValue<Dictionary<string, string>>(10),
+                reader.GetFieldValue<Dictionary<string, string>>(11),
+                reader.GetFieldValue<Dictionary<string, string>[]>(12)));
+        }
+
+        return rows;
     }
 
     public async Task<IReadOnlyList<SpanMetricRow>> GetSpanMetricsAsync(SpanMetricsRequest request, CancellationToken cancellationToken)

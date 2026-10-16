@@ -58,4 +58,23 @@ public class TempoSpanSetWriterTests
         var attributes = set.GetProperty("spans")[0].GetProperty("attributes");
         Assert.Equal("http.route", Assert.Single(attributes.EnumerateArray()).GetProperty("key").GetString());
     }
+    [Fact]
+    public void WriteSpanSet_Selected_WritesNestedSetsAsInt64StringsAndTheRestAsStrings()
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            TempoEndpoints.WriteSpanSet(writer, new TraceSelectedSpans("t", 4, [new SelectedSpan("s1", "GET /cart", "shop", DateTimeOffset.FromUnixTimeSeconds(1_790_000_000), 1_500_000,
+                [new SelectedAttribute("service.name", "shop"), new SelectedAttribute("nestedSetLeft", null, 3), new SelectedAttribute("nestedSetParent", null, -1)])]));
+        }
+
+        var set = JsonDocument.Parse(stream.ToArray()).RootElement;
+        var span = set.GetProperty("spans")[0];
+        Assert.Equal(4, set.GetProperty("matched").GetInt32());
+        Assert.Equal("1500000", span.GetProperty("durationNanos").GetString());
+        var attributes = span.GetProperty("attributes").EnumerateArray().ToArray();
+        Assert.Equal("shop", attributes[0].GetProperty("value").GetProperty("stringValue").GetString());
+        Assert.Equal("3", attributes[1].GetProperty("value").GetProperty("intValue").GetString());
+        Assert.Equal("-1", attributes[2].GetProperty("value").GetProperty("intValue").GetString());
+    }
 }

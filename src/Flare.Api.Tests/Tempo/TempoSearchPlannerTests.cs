@@ -164,7 +164,8 @@ public class TempoSearchPlannerTests
     [InlineData("{ } && { name = \"y\" }", "empty spanset")]
     [InlineData("{ statusMessage = \"x\" }", "not supported")]
     [InlineData("{ status = \"weird\" }", "unknown status")]
-    [InlineData("{ duration = 5 }", "duration")]
+    [InlineData("{ duration = \"5\" }", "duration")]
+    [InlineData("{ duration > -1 }", "duration")]
     [InlineData("{ duration =~ 5s }", "supports")]
     [InlineData("{ name = \"a\" && name = \"b\" }", "twice")]
     [InlineData("{ name = \"a\" && name != \"a\" }", "twice")]
@@ -285,4 +286,82 @@ public class TempoSearchPlannerTests
     [InlineData("{ span.x > nil }")]
     [InlineData("{ span.x =~ nil }")]
     public void Nil_OnlyWorksWithEqualityOperators(string traceQl) => Assert.Throws<TraceQlException>(() => Plan(traceQl));
+    [Fact]
+    public void SelectFields_AreResolvedLikeFilters()
+    {
+        var plan = Plan("{ status = error } | select(status, nestedSetLeft, resource.service.name, span.http.route, .k8s.pod.name, .http.method, event.exception.type)");
+
+        Assert.Equal(
+            [
+                new TempoSelectField(TempoSelectScope.Intrinsic, "status"),
+                new TempoSelectField(TempoSelectScope.Intrinsic, "nestedSetLeft"),
+                new TempoSelectField(TempoSelectScope.Resource, "service.name"),
+                new TempoSelectField(TempoSelectScope.Span, "http.route"),
+                new TempoSelectField(TempoSelectScope.Resource, "k8s.pod.name"),
+                new TempoSelectField(TempoSelectScope.Span, "http.method"),
+                new TempoSelectField(TempoSelectScope.Event, "exception.type"),
+            ],
+            plan.Select);
+        Assert.True(plan.UsesSelector);
+        Assert.True(plan.NeedsWholeTrace);
+    }
+
+    [Fact]
+    public void ASelectWithoutNestedSets_DoesNotNeedTheWholeTrace()
+    {
+        var plan = Plan("{ status = error } | select(status, event.exception.message)");
+
+        Assert.True(plan.UsesSelector);
+        Assert.False(plan.NeedsWholeTrace);
+    }
+
+    [Fact]
+    public void APlainQuery_DoesNotUseTheSelector() => Assert.False(Plan("{ status = error }").UsesSelector);
+
+    [Fact]
+    public void UnionDescendant_UsesTheSelectorAndNeedsTheWholeTrace()
+    {
+        var plan = Plan("({ nestedSetParent < 0 && true } &>> { kind = server }) || ({ nestedSetParent < 0 && true })");
+
+        Assert.Equal("(A => B || C)", plan.Structure!.Expression);
+        Assert.Equal(new TraceQlUnionRelation('A', 'B'), Assert.Single(plan.UnionDescendants));
+        Assert.True(plan.UsesSelector);
+        Assert.True(plan.NeedsWholeTrace);
+        Assert.Equal(["A", "B", "C"], plan.Conditions.Select(c => c.Name));
+        Assert.True(plan.Conditions[0].RootSpan);
+        Flare.Api.Query.TraceStructureSqlBuilder.Validate(plan.Structure);
+    }
+
+    [Theory]
+    [InlineData("{ nestedSetParent < 0 } &>> { true }", 1)]
+    [InlineData("{ } >> { name = \"b\" }", 0)]
+    [InlineData("{ name = \"a\" } > { }", 1)]
+    public void AnEmptySideOfARelation_IsAnySpan(string traceQl, int emptyIndex)
+    {
+        var plan = Plan(traceQl);
+
+        Assert.Equal(2, plan.Conditions.Count);
+        Assert.Equal(0UL, plan.Conditions[emptyIndex].MinDurationNano);
+        Flare.Api.Query.TraceStructureSqlBuilder.Validate(plan.Structure!);
+    }
+
+    [Fact]
+    public void EventAttributes_FilterOnTheEventBag()
+    {
+        var plan = Plan("""{ status = error && event.exception.message = "boom" && event.exception.type != nil }""");
+
+        var attributes = plan.Conditions[0].Attributes!;
+        Assert.Equal(new SpanAttributeFilter { Bag = SpanAttributeBag.Event, Key = "exception.message", Value = "boom", Operator = SpanAttributeFilterOperator.Equals }, attributes[0]);
+        Assert.Equal(SpanAttributeBag.Event, attributes[1].Bag);
+        Assert.Equal(SpanAttributeFilterOperator.Exists, attributes[1].Operator);
+    }
+
+    [Fact]
+    public void ADurationComparedWithANumber_IsInNanoseconds()
+    {
+        var plan = Plan("{ duration >= 0 && duration < 1500 }");
+
+        Assert.Equal(0UL, plan.Conditions[0].MinDurationNano);
+        Assert.Equal(1499UL, plan.Conditions[0].MaxDurationNano);
+    }
 }

@@ -49,7 +49,17 @@ public sealed record TraceQlSpanset(IReadOnlyList<TraceQlPredicate> Predicates);
 
 /// <param name="Spansets">In order of appearance; spanset <c>i</c> is condition <c>A + i</c> in <see cref="Expression"/>.</param>
 /// <param name="Expression">The structural expression over the spansets' letters (<c>A -&gt; B</c>, <c>A &amp;&amp; B</c>...), in <see cref="Query.TraceStructureExpression"/>'s grammar.</param>
-public sealed record TraceQlQuery(IReadOnlyList<TraceQlSpanset> Spansets, string Expression);
+/// <param name="Select">The fields of a <c>| select(...)</c> stage as written (<c>status</c>, <c>nestedSetLeft</c>, <c>resource.service.name</c>, <c>event.exception.message</c>...); empty if none.</param>
+/// <param name="UnionDescendants">The <c>{ a } &amp;&amp;&gt;&gt; { b }</c> relations (ADR-0227), whose spans of both sides are returned, not just the right-hand ones.</param>
+public sealed record TraceQlQuery(IReadOnlyList<TraceQlSpanset> Spansets, string Expression, IReadOnlyList<string>? Select = null, IReadOnlyList<TraceQlUnionRelation>? UnionDescendants = null)
+{
+    public IReadOnlyList<string> Select { get; } = Select ?? [];
+
+    public IReadOnlyList<TraceQlUnionRelation> UnionDescendants { get; } = UnionDescendants ?? [];
+}
+
+/// <summary>A <c>&amp;&gt;&gt;</c> between two spansets, by their letters in <see cref="TraceQlQuery.Expression"/>: the ancestor side and the descendant side.</summary>
+public readonly record struct TraceQlUnionRelation(char Ancestor, char Descendant);
 
 /// <summary>The metrics functions a TraceQL metrics query can apply to a spanset (ADR-0221).</summary>
 public enum TraceQlMetricsFunction
@@ -133,10 +143,10 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 /// A hand-written parser for the TraceQL subset the Tempo-compatible API accepts (ADR-0217).
 /// Pure, no ClickHouse dependency. Grammar, loosest to tightest:
 /// <code>
-/// query     := or
+/// query     := or ["|" "select" "(" field ("," field)* ")" ["with" "(" "most_recent" "=" bool ")"]]
 /// or        := and ("||" and)*
 /// and       := relation ("&amp;&amp;" relation)*
-/// relation  := operand ((">" | ">>") operand)?
+/// relation  := operand ((">" | ">>" | "&amp;>>") operand)?
 /// operand   := spanset | "(" or ")"
 /// spanset   := "{" [predicate ("&amp;&amp;" predicate)*] "}"
 /// predicate := field op value
@@ -144,10 +154,10 @@ public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsF
 /// value     := string | number | duration | "true" | "false" | "error" | "ok" | "unset"
 /// </code>
 /// <c>&gt;</c> between spansets is "has a direct child matching", <c>&gt;&gt;</c> is "has a descendant
-/// matching" - the same relations the structural trace query builds (ADR-0069). Anything past a
-/// spanset expression (a <c>|</c> pipeline: <c>count()</c>, <c>select()</c>, ...), a <c>||</c> inside a
-/// spanset, sibling and negated structural operators and arithmetic are rejected with a message that
-/// names them, never half-evaluated.
+/// matching" - the same relations the structural trace query builds (ADR-0069); <c>&amp;&gt;&gt;</c> is
+/// <c>&gt;&gt;</c> that lists the spans of both sides (ADR-0227). The one pipeline stage of a search is
+/// <c>select(...)</c>. Any other (<c>count()</c>, ...), a <c>||</c> inside a spanset, sibling and negated
+/// structural operators and arithmetic are rejected with a message that names them, never half-evaluated.
 /// <see cref="ParseMetrics"/> reads the one pipeline stage a metrics query adds (ADR-0221):
 /// <code>
 /// metrics := [spanset (">" | ">>")] spanset "|" function ["by" "(" field ("," field)* ")"] stage* ["with" "(" "exemplars" "=" bool ")"]
@@ -175,6 +185,9 @@ public static class TraceQlParser
     /// <summary>The most values per attribute <c>compare()</c> can keep.</summary>
     public const int MaxCompareTopN = 1000;
 
+    /// <summary>The most fields one <c>select(...)</c> takes.</summary>
+    public const int MaxSelectFields = 20;
+
     /// <summary>The most <c>by (...)</c> fields.</summary>
     public const int MaxGroupFields = 5;
 
@@ -191,6 +204,11 @@ public static class TraceQlParser
         var parser = new Parser(Tokenize(query!), allowPipe: true);
         var spansets = new List<TraceQlSpanset>();
         var expression = parser.ParseOr(spansets);
+        if (parser.Unions.Count > 0)
+        {
+            throw new TraceQlException("'&>>' (union descendant) returns the spans of both sides, which a metrics query has no use for; use >> in a metrics query.");
+        }
+
         if (spansets.Count == 1 && expression == "A")
         {
             return parser.ParseMetricsStage(spansets[0], null, false);
@@ -209,9 +227,10 @@ public static class TraceQlParser
     public static TraceQlQuery Parse(string? query)
     {
         CheckLength(query);
-        var parser = new Parser(Tokenize(query!));
+        var parser = new Parser(Tokenize(query!), allowPipe: true);
         var spansets = new List<TraceQlSpanset>();
         var expression = parser.ParseOr(spansets);
+        var select = parser.Peek.Kind == TokenKind.Pipe ? parser.ParseSearchPipeline() : [];
         if (!parser.AtEnd)
         {
             throw Unexpected(parser.Peek);
@@ -222,7 +241,7 @@ public static class TraceQlParser
             throw new TraceQlException($"a query can combine at most {Query.TraceStructureSqlBuilder.MaxConditions} spansets.");
         }
 
-        return new TraceQlQuery(spansets, expression);
+        return new TraceQlQuery(spansets, expression, select, parser.Unions);
     }
 
     private static void CheckLength(string? query)
@@ -292,6 +311,13 @@ public static class TraceQlParser
                 case '`':
                     tokens.Add(ReadString(text, ref i));
                     continue;
+            }
+
+            if (c == '&' && string.CompareOrdinal(text, i, "&>>", 0, 3) == 0)
+            {
+                tokens.Add(new Token(TokenKind.Operator, "&>>", i));
+                i += 3;
+                continue;
             }
 
             var two = i + 1 < text.Length ? text.AsSpan(i, 2) : default;
@@ -368,7 +394,112 @@ public static class TraceQlParser
     {
         private int _pos;
 
+        private readonly List<TraceQlUnionRelation> _unions = [];
+
+        public IReadOnlyList<TraceQlUnionRelation> Unions => _unions;
+
         public bool AtEnd => Peek.Kind == TokenKind.End;
+
+        /// <summary>
+        /// The one pipeline stage a search takes, <c>| select(field, ...)</c>, and the <c>with(most_recent=true)</c> hint after it (ADR-0227).
+        /// Traces Drilldown sends both; <c>most_recent</c> is read and ignored, since a Flare search already lists the newest traces first.
+        /// </summary>
+        public IReadOnlyList<string> ParseSearchPipeline()
+        {
+            _pos++;
+            var stage = Peek;
+            if (stage.Kind != TokenKind.Word || stage.Text != "select")
+            {
+                throw PipelineNotSupported();
+            }
+
+            _pos++;
+            Expect(TokenKind.LParen, "(");
+            var fields = new List<string>();
+            while (true)
+            {
+                var field = Peek;
+                if (field.Kind != TokenKind.Word)
+                {
+                    throw Unexpected(field);
+                }
+
+                _pos++;
+                if (!IsSelectableField(field.Text))
+                {
+                    throw new TraceQlException(
+                        $"select({field.Text}) is not supported; select name, status, kind, duration, nestedSetParent, nestedSetLeft, nestedSetRight, span.x, resource.x, .x or event.x.");
+                }
+
+                if (!fields.Contains(field.Text, StringComparer.Ordinal))
+                {
+                    fields.Add(field.Text);
+                }
+
+                if (Peek.Kind != TokenKind.Comma)
+                {
+                    break;
+                }
+
+                _pos++;
+            }
+
+            Expect(TokenKind.RParen, ")");
+            if (fields.Count > MaxSelectFields)
+            {
+                throw new TraceQlException($"select(...) takes at most {MaxSelectFields} fields.");
+            }
+
+            if (Peek.Kind == TokenKind.Word && Peek.Text == "with")
+            {
+                ParseSearchHints();
+            }
+
+            return fields;
+        }
+
+        private static bool IsSelectableField(string field) =>
+            field is "name" or "status" or "kind" or "duration" or "nestedSetParent" or "nestedSetLeft" or "nestedSetRight"
+            || (field.StartsWith("span.", StringComparison.Ordinal) && field.Length > "span.".Length)
+            || (field.StartsWith("resource.", StringComparison.Ordinal) && field.Length > "resource.".Length)
+            || (field.StartsWith("event.", StringComparison.Ordinal) && field.Length > "event.".Length)
+            || (field.StartsWith('.') && field.Length > 1);
+
+        private void ParseSearchHints()
+        {
+            _pos++;
+            Expect(TokenKind.LParen, "(");
+            while (true)
+            {
+                var hint = Peek;
+                if (hint.Kind != TokenKind.Word || hint.Text != "most_recent")
+                {
+                    throw new TraceQlException($"the query hint '{(hint.Kind == TokenKind.Word ? hint.Text : hint.Kind.ToString())}' is not supported in a search; only with(most_recent=...) is accepted.");
+                }
+
+                _pos++;
+                if (!IsOperator("="))
+                {
+                    throw Unexpected(Peek);
+                }
+
+                _pos++;
+                if (Peek.Kind != TokenKind.Word || Peek.Text is not ("true" or "false"))
+                {
+                    throw Unexpected(Peek);
+                }
+
+                _pos++;
+                if (Peek.Kind != TokenKind.Comma)
+                {
+                    break;
+                }
+
+                _pos++;
+            }
+
+            Expect(TokenKind.RParen, ")");
+        }
 
         /// <summary>The <c>| function(...) [by (...)] [with (...)]</c> after the spanset of a metrics query.</summary>
         public TraceQlMetricsQuery ParseMetricsStage(TraceQlSpanset spanset, TraceQlSpanset? ancestor, bool ancestorDirect)
@@ -738,18 +869,25 @@ public static class TraceQlParser
         private string ParseRelation(List<TraceQlSpanset> spansets)
         {
             var left = ParseOperand(spansets);
-            if (!IsOperator(">") && !IsOperator(">>"))
+            if (!IsOperator(">") && !IsOperator(">>") && !IsOperator("&>>"))
             {
                 return left;
             }
 
             var direct = Peek.Text == ">";
+            var union = Peek.Text == "&>>";
             _pos++;
             var right = ParseOperand(spansets);
             // The structure expression only relates single conditions, so both sides must be spansets, not groups.
             if (left.Length != 1 || right.Length != 1)
             {
-                throw new TraceQlException("a structural operator (> or >>) relates two spansets, not groups of them.");
+                throw new TraceQlException("a structural operator (> , >> or &>>) relates two spansets, not groups of them.");
+            }
+
+            // Whether a trace has such a pair is the same question as for >>; which spans the result lists is what differs.
+            if (union)
+            {
+                _unions.Add(new TraceQlUnionRelation(left[0], right[0]));
             }
 
             return $"{left} {(direct ? "->" : "=>")} {right}";
@@ -916,7 +1054,7 @@ public static class TraceQlParser
         }
 
         private static TraceQlException PipelineNotSupported() =>
-            new("pipeline stages after a spanset (| count(), | avg(), | select(), | by(), ...) are not supported.");
+            new("pipeline stages after a spanset other than | select(...) (| count(), | avg(), | by(), ...) are not supported.");
     }
 
     /// <summary>A TraceQL / Tempo duration: a number with a unit (<c>ns us µs ms s m h</c>), or several, such as <c>1m30s</c>.</summary>
