@@ -164,7 +164,7 @@ public class TempoMetricsPlannerTests
     [Fact]
     public void ASpanPredicateErrorFromTheSearchPlannerSurfaces()
     {
-        Assert.Throws<TraceQlException>(() => Plan("{ statusMessage = \"x\" } | rate()"));
+        Assert.Throws<TraceQlException>(() => Plan("{ childCount > 1 } | rate()"));
     }
 
     [Fact]

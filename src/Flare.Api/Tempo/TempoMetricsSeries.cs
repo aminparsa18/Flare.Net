@@ -11,13 +11,15 @@ public sealed record TempoLabel(string Key, string? Text, double? Number = null,
     /// The label of an attribute value from <c>compare()</c> (ADR-0230): a <c>span.x</c> or <c>resource.x</c> value that is unambiguously
     /// a whole number, a decimal or a bool is written as one (<see cref="TempoTypedValue.Infer"/>); a <c>name</c>, <c>status</c> or <c>kind</c> stays text.
     /// </summary>
-    public static TempoLabel Attribute(string key, string value)
-    {
-        if (!key.StartsWith("span.", StringComparison.Ordinal) && !key.StartsWith("resource.", StringComparison.Ordinal))
-        {
-            return new TempoLabel(key, value);
-        }
+    public static TempoLabel Attribute(string key, string value) =>
+        key.StartsWith("span.", StringComparison.Ordinal) || key.StartsWith("resource.", StringComparison.Ordinal) ? Typed(key, value) : new TempoLabel(key, value);
 
+    /// <summary>
+    /// A label whose value is an attribute's, written under the one rule of <see cref="TempoTypedValue.Infer"/>: also the label of a
+    /// <c>by (span.x)</c>, <c>by (resource.x)</c> or <c>by (.x)</c> group (ADR-0233). Callers do not use it for <c>name</c>, <c>status</c> and <c>kind</c>.
+    /// </summary>
+    public static TempoLabel Typed(string key, string value)
+    {
         var typed = TempoTypedValue.Infer(value);
         return typed.Kind switch
         {
@@ -53,8 +55,8 @@ public static class TempoMetricsSeries
     /// fields, with <c>p</c> for a quantile, <c>__bucket</c> (the bucket's upper bound) for a histogram, and the function's
     /// name when there is nothing else to label it. <c>rate()</c>, <c>count_over_time()</c> and <c>histogram_over_time()</c>
     /// are zero in a step without spans, so every series covers the whole range; the other functions omit such steps. Only
-    /// the <see cref="TraceQlMetricsQueryBuilder.MaxGroups"/> groups with the most spans are kept. Durations are in seconds, an
-    /// attribute's values as they are; samples are stamped with their step's start. An <paramref name="exemplars"/> row is
+    /// the <see cref="TraceQlMetricsQueryBuilder.MaxGroups"/> groups with the most spans are kept. Durations are in seconds, the values
+    /// of a <c>by (span.x)</c> attribute typed as <see cref="TempoTypedValue.Infer"/> says (ADR-0233), a name, status or kind as text; samples are stamped with their step's start. An <paramref name="exemplars"/> row is
     /// attached to its group's series nearest its value (ADR-0223), and <see cref="TempoMetricsPlan.Stages"/> then run in order: a
     /// <c>topk</c>/<c>bottomk</c> keeps the top or bottom series at each step (ADR-0224), a comparison drops the samples that fail it (ADR-0225).
     /// </summary>
@@ -80,7 +82,9 @@ public static class TempoMetricsSeries
         var series = new List<TempoMetricSeries>();
         foreach (var (groupRows, _, key) in groups)
         {
-            var byLabels = plan.GroupBy.Select((by, i) => new TempoLabel(by.Label, LabelValue(by.Kind, groupRows[0].Group[i]))).ToList();
+            var byLabels = plan.GroupBy.Select((by, i) => by.Kind == SpanGroupKind.Attribute
+                ? TempoLabel.Typed(by.Label, groupRows[0].Group[i])
+                : new TempoLabel(by.Label, LabelValue(by.Kind, groupRows[0].Group[i]))).ToList();
             var first = series.Count;
             var exponents = new List<double>();
             if (plan.Function == SpanMetricFunction.Histogram)

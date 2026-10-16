@@ -311,9 +311,9 @@ public static class TempoSearchPlanner
     {
         var field = predicate.Field;
         if (predicate.Alternatives is not null && field is "duration" or "nestedSetParent" or "nestedSetLeft" or "nestedSetRight"
-            or "statusMessage" or "childCount" or "parent" or "event:timeSinceStart")
+            or "childCount" or "parent" or "event:timeSinceStart")
         {
-            throw new TraceQlException($"a '||' group of values is supported for name, status, kind, rootName, rootServiceName, ids and attributes, not '{field}'.");
+            throw new TraceQlException($"a '||' group of values is supported for name, status, kind, statusMessage, rootName, rootServiceName, ids and attributes, not '{field}'.");
         }
 
         switch (field)
@@ -364,10 +364,16 @@ public static class TempoSearchPlanner
             case "link:traceID":
                 ApplyColumn(predicate, builder, "Links.TraceId", IdLength.Trace);
                 return;
+            case "event:name":
+                ApplyColumn(predicate, builder, "Events.Name", IdLength.None);
+                return;
+            case "statusMessage":
+                ApplyColumn(predicate, builder, "StatusMessage", IdLength.None);
+                return;
             case "event:timeSinceStart":
                 ApplyEventTimeSinceStart(predicate, builder);
                 return;
-            case "statusMessage" or "childCount" or "parent" or "nestedSetLeft" or "nestedSetRight":
+            case "childCount" or "parent" or "nestedSetLeft" or "nestedSetRight":
                 throw new TraceQlException($"the intrinsic '{field}' is not supported.");
         }
 
@@ -391,7 +397,7 @@ public static class TempoSearchPlanner
         }
         else if (field.Contains(':'))
         {
-            // A scoped intrinsic Flare keeps no data for (span:statusMessage as a filter, ...).
+            // A scoped intrinsic Flare keeps no data for (span:childCount, ...).
             throw new TraceQlException($"the intrinsic '{field}' is not supported.");
         }
         else

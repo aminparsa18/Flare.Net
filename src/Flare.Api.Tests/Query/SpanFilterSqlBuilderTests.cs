@@ -266,6 +266,22 @@ public class SpanFilterSqlBuilderTests
     }
 
     [Theory]
+    [InlineData(SpanAttributeFilterOperator.Equals, "arrayExists(l -> l = {attrValuex:String}, `Events.Name`)")]
+    [InlineData(SpanAttributeFilterOperator.NotEquals, "arrayExists(l -> l != {attrValuex:String}, `Events.Name`)")]
+    [InlineData(SpanAttributeFilterOperator.Exists, "arrayExists(l -> l != '', `Events.Name`)")]
+    [InlineData(SpanAttributeFilterOperator.Absent, "NOT arrayExists(l -> l != '', `Events.Name`)")]
+    [InlineData(SpanAttributeFilterOperator.Regex, "arrayExists(l -> match(l, {attrValuex:String}), `Events.Name`)")]
+    [InlineData(SpanAttributeFilterOperator.NotRegex, "arrayExists(l -> NOT match(l, {attrValuex:String}), `Events.Name`)")]
+    [InlineData(SpanAttributeFilterOperator.In, "arrayExists(l -> l IN {attrValuesx:Array(String)}, `Events.Name`)")]
+    public void AttributeClause_IntrinsicBag_EventNamesAreTrueWhenSomeEventSatisfies(SpanAttributeFilterOperator op, string expected)
+    {
+        var parameters = new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection();
+        var filter = new SpanAttributeFilter { Bag = SpanAttributeBag.Intrinsic, Key = "Events.Name", Value = "v", Operator = op, Values = ["a", "b"] };
+
+        Assert.Equal(expected, SpanFilterSqlBuilder.AttributeClause(filter, "x", parameters, promoted: null));
+    }
+
+    [Theory]
     [InlineData(SpanAttributeFilterOperator.GreaterThan, ">")]
     [InlineData(SpanAttributeFilterOperator.GreaterThanOrEqual, ">=")]
     [InlineData(SpanAttributeFilterOperator.LessThan, "<")]
@@ -372,6 +388,13 @@ public class SpanFilterSqlBuilderTests
     [InlineData("ScopeVersion", SpanAttributeFilterOperator.NotIn, "ScopeVersion NOT IN {attrValuesx:Array(String)}")]
     [InlineData("ParentSpanId", SpanAttributeFilterOperator.Exists, "ParentSpanId != ''")]
     [InlineData("ParentSpanId", SpanAttributeFilterOperator.Absent, "ParentSpanId = ''")]
+    [InlineData("StatusMessage", SpanAttributeFilterOperator.Equals, "StatusMessage = {attrValuex:String}")]
+    [InlineData("StatusMessage", SpanAttributeFilterOperator.NotEquals, "StatusMessage != {attrValuex:String}")]
+    [InlineData("StatusMessage", SpanAttributeFilterOperator.Regex, "match(StatusMessage, {attrValuex:String})")]
+    [InlineData("StatusMessage", SpanAttributeFilterOperator.NotRegex, "NOT match(StatusMessage, {attrValuex:String})")]
+    [InlineData("StatusMessage", SpanAttributeFilterOperator.Exists, "StatusMessage != ''")]
+    [InlineData("StatusMessage", SpanAttributeFilterOperator.Absent, "StatusMessage = ''")]
+    [InlineData("StatusMessage", SpanAttributeFilterOperator.In, "StatusMessage IN {attrValuesx:Array(String)}")]
     public void AttributeClause_IntrinsicBag_ComparesTheColumn(string key, SpanAttributeFilterOperator op, string expected)
     {
         var parameters = new ClickHouse.Driver.ADO.Parameters.ClickHouseParameterCollection();

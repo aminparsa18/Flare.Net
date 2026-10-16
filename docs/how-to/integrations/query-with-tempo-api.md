@@ -125,8 +125,8 @@ TraceQL results table.
 | Operators `=`, `!=`, `=~`, `!~`, `>`, `>=`, `<`, `<=` | `{ span.http.status_code >= 500 }` |
 | Span intrinsics: `name` (`=`, `!=`, `=~`, `!~`), `status` (`=`, `!=`: `error`, `ok`, `unset`), `kind` (`=`, `!=`: `unspecified`, `internal`, `server`, `client`, `producer`, `consumer`), `duration` | `{ kind = server && name =~ "POST .*" && status != ok }` |
 | Trace intrinsics, in a query of one spanset: `rootName`, `rootServiceName`, `traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
-| Tempo's scoped intrinsics, as the Tempo docs write them: `span:duration`, `span:name`, `span:status`, `span:kind`, `trace:duration`, `trace:rootName`, `trace:rootService`, `event:name` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
-| Tempo's scoped intrinsics for ids, scope, links and events: `span:id`, `span:parentID`, `trace:id`, `instrumentation:name`, `instrumentation:version`, `link:spanID`, `link:traceID` (`=`, `!=`, `=~`, `!~`, `= nil`; a short hex id is zero-padded, and a link test holds when some link satisfies it) and `event:timeSinceStart` (a duration, compared with `=`, `!=`, `>`, `>=`, `<`, `<=`) | `{ trace:id = "5b8efff798038103d269b633813fc60c" && link:spanID != nil }` |
+| Tempo's scoped intrinsics, as the Tempo docs write them: `span:duration`, `span:name`, `span:status`, `span:kind`, `trace:duration`, `trace:rootName`, `trace:rootService` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
+| Tempo's scoped intrinsics for ids, scope, links and events: `span:id`, `span:parentID`, `trace:id`, `instrumentation:name`, `instrumentation:version`, `link:spanID`, `link:traceID`, `event:name` and `span:statusMessage` / `statusMessage` (`=`, `!=`, `=~`, `!~`, `= nil`; a short hex id is zero-padded, and a link test holds when some link satisfies it, an `event:name` test when some event of the span does) and `event:timeSinceStart` (a duration, compared with `=`, `!=`, `>`, `>=`, `<`, `<=`) | `{ link:spanID != nil && event:name = "exception" && statusMessage =~ "timeout.*" }` |
 | Several values of one field, `(f = a \|\| f = b)`, which Grafana's Search tab writes when you pick more than one: a service, a span name, a status, a span kind (two to four), an attribute, `rootName`, `rootServiceName`, an id (and `f != a && f != b`) | `{ (resource.service.name = "api" \|\| resource.service.name = "web") && (name != "GET /health" && name != "GET /ready") }` |
 | Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>`. An empty `{ }` next to a structural operator is any span | `{ resource.service.name = "checkout" } >> { status = error }` |
 | `&>>`, `&>` and `&~`, the spans of both sides: a span of the right with a matching ancestor (parent, sibling), and a span of the left that has such a span of the right | `{ nestedSetParent < 0 } &>> { kind = server }` |
@@ -140,7 +140,7 @@ TraceQL results table.
 | `\| select(...)` after the query, to put fields on each listed span: `name`, `status`, `statusMessage`, `kind`, `duration`, `rootName`, `rootServiceName`, `traceDuration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (at most 20), and `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
 Not supported in a search: `|` pipelines other than `select()` (`count()`, `avg()`, `by()`, ...; a metrics query takes one,
-below), `||` inside one spanset between anything but `=` tests of one field, `statusMessage` as a filter, `<`, `<<` and their negated and union forms, and comparing two fields.
+below), `||` inside one spanset between anything but `=` tests of one field, `<`, `<<` and their negated and union forms, and comparing two fields.
 
 `nestedSetLeft`, `nestedSetRight` and `nestedSetParent` number the spans of a trace the way Tempo does: a depth-first walk
 in which a span's left number is the next number when the walk enters it and its right number the next when it leaves, so
@@ -248,7 +248,8 @@ spans the app asks about, which in the root-spans view are the root spans'. See
   out to a multiple of the step, so when the range ends now the last step is partial. `rate()` and `count_over_time()` are
   zero in a step with no spans, as is `histogram_over_time()`; the other functions have no sample there.
 - **Metrics group only spans that have the attribute.** In `by (span.http.route)` a span without `http.route` is left out,
-  not counted under an empty value. An attribute with old and new spellings (`http.status_code`,
+  not counted under an empty value. The values of an attribute are labelled as numbers or bools by the rule above (`by (span.http.status_code)`
+  gives `intValue` 500), while `name`, `status` and `kind` stay text. An attribute with old and new spellings (`http.status_code`,
   `http.response.status_code`) groups by whichever the span has.
 - **A `histogram_over_time()` keeps at most 20 groups,** each of up to 63 bucket series, and a value below 2 (a duration of
   under 2 ns) is not counted in any bucket, as in Tempo.
@@ -257,7 +258,7 @@ spans the app asks about, which in the root-spans view are the root spans'. See
 - **Relations and root fields look back an hour.** The ancestor of a span, and a trace's root, are looked for from an hour
   before the range, so a span whose ancestor started earlier than that is not counted. Both read the spans of the traces
   that could match, which costs more than a plain spanset.
-- **`compare()` counts strings and looks at short values.** An integer attribute is a string label, and a value longer
+- **`compare()` looks at short values.** A value longer
   than 256 characters (a URL with a query string, a stack trace) is not counted. It reads every attribute of every span in
   the range, so it is the most expensive metrics query; narrow the range with a filter in the spanset.
 - **Exemplars are for range queries.** Tempo's instant response has no place for them either.

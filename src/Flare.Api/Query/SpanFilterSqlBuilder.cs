@@ -216,7 +216,10 @@ public static class SpanFilterSqlBuilder
         return $"arrayExists(m -> {SingleKeyClause(attribute, suffix, parameters, null, "m")}, {Events})";
     }
 
-    /// <summary>The span columns an <see cref="SpanAttributeBag.Intrinsic"/> filter may name, and what each is (ADR-0229).</summary>
+    /// <summary>
+    /// The span columns an <see cref="SpanAttributeBag.Intrinsic"/> filter may name, and what each is (ADR-0229; the status message and the
+    /// names of the span's events, ADR-0233).
+    /// </summary>
     private static readonly Dictionary<string, (string Expression, bool IsArray)> IntrinsicColumns = new(StringComparer.Ordinal)
     {
         ["SpanId"] = ("SpanId", false),
@@ -224,6 +227,8 @@ public static class SpanFilterSqlBuilder
         ["TraceId"] = ("TraceId", false),
         ["ScopeName"] = ("ScopeName", false),
         ["ScopeVersion"] = ("ScopeVersion", false),
+        ["StatusMessage"] = ("StatusMessage", false),
+        ["Events.Name"] = ("`Events.Name`", true),
         ["Links.SpanId"] = ("`Links.SpanId`", true),
         ["Links.TraceId"] = ("`Links.TraceId`", true),
     };
