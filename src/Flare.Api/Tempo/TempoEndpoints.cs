@@ -204,7 +204,9 @@ public static class TempoEndpoints
                 DateTimeOffset.FromUnixTimeSeconds(window.ToSeconds),
                 window.StepSeconds,
                 plan.Value,
-                exemplarCount);
+                exemplarCount,
+                plan.Ancestor,
+                plan.Root);
 
             var rows = await spans.GetSpanMetricsAsync(request, ct);
             var exemplars = exemplarCount > 0 && rows.Count > 0 ? await spans.GetSpanExemplarsAsync(request, ct) : null;

@@ -30,8 +30,8 @@ public static class TempoMetricsSeries
     /// are zero in a step without spans, so every series covers the whole range; the other functions omit such steps. Only
     /// the <see cref="TraceQlMetricsQueryBuilder.MaxGroups"/> groups with the most spans are kept. Durations are in seconds, an
     /// attribute's values as they are; samples are stamped with their step's start. An <paramref name="exemplars"/> row is
-    /// attached to its group's series nearest its value (ADR-0223), and <see cref="TempoMetricsPlan.Rank"/> then keeps the
-    /// top or bottom series at each step (ADR-0224).
+    /// attached to its group's series nearest its value (ADR-0223), and <see cref="TempoMetricsPlan.Stages"/> then run in order: a
+    /// <c>topk</c>/<c>bottomk</c> keeps the top or bottom series at each step (ADR-0224), a comparison drops the samples that fail it (ADR-0225).
     /// </summary>
     public static TempoMetricsResult Build(TempoMetricsPlan plan, IReadOnlyList<SpanMetricRow> rows, TempoMetricsWindow window, IReadOnlyList<SpanExemplarRow>? exemplars = null)
     {
@@ -89,9 +89,14 @@ public static class TempoMetricsSeries
             AttachExemplars(plan, series, first, exponents, exemplarsByGroup[key], unit);
         }
 
-        if (plan.Rank is { } rank)
+        foreach (var stage in plan.Stages)
         {
-            series = Rank(series, rank, window);
+            series = stage switch
+            {
+                TraceQlRank rank => Rank(series, rank, window),
+                TraceQlFilter filter => Filter(series, filter, window),
+                _ => series,
+            };
         }
 
         return new TempoMetricsResult(series, partial);
@@ -175,6 +180,29 @@ public static class TempoMetricsSeries
             {
                 result.Add(series[i] with { Samples = samples, Exemplars = series[i].Exemplars?.Where(x => kept[i].Contains(StepStart(x.TimestampMs, window))).ToList() });
             }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// A comparison after the function (<c>| rate() &gt; 5</c>): a sample that fails it is dropped, as is an exemplar of a step
+    /// that lost its sample; a series left with no sample is dropped. A step missing from a series stays missing, so a line
+    /// chart shows a gap, as it does for Tempo.
+    /// </summary>
+    private static List<TempoMetricSeries> Filter(List<TempoMetricSeries> series, TraceQlFilter filter, TempoMetricsWindow window)
+    {
+        var result = new List<TempoMetricSeries>();
+        foreach (var s in series)
+        {
+            var samples = s.Samples.Where(x => filter.Keeps(x.Value)).ToList();
+            if (samples.Count == 0)
+            {
+                continue;
+            }
+
+            var steps = samples.Select(x => x.TimestampMs).ToHashSet();
+            result.Add(s with { Samples = samples, Exemplars = s.Exemplars?.Where(x => steps.Contains(StepStart(x.TimestampMs, window))).ToList() });
         }
 
         return result;

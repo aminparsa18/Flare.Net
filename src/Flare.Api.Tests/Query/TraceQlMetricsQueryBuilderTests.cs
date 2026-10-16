@@ -221,6 +221,83 @@ public class TraceQlMetricsQueryBuilderTests
         Assert.Contains("argMax(TraceId, assumeNotNull(toFloat64OrNull(SpanAttributes[{mvKey0:String}]))) AS ExTrace", TraceQlMetricsQueryBuilder.BuildExemplars(request).Sql);
     }
 
+    private static SpanMetricsSql BuildRelated(SpanAncestor? ancestor = null, SpanTraceRoot? root = null, TraceSpanCondition? span = null, IReadOnlyList<SpanGroupBy>? groupBy = null) =>
+        TraceQlMetricsQueryBuilder.Build(new SpanMetricsRequest(
+            span ?? new TraceSpanCondition { Name = "B", SpanName = "db.query" }, SpanMetricFunction.Count, [], groupBy ?? [], From, To, 60, Ancestor: ancestor, Root: root));
+
+    [Fact]
+    public void Root_RestrictsToTheTracesWhoseRootRowMatches()
+    {
+        var built = BuildRelated(root: new SpanTraceRoot(["web", "api"], ["GET /checkout"], 5, 50));
+
+        Assert.Contains(
+            "TraceId GLOBAL IN (SELECT TraceId FROM spans WHERE StartTime >= {mLookback:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)} AND ParentSpanId = '' " +
+            "AND ServiceName IN {mrServices:Array(String)} AND Name IN {mrNames:Array(String)} AND DurationNano >= {mrMin:UInt64} AND DurationNano <= {mrMax:UInt64})",
+            built.Sql);
+        Assert.Equal(From.UtcDateTime - TraceQlMetricsQueryBuilder.Lookback, built.Parameters["mLookback"].Value);
+        Assert.Equal(new[] { "web", "api" }, (string[])built.Parameters["mrServices"].Value!);
+        Assert.Equal(5UL, built.Parameters["mrMin"].Value);
+    }
+
+    [Fact]
+    public void Root_OnlyNamesWhatTheQueryNamed()
+    {
+        var sql = BuildRelated(root: new SpanTraceRoot([], ["x"], null, null)).Sql;
+
+        Assert.Contains("ParentSpanId = '' AND Name IN {mrNames:Array(String)})", sql);
+        Assert.DoesNotContain("mrServices", sql);
+        Assert.DoesNotContain("mrMin", sql);
+    }
+
+    [Fact]
+    public void NoRelation_AddsNothing()
+    {
+        var sql = BuildRelated().Sql;
+
+        Assert.DoesNotContain("mLookback", sql);
+        Assert.DoesNotContain("ParentSpanId", sql);
+    }
+
+    [Fact]
+    public void DirectParent_IsASemiJoinOnTheParentId()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, Direct: true));
+
+        Assert.Contains(
+            "(TraceId, ParentSpanId) GLOBAL IN (SELECT TraceId, SpanId FROM spans WHERE StartTime >= {mLookback:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)} AND (Name = {tsPName:String}))",
+            built.Sql);
+        Assert.Equal("svc.call", built.Parameters["tsPName"].Value);
+        Assert.Equal("db.query", built.Parameters["tsAName"].Value);
+    }
+
+    [Fact]
+    public void AnyAncestor_WalksTheParentChainOfTheCandidateTraces()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, Direct: false));
+
+        Assert.Contains("(TraceId, SpanId) GLOBAL IN (SELECT TraceId, SpanId FROM (SELECT TraceId, groupArray(cityHash64(SpanId)) AS allS", built.Sql);
+        Assert.Contains("groupArrayIf(cityHash64(SpanId), (Name = {tsPName:String})) AS aboveS, groupArrayIf(SpanId, (Name = {tsAName:String})) AS belowIds", built.Sql);
+        Assert.Contains("HAVING countIf((Name = {tsPName:String})) > 0 AND countIf((Name = {tsAName:String})) > 0", built.Sql);
+        Assert.Contains("ARRAY JOIN belowIds AS SpanId, belowP AS startP", built.Sql);
+        Assert.Contains($"range(least({TraceStructureSqlBuilder.MaxWalkDepth}, length(allS)))", built.Sql);
+    }
+
+    [Fact]
+    public void ARelation_AlsoNarrowsTheRankingOfTheTopGroups()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, Direct: true), groupBy: [new SpanGroupBy("name", SpanGroupKind.Name)]);
+
+        Assert.Equal(2, built.Sql.Split("(TraceId, ParentSpanId) GLOBAL IN").Length - 1);
+    }
+
+    [Fact]
+    public void ARelation_NeedsACountedSpanCondition()
+    {
+        var request = new SpanMetricsRequest(null, SpanMetricFunction.Count, [], [], From, To, 60, Ancestor: new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "x" }, true));
+
+        Assert.Throws<ArgumentException>(() => TraceQlMetricsQueryBuilder.Build(request));
+    }
+
     [Fact]
     public void CountIgnoresTheValue()
     {

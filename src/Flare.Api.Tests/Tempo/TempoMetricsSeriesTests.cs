@@ -171,6 +171,119 @@ public class TempoMetricsSeriesTests
     }
 
     [Fact]
+    public void Comparison_DropsTheSamplesThatFailAndTheSeriesLeftEmpty()
+    {
+        var rows = new[]
+        {
+            Row(0, 120, [120], "a"), Row(1, 600, [600], "a"),   // a: 2/s then 10/s
+            Row(0, 60, [60], "b"), Row(1, 60, [60], "b"),       // b: 1/s, 1/s
+        };
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | rate() by (name) > 5"), rows, Window);
+
+        var a = Assert.Single(result.Series);
+        Assert.Equal("a", a.Labels[0].Text);
+        Assert.Equal(new[] { 1_790_000_100_000L }, a.Samples.Select(s => s.TimestampMs));
+        Assert.Equal(10.0, Assert.Single(a.Samples).Value);
+    }
+
+    [Theory]
+    [InlineData("> 2")]
+    [InlineData(">= 2")]
+    [InlineData("< 2")]
+    [InlineData("<= 0")]
+    [InlineData("= 2")]
+    [InlineData("!= 0")]
+    public void Comparison_UsesEachOperator(string stage)
+    {
+        // rate is 2, 0, 0.5, 0 per second over the four steps
+        var rows = new[] { Row(0, 120, [120]), Row(2, 30, [30]) };
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | rate() " + stage), rows, Window);
+
+        var expected = stage switch
+        {
+            "> 2" => Array.Empty<double>(),
+            ">= 2" => [2.0],
+            "< 2" => [0, 0.5, 0],
+            "<= 0" => [0, 0],
+            "= 2" => [2.0],
+            _ => new[] { 2.0, 0.5 },
+        };
+        Assert.Equal(expected, result.Series.SelectMany(s => s.Samples).Select(s => s.Value));
+    }
+
+    [Fact]
+    public void Comparison_ThatNothingSatisfies_GivesNoSeries()
+    {
+        var result = TempoMetricsSeries.Build(Plan("{ } | rate() > 1000"), [Row(0, 120, [120])], Window);
+
+        Assert.Empty(result.Series);
+    }
+
+    [Fact]
+    public void Comparison_FiltersEachQuantileSeriesOnItsOwn()
+    {
+        // p50 = 1 s, p99 = 5 s in the one step
+        var result = TempoMetricsSeries.Build(Plan("{ } | quantile_over_time(duration, .5, .99) > 2"), [Row(0, 10, [1e9, 5e9])], Window);
+
+        var series = Assert.Single(result.Series);
+        Assert.Equal(0.99, series.Labels.Single(l => l.Key == "p").Number);
+    }
+
+    [Fact]
+    public void Comparison_ThenTopK_RanksOnlyTheSamplesThatPassed()
+    {
+        // step 0: a = 10/s, b = 2/s; step 1: a = 1/s, b = 3/s. Dropping < 2 first leaves a only in step 0, b in both.
+        var rows = new[] { Row(0, 600, [600], "a"), Row(1, 60, [60], "a"), Row(0, 120, [120], "b"), Row(1, 180, [180], "b") };
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | rate() by (name) >= 2 | topk(1)"), rows, Window);
+
+        var a = Assert.Single(result.Series, s => s.Labels[0].Text == "a");
+        var b = Assert.Single(result.Series, s => s.Labels[0].Text == "b");
+        Assert.Equal(new[] { 1_790_000_040_000L }, a.Samples.Select(s => s.TimestampMs));
+        Assert.Equal(new[] { 1_790_000_100_000L }, b.Samples.Select(s => s.TimestampMs));
+    }
+
+    [Fact]
+    public void TopK_ThenComparison_FiltersTheWinners()
+    {
+        // topk(1) keeps a at step 0 (10/s) and b at step 1 (3/s); > 5 then leaves only a's sample
+        var rows = new[] { Row(0, 600, [600], "a"), Row(1, 60, [60], "a"), Row(0, 120, [120], "b"), Row(1, 180, [180], "b") };
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | rate() by (name) | topk(1) > 5"), rows, Window);
+
+        var a = Assert.Single(result.Series);
+        Assert.Equal("a", a.Labels[0].Text);
+        Assert.Equal(new[] { 1_790_000_040_000L }, a.Samples.Select(s => s.TimestampMs));
+    }
+
+    [Fact]
+    public void Comparison_KeepsAnExemplarOnlyForAStepItsSeriesKept()
+    {
+        var rows = new[] { Row(0, 600, [600]), Row(1, 60, [60]) };
+        var exemplars = new[]
+        {
+            new SpanExemplarRow(0, [], "kept", "s", 1e9, 1_790_000_050_000),
+            new SpanExemplarRow(1, [], "dropped", "s", 1e9, 1_790_000_110_000),
+        };
+
+        var result = TempoMetricsSeries.Build(Plan("{ } | rate() > 5"), rows, Window, exemplars);
+
+        Assert.Equal("kept", Assert.Single(Assert.Single(result.Series).Exemplars!).Labels[0].Text);
+    }
+
+    [Fact]
+    public void Comparison_AppliesToTheInstantValue()
+    {
+        var kept = TempoMetricsSeries.Build(Plan("{ } | rate() > 1"), [Row(0, 120, [120])], new TempoMetricsWindow(1_790_000_040, 1_790_000_100, 60));
+        var dropped = TempoMetricsSeries.Build(Plan("{ } | rate() > 5"), [Row(0, 120, [120])], new TempoMetricsWindow(1_790_000_040, 1_790_000_100, 60));
+
+        Assert.Single(Json(w => TempoMetricsSeries.WriteInstant(w, kept)).GetProperty("series").EnumerateArray());
+        Assert.Empty(Json(w => TempoMetricsSeries.WriteInstant(w, dropped)).GetProperty("series").EnumerateArray());
+    }
+
+    [Fact]
     public void ExemplarsAreWrittenOnTheSeries()
     {
         var result = TempoMetricsSeries.Build(

@@ -38,7 +38,7 @@ public class TempoMetricsPlannerTests
         var plan = Plan("{ } | histogram_over_time(duration) by (name) | topk(3) with(exemplars=true)");
 
         Assert.Equal(SpanMetricFunction.Histogram, plan.Function);
-        Assert.Equal(new TraceQlRank(true, 3), plan.Rank);
+        Assert.Equal(new TraceQlRank(true, 3), Assert.Single(plan.Stages));
         Assert.True(plan.Exemplars);
     }
 
@@ -106,16 +106,56 @@ public class TempoMetricsPlannerTests
             plan.GroupBy);
     }
 
-    [Theory]
-    [InlineData("{ rootName = \"x\" } | rate()")]
-    [InlineData("{ rootServiceName = \"x\" } | rate()")]
-    [InlineData("{ traceDuration > 1s } | rate()")]
-    public void TraceLevelFields_AreRejected(string traceQl)
+    [Fact]
+    public void RootFields_RestrictTheTracesNotTheSpans()
     {
-        var ex = Assert.Throws<TraceQlException>(() => Plan(traceQl));
+        var plan = Plan("""{ rootName = "GET /checkout" && rootServiceName = "web" && traceDuration > 1s && status = error } | rate()""");
 
-        Assert.Contains("whole trace", ex.Message);
+        var root = Assert.IsType<SpanTraceRoot>(plan.Root);
+        Assert.Equal(new[] { "web" }, root.Services);
+        Assert.Equal(new[] { "GET /checkout" }, root.Names);
+        Assert.Equal(1_000_000_001UL, root.MinDurationNano);
+        Assert.Null(root.MaxDurationNano);
+        Assert.Equal("STATUS_CODE_ERROR", plan.Condition!.StatusCode);
+        Assert.Null(plan.Ancestor);
     }
+
+    [Fact]
+    public void OnlyRootFields_CountEverySpanOfTheMatchingTraces()
+    {
+        var plan = Plan("""{ traceDuration < 2s } | count_over_time()""");
+
+        Assert.Null(plan.Condition);
+        var root = Assert.IsType<SpanTraceRoot>(plan.Root);
+        Assert.Empty(root.Services);
+        Assert.Empty(root.Names);
+        Assert.Equal(1_999_999_999UL, root.MaxDurationNano);
+    }
+
+    [Fact]
+    public void NoRootFields_NoRoot() => Assert.Null(Plan("{ } | rate()").Root);
+
+    [Theory]
+    [InlineData(">>", false)]
+    [InlineData(">", true)]
+    public void AStructuralQuery_CountsTheRightSpansetWithTheLeftAsItsAncestor(string op, bool direct)
+    {
+        var plan = Plan($$"""{ resource.service.name = "web" } {{op}} { name = "db.query" && status = error } | rate()""");
+
+        Assert.Equal("db.query", plan.Condition!.SpanName);
+        Assert.Equal("STATUS_CODE_ERROR", plan.Condition.StatusCode);
+        Assert.Equal("web", plan.Ancestor!.Condition.ServiceName);
+        Assert.Equal(direct, plan.Ancestor.Direct);
+    }
+
+    [Theory]
+    [InlineData("{ } >> { name = \"b\" } | rate()")]
+    [InlineData("{ name = \"a\" } >> { } | rate()")]
+    public void AnEmptySideOfARelation_IsRejected(string traceQl) => Assert.Throws<TraceQlException>(() => Plan(traceQl));
+
+    [Fact]
+    public void RootFieldsNextToARelation_AreRejectedAsInSearch() =>
+        Assert.Throws<TraceQlException>(() => Plan("""{ rootName = "x" } >> { name = "b" } | rate()"""));
 
     [Fact]
     public void ASpanPredicateErrorFromTheSearchPlannerSurfaces()

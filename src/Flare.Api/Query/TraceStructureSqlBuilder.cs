@@ -47,8 +47,8 @@ public static class TraceStructureSqlBuilder
     /// <summary>The highest OTel <c>SpanKind</c> number (consumer).</summary>
     private const byte MaxSpanKind = 5;
 
-    private const string SpanHash = "cityHash64(SpanId)";
-    private const string ParentHash = "if(ParentSpanId = '', toUInt64(0), cityHash64(ParentSpanId))";
+    internal const string SpanHash = "cityHash64(SpanId)";
+    internal const string ParentHash = "if(ParentSpanId = '', toUInt64(0), cityHash64(ParentSpanId))";
 
     /// <summary>
     /// The <c>SELECT TraceId ...</c> subquery (no surrounding parentheses). Reads the window

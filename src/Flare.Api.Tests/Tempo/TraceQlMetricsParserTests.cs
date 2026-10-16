@@ -73,12 +73,66 @@ public class TraceQlMetricsParserTests
     {
         var query = TraceQlParser.ParseMetrics("{ } | rate() by (name) " + stage);
 
-        Assert.Equal(new TraceQlRank(top, k), query.Rank);
+        Assert.Equal(new TraceQlRank(top, k), Assert.Single(query.Stages));
         Assert.Equal(new[] { "name" }, query.By);
     }
 
     [Fact]
-    public void NoRankStage_ByDefault() => Assert.Null(TraceQlParser.ParseMetrics("{ } | rate()").Rank);
+    public void NoStages_ByDefault() => Assert.Empty(TraceQlParser.ParseMetrics("{ } | rate()").Stages);
+
+    [Theory]
+    [InlineData("> 5", TraceQlComparison.Greater, 5)]
+    [InlineData(">= 0.5", TraceQlComparison.GreaterOrEqual, 0.5)]
+    [InlineData("< .25", TraceQlComparison.Less, 0.25)]
+    [InlineData("<= 3", TraceQlComparison.LessOrEqual, 3)]
+    [InlineData("= 0", TraceQlComparison.Equal, 0)]
+    [InlineData("!= -1", TraceQlComparison.NotEqual, -1)]
+    [InlineData(">5", TraceQlComparison.Greater, 5)]
+    public void Comparison_IsReadAfterTheFunctionAndBy(string stage, TraceQlComparison op, double value)
+    {
+        var query = TraceQlParser.ParseMetrics("{ } | rate() by (name) " + stage);
+
+        Assert.Equal(new TraceQlFilter(op, value), Assert.Single(query.Stages));
+        Assert.Equal(new[] { "name" }, query.By);
+    }
+
+    [Fact]
+    public void Stages_KeepTheOrderTheyAreWritten()
+    {
+        var comparisonFirst = TraceQlParser.ParseMetrics("{ } | rate() by (name) > 0 | topk(5)");
+        var rankFirst = TraceQlParser.ParseMetrics("{ } | rate() by (name) | topk(5) > 10 with(exemplars=true)");
+        var chain = TraceQlParser.ParseMetrics("{ } | rate() | topk(3) | bottomk(1) < 2 > 1");
+
+        Assert.Equal(new TraceQlMetricsStage[] { new TraceQlFilter(TraceQlComparison.Greater, 0), new TraceQlRank(true, 5) }, comparisonFirst.Stages);
+        Assert.Equal(new TraceQlMetricsStage[] { new TraceQlRank(true, 5), new TraceQlFilter(TraceQlComparison.Greater, 10) }, rankFirst.Stages);
+        Assert.True(rankFirst.Exemplars);
+        Assert.Equal(
+            new TraceQlMetricsStage[] { new TraceQlRank(true, 3), new TraceQlRank(false, 1), new TraceQlFilter(TraceQlComparison.Less, 2), new TraceQlFilter(TraceQlComparison.Greater, 1) },
+            chain.Stages);
+    }
+
+    [Theory]
+    [InlineData(">", "ends unexpectedly")]
+    [InlineData("> 5s", "not a number")]
+    [InlineData("> name", "not a number")]
+    [InlineData("=~ 5", "unexpected")]
+    [InlineData("> NaN", "not a number")]
+    public void Comparison_NeedsANumber(string stage, string message)
+    {
+        var ex = Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics("{ } | rate() " + stage));
+
+        Assert.Contains(message, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TooManyStages_AreRejected()
+    {
+        var query = "{ } | rate()" + string.Concat(Enumerable.Repeat(" > 1", TraceQlParser.MaxStages + 1));
+
+        var ex = Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics(query));
+
+        Assert.Contains("at most 10 stages", ex.Message);
+    }
 
     [Theory]
     [InlineData("with(exemplars=true)", true)]
@@ -114,11 +168,9 @@ public class TraceQlMetricsParserTests
 
     [Theory]
     [InlineData("{ } | compare({ status = error })", "compare")]
-    [InlineData("{ } | rate() | topk(3) | bottomk(1)", "only one second pipeline stage")]
     [InlineData("{ } | rate() | filter(true)", "'filter' is not supported")]
     [InlineData("{ } | rate() | topk(0)", "whole number")]
     [InlineData("{ } | rate() | topk(x)", "whole number")]
-    [InlineData("{ } | rate() | topk(2) > 3", "unexpected")]
     [InlineData("{ } | count() > 2", "'count'")]
     [InlineData("{ } | quantile_over_time(duration)", "1 to 10 quantiles")]
     [InlineData("{ } | quantile_over_time(duration, 1.5)", "not a quantile")]
@@ -133,7 +185,8 @@ public class TraceQlMetricsParserTests
     [InlineData("{ }", "needs a function")]
     [InlineData("{ } | rate() extra", "unexpected")]
     [InlineData("{ a = \"1\" } && { b = \"2\" } | rate()", "one spanset")]
-    [InlineData("{ } >> { } | rate()", "one spanset")]
+    [InlineData("{ a = \"1\" } || { b = \"2\" } | rate()", "one spanset")]
+    [InlineData("{ a = \"1\" } >> { b = \"2\" } && { c = \"3\" } | rate()", "one spanset")]
     [InlineData("| rate()", "pipeline")]
     [InlineData("", "empty")]
     public void Unsupported_IsRejectedNamingTheConstruct(string traceQl, string mentions)
@@ -142,6 +195,22 @@ public class TraceQlMetricsParserTests
 
         Assert.Contains(mentions, ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Theory]
+    [InlineData("{ name = \"a\" } >> { name = \"b\" } | rate()", false)]
+    [InlineData("{ name = \"a\" } > { name = \"b\" } | rate() by (name)", true)]
+    [InlineData("{ name = \"a\" } >> { name = \"b\" } | quantile_over_time(duration, .9) > 1 | topk(2)", false)]
+    public void StructuralRelation_CountsTheRightHandSpanset(string traceQl, bool direct)
+    {
+        var query = TraceQlParser.ParseMetrics(traceQl);
+
+        Assert.Equal("a", Assert.Single(query.Ancestor!.Predicates).Value.Text);
+        Assert.Equal("b", Assert.Single(query.Spanset.Predicates).Value.Text);
+        Assert.Equal(direct, query.AncestorDirect);
+    }
+
+    [Fact]
+    public void APlainSpanset_HasNoAncestor() => Assert.Null(TraceQlParser.ParseMetrics("{ name = \"a\" } | rate()").Ancestor);
 
     [Fact]
     public void Search_StillRejectsAPipeline()
