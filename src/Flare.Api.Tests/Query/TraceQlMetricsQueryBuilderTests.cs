@@ -399,6 +399,77 @@ public class TraceQlMetricsQueryBuilderTests
         Assert.Throws<ArgumentException>(() => TraceQlMetricsQueryBuilder.BuildCompare(new SpanMetricsRequest(null, SpanMetricFunction.Compare, [], [], From, To, 60)));
 
     [Fact]
+    public void ParentOfTheLeftHandSpan_CountsTheRightHandSpansWhoseIdIsAParentIdOfAMatchingSpan()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Parent));
+
+        Assert.Contains(
+            "(TraceId, SpanId) GLOBAL IN (SELECT TraceId, ParentSpanId FROM spans WHERE StartTime >= {mLookback:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)} AND (Name = {tsPName:String}))",
+            built.Sql);
+        Assert.Equal("db.query", built.Parameters["tsAName"].Value);
+        Assert.Equal("svc.call", built.Parameters["tsPName"].Value);
+    }
+
+    [Fact]
+    public void NotAParentOfTheLeftHandSpan_NegatesThatSet()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Parent, Negated: true));
+
+        Assert.Contains("(TraceId, SpanId) GLOBAL NOT IN (SELECT TraceId, ParentSpanId FROM spans WHERE StartTime >= {mLookback:DateTime64(9)}", built.Sql);
+    }
+
+    [Fact]
+    public void AncestorOfTheLeftHandSpan_CollectsEveryAncestorOfTheMatchingSpansPerTrace()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Ancestor));
+
+        Assert.Contains("(TraceId, cityHash64(SpanId)) GLOBAL IN (SELECT TraceId, h FROM (SELECT TraceId, groupArray(cityHash64(SpanId)) AS allS", built.Sql);
+        // The left-hand condition is the one whose ancestors are walked, and the trace must have a span on each side.
+        Assert.Contains("groupArrayIf(if(ParentSpanId = '', toUInt64(0), cityHash64(ParentSpanId)), (Name = {tsPName:String})) AS rightP", built.Sql);
+        Assert.Contains("HAVING countIf((Name = {tsAName:String})) > 0 AND countIf((Name = {tsPName:String})) > 0", built.Sql);
+        Assert.Contains("ARRAY JOIN arrayDistinct(arrayFold(", built.Sql);
+    }
+
+    [Fact]
+    public void NotAnAncestorOfTheLeftHandSpan_IsTheSameSetNegated_SoATraceWithNoLeftHandSpanCountsEveryRightHandSpan()
+    {
+        var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Ancestor, Negated: true));
+
+        Assert.Contains("(TraceId, cityHash64(SpanId)) GLOBAL NOT IN (SELECT TraceId, h FROM (", built.Sql);
+    }
+
+    [Fact]
+    public void UnionOfParent_IsTheUnionOfTheExchangedChildRelation()
+    {
+        // a &< b returns what b &> a returns: the b spans above an a span, and the a spans below a b span.
+        var turned = SpanSetsSql(new SpanSetRelation(CondA, CondB, TraceRelationKind.Parent, false, true));
+        var plain = SpanSetsSql(new SpanSetRelation(CondB, CondA, TraceRelationKind.Child, false, true));
+
+        Assert.Equal(plain, turned);
+    }
+
+    [Fact]
+    public void UnionOfAncestor_IsTheUnionOfTheExchangedDescendantRelation()
+    {
+        var turned = SpanSetsSql(new SpanSetRelation(CondA, CondB, TraceRelationKind.Ancestor, false, true));
+        var plain = SpanSetsSql(new SpanSetRelation(CondB, CondA, TraceRelationKind.Descendant, false, true));
+
+        Assert.Equal(plain, turned);
+    }
+
+    [Fact]
+    public void ParentRelationInACombination_CountsTheRightHandSpansAboveALeftHandSpan()
+    {
+        var sql = SpanSetsSql(new SpanSetRelation(CondA, CondB, TraceRelationKind.Parent, false, false));
+
+        Assert.Contains("((Name = {tsBName:String}) AND (TraceId, SpanId) GLOBAL IN (SELECT TraceId, ParentSpanId FROM spans WHERE StartTime >= {mLookback:DateTime64(9)}", sql);
+        Assert.Contains("AND (Name = {tsAName:String})", sql);
+    }
+
+    private static string SpanSetsSql(SpanSetExpression expression) =>
+        TraceQlMetricsQueryBuilder.Build(new SpanMetricsRequest(null, SpanMetricFunction.Count, [], [], From, To, 60, Spansets: expression)).Sql;
+
+    [Fact]
     public void NotAParent_IsAnAntiJoinOnTheParentId()
     {
         var built = BuildRelated(new SpanAncestor(new TraceSpanCondition { Name = "A", SpanName = "svc.call" }, TraceRelationKind.Child, Negated: true));

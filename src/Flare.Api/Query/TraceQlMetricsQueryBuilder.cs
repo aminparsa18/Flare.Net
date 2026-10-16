@@ -436,6 +436,12 @@ public static class TraceQlMetricsQueryBuilder
         var inside = negated ? "GLOBAL NOT IN" : "GLOBAL IN";
         switch (kind)
         {
+            // The turned-round operators (ADR-0235): the counted span (matching `below`, the right-hand condition) is the parent or an ancestor of a span
+            // matching `above`, the left-hand one. That is the set InverseRelationClause builds for the counted side, and its negation.
+            case TraceRelationKind.Parent:
+                return InverseRelationClause(TraceRelationKind.Child, negated, below, above, parameters);
+            case TraceRelationKind.Ancestor:
+                return InverseRelationClause(TraceRelationKind.Descendant, negated, below, above, parameters);
             case TraceRelationKind.Child:
                 return $"(TraceId, ParentSpanId) {inside} (SELECT TraceId, SpanId FROM spans WHERE {LookbackWindow} AND {above}{scope})";
             case TraceRelationKind.Sibling:
@@ -463,26 +469,29 @@ public static class TraceQlMetricsQueryBuilder
     }
 
     /// <summary>
-    /// The other side of a union relation (ADR-0232): the spans matching <paramref name="left"/> that have a parent, ancestor or sibling matching
-    /// <paramref name="right"/> - the same relation with the roles of the two conditions exchanged.
+    /// The other side of a union relation (ADR-0232): the spans matching <paramref name="left"/> that are the parent or an ancestor of a span matching
+    /// <paramref name="right"/>, or have a sibling matching it - the same relation with the roles of the two conditions exchanged. With
+    /// <paramref name="negated"/>, the spans that are not (ADR-0235): the set the spans are tested against is the same, only the membership flips, so a trace with
+    /// no <paramref name="right"/> span has an empty set and every <paramref name="left"/> span in it counts.
     /// </summary>
-    private static string InverseRelationClause(TraceRelationKind kind, string left, string right, ClickHouseParameterCollection parameters)
+    private static string InverseRelationClause(TraceRelationKind kind, bool negated, string left, string right, ClickHouseParameterCollection parameters)
     {
         var scope = ServiceScope.Suffix(parameters);
+        var inside = negated ? "GLOBAL NOT IN" : "GLOBAL IN";
         switch (kind)
         {
             case TraceRelationKind.Child:
                 // A left span is a parent of a right span.
-                return $"(TraceId, SpanId) GLOBAL IN (SELECT TraceId, ParentSpanId FROM spans WHERE {LookbackWindow} AND {right}{scope})";
+                return $"(TraceId, SpanId) {inside} (SELECT TraceId, ParentSpanId FROM spans WHERE {LookbackWindow} AND {right}{scope})";
             case TraceRelationKind.Sibling:
-                return RelationClause(TraceRelationKind.Sibling, false, right, left, parameters);
+                return RelationClause(TraceRelationKind.Sibling, negated, right, left, parameters);
         }
 
         // Every ancestor, within the depth limit, of a right span: collected per trace by the walk, then compared by hashed id.
         var spanHash = TraceStructureSqlBuilder.SpanHash;
         var parentHash = TraceStructureSqlBuilder.ParentHash;
         var depth = TraceStructureSqlBuilder.MaxWalkDepth;
-        return "(TraceId, " + spanHash + ") GLOBAL IN (SELECT TraceId, h FROM (" +
+        return "(TraceId, " + spanHash + $") {inside} (SELECT TraceId, h FROM (" +
             $"SELECT TraceId, groupArray({spanHash}) AS allS, groupArray({parentHash}) AS allP, groupArrayIf({parentHash}, {right}) AS rightP " +
             $"FROM spans WHERE {LookbackWindow}{scope} AND TraceId GLOBAL IN (" +
             $"SELECT TraceId FROM spans WHERE {LookbackWindow}{scope} AND ({left} OR {right}) GROUP BY TraceId HAVING countIf({left}) > 0 AND countIf({right}) > 0) " +
@@ -508,9 +517,16 @@ public static class TraceQlMetricsQueryBuilder
                 {
                     var left = Match(relation.Left);
                     var right = Match(relation.Right);
+                    // A union is symmetric: `a &< b` returns the b spans above an a span and the a spans below a b span, which is what `b &> a` returns.
+                    if (relation.Union && relation.Kind is TraceRelationKind.Parent or TraceRelationKind.Ancestor)
+                    {
+                        var plain = relation.Kind == TraceRelationKind.Parent ? TraceRelationKind.Child : TraceRelationKind.Descendant;
+                        return Predicate(new SpanSetRelation(relation.Right, relation.Left, plain, false, true));
+                    }
+
                     var counted = $"({right} AND {RelationClause(relation.Kind, relation.Negated, left, right, parameters)})";
                     return relation.Union
-                        ? $"({counted} OR ({left} AND {InverseRelationClause(relation.Kind, left, right, parameters)}))"
+                        ? $"({counted} OR ({left} AND {InverseRelationClause(relation.Kind, false, left, right, parameters)}))"
                         : counted;
                 }
 

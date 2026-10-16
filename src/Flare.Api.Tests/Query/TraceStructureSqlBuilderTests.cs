@@ -316,4 +316,75 @@ public class TraceStructureSqlBuilderTests
     [Fact]
     public void NegatedAndSiblingRelations_NeedBothConditionsToBeDefined() =>
         Assert.Contains("isn't defined", Assert.Throws<ArgumentException>(() => TraceStructureSqlBuilder.Validate(Structure("A !~ D", Checkout))).Message);
+
+    [Fact]
+    public void Parent_IsTheDirectChildTestWithTheSidesExchanged()
+    {
+        var (sql, _) = Build(Structure("A <- B", Checkout, Payment));
+
+        // B is the parent: its span hashes are sB, A's parents are pA; one pass.
+        Assert.Contains("groupArrayIf(cityHash64(SpanId), (ServiceName = {tsBService:String})) AS sB", sql);
+        Assert.Contains("groupArrayIf(if(ParentSpanId = '', toUInt64(0), cityHash64(ParentSpanId)), (ServiceName = {tsAService:String})) AS pA", sql);
+        Assert.DoesNotContain(" AS sA", sql);
+        Assert.DoesNotContain(" AS pB", sql);
+        Assert.EndsWith("WHERE hasAny(sB, pA)", sql);
+        Assert.DoesNotContain("allS", sql);
+    }
+
+    [Fact]
+    public void NotParent_SomeRightHandSpanIsNoLeftHandSpansParent()
+    {
+        var (sql, _) = Build(Structure("A !<- B", Checkout, Payment));
+
+        Assert.EndsWith("WHERE arrayExists(u -> NOT has(pA, u), sB)", sql);
+        Assert.DoesNotContain("allS", sql);
+    }
+
+    [Fact]
+    public void Ancestor_WalksTheLeftHandSpansAncestorsLookingForARightHandSpan_InASecondStage()
+    {
+        var (sql, _) = Build(Structure("A <= B", Checkout, Payment));
+
+        Assert.Contains("GROUP BY TraceId) WHERE (hA AND hB))", sql);
+        Assert.Contains("groupArray(cityHash64(SpanId)) AS allS", sql);
+        Assert.EndsWith(
+            "WHERE (hasAny(sB, pA) OR arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), acc.2 OR hasAny(acc.1, sB)), " +
+            $"range(least({TraceStructureSqlBuilder.MaxWalkDepth}, length(allS))), (pA, false)).2)",
+            sql);
+    }
+
+    [Fact]
+    public void NotAncestor_CollectsEveryAncestorOfTheLeftHandSpans_AndAsksForARightHandSpanOutsideThem()
+    {
+        var (sql, _) = Build(Structure("A !<= B", Checkout, Payment));
+
+        // Stage 1 keeps every trace with a right-hand span; stage 2 reads the whole trace.
+        Assert.Contains("GROUP BY TraceId) WHERE hB)", sql);
+        Assert.EndsWith(
+            "WHERE arrayExists(u -> NOT has(arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), arrayConcat(acc.2, acc.1)), " +
+            $"range(least({TraceStructureSqlBuilder.MaxWalkDepth}, length(allS))), (pA, CAST([], 'Array(UInt64)'))).2, u), sB)",
+            sql);
+    }
+
+    [Fact]
+    public void NotAncestor_UnderANot_HasNoStageOneBoundThatCouldDropATrace()
+    {
+        var (sql, _) = Build(Structure("A AND NOT (A !<= B)", Checkout, Payment));
+
+        Assert.Contains("GROUP BY TraceId) WHERE (hA AND NOT 0)) GROUP BY TraceId)", sql);
+    }
+
+    [Fact]
+    public void ParentAndAncestor_InOneExpression_ShareTheAliasesTheyNeed()
+    {
+        var (sql, _) = Build(Structure("A <- B AND A -> C", Checkout, Payment, PaymentError));
+
+        // A is a parent (of C) and a child (of B): both of its arrays are read; B only its span hashes, C only its parent hashes.
+        Assert.Contains(" AS sA", sql);
+        Assert.Contains(" AS pA", sql);
+        Assert.Contains(" AS sB", sql);
+        Assert.DoesNotContain(" AS pB", sql);
+        Assert.Contains(" AS pC", sql);
+        Assert.DoesNotContain(" AS sC", sql);
+    }
 }

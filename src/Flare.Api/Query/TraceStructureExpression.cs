@@ -17,6 +17,12 @@ public enum TraceRelationKind
 
     /// <summary><c>~</c>: the two spans have the same parent (two root spans of one trace are siblings, as in Tempo) and are not the same span.</summary>
     Sibling,
+
+    /// <summary><c>&lt;-</c> (ADR-0235): the right-hand span is the parent of the left-hand span - <see cref="Child"/> with the two sides exchanged.</summary>
+    Parent,
+
+    /// <summary><c>&lt;=</c> (ADR-0235): the right-hand span is an ancestor of the left-hand span - <see cref="Descendant"/> with the two sides exchanged.</summary>
+    Ancestor,
 }
 
 /// <summary>
@@ -24,7 +30,10 @@ public enum TraceRelationKind
 /// child of, a descendant of, or a sibling of some span matching <see cref="Parent"/> (the left-hand side). Never the same span, even when
 /// both conditions match it. With <see cref="Negated"/> (<c>!-></c>, <c>!=></c>, <c>!~</c>) it is some right-hand span that has <em>no</em> such
 /// left-hand span - one with no matching parent, ancestor or sibling at all, so a trace with no left-hand span matches whenever it has a
-/// right-hand one, as in Tempo.
+/// right-hand one, as in Tempo. <c>Left &lt;- Right</c> and <c>Left &lt;= Right</c> (ADR-0235) turn the relation round: some right-hand span is the
+/// parent, or an ancestor, of some left-hand one; negated, some right-hand span is the parent, or an ancestor, of none. The names stay those of
+/// the sides (<see cref="Parent"/> is always the left-hand letter, <see cref="Child"/> the right-hand one); <see cref="Upper"/> and
+/// <see cref="Lower"/> say which of them is higher in the trace.
 /// </summary>
 public sealed record TraceStructureRelation(char Parent, char Child, TraceRelationKind Kind, bool Negated = false) : TraceStructureNode
 {
@@ -36,6 +45,15 @@ public sealed record TraceStructureRelation(char Parent, char Child, TraceRelati
 
     /// <summary>A direct-child relation (<see cref="TraceRelationKind.Child"/>).</summary>
     public bool Direct => Kind == TraceRelationKind.Child;
+
+    /// <summary>Whether the right-hand span is the one higher in the trace (<see cref="TraceRelationKind.Parent"/> and <see cref="TraceRelationKind.Ancestor"/>).</summary>
+    public bool Reversed => Kind is TraceRelationKind.Parent or TraceRelationKind.Ancestor;
+
+    /// <summary>The letter of the side whose spans are the parent or ancestor (the left-hand one, unless <see cref="Reversed"/>).</summary>
+    public char Upper => Reversed ? Child : Parent;
+
+    /// <summary>The letter of the side whose spans are the child or descendant.</summary>
+    public char Lower => Reversed ? Parent : Child;
 }
 
 public sealed record TraceStructureNot(TraceStructureNode Operand) : TraceStructureNode;
@@ -51,7 +69,7 @@ public sealed record TraceStructureOr(TraceStructureNode Left, TraceStructureNod
 /// or       := and (("OR" | "||") and)*
 /// and      := not (("AND" | "&amp;&amp;") not)*
 /// not      := ("NOT" | "!") not | relation
-/// relation := LETTER ("->" | "=>" | "~" | "!->" | "!=>" | "!~") LETTER | LETTER | "(" or ")"
+/// relation := LETTER ("->" | "=>" | "~" | "&lt;-" | "&lt;=" | "!->" | "!=>" | "!~" | "!&lt;-" | "!&lt;=") LETTER | LETTER | "(" or ")"
 /// </code>
 /// Keywords are case-insensitive, letters too (normalized to upper case). A relation's
 /// operands are single letters only - <c>A -> B -> C</c> is rejected rather than guessed
@@ -166,7 +184,7 @@ public static class TraceStructureExpression
             }
 
             var three = i + 2 < expression.Length ? expression.Substring(i, 3) : string.Empty;
-            if (three is "!->" or "!=>")
+            if (three is "!->" or "!=>" or "!<-" or "!<=")
             {
                 tokens.Add(new Token(TokenKind.Relation, three));
                 i += 3;
@@ -176,7 +194,7 @@ public static class TraceStructureExpression
             var two = i + 1 < expression.Length ? expression.Substring(i, 2) : string.Empty;
             switch (two)
             {
-                case "->" or "=>" or "!~":
+                case "->" or "=>" or "!~" or "<-" or "<=":
                     tokens.Add(new Token(TokenKind.Relation, two));
                     i += 2;
                     continue;
@@ -220,8 +238,12 @@ public static class TraceStructureExpression
         "->" => (TraceRelationKind.Child, false),
         "=>" => (TraceRelationKind.Descendant, false),
         "~" => (TraceRelationKind.Sibling, false),
+        "<-" => (TraceRelationKind.Parent, false),
+        "<=" => (TraceRelationKind.Ancestor, false),
         "!->" => (TraceRelationKind.Child, true),
         "!=>" => (TraceRelationKind.Descendant, true),
+        "!<-" => (TraceRelationKind.Parent, true),
+        "!<=" => (TraceRelationKind.Ancestor, true),
         _ => (TraceRelationKind.Sibling, true),
     };
 
@@ -231,8 +253,12 @@ public static class TraceStructureExpression
         (TraceRelationKind.Child, false) => "->",
         (TraceRelationKind.Descendant, false) => "=>",
         (TraceRelationKind.Sibling, false) => "~",
+        (TraceRelationKind.Parent, false) => "<-",
+        (TraceRelationKind.Ancestor, false) => "<=",
         (TraceRelationKind.Child, true) => "!->",
         (TraceRelationKind.Descendant, true) => "!=>",
+        (TraceRelationKind.Parent, true) => "!<-",
+        (TraceRelationKind.Ancestor, true) => "!<=",
         _ => "!~",
     };
 

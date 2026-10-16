@@ -206,6 +206,10 @@ public class TempoMetricsPlannerTests
     [InlineData("!>", TraceRelationKind.Child, true)]
     [InlineData("!>>", TraceRelationKind.Descendant, true)]
     [InlineData("!~", TraceRelationKind.Sibling, true)]
+    [InlineData("<", TraceRelationKind.Parent, false)]
+    [InlineData("<<", TraceRelationKind.Ancestor, false)]
+    [InlineData("!<", TraceRelationKind.Parent, true)]
+    [InlineData("!<<", TraceRelationKind.Ancestor, true)]
     public void TheOtherStructuralOperators_CountTheRightSpansetWithTheLeftAsTheRelatedSpan(string op, TraceRelationKind kind, bool negated)
     {
         var plan = Plan($$"""{ resource.service.name = "web" } {{op}} { name = "db.query" } | rate()""");
@@ -220,6 +224,8 @@ public class TempoMetricsPlannerTests
     [InlineData("&>>", TraceRelationKind.Descendant)]
     [InlineData("&>", TraceRelationKind.Child)]
     [InlineData("&~", TraceRelationKind.Sibling)]
+    [InlineData("&<", TraceRelationKind.Parent)]
+    [InlineData("&<<", TraceRelationKind.Ancestor)]
     public void UnionOperators_CountTheSpansOfBothSides(string op, TraceRelationKind kind)
     {
         var plan = Plan($$"""{ name = "a" } {{op}} { name = "b" } | rate()""");
@@ -328,4 +334,15 @@ public class TempoMetricsPlannerTests
     [InlineData("{ } | compare({ name = \"y\" } && { span.a = \"b\" } && { rootServiceName = \"x\" })")]
     public void Compare_OfACombination_NeedsASpanConditionInEverySpanset(string traceQl) =>
         Assert.Throws<TraceQlException>(() => Plan(traceQl));
+
+    [Fact]
+    public void ParentAndAncestor_InACombination_AreRelationsToo()
+    {
+        var plan = Plan("""({ name = "a" } << { name = "b" }) || { status = error } | rate()""");
+
+        var or = Assert.IsType<SpanSetOr>(plan.Spansets);
+        var relation = Assert.IsType<SpanSetRelation>(or.Left);
+        Assert.Equal((TraceRelationKind.Ancestor, false, false), (relation.Kind, relation.Negated, relation.Union));
+        Assert.Equal(("a", "b"), (relation.Left.SpanName, relation.Right.SpanName));
+    }
 }

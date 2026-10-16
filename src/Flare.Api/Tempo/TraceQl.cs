@@ -382,7 +382,7 @@ public static class TraceQlParser
                     continue;
             }
 
-            if (c is '&' or '!' && string.CompareOrdinal(text, i + 1, ">>", 0, 2) == 0)
+            if (c is '&' or '!' && (string.CompareOrdinal(text, i + 1, ">>", 0, 2) == 0 || string.CompareOrdinal(text, i + 1, "<<", 0, 2) == 0))
             {
                 tokens.Add(new Token(TokenKind.Operator, text.Substring(i, 3), i));
                 i += 3;
@@ -390,7 +390,7 @@ public static class TraceQlParser
             }
 
             var two = i + 1 < text.Length ? text.AsSpan(i, 2) : default;
-            if (two is "&&" or "||" or "!=" or "=~" or "!~" or ">=" or "<=" or ">>" or "&>" or "&~" or "!>")
+            if (two is "&&" or "||" or "!=" or "=~" or "!~" or ">=" or "<=" or ">>" or "<<" or "&>" or "&<" or "&~" or "!>" or "!<")
             {
                 // "|" alone starts a pipeline stage; "||" is the boolean operator, so the two-char check comes first.
                 tokens.Add(new Token(TokenKind.Operator, two.ToString(), i));
@@ -969,11 +969,12 @@ public static class TraceQlParser
             // The structure expression only relates single conditions, so both sides must be spansets, not groups.
             if (left.Length != 1 || right.Length != 1)
             {
-                throw new TraceQlException("a structural operator (> , >> , ~ , !> , !>> , !~ , &> , &>> or &~) relates two spansets, not groups of them.");
+                throw new TraceQlException("a structural operator (> , >> , < , << , ~ , !> , !>> , !< , !<< , !~ , &> , &>> , &< , &<< or &~) relates two spansets, not groups of them.");
             }
 
             // Whether a trace has such a pair is the same question as for the plain operator; which spans the result lists is what differs.
-            if (op.Union || op.Negated || op.Kind == Query.TraceRelationKind.Sibling)
+            // A parent or ancestor operator lists the right-hand span that is above, not the one below that a plain `>` or `>>` lists.
+            if (op.Union || op.Negated || op.Kind is Query.TraceRelationKind.Sibling or Query.TraceRelationKind.Parent or Query.TraceRelationKind.Ancestor)
             {
                 _relations.Add(new TraceQlRelation(left[0], right[0], op.Kind, op.Negated, op.Union));
             }
@@ -987,12 +988,18 @@ public static class TraceQlParser
             [">"] = (Query.TraceRelationKind.Child, false, false),
             [">>"] = (Query.TraceRelationKind.Descendant, false, false),
             ["~"] = (Query.TraceRelationKind.Sibling, false, false),
+            ["<"] = (Query.TraceRelationKind.Parent, false, false),
+            ["<<"] = (Query.TraceRelationKind.Ancestor, false, false),
             ["!>"] = (Query.TraceRelationKind.Child, true, false),
             ["!>>"] = (Query.TraceRelationKind.Descendant, true, false),
             ["!~"] = (Query.TraceRelationKind.Sibling, true, false),
+            ["!<"] = (Query.TraceRelationKind.Parent, true, false),
+            ["!<<"] = (Query.TraceRelationKind.Ancestor, true, false),
             ["&>"] = (Query.TraceRelationKind.Child, false, true),
             ["&>>"] = (Query.TraceRelationKind.Descendant, false, true),
             ["&~"] = (Query.TraceRelationKind.Sibling, false, true),
+            ["&<"] = (Query.TraceRelationKind.Parent, false, true),
+            ["&<<"] = (Query.TraceRelationKind.Ancestor, false, true),
         };
 
         private string ParseOperand(List<TraceQlSpanset> spansets)

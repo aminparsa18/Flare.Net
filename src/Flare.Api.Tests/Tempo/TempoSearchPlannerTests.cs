@@ -694,4 +694,35 @@ public class TempoSearchPlannerTests
 
         Assert.Contains("supports =, !=, =~ and !~", Assert.Throws<TraceQlException>(() => Plan("""{ statusMessage > "a" }""")).Message);
     }
+
+    [Theory]
+    [InlineData("{ name = \"x\" } < { name = \"y\" }", "A <- B")]
+    [InlineData("{ name = \"x\" } << { name = \"y\" }", "A <= B")]
+    [InlineData("{ name = \"x\" } !< { name = \"y\" }", "A !<- B")]
+    [InlineData("{ name = \"x\" } !<< { name = \"y\" }", "A !<= B")]
+    [InlineData("{ name = \"x\" } &< { name = \"y\" }", "A <- B")]
+    [InlineData("{ name = \"x\" } &<< { name = \"y\" }", "A <= B")]
+    public void ParentAndAncestorOperators_MapOntoTheStructureExpression_AndGoThroughTheSelector(string traceQl, string expression)
+    {
+        var plan = Plan(traceQl);
+
+        Assert.Equal(expression, plan.Structure!.Expression);
+        Assert.True(plan.UsesSelector);
+        Assert.True(plan.NeedsWholeTrace);
+        Assert.Single(plan.Relations);
+        // The structural query builder must accept the filter as is.
+        Flare.Api.Query.TraceStructureSqlBuilder.Validate(plan.Structure);
+    }
+
+    [Theory]
+    [InlineData("{ } < { name = \"x\" }", "A <- B")]
+    [InlineData("{ name = \"x\" } !<< { }", "A !<= B")]
+    [InlineData("{ } &<< { name = \"x\" }", "A <= B")]
+    public void AnEmptySpanset_NextToAParentOrAncestorOperator_IsAnySpan(string traceQl, string expression)
+    {
+        var plan = Plan(traceQl);
+
+        Assert.Equal(expression, plan.Structure!.Expression);
+        Assert.Contains(plan.Conditions, c => c.MinDurationNano == 0);
+    }
 }

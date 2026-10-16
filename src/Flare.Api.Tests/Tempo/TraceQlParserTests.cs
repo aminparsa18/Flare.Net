@@ -294,10 +294,44 @@ public class TraceQlParserTests
         Assert.Contains("not groups", Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(traceQl)).Message);
 
     [Theory]
-    [InlineData("{ a = 1 } < { b = 2 }")]
-    [InlineData("{ a = 1 } <<  { b = 2 }")]
+    [InlineData("{ a = 1 } <<< { b = 2 }")]
+    [InlineData("{ a = 1 } <! { b = 2 }")]
     [InlineData("{ a = 1 } ~~ { b = 2 }")]
     [InlineData("{ a = 1 } !! { b = 2 }")]
     public void TheOtherDirectionsAndNonsense_AreStillRejected(string traceQl) =>
         Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(traceQl));
+
+    [Theory]
+    [InlineData("{ a = 1 } < { b = 2 }", "A <- B", TraceRelationKind.Parent, false, false)]
+    [InlineData("{ a = 1 } << { b = 2 }", "A <= B", TraceRelationKind.Ancestor, false, false)]
+    [InlineData("{ a = 1 } !< { b = 2 }", "A !<- B", TraceRelationKind.Parent, true, false)]
+    [InlineData("{ a = 1 } !<< { b = 2 }", "A !<= B", TraceRelationKind.Ancestor, true, false)]
+    [InlineData("{ a = 1 } &< { b = 2 }", "A <- B", TraceRelationKind.Parent, false, true)]
+    [InlineData("{ a = 1 } &<< { b = 2 }", "A <= B", TraceRelationKind.Ancestor, false, true)]
+    public void ParentAndAncestorOperators_AreTheTurnedRoundRelations_AlwaysListedThroughTheirOwnRule(string traceQl, string expression, TraceRelationKind kind, bool negated, bool union)
+    {
+        var query = TraceQlParser.Parse(traceQl);
+
+        Assert.Equal(expression, query.Expression);
+        // A plain `<` or `<<` returns the right-hand span that is above, not every span matching a condition, so it is remembered like the other operators of its kind.
+        var relation = Assert.Single(query.Relations);
+        Assert.Equal(new TraceQlRelation('A', 'B', kind, negated, union), relation);
+    }
+
+    [Fact]
+    public void ParentOperators_DoNotDisturbTheComparisonsInsideBraces()
+    {
+        var query = TraceQlParser.Parse("{ duration < 5ms && span.n <= 3 } < { duration >= 1s }");
+
+        Assert.Equal("A <- B", query.Expression);
+        Assert.Equal(2, query.Spansets.Count);
+        Assert.Equal(TraceQlOp.Lt, query.Spansets[0].Predicates[0].Op);
+        Assert.Equal(TraceQlOp.Lte, query.Spansets[0].Predicates[1].Op);
+    }
+
+    [Theory]
+    [InlineData("({ a = 1 } || { b = 2 }) < { c = 3 }")]
+    [InlineData("{ a = 1 } !<< ({ b = 2 } && { c = 3 })")]
+    public void ParentOperators_RelateSpansetsNotGroups(string traceQl) =>
+        Assert.Contains("not groups", Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(traceQl)).Message);
 }
