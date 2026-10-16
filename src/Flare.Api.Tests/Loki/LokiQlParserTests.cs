@@ -112,10 +112,23 @@ public class LokiQlParserTests
     }
 
     [Theory]
-    [InlineData("""{a="b"} | logfmt""", "logfmt")]
-    [InlineData("""{a="b"} | line_format "{{.x}}" """, "line_format")]
-    [InlineData("""{a="b"} |> "<_> error" """, "pattern")]
-    [InlineData("""sum_over_time({a="b"} | unwrap x [1m])""", "unwrap")]
+    [InlineData("""{a="b"} | label_format x=y""", "label_format")]
+    [InlineData("""{a="b"} | regexp "(?P<x>.+)" """, "regexp")]
+    [InlineData("""rate_counter({a="b"} | unwrap x [1m])""", "rate_counter")]
+    [InlineData("""{a="b"} | logfmt --strict""", "--strict")]
+    [InlineData("""{a="b"} | line_format "{{ if .x }}y{{ end }}" """, "'if' is not supported")]
+    [InlineData("""{a="b"} | line_format "{{ .x | nosuchfn }}" """, "nosuchfn")]
+    [InlineData("""{a="b"} | line_format "{{.x}}" |= "y" """, "after line_format")]
+    [InlineData("""{a="b"} | line_format "{{.x}}" | json""", "after line_format")]
+    [InlineData("""{a="b"} | line_format "{{.x}}" | line_format "{{.y}}" """, "only one line_format")]
+    [InlineData("""{a="b"} | unwrap x""", "range function")]
+    [InlineData("""sum_over_time({a="b"} [1m])""", "needs '| unwrap")]
+    [InlineData("""rate({a="b"} | unwrap x [1m])""", "unwrapped")]
+    [InlineData("""sum_over_time({a="b"} | unwrap x |= "y" [1m])""", "only label filters")]
+    [InlineData("""sum_over_time({a="b"} | unwrap nosuch(x) [1m])""", "nosuch")]
+    [InlineData("""quantile_over_time(2, {a="b"} | unwrap x [1m])""", "between 0 and 1")]
+    [InlineData("""{a="b"} |> "<name> error" """, "named captures")]
+    [InlineData("""{a="b"} |> "<_><_>" """, "two captures")]
     [InlineData("""rate({a="b"}[1m] offset 5m)""", "offset")]
     [InlineData("""{a="b"} | drop level""", "level")]
     [InlineData("""{}""", "at least one matcher")]
@@ -146,4 +159,93 @@ public class LokiQlParserTests
     [InlineData("500ms", 0.5)]
     public void ParseDuration_Units(string text, double seconds) =>
         Assert.Equal(TimeSpan.FromSeconds(seconds), LokiQlParser.ParseDuration(text));
+
+    [Fact]
+    public void Parse_Logfmt_BareAndWithExpressions()
+    {
+        var bare = Assert.IsType<LokiLogSelector>(LokiQlParser.Parse("""{a="b"} | logfmt"""));
+        Assert.Empty(Assert.IsType<LokiLogfmtStage>(Assert.Single(bare.Stages)).Expressions);
+
+        var mapped = Assert.IsType<LokiLogSelector>(LokiQlParser.Parse("""{a="b"} | logfmt status_code="status", user="user.id" | status_code >= 500"""));
+        var stage = Assert.IsType<LokiLogfmtStage>(mapped.Stages[0]);
+        Assert.Equal([("status_code", "status"), ("user", "user.id")], stage.Expressions);
+        Assert.IsType<LokiLabelFilterStage>(mapped.Stages[1]);
+    }
+
+    [Fact]
+    public void Parse_DrilldownMixedParserPipeline()
+    {
+        // What Logs Drilldown sends for a field whose parser is "mixed".
+        var selector = Assert.IsType<LokiLogSelector>(LokiQlParser.Parse(
+            """{service_name=~".+"} | detected_level=~"error|warn" |> "<_> failed" | json status="status" | json | logfmt | drop __error__, __error_details__ | status!="" | line_format "{{.msg}}" """));
+
+        Assert.Collection(
+            selector.Stages,
+            s => Assert.IsType<LokiLabelFilterStage>(s),
+            s => Assert.False(Assert.IsType<LokiPatternFilter>(s).Negated),
+            s => Assert.Equal("status", Assert.Single(Assert.IsType<LokiJsonStage>(s).Expressions).Label),
+            s => Assert.Empty(Assert.IsType<LokiJsonStage>(s).Expressions),
+            s => Assert.IsType<LokiLogfmtStage>(s),
+            s => Assert.IsType<LokiDropStage>(s),
+            s => Assert.IsType<LokiLabelFilterStage>(s),
+            s => Assert.IsType<LokiLineFormatStage>(s));
+    }
+
+    [Fact]
+    public void Parse_PatternFilters()
+    {
+        var selector = Assert.IsType<LokiLogSelector>(LokiQlParser.Parse("""{a="b"} |> "<_> took <_>ms" !> "<_> health <_>" """));
+
+        Assert.Equal(
+            [(false, "<_> took <_>ms"), (true, "<_> health <_>")],
+            selector.Stages.Cast<LokiPatternFilter>().Select(p => (p.Negated, p.Pattern)));
+    }
+
+    [Theory]
+    [InlineData("sum_over_time", null)]
+    [InlineData("avg_over_time", null)]
+    [InlineData("min_over_time", null)]
+    [InlineData("max_over_time", null)]
+    [InlineData("first_over_time", null)]
+    [InlineData("last_over_time", null)]
+    [InlineData("stddev_over_time", null)]
+    [InlineData("stdvar_over_time", null)]
+    [InlineData("quantile_over_time", 0.99)]
+    public void Parse_UnwrappedRangeFunctions(string function, double? quantile)
+    {
+        var args = quantile is { } q ? $"{q}, " : string.Empty;
+
+        var range = Assert.IsType<LokiRangeAggregation>(LokiQlParser.Parse($$"""{{function}}({{args}}{a="b"} | json | unwrap latency [5m]) by (service_name)"""));
+
+        Assert.Equal(function, range.Function);
+        Assert.Equal(quantile, range.Quantile);
+        Assert.True(range.IsUnwrapped);
+        Assert.Equal(TimeSpan.FromMinutes(5), range.Range);
+        Assert.False(range.Grouping!.Without);
+        Assert.Equal(["service_name"], range.Grouping.Labels);
+        var unwrap = range.Selector.Stages.OfType<LokiUnwrapStage>().Single();
+        Assert.Equal(("latency", LokiUnwrapConversion.None), (unwrap.Label, unwrap.Conversion));
+    }
+
+    [Theory]
+    [InlineData("duration(latency)", "Duration")]
+    [InlineData("duration_seconds(latency)", "Duration")]
+    [InlineData("bytes(latency)", "Bytes")]
+    public void Parse_UnwrapConversions(string unwrap, string expected)
+    {
+        var range = Assert.IsType<LokiRangeAggregation>(LokiQlParser.Parse($$"""avg_over_time({a="b"} | unwrap {{unwrap}} | __error__="" [1m])"""));
+
+        var stage = range.Selector.Stages.OfType<LokiUnwrapStage>().Single();
+        Assert.Equal(("latency", Enum.Parse<LokiUnwrapConversion>(expected)), (stage.Label, stage.Conversion));
+        Assert.IsType<LokiLabelFilterStage>(range.Selector.Stages[^1]);
+    }
+
+    [Fact]
+    public void Parse_UnwrappedFunctionInsideVectorAggregation_HasNoGroupingOfItsOwn()
+    {
+        var sum = Assert.IsType<LokiVectorAggregation>(LokiQlParser.Parse("""sum by (service_name) (sum_over_time({a="b"} | unwrap x [1m]))"""));
+
+        var range = Assert.IsType<LokiRangeAggregation>(sum.Inner);
+        Assert.Null(range.Grouping);
+    }
 }

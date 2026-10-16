@@ -1,7 +1,13 @@
 using System.Globalization;
+using System.Net.WebSockets;
+using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using ClickHouse.Driver;
+using Flare.Api.Endpoints;
+using Flare.Api.LiveTail;
+using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
 namespace Flare.Api.Loki;
@@ -9,8 +15,10 @@ namespace Flare.Api.Loki;
 /// <summary>
 /// A read-only subset of Grafana Loki's HTTP API (ADR-0236) under <c>/loki/api/v1</c>, so Grafana's Loki
 /// data source can read Flare logs: <c>query_range</c> and <c>query</c> (LogQL log and metric queries),
-/// <c>labels</c>, <c>label/&lt;name&gt;/values</c>, <c>series</c>, <c>index/stats</c> and
-/// <c>status/buildinfo</c>. GET and form-encoded POST both work. Authentication is the normal Flare
+/// <c>labels</c>, <c>label/&lt;name&gt;/values</c>, <c>series</c>, <c>index/stats</c>, <c>index/volume</c>,
+/// <c>status/buildinfo</c>, Logs Drilldown's <c>detected_fields</c>, <c>detected_labels</c>,
+/// <c>detected_field/&lt;name&gt;/values</c> and <c>patterns</c> (ADR-0237), and the live-tail WebSocket
+/// <c>tail</c>. GET and form-encoded POST both work. Authentication is the normal Flare
 /// pipeline - a personal access token as <c>Authorization: Bearer flr_pat_...</c> (Grafana: a custom HTTP
 /// header on the data source). The data source URL is the server root, e.g. <c>http://flare:8080</c>.
 /// </summary>
@@ -36,9 +44,15 @@ public static class LokiEndpoints
         loki.MapMethods("/label/{name}/values", ["GET", "POST"], HandleLabelValuesAsync);
         loki.MapMethods("/series", ["GET", "POST"], HandleSeriesAsync);
         loki.MapMethods("/index/stats", ["GET", "POST"], HandleStatsAsync);
+        loki.MapMethods("/index/volume", ["GET", "POST"], HandleVolumeAsync);
+        loki.MapMethods("/detected_labels", ["GET", "POST"], HandleDetectedLabelsAsync);
+        loki.MapMethods("/detected_fields", ["GET", "POST"], HandleDetectedFieldsAsync);
+        loki.MapMethods("/detected_field/{name}/values", ["GET", "POST"], HandleDetectedFieldValuesAsync);
+        loki.MapMethods("/patterns", ["GET", "POST"], HandlePatternsAsync);
+        loki.MapGet("/tail", HandleTailAsync);
         loki.MapGet("/status/buildinfo", () => Json(w =>
         {
-            w.WriteString("version", "3.0.0-flare");
+            w.WriteString("version", "3.5.0-flare");
             w.WriteString("revision", "flare");
             w.WriteString("branch", "flare");
             w.WriteString("buildUser", "flare");
@@ -197,6 +211,358 @@ public static class LokiEndpoints
             });
         });
 
+    private static async Task<IResult> HandleVolumeAsync(HttpContext http, LokiQueryService service, TimeProvider time, CancellationToken ct) =>
+        await GuardAsync(async () =>
+        {
+            var p = await ReadParametersAsync(http, ct);
+            var (start, end) = QueryWindow(p, time, DefaultQueryWindow);
+            var selector = LokiQlParser.ParseSelector(p.Single("query") ?? throw new LokiException("parameter 'query' is required."));
+            var limit = p.Single("limit") is { } l ? ParseInt(l, "limit") : LokiQueries.DefaultMetadataLimit;
+            var targets = p.Single("targetLabels") is { Length: > 0 } t ? t.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
+            var volumes = await service.VolumeAsync(selector, targets, start, end, limit, ct);
+            var atSeconds = end.ToUnixTimeMilliseconds() / 1000.0;
+            return Success(w =>
+            {
+                w.WriteString("resultType", "vector");
+                w.WriteStartArray("result");
+                foreach (var volume in volumes)
+                {
+                    w.WriteStartObject();
+                    WriteLabels(w, "metric", volume.Labels);
+                    w.WritePropertyName("value");
+                    w.WriteStartArray();
+                    w.WriteRawValue(atSeconds.ToString("0.###", CultureInfo.InvariantCulture));
+                    w.WriteStringValue(volume.Bytes.ToString(CultureInfo.InvariantCulture));
+                    w.WriteEndArray();
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+            });
+        });
+
+    private static async Task<IResult> HandleDetectedLabelsAsync(HttpContext http, LokiQueryService service, TimeProvider time, CancellationToken ct) =>
+        await GuardAsync(async () =>
+        {
+            var p = await ReadParametersAsync(http, ct);
+            var (start, end) = QueryWindow(p, time, DefaultQueryWindow);
+            // Drilldown sends an empty query when no label is chosen yet.
+            var selector = p.Single("query") is { Length: > 0 } q ? LokiQlParser.ParseSelector(q) : null;
+            var labels = await service.DetectedLabelsAsync(selector, start, end, ct);
+            return Json(w =>
+            {
+                w.WriteStartArray("detectedLabels");
+                foreach (var (label, cardinality) in labels)
+                {
+                    w.WriteStartObject();
+                    w.WriteString("label", label);
+                    w.WriteNumber("cardinality", cardinality);
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+            });
+        });
+
+    private static async Task<IResult> HandleDetectedFieldsAsync(HttpContext http, LokiQueryService service, TimeProvider time, CancellationToken ct) =>
+        await GuardAsync(async () =>
+        {
+            var p = await ReadParametersAsync(http, ct);
+            var (start, end) = QueryWindow(p, time, DefaultQueryWindow);
+            var selector = LokiQlParser.ParseSelector(p.Single("query") ?? throw new LokiException("parameter 'query' is required."));
+            var lineLimit = Math.Min(p.Single("line_limit") is { } l ? ParseInt(l, "line_limit") : LokiDetectedFields.DefaultLineLimit, LokiQueries.MaxLimit);
+            var fieldLimit = p.Single("limit") is { } f ? ParseInt(f, "limit") : LokiDetectedFields.DefaultFieldLimit;
+            var fields = await service.DetectedFieldsAsync(selector, start, end, lineLimit, fieldLimit, ct);
+            return Json(w =>
+            {
+                w.WriteStartArray("fields");
+                foreach (var field in fields)
+                {
+                    w.WriteStartObject();
+                    w.WriteString("label", field.Label);
+                    w.WriteString("type", field.Type);
+                    w.WriteNumber("cardinality", field.Cardinality);
+                    WriteStringArrayOrNull(w, "parsers", field.Parsers);
+                    WriteStringArrayOrNull(w, "jsonPath", field.JsonPath);
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+                w.WriteNumber("limit", fieldLimit);
+            });
+        });
+
+    private static async Task<IResult> HandleDetectedFieldValuesAsync(string name, HttpContext http, LokiQueryService service, TimeProvider time, CancellationToken ct) =>
+        await GuardAsync(async () =>
+        {
+            var p = await ReadParametersAsync(http, ct);
+            var (start, end) = QueryWindow(p, time, DefaultQueryWindow);
+            var selector = LokiQlParser.ParseSelector(p.Single("query") ?? throw new LokiException("parameter 'query' is required."));
+            var limit = p.Single("limit") is { } l ? ParseInt(l, "limit") : LokiDetectedFields.DefaultFieldLimit;
+            var values = await service.DetectedFieldValuesAsync(name, selector, start, end, limit, ct);
+            return Json(w =>
+            {
+                w.WriteStartArray("values");
+                foreach (var value in values)
+                {
+                    w.WriteStringValue(value);
+                }
+
+                w.WriteEndArray();
+                w.WriteNumber("limit", limit);
+            });
+        });
+
+    private static async Task<IResult> HandlePatternsAsync(HttpContext http, LokiQueryService service, TimeProvider time, CancellationToken ct) =>
+        await GuardAsync(async () =>
+        {
+            var p = await ReadParametersAsync(http, ct);
+            var (start, end) = QueryWindow(p, time, DefaultQueryWindow);
+            var selector = LokiQlParser.ParseSelector(p.Single("query") ?? throw new LokiException("parameter 'query' is required."));
+            var step = p.Single("step") is { Length: > 0 } stepText
+                ? ParseStep(stepText)
+                : TimeSpan.FromSeconds(Math.Max(1, Math.Floor((end - start).TotalSeconds / 50)));
+            var limit = p.Single("limit") is { } l ? ParseInt(l, "limit") : LokiQueries.DefaultPatternLimit;
+            var patterns = await service.PatternsAsync(selector, start, end, step, limit, ct);
+            return Json(w =>
+            {
+                w.WriteString("status", "success");
+                w.WriteStartArray("data");
+                foreach (var pattern in patterns)
+                {
+                    w.WriteStartObject();
+                    w.WriteString("pattern", pattern.Pattern);
+                    w.WriteString("level", pattern.Level);
+                    w.WriteStartArray("samples");
+                    foreach (var (seconds, count) in pattern.Samples)
+                    {
+                        w.WriteStartArray();
+                        w.WriteNumberValue(seconds);
+                        w.WriteNumberValue(count);
+                        w.WriteEndArray();
+                    }
+
+                    w.WriteEndArray();
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+            });
+        });
+
+    private static void WriteStringArrayOrNull(Utf8JsonWriter w, string property, IReadOnlyList<string>? values)
+    {
+        if (values is null)
+        {
+            w.WriteNull(property);
+            return;
+        }
+
+        w.WriteStartArray(property);
+        foreach (var value in values)
+        {
+            w.WriteStringValue(value);
+        }
+
+        w.WriteEndArray();
+    }
+
+    // ---- live tail --------------------------------------------------------------------
+
+    /// <summary>
+    /// <c>GET /loki/api/v1/tail</c>, upgraded to a WebSocket: streams the entries a log query matches as they
+    /// are ingested, in Loki's <c>{"streams":[...]}</c> frames. It reuses live tail's <see cref="LogTailBroadcaster"/>
+    /// (one shared reader of the ingest stream) and evaluates the query in memory with <see cref="LokiTailMatcher"/>.
+    /// <c>start</c> (when given) first sends up to <c>limit</c> older entries from the table. The socket is
+    /// dropped without a close frame when <see cref="LiveTailOptions.MaxSocketLifetime"/> elapses, which
+    /// Grafana's live view treats as a lost connection and re-establishes (and so re-authorizes) by itself.
+    /// </summary>
+    private static async Task<IResult> HandleTailAsync(
+        HttpContext http, LokiQueryService service, LogTailBroadcaster broadcaster, IOptions<LiveTailOptions> options, TimeProvider time)
+    {
+        LokiLogSelector selector;
+        LokiTailMatcher matcher;
+        DateTimeOffset? backfillFrom = null;
+        var limit = LokiQueries.DefaultLimit;
+        try
+        {
+            var p = await ReadParametersAsync(http, http.RequestAborted);
+            selector = LokiQlParser.Parse(p.Single("query") ?? throw new LokiException("parameter 'query' is required.")) as LokiLogSelector
+                ?? throw new LokiException("live tail takes a log query such as {service_name=\"api\"}; a metric query cannot be tailed.");
+            matcher = LokiTailMatcher.Compile(selector, options.Value);
+            if (p.Single("limit") is { } l)
+            {
+                limit = Math.Min(ParseInt(l, "limit"), LokiQueries.MaxLimit);
+            }
+
+            if (p.Single("start") is { } s)
+            {
+                backfillFrom = ParseTime(s, "start");
+            }
+        }
+        catch (LokiException ex)
+        {
+            return Error(StatusCodes.Status400BadRequest, ex.Message);
+        }
+
+        if (!http.WebSockets.IsWebSocketRequest)
+        {
+            return Error(StatusCodes.Status400BadRequest, "this endpoint streams over a WebSocket; send an upgrade request.");
+        }
+
+        // A browser cannot set Authorization on a WebSocket, so a request that carries a bearer token did not
+        // come from another site's page riding the visitor's cookies, which is what the origin check is for.
+        if (!http.Request.Headers.ContainsKey("Authorization") && !WebSocketOriginGuard.IsAllowed(http))
+        {
+            return Results.Empty;
+        }
+
+        var subscription = broadcaster.TrySubscribe(http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous");
+        if (subscription is null)
+        {
+            return Error(StatusCodes.Status429TooManyRequests, "too many live tail connections.");
+        }
+
+        WebSocket socket;
+        try
+        {
+            subscription.SetFilter(matcher.Prefilter, null);
+            socket = await http.WebSockets.AcceptWebSocketAsync();
+        }
+        catch
+        {
+            broadcaster.Unsubscribe(subscription);
+            throw;
+        }
+
+        using var _ = socket;
+        using var lifetime = WebSocketLifetime.Link(http, options.Value);
+        try
+        {
+            if (backfillFrom is { } from)
+            {
+                var history = await service.QueryLogsAsync(selector, from, time.GetUtcNow(), limit, forward: true, lifetime.Token);
+                if (history.Count > 0)
+                {
+                    await SendTailAsync(socket, history, lifetime.Token);
+                }
+            }
+
+            var receive = DrainClientAsync(socket, lifetime.Token);
+            var send = StreamEntriesAsync(socket, subscription, matcher, lifetime.Token);
+            await Task.WhenAny(receive, send);
+            await lifetime.CancelAsync();
+            await Task.WhenAll(receive, send);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException or ClickHouseServerException)
+        {
+            // Client gone, lifetime over, or the backfill failed: the connection ends either way.
+        }
+        finally
+        {
+            broadcaster.Unsubscribe(subscription);
+            if (!http.RequestAborted.IsCancellationRequested && lifetime.IsCancellationRequested)
+            {
+                // The lifetime ran out (not the client leaving): drop the connection so Grafana reconnects.
+                http.Abort();
+            }
+            else if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+            {
+                try
+                {
+                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription: null, CancellationToken.None);
+                }
+                catch (WebSocketException)
+                {
+                    // Client already gone.
+                }
+            }
+        }
+
+        return Results.Empty;
+    }
+
+    /// <summary>Reads (and discards) client frames so a close frame ends the connection; the tail protocol has no client messages.</summary>
+    private static async Task DrainClientAsync(WebSocket socket, CancellationToken ct)
+    {
+        var buffer = new byte[1024];
+        try
+        {
+            while (socket.State == WebSocketState.Open)
+            {
+                var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    return;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException)
+        {
+            // Connection ending.
+        }
+    }
+
+    /// <summary>Drains the subscription, keeps the entries the query matches and sends them in frames of up to 100.</summary>
+    private static async Task StreamEntriesAsync(WebSocket socket, LogTailSubscription subscription, LokiTailMatcher matcher, CancellationToken ct)
+    {
+        const int maxPerFrame = 100;
+        var reader = subscription.Reader;
+        var batch = new List<LokiLogEntry>(maxPerFrame);
+        try
+        {
+            while (await reader.WaitToReadAsync(ct))
+            {
+                batch.Clear();
+                while (batch.Count < maxPerFrame && reader.TryRead(out var message))
+                {
+                    if (message.Type == LogTailServerMessageType.Event
+                        && message.Event is { } log
+                        && matcher.TryMatch(LokiTailMatcher.ToRow(log), out var entry))
+                    {
+                        batch.Add(entry);
+                    }
+                }
+
+                if (batch.Count > 0)
+                {
+                    await SendTailAsync(socket, batch, ct);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException)
+        {
+            // Connection ending.
+        }
+    }
+
+    private static async Task SendTailAsync(WebSocket socket, IReadOnlyList<LokiLogEntry> entries, CancellationToken ct)
+    {
+        var bytes = JsonBytes(w =>
+        {
+            w.WriteStartArray("streams");
+            foreach (var (labels, members) in GroupStreams(entries, categorize: false))
+            {
+                w.WriteStartObject();
+                WriteLabels(w, "stream", labels);
+                w.WriteStartArray("values");
+                foreach (var entry in members)
+                {
+                    w.WriteStartArray();
+                    w.WriteStringValue(entry.Ns.ToString(CultureInfo.InvariantCulture));
+                    w.WriteStringValue(entry.Line);
+                    w.WriteEndArray();
+                }
+
+                w.WriteEndArray();
+                w.WriteEndObject();
+            }
+
+            w.WriteEndArray();
+        });
+        await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, endOfMessage: true, ct);
+    }
+
     /// <summary>
     /// <c>resultType: streams</c>. With Loki's <c>categorize-labels</c> encoding flag (which Grafana sends)
     /// the stream carries only the indexed labels and each entry a third element with its structured
@@ -204,27 +570,7 @@ public static class LokiEndpoints
     /// </summary>
     internal static void WriteStreams(Utf8JsonWriter w, IReadOnlyList<LokiLogEntry> entries, bool categorize)
     {
-        var streams = new List<(IReadOnlyDictionary<string, string> Labels, List<LokiLogEntry> Entries)>();
-        var index = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var entry in entries)
-        {
-            var labels = categorize
-                ? entry.StreamLabels
-                : entry.StreamLabels
-                    .Concat(entry.StructuredMetadata)
-                    .Concat(entry.Parsed)
-                    .GroupBy(kv => kv.Key, StringComparer.Ordinal)
-                    .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.Ordinal);
-            var key = string.Join('\u0001', labels.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => kv.Key + "\u0002" + kv.Value));
-            if (!index.TryGetValue(key, out var position))
-            {
-                position = streams.Count;
-                index[key] = position;
-                streams.Add((labels, []));
-            }
-
-            streams[position].Entries.Add(entry);
-        }
+        var streams = GroupStreams(entries, categorize);
 
         w.WriteString("resultType", "streams");
         if (categorize)
@@ -272,6 +618,34 @@ public static class LokiEndpoints
         w.WriteEndArray();
     }
 
+    /// <summary>Groups entries into streams. With <paramref name="categorize"/> a stream is the indexed labels only; otherwise it is every label of the entry.</summary>
+    private static List<(IReadOnlyDictionary<string, string> Labels, List<LokiLogEntry> Entries)> GroupStreams(IReadOnlyList<LokiLogEntry> entries, bool categorize)
+    {
+        var streams = new List<(IReadOnlyDictionary<string, string> Labels, List<LokiLogEntry> Entries)>();
+        var index = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var entry in entries)
+        {
+            var labels = categorize
+                ? entry.StreamLabels
+                : entry.StreamLabels
+                    .Concat(entry.StructuredMetadata)
+                    .Concat(entry.Parsed)
+                    .GroupBy(kv => kv.Key, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.Ordinal);
+            var key = string.Join('\u0001', labels.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => kv.Key + "\u0002" + kv.Value));
+            if (!index.TryGetValue(key, out var position))
+            {
+                position = streams.Count;
+                index[key] = position;
+                streams.Add((labels, []));
+            }
+
+            streams[position].Entries.Add(entry);
+        }
+
+        return streams;
+    }
+
     private static async Task<IResult> GuardAsync(Func<Task<IResult>> action)
     {
         try
@@ -313,7 +687,9 @@ public static class LokiEndpoints
             w.WriteEndArray();
         });
 
-    private static IResult Json(Action<Utf8JsonWriter> body)
+    private static IResult Json(Action<Utf8JsonWriter> body) => Results.Bytes(JsonBytes(body), "application/json");
+
+    private static byte[] JsonBytes(Action<Utf8JsonWriter> body)
     {
         using var stream = new MemoryStream();
         // Relaxed escaping: log lines are full of quotes and angle brackets, and \u0022 for every quote is noise in a response meant for a log viewer.
@@ -324,7 +700,7 @@ public static class LokiEndpoints
             writer.WriteEndObject();
         }
 
-        return Results.Bytes(stream.ToArray(), "application/json");
+        return stream.ToArray();
     }
 
     private static void WriteLabels(Utf8JsonWriter w, string property, IReadOnlyDictionary<string, string> labels)

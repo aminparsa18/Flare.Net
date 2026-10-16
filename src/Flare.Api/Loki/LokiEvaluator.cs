@@ -23,6 +23,48 @@ internal sealed record LokiLeafRequest(
 /// <summary>One row of a bucketed read: the bucket start (unix ms), the value of each requested dimension, and the measure.</summary>
 internal sealed record LokiBucketRow(long BucketMs, string[] DimensionValues, double Value);
 
+/// <summary>What every mergeable unwrapped function (sum, avg, min, max, first, last, stddev, stdvar) is computed from, for the samples of one bucket.</summary>
+/// <param name="Count">Number of samples.</param>
+/// <param name="Sum">Sum of the values.</param>
+/// <param name="Min">Smallest value.</param>
+/// <param name="Max">Largest value.</param>
+/// <param name="First">Value of the earliest sample.</param>
+/// <param name="Last">Value of the latest sample.</param>
+/// <param name="Mean">Mean value.</param>
+/// <param name="M2">Sum of squared deviations from the mean, so variances can be merged exactly (Chan et al.).</param>
+internal readonly record struct LokiBucketStats(double Count, double Sum, double Min, double Max, double First, double Last, double Mean, double M2)
+{
+    /// <summary>The statistics of this bucket's samples followed (in time) by <paramref name="next"/>'s.</summary>
+    public LokiBucketStats Then(LokiBucketStats next)
+    {
+        var count = Count + next.Count;
+        var delta = next.Mean - Mean;
+        return new LokiBucketStats(
+            count,
+            Sum + next.Sum,
+            Math.Min(Min, next.Min),
+            Math.Max(Max, next.Max),
+            First,
+            next.Last,
+            Mean + delta * next.Count / count,
+            M2 + next.M2 + delta * delta * Count * next.Count / count);
+    }
+}
+
+/// <summary>A bucketed read of an unwrapped range function's samples; the grid is that of <see cref="LokiLeafRequest"/>.</summary>
+internal sealed record LokiUnwrapRequest(LokiLogSelector Selector, IReadOnlyList<string> Dimensions, long FromMs, long ToMs, long BucketMs);
+
+internal sealed record LokiUnwrapRow(long BucketMs, string[] DimensionValues, LokiBucketStats Stats);
+
+/// <summary>
+/// An exact quantile per evaluation step: the samples of the window <c>[step - RangeMs, step)</c> for each of
+/// <see cref="StepCount"/> steps starting at <see cref="FirstStepMs"/>.
+/// </summary>
+internal sealed record LokiQuantileRequest(
+    LokiLogSelector Selector, IReadOnlyList<string> Dimensions, double Quantile, long FirstStepMs, long StepMs, int StepCount, long RangeMs);
+
+internal sealed record LokiQuantileRow(int StepIndex, string[] DimensionValues, double Value);
+
 /// <summary>Where <see cref="LokiEvaluator"/> gets its data: <see cref="LokiQueryService"/> in production, a fake in tests.</summary>
 internal interface ILokiLeafSource
 {
@@ -30,6 +72,10 @@ internal interface ILokiLeafSource
     Task<IReadOnlyList<string>> StreamLabelNamesAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<LokiBucketRow>> FetchBucketsAsync(LokiLeafRequest request, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<LokiUnwrapRow>> FetchUnwrapBucketsAsync(LokiUnwrapRequest request, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<LokiQuantileRow>> FetchQuantilesAsync(LokiQuantileRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -64,6 +110,12 @@ internal sealed class LokiEvaluator(ILokiLeafSource source)
 
     /// <summary>Upper bound on buckets read per leaf. The bucket width is the gcd of window and step while that fits, the step otherwise.</summary>
     public const int MaxBuckets = 20_000;
+
+    /// <summary>Most (steps x buckets per window) bucket merges an unwrapped function may need; past it the step must grow.</summary>
+    public const long MaxWindowMerges = 30_000_000;
+
+    /// <summary>Most evaluation windows a single sample may fall into for <c>quantile_over_time</c> (range divided by step).</summary>
+    public const int MaxQuantileWindows = 120;
 
     /// <summary>Evaluates at <c>start, start+step, ... &lt;= end</c>. <paramref name="instant"/> reads exactly the window ending at <c>end</c>.</summary>
     public async Task<LokiMatrix> EvaluateAsync(LokiExpr expr, long startMs, long endMs, long stepMs, bool instant, CancellationToken cancellationToken)
@@ -128,47 +180,53 @@ internal sealed class LokiEvaluator(ILokiLeafSource source)
 
     private async Task<LokiMatrix> RangeAsync(LokiRangeAggregation range, long[] steps, long stepMs, bool instant, LokiNeed needed, CancellationToken ct)
     {
+        if (range.IsUnwrapped)
+        {
+            return await UnwrappedRangeAsync(range, steps, stepMs, instant, needed, ct);
+        }
+
+        var measure = range.Function.StartsWith("bytes", StringComparison.Ordinal) ? LokiMeasure.Bytes : LokiMeasure.Count;
+        if (measure == LokiMeasure.Bytes && range.Selector.Stages.OfType<LokiLineFormatStage>().Any())
+        {
+            // line_format only rewrites the line that is returned, so the size of the rewritten line is not known to the query.
+            throw new LokiException($"{range.Function}() cannot measure a line rewritten by line_format; drop the line_format stage.");
+        }
+
         var dimensions = needed.Exact ?? (await source.StreamLabelNamesAsync(ct)).Union(needed.Extra).ToList();
         var rangeMs = (long)range.Range.TotalMilliseconds;
         var rangeSeconds = range.Range.TotalSeconds;
-        var measure = range.Function.StartsWith("bytes", StringComparison.Ordinal) ? LokiMeasure.Bytes : LokiMeasure.Count;
         var perSecond = range.Function is "rate" or "bytes_rate";
 
         if (instant)
         {
             var end = steps[^1];
             var rows = await source.FetchBucketsAsync(new LokiLeafRequest(range.Selector, dimensions, measure, end - rangeMs, end, BucketMs: 0), ct);
-            var grouped = GroupRows(rows, dimensions);
+            var grouped = GroupRows(rows, dimensions, r => r.DimensionValues);
             var series = grouped.Select(g => new LokiSeries(g.Key, [perSecond ? g.Value.Sum(r => r.Value) / rangeSeconds : g.Value.Sum(r => r.Value)])).ToList();
             return new LokiMatrix(steps, series);
         }
 
-        var bucketMs = ChooseBucketMs(rangeMs, stepMs, steps[0], steps[^1]);
-        var bucketsPerWindow = (int)Math.Max(1, Math.Round((double)rangeMs / bucketMs));
-        // The bucket grid starts one window before the first step, so every step falls on a bucket edge.
-        var firstBucket = steps[0] - bucketsPerWindow * bucketMs;
-        var bucketCount = (int)((steps[^1] - firstBucket) / bucketMs);
-        var lastBucketEnd = firstBucket + bucketCount * bucketMs;
-        var request = new LokiLeafRequest(range.Selector, dimensions, measure, firstBucket, lastBucketEnd, bucketMs);
-        var fetched = GroupRows(await source.FetchBucketsAsync(request, ct), dimensions);
+        var grid = BucketGrid.For(rangeMs, stepMs, steps);
+        var request = new LokiLeafRequest(range.Selector, dimensions, measure, grid.FirstBucket, grid.LastBucketEnd, grid.BucketMs);
+        var fetched = GroupRows(await source.FetchBucketsAsync(request, ct), dimensions, r => r.DimensionValues);
 
         var result = new List<LokiSeries>(fetched.Count);
         foreach (var (labels, rows) in fetched)
         {
             // Prefix sums over a dense bucket array: each step's window is two subtractions.
-            var sums = new double[bucketCount + 1];
-            var present = new int[bucketCount + 1];
+            var sums = new double[grid.BucketCount + 1];
+            var present = new int[grid.BucketCount + 1];
             foreach (var row in rows)
             {
-                var index = (row.BucketMs - firstBucket) / bucketMs;
-                if (index >= 0 && index < bucketCount)
+                var index = grid.IndexOf(row.BucketMs);
+                if (index >= 0 && index < grid.BucketCount)
                 {
                     sums[index + 1] += row.Value;
                     present[index + 1]++;
                 }
             }
 
-            for (var i = 1; i <= bucketCount; i++)
+            for (var i = 1; i <= grid.BucketCount; i++)
             {
                 sums[i] += sums[i - 1];
                 present[i] += present[i - 1];
@@ -177,9 +235,7 @@ internal sealed class LokiEvaluator(ILokiLeafSource source)
             var values = new double?[steps.Length];
             for (var s = 0; s < steps.Length; s++)
             {
-                // The window is the buckets that end at or before the step.
-                var hi = Math.Min((int)((steps[s] - firstBucket) / bucketMs), bucketCount);
-                var lo = Math.Max(0, hi - bucketsPerWindow);
+                var (lo, hi) = grid.Window(steps[s]);
                 if (hi <= lo || present[hi] - present[lo] == 0)
                 {
                     continue;
@@ -193,6 +249,143 @@ internal sealed class LokiEvaluator(ILokiLeafSource source)
         }
 
         return new LokiMatrix(steps, result);
+    }
+
+    /// <summary>
+    /// <c>sum|avg|min|max|first|last|stddev|stdvar|quantile_over_time</c> over an <c>| unwrap</c>ped label.
+    /// The function's own <c>by</c>/<c>without</c> clause groups the samples before it is applied. The
+    /// mergeable functions read per-bucket statistics and merge the buckets of each window; the quantile
+    /// is computed per step in ClickHouse. A line whose value does not parse as a number is not a sample.
+    /// </summary>
+    private async Task<LokiMatrix> UnwrappedRangeAsync(LokiRangeAggregation range, long[] steps, long stepMs, bool instant, LokiNeed needed, CancellationToken ct)
+    {
+        var rangeMs = (long)range.Range.TotalMilliseconds;
+        var dimensions = range.Grouping switch
+        {
+            { Without: false } by => by.Labels,
+            { } without => (await source.StreamLabelNamesAsync(ct)).Except(without.Labels).ToList(),
+            // sum_over_time is additive, so a sum by (...) around it is pushed down; the others group whole streams.
+            null => needed.Exact ?? (await source.StreamLabelNamesAsync(ct)).Union(needed.Extra).ToList(),
+        };
+
+        if (range.Function == "quantile_over_time")
+        {
+            var quantileStep = instant ? rangeMs : stepMs;
+            var windows = (rangeMs + quantileStep - 1) / quantileStep;
+            if (windows > MaxQuantileWindows)
+            {
+                throw new LokiException($"quantile_over_time needs a step of at least 1/{MaxQuantileWindows} of its range ({range.Range}); increase the step parameter or shorten the range.");
+            }
+
+            var rows = await source.FetchQuantilesAsync(
+                new LokiQuantileRequest(range.Selector, dimensions, range.Quantile ?? 0.5, steps[0], quantileStep, steps.Length, rangeMs), ct);
+            var byLabels = GroupRows(rows, dimensions, r => r.DimensionValues);
+            var quantiles = new List<LokiSeries>(byLabels.Count);
+            foreach (var (labels, members) in byLabels)
+            {
+                var values = new double?[steps.Length];
+                foreach (var row in members.Where(m => m.StepIndex >= 0 && m.StepIndex < steps.Length))
+                {
+                    values[row.StepIndex] = row.Value;
+                }
+
+                quantiles.Add(new LokiSeries(labels, values));
+            }
+
+            return new LokiMatrix(steps, quantiles);
+        }
+
+        if (instant)
+        {
+            var end = steps[^1];
+            var rows = await source.FetchUnwrapBucketsAsync(new LokiUnwrapRequest(range.Selector, dimensions, end - rangeMs, end, BucketMs: 0), ct);
+            var grouped = GroupRows(rows, dimensions, r => r.DimensionValues);
+            return new LokiMatrix(steps, grouped.Select(g => new LokiSeries(g.Key, [Reduce(range.Function, g.Value.Select(r => r.Stats).Aggregate((a, b) => a.Then(b)))])).ToList());
+        }
+
+        var grid = BucketGrid.For(rangeMs, stepMs, steps);
+        if ((long)steps.Length * grid.BucketsPerWindow > MaxWindowMerges)
+        {
+            throw new LokiException($"{range.Function} over {range.Range} at this step would merge too many buckets; increase the step parameter or shorten the range.");
+        }
+
+        var request = new LokiUnwrapRequest(range.Selector, dimensions, grid.FirstBucket, grid.LastBucketEnd, grid.BucketMs);
+        var fetched = GroupRows(await source.FetchUnwrapBucketsAsync(request, ct), dimensions, r => r.DimensionValues);
+        var result = new List<LokiSeries>(fetched.Count);
+        foreach (var (labels, rows) in fetched)
+        {
+            var buckets = new LokiBucketStats?[grid.BucketCount];
+            foreach (var row in rows)
+            {
+                var index = grid.IndexOf(row.BucketMs);
+                if (index >= 0 && index < grid.BucketCount)
+                {
+                    buckets[index] = buckets[index] is { } existing ? existing.Then(row.Stats) : row.Stats;
+                }
+            }
+
+            var values = new double?[steps.Length];
+            for (var s = 0; s < steps.Length; s++)
+            {
+                var (lo, hi) = grid.Window(steps[s]);
+                LokiBucketStats? merged = null;
+                for (var i = lo; i < hi; i++)
+                {
+                    if (buckets[i] is { } bucket)
+                    {
+                        merged = merged is { } so ? so.Then(bucket) : bucket;
+                    }
+                }
+
+                if (merged is { } stats)
+                {
+                    values[s] = Reduce(range.Function, stats);
+                }
+            }
+
+            result.Add(new LokiSeries(labels, values));
+        }
+
+        return new LokiMatrix(steps, result);
+    }
+
+    private static double Reduce(string function, LokiBucketStats stats) => function switch
+    {
+        "sum_over_time" => stats.Sum,
+        "avg_over_time" => stats.Sum / stats.Count,
+        "min_over_time" => stats.Min,
+        "max_over_time" => stats.Max,
+        "first_over_time" => stats.First,
+        "last_over_time" => stats.Last,
+        "stdvar_over_time" => Math.Max(0, stats.M2 / stats.Count),
+        "stddev_over_time" => Math.Sqrt(Math.Max(0, stats.M2 / stats.Count)),
+        _ => throw new LokiException($"unsupported function '{function}'."),
+    };
+
+    /// <summary>
+    /// The bucket grid of a range read: buckets of <see cref="BucketMs"/> starting one window before the
+    /// first step, so every step falls on a bucket edge. The window of a step is the buckets that end at or
+    /// before it, <c>[lo, hi)</c>.
+    /// </summary>
+    internal readonly record struct BucketGrid(long FirstBucket, long BucketMs, int BucketsPerWindow, int BucketCount)
+    {
+        public long LastBucketEnd => FirstBucket + BucketCount * BucketMs;
+
+        public static BucketGrid For(long rangeMs, long stepMs, long[] steps)
+        {
+            var bucketMs = ChooseBucketMs(rangeMs, stepMs, steps[0], steps[^1]);
+            var perWindow = (int)Math.Max(1, Math.Round((double)rangeMs / bucketMs));
+            var first = steps[0] - perWindow * bucketMs;
+            return new BucketGrid(first, bucketMs, perWindow, (int)((steps[^1] - first) / bucketMs));
+        }
+
+        public long IndexOf(long bucketStartMs) => (bucketStartMs - FirstBucket) / BucketMs;
+
+        public (int Lo, int Hi) Window(long stepMs)
+        {
+            var hi = Math.Min((int)((stepMs - FirstBucket) / BucketMs), BucketCount);
+            return (Math.Max(0, hi - BucketsPerWindow), hi);
+        }
     }
 
     /// <summary>
@@ -220,18 +413,20 @@ internal sealed class LokiEvaluator(ILokiLeafSource source)
         return a;
     }
 
-    private static Dictionary<IReadOnlyDictionary<string, string>, List<LokiBucketRow>> GroupRows(IReadOnlyList<LokiBucketRow> rows, IReadOnlyList<string> dimensions)
+    private static Dictionary<IReadOnlyDictionary<string, string>, List<TRow>> GroupRows<TRow>(
+        IReadOnlyList<TRow> rows, IReadOnlyList<string> dimensions, Func<TRow, string[]> dimensionValues)
     {
-        var groups = new Dictionary<IReadOnlyDictionary<string, string>, List<LokiBucketRow>>(LabelSetComparer.Instance);
+        var groups = new Dictionary<IReadOnlyDictionary<string, string>, List<TRow>>(LabelSetComparer.Instance);
         foreach (var row in rows)
         {
+            var values = dimensionValues(row);
             var labels = new Dictionary<string, string>(StringComparer.Ordinal);
-            for (var i = 0; i < dimensions.Count && i < row.DimensionValues.Length; i++)
+            for (var i = 0; i < dimensions.Count && i < values.Length; i++)
             {
                 // Loki drops empty labels from a series.
-                if (row.DimensionValues[i].Length > 0)
+                if (values[i].Length > 0)
                 {
-                    labels[dimensions[i]] = row.DimensionValues[i];
+                    labels[dimensions[i]] = values[i];
                 }
             }
 
@@ -257,7 +452,8 @@ internal sealed class LokiEvaluator(ILokiLeafSource source)
 
         // Only a sum is additive, so only it can be grouped by ClickHouse; avg, min, max and count (and the
         // series topk selects) are taken over whole streams, with the grouping labels added to them.
-        var innerNeed = aggregation.Function == "sum" && !aggregation.Without && aggregation.Inner is LokiRangeAggregation
+        var innerNeed = aggregation.Function == "sum" && !aggregation.Without && aggregation.Inner is LokiRangeAggregation { Grouping: null } inner0
+            && (!inner0.IsUnwrapped || inner0.Function == "sum_over_time")
             ? new LokiNeed(aggregation.Labels, [])
             : new LokiNeed(null, aggregation.Without ? needed.Extra : needed.Extra.Union(aggregation.Labels).ToList());
 

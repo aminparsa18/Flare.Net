@@ -11,8 +11,8 @@ internal enum LokiLabelKind
     /// <summary>The OTel severity bucketed into trace/debug/info/warn/error/fatal/unknown: labels <c>detected_level</c> and (before a <c>| json</c> stage) <c>level</c>.</summary>
     Level,
 
-    /// <summary>A body JSON field named <c>level</c> when there is one, the bucketed severity otherwise: <c>level</c> after a <c>| json</c> stage.</summary>
-    LevelOrJson,
+    /// <summary>A field named <c>level</c> extracted by a <c>| json</c> or <c>| logfmt</c> stage when the line has one, the bucketed severity otherwise: <c>level</c> after a parser stage.</summary>
+    LevelOrParsed,
 
     SeverityText,
 
@@ -28,15 +28,24 @@ internal enum LokiLabelKind
     /// <summary>A key of <c>LogAttributes</c>.</summary>
     LogAttribute,
 
-    /// <summary>A field extracted from the body by <c>| json</c>; <see cref="LokiLabel.Key"/> is the dot-separated path, or the label name when the path is guessed from a flattened name.</summary>
-    JsonField,
+    /// <summary>A field extracted from the body by a <c>| json</c> or <c>| logfmt</c> stage; <see cref="LokiLabel.Key"/> is the label name, which each parser stage maps to its own path or key.</summary>
+    ParsedField,
 
-    /// <summary>The parser-error label <c>__error__</c>: empty unless a <c>| json</c> stage (<see cref="LokiLabel.Key"/> is <c>json</c>) met a body that is not JSON.</summary>
+    /// <summary>The parser-error labels <c>__error__</c> and <c>__error_details__</c>: empty unless a <c>| json</c> stage (<see cref="LokiLabel.Key"/> is <c>json</c>) met a body that is not JSON.</summary>
     ParseError,
 }
 
-/// <summary>A resolved label. <see cref="Guessed"/> marks a <see cref="LokiLabelKind.JsonField"/> whose path is inferred from an underscore-flattened name.</summary>
-internal sealed record LokiLabel(LokiLabelKind Kind, string Key, bool Guessed = false);
+/// <summary>The parser stages a pipeline has applied so far.</summary>
+[Flags]
+internal enum LokiParserKinds
+{
+    None = 0,
+    Json = 1,
+    Logfmt = 2,
+}
+
+/// <summary>A resolved label.</summary>
+internal sealed record LokiLabel(LokiLabelKind Kind, string Key);
 
 /// <summary>
 /// Maps LogQL label names onto Flare's schema (ADR-0236). Loki labels are flat identifiers; Flare keeps
@@ -90,15 +99,10 @@ internal sealed class LokiLabelResolver
         ["detected_level", "service_name", .. _resource.Keys.Where(k => k != "service_name").Order(StringComparer.Ordinal)];
 
     /// <param name="name">The LogQL label name.</param>
-    /// <param name="afterJson">True after a <c>| json</c> stage, where unknown names are body fields.</param>
-    /// <param name="jsonExpressions">Explicit <c>| json label="path"</c> mappings seen so far.</param>
-    public LokiLabel Resolve(string name, bool afterJson = false, IReadOnlyDictionary<string, string>? jsonExpressions = null)
+    /// <param name="parsers">The parser stages applied so far; once there is one, unknown names are body fields.</param>
+    public LokiLabel Resolve(string name, LokiParserKinds parsers = LokiParserKinds.None)
     {
-        if (jsonExpressions is not null && jsonExpressions.TryGetValue(name, out var path))
-        {
-            return new LokiLabel(LokiLabelKind.JsonField, path);
-        }
-
+        var afterParser = parsers != LokiParserKinds.None;
         switch (name)
         {
             case "service_name":
@@ -106,7 +110,7 @@ internal sealed class LokiLabelResolver
             case "detected_level":
                 return new LokiLabel(LokiLabelKind.Level, "");
             case "level":
-                return new LokiLabel(afterJson ? LokiLabelKind.LevelOrJson : LokiLabelKind.Level, "level");
+                return new LokiLabel(afterParser ? LokiLabelKind.LevelOrParsed : LokiLabelKind.Level, "level");
             case "severity_text":
                 return new LokiLabel(LokiLabelKind.SeverityText, "");
             case "scope_name":
@@ -115,8 +119,8 @@ internal sealed class LokiLabelResolver
                 return new LokiLabel(LokiLabelKind.TraceId, "");
             case "span_id":
                 return new LokiLabel(LokiLabelKind.SpanId, "");
-            case "__error__":
-                return new LokiLabel(LokiLabelKind.ParseError, afterJson ? "json" : "");
+            case "__error__" or "__error_details__":
+                return new LokiLabel(LokiLabelKind.ParseError, parsers.HasFlag(LokiParserKinds.Json) ? "json" : "");
         }
 
         if (_resource.TryGetValue(name, out var resourceKey))
@@ -129,10 +133,13 @@ internal sealed class LokiLabelResolver
             return new LokiLabel(LokiLabelKind.LogAttribute, logKey);
         }
 
-        return afterJson
-            ? new LokiLabel(LokiLabelKind.JsonField, name, Guessed: true)
+        return afterParser
+            ? new LokiLabel(LokiLabelKind.ParsedField, name)
             : new LokiLabel(LokiLabelKind.LogAttribute, name);
     }
+
+    /// <summary>True when <paramref name="name"/> is a resource or log attribute key seen in the window.</summary>
+    public bool IsKnownAttribute(string name) => _resource.ContainsKey(name) || _log.ContainsKey(name);
 
     /// <summary>The attribute label name an OTel key is exposed under.</summary>
     public static string LabelName(string attributeKey) => PromNames.Sanitize(attributeKey);
