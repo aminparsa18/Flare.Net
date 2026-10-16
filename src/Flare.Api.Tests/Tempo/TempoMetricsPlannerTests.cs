@@ -200,4 +200,35 @@ public class TempoMetricsPlannerTests
 
     [Fact]
     public void ANonCompareQuery_HasNoCompare() => Assert.Null(Plan("{ } | rate()").Compare);
+
+    [Theory]
+    [InlineData("~", TraceRelationKind.Sibling, false)]
+    [InlineData("!>", TraceRelationKind.Child, true)]
+    [InlineData("!>>", TraceRelationKind.Descendant, true)]
+    [InlineData("!~", TraceRelationKind.Sibling, true)]
+    public void TheOtherStructuralOperators_CountTheRightSpansetWithTheLeftAsTheRelatedSpan(string op, TraceRelationKind kind, bool negated)
+    {
+        var plan = Plan($$"""{ resource.service.name = "web" } {{op}} { name = "db.query" } | rate()""");
+
+        Assert.Equal("db.query", plan.Condition!.SpanName);
+        Assert.Equal("web", plan.Ancestor!.Condition.ServiceName);
+        Assert.Equal(kind, plan.Ancestor.Kind);
+        Assert.Equal(negated, plan.Ancestor.Negated);
+    }
+
+    [Theory]
+    [InlineData("&>>")]
+    [InlineData("&>")]
+    [InlineData("&~")]
+    public void UnionOperators_AreRejectedInAMetricsQuery_NamingTheOperator(string op) =>
+        Assert.Contains("union operator", Assert.Throws<TraceQlException>(() => Plan($$"""{ name = "a" } {{op}} { name = "b" } | rate()""")).Message);
+
+    [Fact]
+    public void AnEmptySideOfAnyRelation_IsAnySpan()
+    {
+        var plan = Plan("{ name = \"a\" } !~ { } | rate()");
+
+        Assert.Equal(0UL, plan.Condition!.MinDurationNano);
+        Assert.True(plan.Ancestor!.Negated);
+    }
 }

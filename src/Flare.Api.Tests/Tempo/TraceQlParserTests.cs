@@ -1,3 +1,4 @@
+using Flare.Api.Query;
 using Flare.Api.Tempo;
 using Xunit;
 
@@ -191,7 +192,7 @@ public class TraceQlParserTests
         var query = TraceQlParser.Parse("({ a = 1 } &>> { b = 2 }) || ({ c = 3 })");
 
         Assert.Equal("(A => B || C)", query.Expression);
-        Assert.Equal(new TraceQlUnionRelation('A', 'B'), Assert.Single(query.UnionDescendants));
+        Assert.Equal(new TraceQlRelation('A', 'B', TraceRelationKind.Descendant, false, true), Assert.Single(query.Relations));
     }
 
     [Fact]
@@ -251,4 +252,56 @@ public class TraceQlParserTests
 
         Assert.Single(query.Spanset.Predicates[0].Alternatives!);
     }
+
+    [Theory]
+    [InlineData("{ a = 1 } > { b = 2 }", "A -> B", false)]
+    [InlineData("{ a = 1 } >> { b = 2 }", "A => B", false)]
+    [InlineData("{ a = 1 } ~ { b = 2 }", "A ~ B", true)]
+    [InlineData("{ a = 1 } !> { b = 2 }", "A !-> B", true)]
+    [InlineData("{ a = 1 } !>> { b = 2 }", "A !=> B", true)]
+    [InlineData("{ a = 1 } !~ { b = 2 }", "A !~ B", true)]
+    [InlineData("{ a = 1 } &> { b = 2 }", "A -> B", true)]
+    [InlineData("{ a = 1 } &~ { b = 2 }", "A ~ B", true)]
+    [InlineData("{ a = 1 } &>> { b = 2 }", "A => B", true)]
+    public void StructuralOperators_BecomeTheStructureExpression_AndOnlyTheOnesThatListDifferentSpansAreRemembered(string traceQl, string expression, bool remembered)
+    {
+        var query = TraceQlParser.Parse(traceQl);
+
+        Assert.Equal(expression, query.Expression);
+        Assert.Equal(remembered ? 1 : 0, query.Relations.Count);
+    }
+
+    [Theory]
+    [InlineData("{ a = 1 } ~ { b = 2 }", TraceRelationKind.Sibling, false, false)]
+    [InlineData("{ a = 1 } !> { b = 2 }", TraceRelationKind.Child, true, false)]
+    [InlineData("{ a = 1 } !>> { b = 2 }", TraceRelationKind.Descendant, true, false)]
+    [InlineData("{ a = 1 } !~ { b = 2 }", TraceRelationKind.Sibling, true, false)]
+    [InlineData("{ a = 1 } &> { b = 2 }", TraceRelationKind.Child, false, true)]
+    [InlineData("{ a = 1 } &~ { b = 2 }", TraceRelationKind.Sibling, false, true)]
+    public void StructuralOperators_RememberKindNegationAndUnion(string traceQl, TraceRelationKind kind, bool negated, bool union) =>
+        Assert.Equal(new TraceQlRelation('A', 'B', kind, negated, union), Assert.Single(TraceQlParser.Parse(traceQl).Relations));
+
+    [Fact]
+    public void NotRegexInsideASpanset_IsStillThePatternOperator_NotTheNotSiblingOne()
+    {
+        var query = TraceQlParser.Parse("""{ name !~ "a.*" } !~ { name =~ "b" && span.x !~ "c" }""");
+
+        Assert.Equal("A !~ B", query.Expression);
+        Assert.Equal(TraceQlOp.Nre, Assert.Single(query.Spansets[0].Predicates).Op);
+        Assert.Equal(TraceQlOp.Nre, query.Spansets[1].Predicates[1].Op);
+    }
+
+    [Theory]
+    [InlineData("({ a = 1 } && { b = 2 }) ~ { c = 3 }")]
+    [InlineData("{ a = 1 } !> ({ b = 2 } || { c = 3 })")]
+    public void StructuralOperators_RelateSpansetsNotGroups(string traceQl) =>
+        Assert.Contains("not groups", Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(traceQl)).Message);
+
+    [Theory]
+    [InlineData("{ a = 1 } < { b = 2 }")]
+    [InlineData("{ a = 1 } <<  { b = 2 }")]
+    [InlineData("{ a = 1 } ~~ { b = 2 }")]
+    [InlineData("{ a = 1 } !! { b = 2 }")]
+    public void TheOtherDirectionsAndNonsense_AreStillRejected(string traceQl) =>
+        Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(traceQl));
 }

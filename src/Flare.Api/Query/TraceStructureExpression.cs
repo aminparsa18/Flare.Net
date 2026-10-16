@@ -6,13 +6,37 @@ public abstract record TraceStructureNode;
 /// <summary>A bare condition letter: the trace has a span matching it.</summary>
 public sealed record TraceStructureHas(char Condition) : TraceStructureNode;
 
+/// <summary>How two spans are related in a <see cref="TraceStructureRelation"/>.</summary>
+public enum TraceRelationKind
+{
+    /// <summary><c>-></c>: the right-hand span's parent is the left-hand span.</summary>
+    Child,
+
+    /// <summary><c>=></c>: the left-hand span is any ancestor of the right-hand span.</summary>
+    Descendant,
+
+    /// <summary><c>~</c>: the two spans have the same parent (two root spans of one trace are siblings, as in Tempo) and are not the same span.</summary>
+    Sibling,
+}
+
 /// <summary>
-/// <c>Parent -> Child</c> (<see cref="Direct"/>) or <c>Parent => Child</c>: some span
-/// matching <see cref="Child"/> is a direct child (or, for <c>=></c>, any descendant) of
-/// some span matching <see cref="Parent"/>. Never the same span, even when both conditions
-/// match it.
+/// <c>Left -> Right</c>, <c>Left => Right</c> or <c>Left ~ Right</c>: some span matching <see cref="Child"/> (the right-hand side) is a direct
+/// child of, a descendant of, or a sibling of some span matching <see cref="Parent"/> (the left-hand side). Never the same span, even when
+/// both conditions match it. With <see cref="Negated"/> (<c>!-></c>, <c>!=></c>, <c>!~</c>) it is some right-hand span that has <em>no</em> such
+/// left-hand span - one with no matching parent, ancestor or sibling at all, so a trace with no left-hand span matches whenever it has a
+/// right-hand one, as in Tempo.
 /// </summary>
-public sealed record TraceStructureRelation(char Parent, char Child, bool Direct) : TraceStructureNode;
+public sealed record TraceStructureRelation(char Parent, char Child, TraceRelationKind Kind, bool Negated = false) : TraceStructureNode
+{
+    /// <summary>Reads as the original two forms: <c>-></c> when <paramref name="direct"/>, else <c>=></c>.</summary>
+    public TraceStructureRelation(char parent, char child, bool direct)
+        : this(parent, child, direct ? TraceRelationKind.Child : TraceRelationKind.Descendant)
+    {
+    }
+
+    /// <summary>A direct-child relation (<see cref="TraceRelationKind.Child"/>).</summary>
+    public bool Direct => Kind == TraceRelationKind.Child;
+}
 
 public sealed record TraceStructureNot(TraceStructureNode Operand) : TraceStructureNode;
 
@@ -27,7 +51,7 @@ public sealed record TraceStructureOr(TraceStructureNode Left, TraceStructureNod
 /// or       := and (("OR" | "||") and)*
 /// and      := not (("AND" | "&amp;&amp;") not)*
 /// not      := ("NOT" | "!") not | relation
-/// relation := LETTER ("->" | "=>") LETTER | LETTER | "(" or ")"
+/// relation := LETTER ("->" | "=>" | "~" | "!->" | "!=>" | "!~") LETTER | LETTER | "(" or ")"
 /// </code>
 /// Keywords are case-insensitive, letters too (normalized to upper case). A relation's
 /// operands are single letters only - <c>A -> B -> C</c> is rejected rather than guessed
@@ -97,8 +121,7 @@ public static class TraceStructureExpression
     private enum TokenKind
     {
         Letter,
-        DirectChild,
-        Descendant,
+        Relation,
         And,
         Or,
         Not,
@@ -142,15 +165,19 @@ public static class TraceStructureExpression
                 continue;
             }
 
+            var three = i + 2 < expression.Length ? expression.Substring(i, 3) : string.Empty;
+            if (three is "!->" or "!=>")
+            {
+                tokens.Add(new Token(TokenKind.Relation, three));
+                i += 3;
+                continue;
+            }
+
             var two = i + 1 < expression.Length ? expression.Substring(i, 2) : string.Empty;
             switch (two)
             {
-                case "->":
-                    tokens.Add(new Token(TokenKind.DirectChild, two));
-                    i += 2;
-                    continue;
-                case "=>":
-                    tokens.Add(new Token(TokenKind.Descendant, two));
+                case "->" or "=>" or "!~":
+                    tokens.Add(new Token(TokenKind.Relation, two));
                     i += 2;
                     continue;
                 case "&&":
@@ -165,6 +192,9 @@ public static class TraceStructureExpression
 
             switch (c)
             {
+                case '~':
+                    tokens.Add(new Token(TokenKind.Relation, "~"));
+                    break;
                 case '!':
                     tokens.Add(new Token(TokenKind.Not, "!"));
                     break;
@@ -184,6 +214,27 @@ public static class TraceStructureExpression
         tokens.Add(new Token(TokenKind.End, "end of expression"));
         return tokens;
     }
+
+    private static (TraceRelationKind Kind, bool Negated) RelationOf(string op) => op switch
+    {
+        "->" => (TraceRelationKind.Child, false),
+        "=>" => (TraceRelationKind.Descendant, false),
+        "~" => (TraceRelationKind.Sibling, false),
+        "!->" => (TraceRelationKind.Child, true),
+        "!=>" => (TraceRelationKind.Descendant, true),
+        _ => (TraceRelationKind.Sibling, true),
+    };
+
+    /// <summary>The operator that writes <paramref name="kind"/> (negated or not) in this grammar.</summary>
+    public static string Operator(TraceRelationKind kind, bool negated) => (kind, negated) switch
+    {
+        (TraceRelationKind.Child, false) => "->",
+        (TraceRelationKind.Descendant, false) => "=>",
+        (TraceRelationKind.Sibling, false) => "~",
+        (TraceRelationKind.Child, true) => "!->",
+        (TraceRelationKind.Descendant, true) => "!=>",
+        _ => "!~",
+    };
 
     private static ArgumentException Error(string message) => new($"Invalid trace structure expression: {message}");
 
@@ -248,7 +299,7 @@ public static class TraceStructureExpression
 
                 case TokenKind.Letter:
                 {
-                    if (Peek.Kind is not (TokenKind.DirectChild or TokenKind.Descendant))
+                    if (Peek.Kind != TokenKind.Relation)
                     {
                         return new TraceStructureHas(token.Text[0]);
                     }
@@ -260,15 +311,16 @@ public static class TraceStructureExpression
                         throw Error($"'{op.Text}' needs a condition letter on each side.");
                     }
 
-                    if (Peek.Kind is TokenKind.DirectChild or TokenKind.Descendant)
+                    if (Peek.Kind == TokenKind.Relation)
                     {
                         throw Error($"Chains like 'A {op.Text} B {Peek.Text} C' aren't supported - write each pair separately, joined with AND.");
                     }
 
-                    return new TraceStructureRelation(token.Text[0], child.Text[0], op.Kind == TokenKind.DirectChild);
+                    var (kind, negated) = RelationOf(op.Text);
+                    return new TraceStructureRelation(token.Text[0], child.Text[0], kind, negated);
                 }
 
-                case TokenKind.DirectChild or TokenKind.Descendant:
+                case TokenKind.Relation:
                     throw Error($"'{token.Text}' needs a condition letter on each side.");
 
                 case TokenKind.End:

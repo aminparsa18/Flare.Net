@@ -55,15 +55,21 @@ public sealed record TraceQlSpanset(IReadOnlyList<TraceQlPredicate> Predicates);
 /// <param name="Expression">The structural expression over the spansets' letters (<c>A -&gt; B</c>, <c>A &amp;&amp; B</c>...), in <see cref="Query.TraceStructureExpression"/>'s grammar.</param>
 /// <param name="Select">The fields of a <c>| select(...)</c> stage as written (<c>status</c>, <c>nestedSetLeft</c>, <c>resource.service.name</c>, <c>event.exception.message</c>...); empty if none.</param>
 /// <param name="UnionDescendants">The <c>{ a } &amp;&amp;&gt;&gt; { b }</c> relations (ADR-0227), whose spans of both sides are returned, not just the right-hand ones.</param>
-public sealed record TraceQlQuery(IReadOnlyList<TraceQlSpanset> Spansets, string Expression, IReadOnlyList<string>? Select = null, IReadOnlyList<TraceQlUnionRelation>? UnionDescendants = null)
+public sealed record TraceQlQuery(IReadOnlyList<TraceQlSpanset> Spansets, string Expression, IReadOnlyList<string>? Select = null, IReadOnlyList<TraceQlRelation>? Relations = null)
 {
     public IReadOnlyList<string> Select { get; } = Select ?? [];
 
-    public IReadOnlyList<TraceQlUnionRelation> UnionDescendants { get; } = UnionDescendants ?? [];
+    public IReadOnlyList<TraceQlRelation> Relations { get; } = Relations ?? [];
 }
 
-/// <summary>A <c>&amp;&gt;&gt;</c> between two spansets, by their letters in <see cref="TraceQlQuery.Expression"/>: the ancestor side and the descendant side.</summary>
-public readonly record struct TraceQlUnionRelation(char Ancestor, char Descendant);
+/// <summary>
+/// A structural operator between two spansets, by their letters in <see cref="TraceQlQuery.Expression"/>. <see cref="Union"/> is Tempo's
+/// <c>&amp;&gt;&gt;</c>, <c>&amp;&gt;</c> and <c>&amp;~</c>, which return the spans of both sides; <see cref="Negated"/> is <c>!&gt;&gt;</c>,
+/// <c>!&gt;</c> and <c>!~</c>, which return the right-hand spans that are <em>not</em> related; the plain <c>&gt;&gt;</c>, <c>&gt;</c> and <c>~</c>
+/// return the right-hand spans that are. Only the operators whose result differs from "the spans matching any condition" are kept here
+/// (a plain <c>&gt;</c> and <c>&gt;&gt;</c> are not).
+/// </summary>
+public readonly record struct TraceQlRelation(char Left, char Right, Query.TraceRelationKind Kind, bool Negated, bool Union);
 
 /// <summary>The metrics functions a TraceQL metrics query can apply to a spanset (ADR-0221).</summary>
 public enum TraceQlMetricsFunction
@@ -121,11 +127,15 @@ public sealed record TraceQlFilter(TraceQlComparison Op, double Value) : TraceQl
 /// <param name="CompareTopN">The values kept per attribute by <c>compare()</c>, 10 unless the query says.</param>
 /// <param name="CompareStartNanos">With <paramref name="CompareEndNanos"/>: only spans that started in this window (unix nanoseconds, start exclusive, end inclusive) can be in the selection.</param>
 /// <param name="Ancestor">For <c>{ a } &gt;&gt; { b } | rate()</c>, the left spanset <c>{ a }</c>: <see cref="Spanset"/> (the right one) counts only spans that have a span matching it above them (ADR-0225). Null for a plain spanset.</param>
-/// <param name="AncestorDirect">True for <c>&gt;</c> (the matching span is the parent), false for <c>&gt;&gt;</c> (any ancestor).</param>
+/// <param name="AncestorKind"><c>&gt;</c> (the matching span is the parent), <c>&gt;&gt;</c> (any ancestor) or <c>~</c> (a sibling); with <paramref name="AncestorNegated"/> the counted spans are the ones with no such span (<c>!&gt;</c>, <c>!&gt;&gt;</c>, <c>!~</c>).</param>
+/// <param name="AncestorNegated">See <paramref name="AncestorKind"/>.</param>
 /// <param name="ValueField">What <c>avg_over_time</c> and the other value functions aggregate, as written: <c>span.x</c>, <c>resource.x</c> or <c>.x</c> for a numeric attribute (ADR-0222); null is <c>duration</c> (and for <c>rate</c> and <c>count_over_time</c>, which take no argument).</param>
-public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, IReadOnlyList<TraceQlMetricsStage>? Stages = null, bool Exemplars = false, TraceQlSpanset? Ancestor = null, bool AncestorDirect = false,
-    TraceQlSpanset? CompareSelection = null, int CompareTopN = TraceQlParser.DefaultCompareTopN, ulong? CompareStartNanos = null, ulong? CompareEndNanos = null)
+public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, IReadOnlyList<TraceQlMetricsStage>? Stages = null, bool Exemplars = false, TraceQlSpanset? Ancestor = null, Query.TraceRelationKind AncestorKind = Query.TraceRelationKind.Descendant,
+    TraceQlSpanset? CompareSelection = null, int CompareTopN = TraceQlParser.DefaultCompareTopN, ulong? CompareStartNanos = null, ulong? CompareEndNanos = null, bool AncestorNegated = false)
 {
+    /// <summary>True for <c>&gt;</c> (the matching span is the parent).</summary>
+    public bool AncestorDirect => AncestorKind == Query.TraceRelationKind.Child;
+
     public IReadOnlyList<TraceQlMetricsStage> Stages { get; } = Stages ?? [];
 
     /// <summary>The function's TraceQL name, which is also the <c>__name__</c> of its series.</summary>
@@ -214,24 +224,41 @@ public static class TraceQlParser
         var parser = new Parser(Tokenize(query!), allowPipe: true);
         var spansets = new List<TraceQlSpanset>();
         var expression = parser.ParseOr(spansets);
-        if (parser.Unions.Count > 0)
+        if (parser.Relations.Any(r => r.Union))
         {
-            throw new TraceQlException("'&>>' (union descendant) returns the spans of both sides, which a metrics query has no use for; use >> in a metrics query.");
+            throw new TraceQlException("a union operator (&>>, &> or &~) returns the spans of both sides, which a metrics query has no use for; use >>, > or ~ in a metrics query.");
         }
 
         if (spansets.Count == 1 && expression == "A")
         {
-            return parser.ParseMetricsStage(spansets[0], null, false);
+            return parser.ParseMetricsStage(spansets[0], null, Query.TraceRelationKind.Descendant, false);
         }
 
-        // One structural relation, whose right-hand spans are the ones counted (ADR-0225).
-        if (spansets.Count == 2 && expression is "A -> B" or "A => B")
+        // One structural relation, whose right-hand spans are the ones counted (ADR-0225, ADR-0231).
+        if (spansets.Count == 2 && TraceStructureRelationOf(expression) is { } relation)
         {
-            return parser.ParseMetricsStage(spansets[1], spansets[0], expression == "A -> B");
+            return parser.ParseMetricsStage(spansets[1], spansets[0], relation.Kind, relation.Negated);
         }
 
         throw new TraceQlException(
             "a metrics query takes one spanset, e.g. { status = error } | rate(), or one structural relation, e.g. { name = \"a\" } >> { name = \"b\" } | rate(); combining spansets with && or || is not supported.");
+    }
+
+    /// <summary>The relation of the expression <c>A &lt;op&gt; B</c> exactly, or null when it is anything else.</summary>
+    private static (Query.TraceRelationKind Kind, bool Negated)? TraceStructureRelationOf(string expression)
+    {
+        foreach (var kind in Enum.GetValues<Query.TraceRelationKind>())
+        {
+            foreach (var negated in new[] { false, true })
+            {
+                if (expression == $"A {Query.TraceStructureExpression.Operator(kind, negated)} B")
+                {
+                    return (kind, negated);
+                }
+            }
+        }
+
+        return null;
     }
 
     public static TraceQlQuery Parse(string? query)
@@ -251,7 +278,7 @@ public static class TraceQlParser
             throw new TraceQlException($"a query can combine at most {Query.TraceStructureSqlBuilder.MaxConditions} spansets.");
         }
 
-        return new TraceQlQuery(spansets, expression, select, parser.Unions);
+        return new TraceQlQuery(spansets, expression, select, parser.Relations);
     }
 
     /// <summary>
@@ -343,15 +370,15 @@ public static class TraceQlParser
                     continue;
             }
 
-            if (c == '&' && string.CompareOrdinal(text, i, "&>>", 0, 3) == 0)
+            if (c is '&' or '!' && string.CompareOrdinal(text, i + 1, ">>", 0, 2) == 0)
             {
-                tokens.Add(new Token(TokenKind.Operator, "&>>", i));
+                tokens.Add(new Token(TokenKind.Operator, text.Substring(i, 3), i));
                 i += 3;
                 continue;
             }
 
             var two = i + 1 < text.Length ? text.AsSpan(i, 2) : default;
-            if (two is "&&" or "||" or "!=" or "=~" or "!~" or ">=" or "<=" or ">>")
+            if (two is "&&" or "||" or "!=" or "=~" or "!~" or ">=" or "<=" or ">>" or "&>" or "&~" or "!>")
             {
                 // "|" alone starts a pipeline stage; "||" is the boolean operator, so the two-char check comes first.
                 tokens.Add(new Token(TokenKind.Operator, two.ToString(), i));
@@ -359,7 +386,7 @@ public static class TraceQlParser
                 continue;
             }
 
-            if (c is '=' or '>' or '<')
+            if (c is '=' or '>' or '<' or '~')
             {
                 tokens.Add(new Token(TokenKind.Operator, c.ToString(), i++));
                 continue;
@@ -424,9 +451,10 @@ public static class TraceQlParser
     {
         private int _pos;
 
-        private readonly List<TraceQlUnionRelation> _unions = [];
+        private readonly List<TraceQlRelation> _relations = [];
 
-        public IReadOnlyList<TraceQlUnionRelation> Unions => _unions;
+        /// <summary>The structural operators written whose result is not just "the spans matching any condition": every union, negated and sibling operator (plain <c>&gt;</c> and <c>&gt;&gt;</c> are not kept).</summary>
+        public IReadOnlyList<TraceQlRelation> Relations => _relations;
 
         public bool AtEnd => Peek.Kind == TokenKind.End;
 
@@ -533,7 +561,7 @@ public static class TraceQlParser
         }
 
         /// <summary>The <c>| function(...) [by (...)] [with (...)]</c> after the spanset of a metrics query.</summary>
-        public TraceQlMetricsQuery ParseMetricsStage(TraceQlSpanset spanset, TraceQlSpanset? ancestor, bool ancestorDirect)
+        public TraceQlMetricsQuery ParseMetricsStage(TraceQlSpanset spanset, TraceQlSpanset? ancestor, Query.TraceRelationKind ancestorKind, bool ancestorNegated)
         {
             if (Peek.Kind != TokenKind.Pipe)
             {
@@ -654,7 +682,7 @@ public static class TraceQlParser
                 throw Unexpected(Peek);
             }
 
-            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorDirect, selection, topN, selectionStart, selectionEnd);
+            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorKind, selection, topN, selectionStart, selectionEnd, ancestorNegated);
         }
 
         /// <summary>
@@ -900,29 +928,41 @@ public static class TraceQlParser
         private string ParseRelation(List<TraceQlSpanset> spansets)
         {
             var left = ParseOperand(spansets);
-            if (!IsOperator(">") && !IsOperator(">>") && !IsOperator("&>>"))
+            if (!(Peek.Kind == TokenKind.Operator && RelationOperators.TryGetValue(Peek.Text, out var op)))
             {
                 return left;
             }
 
-            var direct = Peek.Text == ">";
-            var union = Peek.Text == "&>>";
             _pos++;
             var right = ParseOperand(spansets);
             // The structure expression only relates single conditions, so both sides must be spansets, not groups.
             if (left.Length != 1 || right.Length != 1)
             {
-                throw new TraceQlException("a structural operator (> , >> or &>>) relates two spansets, not groups of them.");
+                throw new TraceQlException("a structural operator (> , >> , ~ , !> , !>> , !~ , &> , &>> or &~) relates two spansets, not groups of them.");
             }
 
-            // Whether a trace has such a pair is the same question as for >>; which spans the result lists is what differs.
-            if (union)
+            // Whether a trace has such a pair is the same question as for the plain operator; which spans the result lists is what differs.
+            if (op.Union || op.Negated || op.Kind == Query.TraceRelationKind.Sibling)
             {
-                _unions.Add(new TraceQlUnionRelation(left[0], right[0]));
+                _relations.Add(new TraceQlRelation(left[0], right[0], op.Kind, op.Negated, op.Union));
             }
 
-            return $"{left} {(direct ? "->" : "=>")} {right}";
+            return $"{left} {Query.TraceStructureExpression.Operator(op.Kind, op.Negated)} {right}";
         }
+
+        /// <summary>Tempo's structural operators; a union one asks whether the plain relation holds and lists the spans of both sides.</summary>
+        private static readonly Dictionary<string, (Query.TraceRelationKind Kind, bool Negated, bool Union)> RelationOperators = new(StringComparer.Ordinal)
+        {
+            [">"] = (Query.TraceRelationKind.Child, false, false),
+            [">>"] = (Query.TraceRelationKind.Descendant, false, false),
+            ["~"] = (Query.TraceRelationKind.Sibling, false, false),
+            ["!>"] = (Query.TraceRelationKind.Child, true, false),
+            ["!>>"] = (Query.TraceRelationKind.Descendant, true, false),
+            ["!~"] = (Query.TraceRelationKind.Sibling, true, false),
+            ["&>"] = (Query.TraceRelationKind.Child, false, true),
+            ["&>>"] = (Query.TraceRelationKind.Descendant, false, true),
+            ["&~"] = (Query.TraceRelationKind.Sibling, false, true),
+        };
 
         private string ParseOperand(List<TraceQlSpanset> spansets)
         {

@@ -112,8 +112,10 @@ datasources:
 | Tempo 带作用域的内置字段，写法与 Tempo 文档一致：`span:duration`、`span:name`、`span:status`、`span:kind`、`trace:duration`、`trace:rootName`、`trace:rootService`、`event:name` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
 | Tempo 带作用域的内置字段，用于标识符、插桩范围、链接与事件：`span:id`、`span:parentID`、`trace:id`、`instrumentation:name`、`instrumentation:version`、`link:spanID`、`link:traceID`（`=`、`!=`、`=~`、`!~`、`= nil`；较短的十六进制标识符会在左侧补零，针对链接的测试在任一链接满足时成立）以及 `event:timeSinceStart`（时长，可用 `=`、`!=`、`>`、`>=`、`<`、`<=` 比较） | `{ trace:id = "5b8efff798038103d269b633813fc60c" && link:spanID != nil }` |
 | 同一字段的多个值，`(f = a \|\| f = b)`，在 Grafana 的 Search 选项卡中选了多个值时就会生成这种写法：服务、span 名称、状态、span 类型（二至四个）、属性、`rootName`、`rootServiceName`、标识符（以及 `f != a && f != b`） | `{ (resource.service.name = "api" \|\| resource.service.name = "web") && (name != "GET /health" && name != "GET /ready") }` |
-| 组合 spanset：`&&`、`\|\|`、子级 `>`、后代 `>>`。`>`、`>>` 或 `&>>` 旁边的空 `{ }` 表示任意 span | `{ resource.service.name = "checkout" } >> { status = error }` |
-| `&>>`，两侧的 span：右侧有匹配祖先的 span，以及左侧有匹配后代的 span | `{ nestedSetParent < 0 } &>> { kind = server }` |
+| 组合 spanset：`&&`、`\|\|`、子级 `>`、后代 `>>`。结构运算符旁边的空 `{ }` 表示任意 span | `{ resource.service.name = "checkout" } >> { status = error }` |
+| `&>>`、`&>` 和 `&~`，两侧的 span：右侧有匹配祖先（父级、同级）的 span，以及左侧有这样一个右侧 span 的 span | `{ nestedSetParent < 0 } &>> { kind = server }` |
+| `~`，右侧有匹配左侧的同级 span（同一父级，不含自身；一个追踪的两个根 span 互为同级，与 Tempo 一致）的 span | `{ name = "GET /a" } ~ { name = "GET /b" }` |
+| `!>`、`!>>` 和 `!~`，右侧**没有**匹配的父级、祖先或同级的 span；没有匹配左侧 span 的追踪会列出它所有匹配的右侧 span | `{ name = "cache.get" } !>> { name = "db.query" }` |
 | 不带作用域的属性 | `{ .service.name = "api" }` |
 | 根 span：`nestedSetParent < 0`（`> 0` 表示有父 span 的 span） | `{ nestedSetParent < 0 && status = error }` |
 | 已设置的属性 `!= nil`，或未设置 `= nil` | `{ resource.k8s.pod.name != nil }` |
@@ -121,7 +123,7 @@ datasources:
 | 事件属性 `event.x`：当 span 的某个事件匹配时，该 span 匹配 | `{ status = error && event.exception.type = "TimeoutException" }` |
 | 查询之后的 `\| select(...)`，为每个列出的 span 附加字段：`name`、`status`、`statusMessage`、`kind`、`duration`、`rootName`、`rootServiceName`、`traceDuration`、`nestedSetParent`、`nestedSetLeft`、`nestedSetRight`、`span.x`、`resource.x`、`.x`、`event.x`（最多 20 个），以及 `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内除同一字段的 `=` 测试之外的 `||`、作为过滤条件的 `statusMessage`、指标查询中的 `&>>`，以及两个字段之间的比较。
+搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内除同一字段的 `=` 测试之外的 `||`、作为过滤条件的 `statusMessage`、`<`、`<<` 及其否定与并集形式、指标查询中的并集运算符，以及两个字段之间的比较。
 
 `nestedSetLeft`、`nestedSetRight` 和 `nestedSetParent` 按 Tempo 的方式给追踪中的 span 编号：深度优先遍历，span 的左编号是进入它时的下一个数字，右编号是离开它时的下一个数字，因此一个 span 在另一个之下，当且仅当它的编号落在另一个的编号之内；父编号是父 span 的左编号，根为 -1。父 span 从未被摄入的 span 按根编号。编号最多读取每条追踪的 2,000 个 span。
 
@@ -143,7 +145,7 @@ datasources:
 
 函数之后的各阶段从左到右依次执行。`| topk(5)` 或 `| bottomk(5)` 会在每一步保留值最大（最小）的五条序列：`{ kind = server } | rate() by (span.http.route) | topk(5)`。比较（`=`、`!=`、`<`、`<=`、`>`、`>=` 加一个普通数字）会丢弃不满足条件的样本，以及一个样本也不剩的序列：`| rate() by (name) > 5`。数字使用函数的单位，持续时间就是秒。顺序很重要：`| rate() > 0 | topk(5)` 只对非零样本排名，`| topk(5) > 10` 会丢掉值低于 10 的胜出者。
 
-**关系。** `{ a } >> { b } | rate()` 统计上方有 `a` span 的 `b` span，`{ a } > { b }` 统计父 span 是 `a` span 的那些。`{ resource.service.name = "web" } >> { name = "db.query" } | quantile_over_time(duration, .95)` 就是由 `web` span 引出的数据库查询的延迟。
+**关系。** `{ a } >> { b } | rate()` 统计上方有 `a` span 的 `b` span，`{ a } > { b }` 统计父 span 是 `a` span 的那些。`{ resource.service.name = "web" } >> { name = "db.query" } | quantile_over_time(duration, .95)` 就是由 `web` span 引出的数据库查询的延迟。`~` 统计有 `a` 同级 span 的 `b` span，`!>`、`!>>` 和 `!~` 统计没有 `a` 父级、祖先或同级的 `b` span（没有 `a` span 的追踪中的所有 `b` span）：`{ name = "cache.get" } !>> { name = "db.query" } | count_over_time()`。
 
 **追踪字段。** `rootName`、`rootServiceName` 和 `traceDuration` 把查询限制在根 span 符合条件的追踪的 span 上：`{ rootName = "GET /checkout" && name = "db.query" } | rate()`。它们不能和关系组合使用。
 

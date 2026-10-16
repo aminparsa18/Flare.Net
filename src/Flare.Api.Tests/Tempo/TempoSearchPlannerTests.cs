@@ -1,4 +1,5 @@
 using Flare.Api.Model;
+using Flare.Api.Query;
 using Flare.Api.Tempo;
 using Xunit;
 
@@ -324,7 +325,7 @@ public class TempoSearchPlannerTests
         var plan = Plan("({ nestedSetParent < 0 && true } &>> { kind = server }) || ({ nestedSetParent < 0 && true })");
 
         Assert.Equal("(A => B || C)", plan.Structure!.Expression);
-        Assert.Equal(new TraceQlUnionRelation('A', 'B'), Assert.Single(plan.UnionDescendants));
+        Assert.Equal(new TraceQlRelation('A', 'B', TraceRelationKind.Descendant, false, true), Assert.Single(plan.Relations));
         Assert.True(plan.UsesSelector);
         Assert.True(plan.NeedsWholeTrace);
         Assert.Equal(["A", "B", "C"], plan.Conditions.Select(c => c.Name));
@@ -601,4 +602,45 @@ public class TempoSearchPlannerTests
     [InlineData("{ event:timeSinceStart = 1ms || event:timeSinceStart = 2ms }", "not 'event:timeSinceStart'")]
     public void EventTimeSinceStart_RejectsWhatIsNotADurationComparison(string traceQl, string message) =>
         Assert.Contains(message, Assert.Throws<TraceQlException>(() => Plan(traceQl)).Message);
+
+    [Theory]
+    [InlineData("{ a = 1 } ~ { b = 2 }")]
+    [InlineData("{ a = 1 } !> { b = 2 }")]
+    [InlineData("{ a = 1 } !>> { b = 2 }")]
+    [InlineData("{ a = 1 } !~ { b = 2 }")]
+    [InlineData("{ a = 1 } &> { b = 2 }")]
+    [InlineData("{ a = 1 } &~ { b = 2 }")]
+    public void NewStructuralOperators_UseTheSelectorAndNeedTheWholeTrace(string traceQl)
+    {
+        var plan = Plan(traceQl.Replace("a = 1", "span.a = 1").Replace("b = 2", "span.b = 2"));
+
+        Assert.True(plan.UsesSelector);
+        Assert.True(plan.NeedsWholeTrace);
+        Assert.Single(plan.Relations);
+        Assert.Equal(["A", "B"], plan.Conditions.Select(c => c.Name));
+    }
+
+    [Fact]
+    public void PlainChildAndDescendant_StayOnTheMatchedSpansQuery()
+    {
+        Assert.False(Plan("{ span.a = 1 } > { span.b = 2 }").UsesSelector);
+        Assert.False(Plan("{ span.a = 1 } >> { span.b = 2 }").UsesSelector);
+    }
+
+    [Theory]
+    [InlineData("{ } ~ { name = \"x\" }", "A ~ B")]
+    [InlineData("{ name = \"x\" } !> { }", "A !-> B")]
+    [InlineData("{ } !>> { name = \"x\" }", "A !=> B")]
+    [InlineData("{ name = \"x\" } &~ { }", "A ~ B")]
+    public void AnEmptySpanset_NextToAnyStructuralOperator_IsAnySpan(string traceQl, string expression)
+    {
+        var plan = Plan(traceQl);
+
+        Assert.Equal(expression, plan.Structure!.Expression);
+        Assert.Contains(plan.Conditions, c => c.MinDurationNano == 0);
+    }
+
+    [Fact]
+    public void AnEmptySpanset_NextToABooleanOperatorIsStillAnError() =>
+        Assert.Contains("structural operator", Assert.Throws<TraceQlException>(() => Plan("{ } && { name = \"x\" }")).Message);
 }

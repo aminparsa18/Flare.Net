@@ -65,24 +65,32 @@ public static class TraceStructureSqlBuilder
             matches[letter] = ConditionMatch(condition, letter, parameters, promoted);
         }
 
-        var parents = new HashSet<char>();
-        var children = new HashSet<char>();
-        var hasDescendant = false;
-        CollectRelations(expression, parents, children, ref hasDescendant);
+        var relations = new List<TraceStructureRelation>();
+        CollectRelations(expression, relations);
+        var parents = relations.Select(r => r.Parent).ToHashSet();
+        var children = relations.Select(r => r.Child).ToHashSet();
+        var hasDescendant = relations.Any(r => r.Kind == TraceRelationKind.Descendant);
 
         var aliases = new List<string>();
         foreach (var (letter, match) in matches)
         {
             aliases.Add($"countIf({match}) > 0 AS h{letter}");
-            if (parents.Contains(letter))
+            if (parents.Contains(letter) && relations.Any(r => r.Parent == letter && r.Kind != TraceRelationKind.Sibling))
             {
                 aliases.Add($"groupArrayIf({SpanHash}, {match}) AS s{letter}");
             }
 
-            if (children.Contains(letter))
+            if (children.Contains(letter) && relations.Any(r => r.Child == letter && r.Kind != TraceRelationKind.Sibling)
+                || relations.Any(r => r.Kind == TraceRelationKind.Sibling && r.Parent == letter))
             {
                 aliases.Add($"groupArrayIf({ParentHash}, {match}) AS p{letter}");
             }
+        }
+
+        // A sibling test is made per right-hand span, which also has to know whether it is itself a left-hand span: it is not its own sibling.
+        foreach (var (left, right) in relations.Where(r => r.Kind == TraceRelationKind.Sibling).Select(r => (r.Parent, r.Child)).Distinct())
+        {
+            aliases.Add($"groupArrayIf(({ParentHash}, toUInt8({matches[left]})), {matches[right]}) AS b{left}{right}");
         }
 
         var window = "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}";
@@ -198,17 +206,47 @@ public static class TraceStructureSqlBuilder
     private static string ExpressionSql(TraceStructureNode node, bool exact, bool positive) => node switch
     {
         TraceStructureHas has => $"h{has.Condition}",
-        TraceStructureRelation { Direct: true } r => DirectChildSql(r),
-        TraceStructureRelation r when exact =>
-            $"({DirectChildSql(r)} OR arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), acc.2 OR hasAny(acc.1, s{r.Parent})), " +
-            $"range(least({MaxWalkDepth}, length(allS))), (p{r.Child}, false)).2)",
-        TraceStructureRelation r when positive => $"(h{r.Parent} AND h{r.Child})",
-        TraceStructureRelation r => DirectChildSql(r),
+        TraceStructureRelation r => RelationSql(r, exact, positive),
         TraceStructureNot not => $"NOT {ExpressionSql(not.Operand, exact, !positive)}",
         TraceStructureAnd and => $"({ExpressionSql(and.Left, exact, positive)} AND {ExpressionSql(and.Right, exact, positive)})",
         TraceStructureOr or => $"({ExpressionSql(or.Left, exact, positive)} OR {ExpressionSql(or.Right, exact, positive)})",
         _ => throw new InvalidOperationException($"Unknown node {node.GetType().Name}."),
     };
+
+    /// <summary>
+    /// One relation over the per-trace aliases: whether some right-hand span (<c>Child</c>) has a left-hand one (<c>Parent</c>) related to it as
+    /// <see cref="TraceStructureRelation.Kind"/> says, or - negated - has none. Children, siblings and their negations are exact in stage 1.
+    /// A descendant test needs the spans in between, so stage 1 (<paramref name="exact"/> false) uses a bound that can only err towards
+    /// keeping a trace: <c>hA AND hB</c> for <c>=></c> (the direct-child test, a sub-case, when negated); for <c>!=></c> <c>hB</c>
+    /// (some right-hand span exists) in a positive position and false in a negated one.
+    /// </summary>
+    private static string RelationSql(TraceStructureRelation r, bool exact, bool positive)
+    {
+        switch (r.Kind)
+        {
+            case TraceRelationKind.Child:
+                return r.Negated ? $"arrayExists(p -> NOT has(s{r.Parent}, p), p{r.Child})" : DirectChildSql(r);
+            case TraceRelationKind.Sibling:
+            {
+                var sibling = $"arrayExists(b -> if(b.2 = 1, countEqual(p{r.Parent}, b.1) >= 2, has(p{r.Parent}, b.1)), b{r.Parent}{r.Child})";
+                return r.Negated ? $"arrayExists(b -> NOT if(b.2 = 1, countEqual(p{r.Parent}, b.1) >= 2, has(p{r.Parent}, b.1)), b{r.Parent}{r.Child})" : sibling;
+            }
+        }
+
+        if (!r.Negated)
+        {
+            return exact
+                ? $"({DirectChildSql(r)} OR arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), acc.2 OR hasAny(acc.1, s{r.Parent})), " +
+                  $"range(least({MaxWalkDepth}, length(allS))), (p{r.Child}, false)).2)"
+                : positive ? $"(h{r.Parent} AND h{r.Child})" : DirectChildSql(r);
+        }
+
+        // Not a descendant: some right-hand span whose chain of ancestors holds no left-hand span. The fold keeps, per right-hand span, whether it has met one.
+        return exact
+            ? "arrayExists(f -> f = 0, arrayFold((acc, x) -> (arrayMap(h -> if(h = 0, toUInt64(0), allP[indexOf(allS, h)]), acc.1), " +
+              $"arrayMap((h, f) -> f OR has(s{r.Parent}, h), acc.1, acc.2)), range(least({MaxWalkDepth}, length(allS))), (p{r.Child}, arrayMap(x -> toUInt8(0), p{r.Child}))).2)"
+            : positive ? $"h{r.Child}" : "0";
+    }
 
     private static string DirectChildSql(TraceStructureRelation r) => $"hasAny(s{r.Parent}, p{r.Child})";
 
@@ -221,25 +259,23 @@ public static class TraceStructureSqlBuilder
         _ => false,
     };
 
-    private static void CollectRelations(TraceStructureNode node, HashSet<char> parents, HashSet<char> children, ref bool hasDescendant)
+    private static void CollectRelations(TraceStructureNode node, List<TraceStructureRelation> relations)
     {
         switch (node)
         {
             case TraceStructureRelation relation:
-                parents.Add(relation.Parent);
-                children.Add(relation.Child);
-                hasDescendant |= !relation.Direct;
+                relations.Add(relation);
                 break;
             case TraceStructureNot not:
-                CollectRelations(not.Operand, parents, children, ref hasDescendant);
+                CollectRelations(not.Operand, relations);
                 break;
             case TraceStructureAnd and:
-                CollectRelations(and.Left, parents, children, ref hasDescendant);
-                CollectRelations(and.Right, parents, children, ref hasDescendant);
+                CollectRelations(and.Left, relations);
+                CollectRelations(and.Right, relations);
                 break;
             case TraceStructureOr or:
-                CollectRelations(or.Left, parents, children, ref hasDescendant);
-                CollectRelations(or.Right, parents, children, ref hasDescendant);
+                CollectRelations(or.Left, relations);
+                CollectRelations(or.Right, relations);
                 break;
         }
     }

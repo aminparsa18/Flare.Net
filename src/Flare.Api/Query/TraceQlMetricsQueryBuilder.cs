@@ -44,10 +44,21 @@ public sealed record SpanGroupBy(string Label, SpanGroupKind Kind, SpanAttribute
 public sealed record SpanValueAttribute(string Label, SpanAttributeBag Bag, string Key);
 
 /// <summary>
-/// The left side of <c>{ a } &gt;&gt; { b }</c> (ADR-0225): the counted spans must have a span matching <see cref="Condition"/> above them,
-/// as their parent when <see cref="Direct"/>, as any ancestor otherwise.
+/// The left side of <c>{ a } &gt;&gt; { b }</c> (ADR-0225, ADR-0231): the counted spans must have a span matching <see cref="Condition"/> related to them as
+/// <see cref="Kind"/> says - as their parent, as any ancestor, or as a sibling - or, with <see cref="Negated"/>, have no such span (a trace with
+/// no span matching <see cref="Condition"/> then counts all its spans matching the right-hand condition, as Tempo's <c>!&gt;</c>, <c>!&gt;&gt;</c> and <c>!~</c>).
 /// </summary>
-public sealed record SpanAncestor(TraceSpanCondition Condition, bool Direct);
+public sealed record SpanAncestor(TraceSpanCondition Condition, TraceRelationKind Kind, bool Negated = false)
+{
+    /// <summary>As the original two forms: the parent when <paramref name="Direct"/>, else any ancestor.</summary>
+    public SpanAncestor(TraceSpanCondition condition, bool Direct)
+        : this(condition, Direct ? TraceRelationKind.Child : TraceRelationKind.Descendant)
+    {
+    }
+
+    /// <summary>True for a direct parent (<see cref="TraceRelationKind.Child"/>).</summary>
+    public bool Direct => Kind == TraceRelationKind.Child;
+}
 
 /// <summary>
 /// What a query says about the trace's root span (<c>rootServiceName</c>, <c>rootName</c>, <c>traceDuration</c>, ADR-0225): the counted
@@ -369,14 +380,28 @@ public static class TraceQlMetricsQueryBuilder
         return $"TraceId GLOBAL IN (SELECT TraceId FROM spans WHERE {string.Join(" AND ", clauses)}{ServiceScope.Suffix(parameters)})";
     }
 
-    /// <summary>The counted spans that have a span matching <paramref name="ancestor"/> above them (ADR-0225), as a restriction on <c>(TraceId, SpanId)</c>.</summary>
+    /// <summary>
+    /// The counted spans that stand in <paramref name="ancestor"/>'s relation to a span matching its condition (ADR-0225, ADR-0231), as a restriction
+    /// on the span: a parent or ancestor above it, a sibling beside it, or, negated, none of them.
+    /// </summary>
     private static string AncestorClause(SpanAncestor ancestor, TraceSpanCondition span, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
     {
         var above = TraceStructureSqlBuilder.ConditionMatch(ancestor.Condition, 'P', parameters, promoted);
         var scope = ServiceScope.Suffix(parameters);
-        if (ancestor.Direct)
+        var inside = ancestor.Negated ? "GLOBAL NOT IN" : "GLOBAL IN";
+        switch (ancestor.Kind)
         {
-            return $"(TraceId, ParentSpanId) GLOBAL IN (SELECT TraceId, SpanId FROM spans WHERE {LookbackWindow} AND {above}{scope})";
+            case TraceRelationKind.Child:
+                return $"(TraceId, ParentSpanId) {inside} (SELECT TraceId, SpanId FROM spans WHERE {LookbackWindow} AND {above}{scope})";
+            case TraceRelationKind.Sibling:
+            {
+                // Another span with the same parent: with one matching span under a parent that is the answer for a span that does not itself match,
+                // with two for one that does (it is not its own sibling). Two roots of a trace are siblings, as in Tempo.
+                var parents = $"SELECT TraceId, ParentSpanId FROM spans WHERE {LookbackWindow} AND {above}{scope}";
+                var clause = $"((TraceId, ParentSpanId) GLOBAL IN ({parents} GROUP BY TraceId, ParentSpanId HAVING count() >= 2) " +
+                    $"OR (NOT ({above}) AND (TraceId, ParentSpanId) GLOBAL IN ({parents})))";
+                return ancestor.Negated ? $"NOT {clause}" : clause;
+            }
         }
 
         // The ancestor walk, one level per step, as the structure builder's descendant test does; a span that is its own match is not its own ancestor.
@@ -384,7 +409,7 @@ public static class TraceQlMetricsQueryBuilder
         var spanHash = TraceStructureSqlBuilder.SpanHash;
         var parentHash = TraceStructureSqlBuilder.ParentHash;
         var depth = TraceStructureSqlBuilder.MaxWalkDepth;
-        return "(TraceId, SpanId) GLOBAL IN (SELECT TraceId, SpanId FROM (" +
+        return $"(TraceId, SpanId) {inside} (SELECT TraceId, SpanId FROM (" +
             $"SELECT TraceId, groupArray({spanHash}) AS allS, groupArray({parentHash}) AS allP, " +
             $"groupArrayIf({spanHash}, {above}) AS aboveS, groupArrayIf(SpanId, {below}) AS belowIds, groupArrayIf({parentHash}, {below}) AS belowP " +
             $"FROM spans WHERE {LookbackWindow}{scope} AND TraceId GLOBAL IN (" +

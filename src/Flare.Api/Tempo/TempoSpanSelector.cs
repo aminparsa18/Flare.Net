@@ -122,13 +122,13 @@ public static class TempoSpanSelector
     private static bool[] Included(IReadOnlyList<SpanTreeRow> rows, int start, int[] parent, TempoSearchPlan plan)
     {
         var count = parent.Length;
-        var unionBits = 0u;
-        foreach (var relation in plan.UnionDescendants)
+        var relationBits = 0u;
+        foreach (var relation in plan.Relations)
         {
-            unionBits |= Bit(relation.Ancestor) | Bit(relation.Descendant);
+            relationBits |= Bit(relation.Left) | Bit(relation.Right);
         }
 
-        // The conditions that are not on either side of a union keep their ordinary meaning: every span matching one is listed.
+        // The conditions that are not on either side of a relation keep their ordinary meaning: every span matching one is listed.
         var plainBits = 0u;
         foreach (var condition in plan.Conditions)
         {
@@ -138,7 +138,7 @@ public static class TempoSpanSelector
             }
         }
 
-        plainBits &= ~unionBits;
+        plainBits &= ~relationBits;
 
         var included = new bool[count];
         for (var i = 0; i < count; i++)
@@ -146,36 +146,93 @@ public static class TempoSpanSelector
             included[i] = (rows[start + i].MatchMask & plainBits) != 0;
         }
 
-        foreach (var relation in plan.UnionDescendants)
+        foreach (var relation in plan.Relations)
         {
-            var ancestorBit = Bit(relation.Ancestor);
-            var descendantBit = Bit(relation.Descendant);
+            var leftBit = Bit(relation.Left);
+            var rightBit = Bit(relation.Right);
+            var siblings = relation.Kind == TraceRelationKind.Sibling ? SiblingGroups(rows, start, count, leftBit) : null;
             for (var i = 0; i < count; i++)
             {
-                if ((rows[start + i].MatchMask & descendantBit) == 0)
+                if ((rows[start + i].MatchMask & rightBit) == 0)
                 {
                     continue;
                 }
 
-                var hasAncestor = false;
-                var p = parent[i];
-                for (var depth = 0; p >= 0 && depth < MaxWalkDepth; depth++, p = parent[p])
-                {
-                    if ((rows[start + p].MatchMask & ancestorBit) != 0)
-                    {
-                        included[p] = true;
-                        hasAncestor = true;
-                    }
-                }
-
-                if (hasAncestor)
+                // The left-hand spans related to this right-hand one.
+                var related = Related(rows, start, parent, i, relation.Kind, leftBit, siblings);
+                if (related.Count > 0 != relation.Negated)
                 {
                     included[i] = true;
+                }
+
+                // A union returns the left-hand side too: every left-hand span that has this one as its relation.
+                if (relation.Union && related.Count > 0)
+                {
+                    foreach (var j in related)
+                    {
+                        included[j] = true;
+                    }
                 }
             }
         }
 
         return included;
+    }
+
+    /// <summary>The spans (indexes within the trace) matching <paramref name="leftBit"/> that stand in <paramref name="kind"/> to span <paramref name="i"/>: its parent, its ancestors, or its siblings.</summary>
+    private static List<int> Related(IReadOnlyList<SpanTreeRow> rows, int start, int[] parent, int i, TraceRelationKind kind, uint leftBit, Dictionary<string, List<int>>? siblings)
+    {
+        var related = new List<int>();
+        switch (kind)
+        {
+            case TraceRelationKind.Child:
+                if (parent[i] >= 0 && (rows[start + parent[i]].MatchMask & leftBit) != 0)
+                {
+                    related.Add(parent[i]);
+                }
+
+                break;
+            case TraceRelationKind.Descendant:
+                var p = parent[i];
+                for (var depth = 0; p >= 0 && depth < MaxWalkDepth; depth++, p = parent[p])
+                {
+                    if ((rows[start + p].MatchMask & leftBit) != 0)
+                    {
+                        related.Add(p);
+                    }
+                }
+
+                break;
+            default:
+                if (siblings!.TryGetValue(rows[start + i].ParentSpanId, out var group))
+                {
+                    related.AddRange(group.Where(j => j != i));
+                }
+
+                break;
+        }
+
+        return related;
+    }
+
+    /// <summary>The spans matching <paramref name="leftBit"/>, grouped by their parent id (the empty id groups the roots, which are siblings of each other, as in Tempo).</summary>
+    private static Dictionary<string, List<int>> SiblingGroups(IReadOnlyList<SpanTreeRow> rows, int start, int count, uint leftBit)
+    {
+        var groups = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+        for (var i = 0; i < count; i++)
+        {
+            if ((rows[start + i].MatchMask & leftBit) != 0)
+            {
+                if (!groups.TryGetValue(rows[start + i].ParentSpanId, out var list))
+                {
+                    groups[rows[start + i].ParentSpanId] = list = [];
+                }
+
+                list.Add(i);
+            }
+        }
+
+        return groups;
     }
 
     private static uint Bit(char letter) => 1u << (char.ToUpperInvariant(letter) - 'A');

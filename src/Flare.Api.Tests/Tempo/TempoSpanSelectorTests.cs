@@ -275,4 +275,80 @@ public class TempoSpanSelectorTests
         Assert.Equal(["t1", "t2"], traces.Select(t => t.TraceId));
         Assert.Equal([1, 2], traces.Select(t => t.Matched));
     }
+
+    // root -> [cart -> db], [pay -> charge], render.  Bits: A = 1, B = 2.
+    private static string[] Listed(string traceQl, params (string Id, uint Mask)[] masks)
+    {
+        var rows = Tree().Select(r => r with { MatchMask = masks.FirstOrDefault(m => m.Id == r.SpanId).Mask }).ToArray();
+
+        var trace = Assert.Single(TempoSpanSelector.Select(rows, Plan(traceQl), 20));
+        return trace.Spans.Select(s => s.SpanId).Order().ToArray();
+    }
+
+    [Theory]
+    [InlineData("{ span.a = 1 } ~ { span.b = 1 }", new[] { "pay", "render" })]            // the right-hand spans with a left-hand sibling
+    [InlineData("{ span.a = 1 } &~ { span.b = 1 }", new[] { "cart", "pay", "render" })]     // both sides
+    [InlineData("{ span.a = 1 } !~ { span.b = 1 }", new string[0])]                       // every right-hand span has one
+    public void Sibling_ListsTheSpansUnderTheSameParent(string traceQl, string[] expected) =>
+        Assert.Equal(expected, Listed(traceQl, ("cart", 1u), ("pay", 2u), ("render", 2u)));
+
+    [Fact]
+    public void NotSibling_ListsTheRightHandSpansWithNoLeftHandSibling() =>
+        // `db` is cart's only child, so it has no sibling at all; `pay` has `cart` as one.
+        Assert.Equal(new[] { "db" }, Listed("{ span.a = 1 } !~ { span.b = 1 }", ("cart", 1u), ("pay", 2u), ("db", 2u)));
+
+    [Fact]
+    public void ASpanMatchingBothSides_IsNotItsOwnSibling()
+    {
+        // pay and render both match both sides; cart matches only the right. Siblings of root's children: each of pay/render has the other.
+        Assert.Equal(new[] { "cart", "pay", "render" }, Listed("{ span.a = 1 } ~ { span.b = 1 }", ("cart", 2u), ("pay", 3u), ("render", 3u)));
+        // Only pay is a left-hand span, so cart has a sibling but pay (matching both) has none but itself.
+        Assert.Equal(new[] { "cart" }, Listed("{ span.a = 1 } ~ { span.b = 1 }", ("cart", 2u), ("pay", 3u)));
+        Assert.Empty(Listed("{ span.a = 1 } ~ { span.b = 1 }", ("db", 3u)));
+    }
+
+    [Fact]
+    public void TwoRoots_AreSiblingsOfEachOther()
+    {
+        SpanTreeRow[] rows = [Row("r1", null, "s", "a", 1, 0), Row("r2", null, "s", "b", 2, 1), Row("c", "r1", "s", "c", 2, 2)];
+
+        var trace = Assert.Single(TempoSpanSelector.Select(rows, Plan("{ span.a = 1 } ~ { span.b = 1 }"), 20));
+
+        Assert.Equal(["r2"], trace.Spans.Select(s => s.SpanId));
+    }
+
+    [Theory]
+    [InlineData("{ span.a = 1 } !> { span.b = 1 }", new[] { "charge" })]                    // db's parent is cart; charge's is pay
+    [InlineData("{ span.a = 1 } !>> { span.b = 1 }", new[] { "charge" })]
+    [InlineData("{ span.a = 1 } &> { span.b = 1 }", new[] { "cart", "db" })]
+    public void ChildAndDescendant_NegatedAndUnion(string traceQl, string[] expected) =>
+        Assert.Equal(expected, Listed(traceQl, ("cart", 1u), ("db", 2u), ("charge", 2u)));
+
+    [Fact]
+    public void NotDescendant_ListsAChildOfTheLeftHandSpanThatIsNotItsAncestorsDescendantAtAnyDepth()
+    {
+        // root is the left side; db sits two levels below it, charge two levels below it, render one: all have the ancestor.
+        Assert.Empty(Listed("{ span.a = 1 } !>> { span.b = 1 }", ("root", 1u), ("db", 2u), ("charge", 2u), ("render", 2u)));
+        // Not-child is direct only: db and charge are two levels below root, render one.
+        Assert.Equal(new[] { "charge", "db" }, Listed("{ span.a = 1 } !> { span.b = 1 }", ("root", 1u), ("db", 2u), ("charge", 2u), ("render", 2u)));
+    }
+
+    [Fact]
+    public void NegatedRelations_ListEveryRightHandSpanWhenThereIsNoLeftHandSpan()
+    {
+        Assert.Equal(new[] { "charge", "db" }, Listed("{ span.a = 1 } !> { span.b = 1 }", ("db", 2u), ("charge", 2u)));
+        Assert.Equal(new[] { "charge", "db" }, Listed("{ span.a = 1 } !>> { span.b = 1 }", ("db", 2u), ("charge", 2u)));
+        Assert.Equal(new[] { "charge", "db" }, Listed("{ span.a = 1 } !~ { span.b = 1 }", ("db", 2u), ("charge", 2u)));
+    }
+
+    [Fact]
+    public void ConditionsOutsideTheRelation_KeepListingEverySpanMatchingThem()
+    {
+        // C (bit 4) is not part of the relation, so its matching span is listed on its own.
+        var rows = Tree().Select(r => r with { MatchMask = r.SpanId switch { "cart" => 1u, "pay" => 2u, "render" => 4u, _ => 0u } }).ToArray();
+
+        var trace = Assert.Single(TempoSpanSelector.Select(rows, Plan("{ span.a = 1 } ~ { span.b = 1 } || { span.c = 1 }"), 20));
+
+        Assert.Equal(new[] { "pay", "render" }, trace.Spans.Select(s => s.SpanId).Order());
+    }
 }

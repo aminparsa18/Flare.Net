@@ -26,20 +26,23 @@ public sealed record TempoSearchPlan
     /// <summary>What a <c>| select(...)</c> stage asked each listed span to carry, in the order written (ADR-0227).</summary>
     public IReadOnlyList<TempoSelectField> Select { get; init; } = [];
 
-    /// <summary>The <c>&amp;&gt;&gt;</c> relations: for these the spans listed are only the ones that take part, on both sides.</summary>
-    public IReadOnlyList<TraceQlUnionRelation> UnionDescendants { get; init; } = [];
+    /// <summary>
+    /// The union (<c>&amp;&gt;&gt;</c>, <c>&amp;&gt;</c>, <c>&amp;~</c>), negated (<c>!&gt;&gt;</c>, <c>!&gt;</c>, <c>!~</c>) and sibling (<c>~</c>) relations: for these
+    /// the spans listed are only the ones the operator returns (the right-hand side, or both sides for a union), not every span matching a condition.
+    /// </summary>
+    public IReadOnlyList<TraceQlRelation> Relations { get; init; } = [];
 
     /// <summary>
     /// Whether the spans listed come from <c>TempoSpanSelector</c> rather than the plain matched-spans query: a <c>select()</c>
-    /// stage or a union relation needs the per-span fields or the trace's span tree.
+    /// stage or one of those relations needs the per-span fields or the trace's span tree.
     /// </summary>
-    public bool UsesSelector => Select.Count > 0 || UnionDescendants.Count > 0;
+    public bool UsesSelector => Select.Count > 0 || Relations.Count > 0;
 
     /// <summary>
     /// Whether the selector needs every span of each trace (not only the ones matching a condition): to number the span tree
-    /// (<c>nestedSetLeft</c> and friends) or to look for the ancestors of a union relation.
+    /// (<c>nestedSetLeft</c> and friends) or to look for the ancestors, parents and siblings of a relation.
     /// </summary>
-    public bool NeedsWholeTrace => UnionDescendants.Count > 0
+    public bool NeedsWholeTrace => Relations.Count > 0
         || Select.Any(f => f.Scope == TempoSelectScope.Intrinsic && f.Key.StartsWith("nestedSet", StringComparison.Ordinal));
 
     /// <summary>Null when nothing in the query is about a particular span (every trace in the window matches).</summary>
@@ -110,7 +113,7 @@ public static class TempoSearchPlanner
                 // combined with && or || it would change nothing or everything, so that stays an error.
                 if (!IsRelationOperand(query.Expression, (char)('A' + i)))
                 {
-                    throw new TraceQlException("an empty spanset { } can only be the whole query, or a side of > , >> or &>>.");
+                    throw new TraceQlException("an empty spanset { } can only be the whole query, or a side of a structural operator (> , >> , ~ , !> , !>> , !~ , &> , &>> or &~).");
                 }
 
                 conditions.Add(new TraceSpanCondition { Name = ((char)('A' + i)).ToString(), MinDurationNano = 0 });
@@ -132,13 +135,12 @@ public static class TempoSearchPlanner
         }
 
         var plan = Finish(conditions, conditions.Count == 0 ? null : query.Expression, trace);
-        return plan with { Select = query.Select.Select(SelectField).ToArray(), UnionDescendants = query.UnionDescendants };
+        return plan with { Select = query.Select.Select(SelectField).ToArray(), Relations = query.Relations };
     }
 
-    /// <summary>Whether the letter stands directly beside <c>-&gt;</c> or <c>=&gt;</c> in the structural expression.</summary>
+    /// <summary>Whether the letter stands directly beside a structural operator (<c>-&gt;</c>, <c>=&gt;</c>, <c>~</c> or their negations) in the structural expression.</summary>
     private static bool IsRelationOperand(string expression, char letter) =>
-        expression.Contains($"{letter} ->", StringComparison.Ordinal) || expression.Contains($"{letter} =>", StringComparison.Ordinal)
-        || expression.Contains($"-> {letter}", StringComparison.Ordinal) || expression.Contains($"=> {letter}", StringComparison.Ordinal);
+        new[] { "->", "=>", "~", "!->", "!=>", "!~" }.Any(op => expression.Contains($"{letter} {op}", StringComparison.Ordinal) || expression.Contains($"{op} {letter}", StringComparison.Ordinal));
 
     /// <summary>A <c>select()</c> field as written, resolved like a filter's: an unscoped <c>.x</c> is a resource attribute in a resource namespace and a span attribute otherwise.</summary>
     internal static TempoSelectField SelectField(string field)

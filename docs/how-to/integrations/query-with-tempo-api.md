@@ -128,8 +128,10 @@ TraceQL results table.
 | Tempo's scoped intrinsics, as the Tempo docs write them: `span:duration`, `span:name`, `span:status`, `span:kind`, `trace:duration`, `trace:rootName`, `trace:rootService`, `event:name` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
 | Tempo's scoped intrinsics for ids, scope, links and events: `span:id`, `span:parentID`, `trace:id`, `instrumentation:name`, `instrumentation:version`, `link:spanID`, `link:traceID` (`=`, `!=`, `=~`, `!~`, `= nil`; a short hex id is zero-padded, and a link test holds when some link satisfies it) and `event:timeSinceStart` (a duration, compared with `=`, `!=`, `>`, `>=`, `<`, `<=`) | `{ trace:id = "5b8efff798038103d269b633813fc60c" && link:spanID != nil }` |
 | Several values of one field, `(f = a \|\| f = b)`, which Grafana's Search tab writes when you pick more than one: a service, a span name, a status, a span kind (two to four), an attribute, `rootName`, `rootServiceName`, an id (and `f != a && f != b`) | `{ (resource.service.name = "api" \|\| resource.service.name = "web") && (name != "GET /health" && name != "GET /ready") }` |
-| Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>`. An empty `{ }` next to `>`, `>>` or `&>>` is any span | `{ resource.service.name = "checkout" } >> { status = error }` |
-| `&>>`, the spans of both sides: a span of the right with a matching ancestor, and a span of the left with a matching descendant | `{ nestedSetParent < 0 } &>> { kind = server }` |
+| Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>`. An empty `{ }` next to a structural operator is any span | `{ resource.service.name = "checkout" } >> { status = error }` |
+| `&>>`, `&>` and `&~`, the spans of both sides: a span of the right with a matching ancestor (parent, sibling), and a span of the left that has such a span of the right | `{ nestedSetParent < 0 } &>> { kind = server }` |
+| `~`, the right-hand spans that have a sibling matching the left (same parent, never the span itself; two roots of a trace are siblings, as in Tempo) | `{ name = "GET /a" } ~ { name = "GET /b" }` |
+| `!>`, `!>>` and `!~`, the right-hand spans that have **no** matching parent, ancestor or sibling; a trace with no matching left-hand span lists all its matching right-hand spans | `{ name = "cache.get" } !>> { name = "db.query" }` |
 | Unscoped attributes | `{ .service.name = "api" }` |
 | Root spans: `nestedSetParent < 0` (`> 0` for spans with a parent) | `{ nestedSetParent < 0 && status = error }` |
 | An attribute that is set, `!= nil`, or not, `= nil` | `{ resource.k8s.pod.name != nil }` |
@@ -138,7 +140,7 @@ TraceQL results table.
 | `\| select(...)` after the query, to put fields on each listed span: `name`, `status`, `statusMessage`, `kind`, `duration`, `rootName`, `rootServiceName`, `traceDuration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (at most 20), and `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
 Not supported in a search: `|` pipelines other than `select()` (`count()`, `avg()`, `by()`, ...; a metrics query takes one,
-below), `||` inside one spanset between anything but `=` tests of one field, `statusMessage` as a filter, `&>>` in a metrics query, and comparing two fields.
+below), `||` inside one spanset between anything but `=` tests of one field, `statusMessage` as a filter, `<`, `<<` and their negated and union forms, a union operator in a metrics query, and comparing two fields.
 
 `nestedSetLeft`, `nestedSetRight` and `nestedSetParent` number the spans of a trace the way Tempo does: a depth-first walk
 in which a span's left number is the next number when the walk enters it and its right number the next when it leaves, so
@@ -175,7 +177,7 @@ non-zero samples, `| topk(5) > 10` drops the winners below 10.
 
 **Relations.** `{ a } >> { b } | rate()` counts the `b` spans that have an `a` span above them, `{ a } > { b }` the ones whose
 parent is an `a` span. `{ resource.service.name = "web" } >> { name = "db.query" } | quantile_over_time(duration, .95)` is
-the latency of the queries a `web` span led to.
+the latency of the queries a `web` span led to. `~` counts the `b` spans with an `a` sibling, and `!>`, `!>>` and `!~` the `b` spans with no `a` parent, ancestor or sibling (every `b` span of a trace with no `a` span): `{ name = "cache.get" } !>> { name = "db.query" } | count_over_time()`.
 
 **Trace fields.** `rootName`, `rootServiceName` and `traceDuration` restrict the query to the spans of traces whose root
 span matches: `{ rootName = "GET /checkout" && name = "db.query" } | rate()`. They cannot be combined with a relation.
