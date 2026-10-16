@@ -125,6 +125,8 @@ TraceQL results table.
 | Operators `=`, `!=`, `=~`, `!~`, `>`, `>=`, `<`, `<=` | `{ span.http.status_code >= 500 }` |
 | Span intrinsics: `name` (`=`, `!=`, `=~`, `!~`), `status` (`=`, `!=`: `error`, `ok`, `unset`), `kind` (`=`, `!=`: `unspecified`, `internal`, `server`, `client`, `producer`, `consumer`), `duration` | `{ kind = server && name =~ "POST .*" && status != ok }` |
 | Trace intrinsics, in a query of one spanset: `rootName`, `rootServiceName`, `traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
+| Tempo's scoped intrinsics, as the Tempo docs write them: `span:duration`, `span:name`, `span:status`, `span:kind`, `trace:duration`, `trace:rootName`, `trace:rootService`, `event:name` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
+| Several values of one field, `(f = a \|\| f = b)`, which Grafana's Search tab writes when you pick more than one: a service, a span name, a status, an attribute, `rootName`, `rootServiceName` (and `f != a && f != b`) | `{ (resource.service.name = "api" \|\| resource.service.name = "web") && (name != "GET /health" && name != "GET /ready") }` |
 | Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>`. An empty `{ }` next to `>`, `>>` or `&>>` is any span | `{ resource.service.name = "checkout" } >> { status = error }` |
 | `&>>`, the spans of both sides: a span of the right with a matching ancestor, and a span of the left with a matching descendant | `{ nestedSetParent < 0 } &>> { kind = server }` |
 | Unscoped attributes | `{ .service.name = "api" }` |
@@ -135,7 +137,7 @@ TraceQL results table.
 | `\| select(...)` after the query, to put fields on each listed span: `name`, `status`, `kind`, `duration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (at most 20), and `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
 Not supported in a search: `|` pipelines other than `select()` (`count()`, `avg()`, `by()`, ...; a metrics query takes one,
-below), `||` inside one spanset, `statusMessage`, `&>>` in a metrics query, and comparing two fields.
+below), `||` inside one spanset between anything but `=` tests of one field, `statusMessage`, `kind` in a set of two to four values, `&>>` in a metrics query, and comparing two fields.
 
 `nestedSetLeft`, `nestedSetRight` and `nestedSetParent` number the spans of a trace the way Tempo does: a depth-first walk
 in which a span's left number is the next number when the walk enters it and its right number the next when it leaves, so

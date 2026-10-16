@@ -193,4 +193,54 @@ public class TraceQlParserTests
     [Fact]
     public void UnionDescendant_IsRejectedInAMetricsQuery() =>
         Assert.Contains("&>>", Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics("{ a = 1 } &>> { b = 2 } | rate()")).Message);
+
+    [Fact]
+    public void AnOrGroupOfOneField_IsOnePredicateWithAlternatives()
+    {
+        var query = TraceQlParser.Parse("""{ (resource.service.name = "a" || resource.service.name = "b" || resource.service.name = "c") && status = error }""");
+
+        var p = Assert.Single(query.Spansets).Predicates;
+        Assert.Equal(2, p.Count);
+        Assert.Equal("a", p[0].Value.Text);
+        Assert.Equal(new[] { "b", "c" }, p[0].Alternatives!.Select(v => v.Text));
+        Assert.Null(p[1].Alternatives);
+    }
+
+    [Fact]
+    public void AnOrWithoutParentheses_IsTheSameGroup()
+    {
+        var p = Assert.Single(TraceQlParser.Parse("{ span.http.status_code = 500 || span.http.status_code = 503 }").Spansets).Predicates;
+
+        Assert.Equal("500", Assert.Single(p).Value.Text);
+        Assert.Equal("503", Assert.Single(p[0].Alternatives!).Text);
+    }
+
+    [Fact]
+    public void AnAndGroup_IsItsPredicatesWrittenOut()
+    {
+        var p = Assert.Single(TraceQlParser.Parse("""{ (name != "a" && name != "b") && ((status = error)) }""").Spansets).Predicates;
+
+        Assert.Equal(3, p.Count);
+        Assert.All(p.Take(2), x => Assert.Equal(TraceQlOp.Neq, x.Op));
+    }
+
+    [Theory]
+    [InlineData("""{ name = "a" || span.x = "b" }""")]
+    [InlineData("""{ name = "a" || name != "b" }""")]
+    [InlineData("""{ (name = "a" && span.x = "b") || name = "c" }""")]
+    [InlineData("{ span.x = nil || span.x = \"a\" }")]
+    public void AnOrOfAnythingButEqualitiesOfOneField_IsRejectedWithTheRule(string query) =>
+        Assert.Contains("only combines '='", Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(query)).Message);
+
+    [Fact]
+    public void AnOrGroupWithABareTrue_HoldsForEverySpan() =>
+        Assert.Empty(Assert.Single(TraceQlParser.Parse("""{ true || name = "a" }""").Spansets).Predicates);
+
+    [Fact]
+    public void AnOrGroup_IsAlsoReadInAMetricsQuery()
+    {
+        var query = TraceQlParser.ParseMetrics("""{ (name = "a" || name = "b") } | rate()""");
+
+        Assert.Single(query.Spanset.Predicates[0].Alternatives!);
+    }
 }

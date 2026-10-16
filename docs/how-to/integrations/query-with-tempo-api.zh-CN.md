@@ -109,6 +109,8 @@ datasources:
 | 运算符 `=`、`!=`、`=~`、`!~`、`>`、`>=`、`<`、`<=` | `{ span.http.status_code >= 500 }` |
 | span 内置字段：`name`（`=`、`!=`、`=~`、`!~`）、`status`（`=`、`!=`：`error`、`ok`、`unset`）、`kind`（`=`、`!=`：`unspecified`、`internal`、`server`、`client`、`producer`、`consumer`）、`duration` | `{ kind = server && name =~ "POST .*" && status != ok }` |
 | 追踪内置字段（仅限由一个 spanset 组成的查询）：`rootName`、`rootServiceName`、`traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
+| Tempo 带作用域的内置字段，写法与 Tempo 文档一致：`span:duration`、`span:name`、`span:status`、`span:kind`、`trace:duration`、`trace:rootName`、`trace:rootService`、`event:name` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
+| 同一字段的多个值，`(f = a \|\| f = b)`，在 Grafana 的 Search 选项卡中选了多个值时就会生成这种写法：服务、span 名称、状态、属性、`rootName`、`rootServiceName`（以及 `f != a && f != b`） | `{ (resource.service.name = "api" \|\| resource.service.name = "web") && (name != "GET /health" && name != "GET /ready") }` |
 | 组合 spanset：`&&`、`\|\|`、子级 `>`、后代 `>>`。`>`、`>>` 或 `&>>` 旁边的空 `{ }` 表示任意 span | `{ resource.service.name = "checkout" } >> { status = error }` |
 | `&>>`，两侧的 span：右侧有匹配祖先的 span，以及左侧有匹配后代的 span | `{ nestedSetParent < 0 } &>> { kind = server }` |
 | 不带作用域的属性 | `{ .service.name = "api" }` |
@@ -118,7 +120,7 @@ datasources:
 | 事件属性 `event.x`：当 span 的某个事件匹配时，该 span 匹配 | `{ status = error && event.exception.type = "TimeoutException" }` |
 | 查询之后的 `\| select(...)`，为每个列出的 span 附加字段：`name`、`status`、`kind`、`duration`、`nestedSetParent`、`nestedSetLeft`、`nestedSetRight`、`span.x`、`resource.x`、`.x`、`event.x`（最多 20 个），以及 `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内的 `||`、`statusMessage`、指标查询中的 `&>>`，以及两个字段之间的比较。
+搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内除同一字段的 `=` 测试之外的 `||`、`statusMessage`、含二至四个取值的 `kind` 集合、指标查询中的 `&>>`，以及两个字段之间的比较。
 
 `nestedSetLeft`、`nestedSetRight` 和 `nestedSetParent` 按 Tempo 的方式给追踪中的 span 编号：深度优先遍历，span 的左编号是进入它时的下一个数字，右编号是离开它时的下一个数字，因此一个 span 在另一个之下，当且仅当它的编号落在另一个的编号之内；父编号是父 span 的左编号，根为 -1。父 span 从未被摄入的 span 按根编号。编号最多读取每条追踪的 2,000 个 span。
 

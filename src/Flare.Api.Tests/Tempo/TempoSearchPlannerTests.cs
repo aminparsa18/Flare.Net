@@ -167,10 +167,10 @@ public class TempoSearchPlannerTests
     [InlineData("{ duration = \"5\" }", "duration")]
     [InlineData("{ duration > -1 }", "duration")]
     [InlineData("{ duration =~ 5s }", "supports")]
-    [InlineData("{ name = \"a\" && name = \"b\" }", "twice")]
-    [InlineData("{ name = \"a\" && name != \"a\" }", "twice")]
-    [InlineData("{ kind = server && kind = client }", "twice")]
-    [InlineData("{ status = error && status != error }", "twice")]
+    [InlineData("{ name = \"a\" && name = \"b\" }", "no span")]
+    [InlineData("{ name = \"a\" && name != \"a\" }", "no span")]
+    [InlineData("{ kind = server && kind = client }", "no span")]
+    [InlineData("{ status = error && status != error }", "no span")]
     [InlineData("{ kind > server }", "supports")]
     [InlineData("{ kind = \"server\" }", "unspecified, internal")]
     [InlineData("{ name > \"a\" }", "supports")]
@@ -364,4 +364,137 @@ public class TempoSearchPlannerTests
         Assert.Equal(0UL, plan.Conditions[0].MinDurationNano);
         Assert.Equal(1499UL, plan.Conditions[0].MaxDurationNano);
     }
+
+    [Fact]
+    public void ServicesInAnOrGroup_BecomeAListAndOneServiceStaysTheColumnTest()
+    {
+        var many = Assert.Single(Plan("""{ (resource.service.name = "a" || resource.service.name = "b") }""").Conditions);
+        Assert.Null(many.ServiceName);
+        Assert.Equal(new[] { "a", "b" }, many.ServiceNames);
+
+        var one = Assert.Single(Plan("""{ (resource.service.name = "a" || resource.service.name = "a") }""").Conditions);
+        Assert.Equal("a", one.ServiceName);
+        Assert.Null(one.ServiceNames);
+    }
+
+    [Fact]
+    public void AServiceAndAListOfServices_AreTheirIntersection()
+    {
+        var admitted = Assert.Single(Plan("""{ resource.service.name = "a" && (resource.service.name = "a" || resource.service.name = "b") }""").Conditions);
+        Assert.Equal("a", admitted.ServiceName);
+        Assert.Null(admitted.ServiceNames);
+
+        Assert.Contains("no span satisfies", Assert.Throws<TraceQlException>(
+            () => Plan("""{ resource.service.name = "c" && (resource.service.name = "a" || resource.service.name = "b") }""")).Message);
+    }
+
+    [Fact]
+    public void NamesInAnOrGroup_AreOneAnchoredAlternationWithMetacharactersEscaped()
+    {
+        var condition = Assert.Single(Plan("""{ (name = "GET /a.b" || name = "POST (x)") }""").Conditions);
+
+        Assert.Equal(SpanNameMatch.Regex, condition.SpanNameMatch);
+        Assert.Equal("""^(?:GET /a\.b|POST \(x\))$""", condition.SpanName);
+    }
+
+    [Fact]
+    public void SeveralNotEqualsOnTheName_AreOneNegatedAlternation()
+    {
+        var condition = Assert.Single(Plan("""{ (name != "a" && name != "b") }""").Conditions);
+
+        Assert.Equal(SpanNameMatch.NotRegex, condition.SpanNameMatch);
+        Assert.Equal("^(?:a|b)$", condition.SpanName);
+    }
+
+    [Fact]
+    public void NamesEqualAndNotEqual_LeaveWhatIsEqualOnly()
+    {
+        var condition = Assert.Single(Plan("""{ (name = "a" || name = "b") && name != "a" }""").Conditions);
+
+        Assert.Equal((SpanNameMatch.Equals, "b"), (condition.SpanNameMatch, condition.SpanName));
+        Assert.Contains("no span name", Assert.Throws<TraceQlException>(() => Plan("""{ name = "a" && name = "b" }""")).Message);
+        Assert.Contains("compared twice", Assert.Throws<TraceQlException>(() => Plan("""{ name =~ "a.*" && name != "abc" }""")).Message);
+    }
+
+    [Theory]
+    [InlineData("{ status = error || status = ok }", "STATUS_CODE_UNSET", true)]
+    [InlineData("{ status != ok && status != unset }", "STATUS_CODE_ERROR", false)]
+    [InlineData("{ status != ok }", "STATUS_CODE_OK", true)]
+    [InlineData("{ (status = error || status = ok) && status != ok }", "STATUS_CODE_ERROR", false)]
+    public void StatusSets_ResolveToOneLabelPossiblyNegated(string traceQl, string label, bool negated)
+    {
+        var condition = Assert.Single(Plan(traceQl).Conditions);
+
+        Assert.Equal(label, condition.StatusCode);
+        Assert.Equal(negated, condition.StatusCodeNegated);
+    }
+
+    [Fact]
+    public void StatusSetsThatCoverEverythingOrNothing_AreNoTestOrAnError()
+    {
+        Assert.Empty(Plan("{ status = error || status = ok || status = unset }").Conditions);
+        Assert.Contains("no span satisfies", Assert.Throws<TraceQlException>(() => Plan("{ status = error && status = ok }")).Message);
+    }
+
+    [Fact]
+    public void KindSets_AreOneValueAllButOneOrNoTest()
+    {
+        Assert.Equal((byte)2, Assert.Single(Plan("{ kind = server || kind = server }").Conditions).Kind);
+        var allButServer = Assert.Single(Plan("{ kind != server && kind != client && kind != internal && kind != producer && kind != consumer }").Conditions);
+        Assert.Equal((byte)0, allButServer.Kind);
+        Assert.False(allButServer.KindNegated);
+        Assert.Contains("one value, or for all but one", Assert.Throws<TraceQlException>(() => Plan("{ kind = server || kind = client }")).Message);
+    }
+
+    [Fact]
+    public void AttributesInAnOrGroup_AreAMembershipTest()
+    {
+        var attribute = Assert.Single(Assert.Single(Plan("{ (span.http.status_code = 500 || span.http.status_code = 503) }").Conditions).Attributes!);
+
+        Assert.Equal(SpanAttributeFilterOperator.In, attribute.Operator);
+        Assert.Equal(new[] { "500", "503" }, attribute.Values);
+        Assert.Equal("http.status_code", attribute.Key);
+    }
+
+    [Fact]
+    public void RootNamesAndServicesInAnOrGroup_JoinTheTraceLevelLists()
+    {
+        var plan = Plan("""{ (rootName = "a" || rootName = "b") && (rootServiceName = "x" || rootServiceName = "y") }""");
+
+        Assert.Equal(new[] { "a", "b" }, plan.RootNames);
+        Assert.Equal(new[] { "x", "y" }, plan.RootServices);
+    }
+
+    [Fact]
+    public void AnOrGroupOfADuration_IsRejectedNamingTheFieldsThatTakeOne() =>
+        Assert.Contains("not 'duration'", Assert.Throws<TraceQlException>(() => Plan("{ duration = 1ms || duration = 2ms }")).Message);
+
+    [Fact]
+    public void ScopedIntrinsics_AreTheUnscopedOnes()
+    {
+        var scoped = Plan("""{ span:name = "a" && span:status = error && span:duration > 1ms && span:kind = server && trace:rootService = "r" && trace:rootName = "n" && trace:duration > 2s }""");
+        var plain = Plan("""{ name = "a" && status = error && duration > 1ms && kind = server && rootServiceName = "r" && rootName = "n" && traceDuration > 2s }""");
+
+        Assert.Equal(plain.Conditions[0], scoped.Conditions[0]);
+        Assert.Equal(plain.RootServices, scoped.RootServices);
+        Assert.Equal(plain.RootNames, scoped.RootNames);
+        Assert.Equal(plain.MinTraceDurationNano, scoped.MinTraceDurationNano);
+    }
+
+    [Fact]
+    public void ScopedIntrinsics_WorkInSelectAndEventNameAndGrouping()
+    {
+        Assert.Equal("exception", Assert.Single(Assert.Single(Plan("""{ event:name = "exception" }""").Conditions).Attributes!).Value);
+        Assert.Equal(TempoSelectScope.Intrinsic, Assert.Single(Plan("{ } | select(span:status)").Select).Scope);
+    }
+
+    [Theory]
+    [InlineData("{ span:parentID = \"x\" }")]
+    [InlineData("{ span:id = \"x\" }")]
+    [InlineData("{ trace:id = \"x\" }")]
+    [InlineData("{ event:timeSinceStart > 1ms }")]
+    [InlineData("{ instrumentation:name = \"x\" }")]
+    [InlineData("{ link:spanID = \"x\" }")]
+    public void ScopedIntrinsicsWithNoCounterpart_AreNamedAsUnsupported(string traceQl) =>
+        Assert.Contains("is not supported", Assert.Throws<TraceQlException>(() => Plan(traceQl)).Message);
 }

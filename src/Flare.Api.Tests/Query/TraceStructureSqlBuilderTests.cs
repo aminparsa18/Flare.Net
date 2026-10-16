@@ -215,4 +215,28 @@ public class TraceStructureSqlBuilderTests
 
         Assert.Null(ex);
     }
+
+    [Fact]
+    public void AListOfServices_IsAnInTestAndTheServicePrefilterIsTheirUnion()
+    {
+        var many = new TraceSpanCondition { Name = "A", ServiceNames = ["checkout", "cart"], StatusCode = "STATUS_CODE_ERROR" };
+        var (sql, parameters) = Build(Structure("A -> B", many, Payment));
+
+        Assert.Contains("(ServiceName IN {tsAServices:Array(String)} AND StatusCode = {tsAStatus:String})", sql);
+        Assert.Contains("AND ServiceName IN {tsServices:Array(String)}", sql);
+        Assert.Equal(new[] { "checkout", "cart" }, parameters["tsAServices"].Value);
+        Assert.Equal(new[] { "checkout", "cart", "payment" }, parameters["tsServices"].Value);
+    }
+
+    [Fact]
+    public void AConditionWithOnlyAListOfServices_IsAValidCondition() =>
+        TraceStructureSqlBuilder.Validate(Structure("A", new TraceSpanCondition { Name = "A", ServiceNames = ["a", "b"] }));
+
+    [Fact]
+    public void WithoutServicesOnEveryCondition_NoServicePrefilter()
+    {
+        var (sql, _) = Build(Structure("A -> B", new TraceSpanCondition { Name = "A", ServiceNames = ["a", "b"] }, new TraceSpanCondition { Name = "B", StatusCode = "STATUS_CODE_ERROR" }));
+
+        Assert.DoesNotContain("{tsServices:", sql);
+    }
 }

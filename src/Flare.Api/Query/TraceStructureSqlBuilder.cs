@@ -87,9 +87,12 @@ public static class TraceStructureSqlBuilder
 
         var window = "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}";
         var prefilter = new StringBuilder(window);
-        if (conditions.Values.All(c => !string.IsNullOrEmpty(c.ServiceName)))
+        // Every condition names its services (one, or a list), so no span of another service can match any of them.
+        if (conditions.Values.All(c => !string.IsNullOrEmpty(c.ServiceName) || c.ServiceNames is { Count: > 0 }))
         {
-            parameters.AddParameter("tsServices", conditions.Values.Select(c => c.ServiceName!).Distinct(StringComparer.Ordinal).ToArray());
+            // A condition with both is their intersection; its list alone is a superset, which is all a prefilter needs.
+            var services = conditions.Values.SelectMany(c => c.ServiceNames is { Count: > 0 } ? c.ServiceNames : [c.ServiceName!]);
+            parameters.AddParameter("tsServices", services.Distinct(StringComparer.Ordinal).ToArray());
             prefilter.Append(" AND ServiceName IN {tsServices:Array(String)}");
         }
 
@@ -165,7 +168,7 @@ public static class TraceStructureSqlBuilder
 
             // Only a referenced condition must match on something - an unused blank one (a
             // card the user added but hasn't filled in yet) is just ignored.
-            if (string.IsNullOrEmpty(condition.ServiceName) && string.IsNullOrEmpty(condition.SpanName) && string.IsNullOrEmpty(condition.StatusCode)
+            if (string.IsNullOrEmpty(condition.ServiceName) && condition.ServiceNames is not { Count: > 0 } && string.IsNullOrEmpty(condition.SpanName) && string.IsNullOrEmpty(condition.StatusCode)
                 && condition.Kind is null && condition.RootSpan is null && condition.MinDurationNano is null && condition.MaxDurationNano is null && condition.Attributes is not { Count: > 0 })
             {
                 throw new ArgumentException($"Condition {letter} needs a service, span name, status, duration or attribute filter.");
@@ -249,6 +252,12 @@ public static class TraceStructureSqlBuilder
         {
             parameters.AddParameter($"ts{letter}Service", condition.ServiceName);
             clauses.Add($"ServiceName = {{ts{letter}Service:String}}");
+        }
+
+        if (condition.ServiceNames is { Count: > 0 } serviceNames)
+        {
+            parameters.AddParameter($"ts{letter}Services", serviceNames.ToArray());
+            clauses.Add($"ServiceName IN {{ts{letter}Services:Array(String)}}");
         }
 
         if (!string.IsNullOrEmpty(condition.SpanName))
