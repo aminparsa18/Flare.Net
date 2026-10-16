@@ -79,6 +79,16 @@ public static class TempoMetricsPlanner
     /// <summary>The selection of <c>compare()</c> is one span predicate, planned like a spanset; trace-level fields have no per-span meaning in it.</summary>
     private static SpanCompare PlanCompare(TraceQlMetricsQuery query, TraceQlSpanset selection)
     {
+        // compare({}) selects every span (Traces Drilldown's duration Comparison tab sends it before a range is dragged), so the baseline is empty.
+        if (selection.Predicates.Count == 0)
+        {
+            return new SpanCompare(
+                new TraceSpanCondition { Name = "A", MinDurationNano = 0 },
+                query.CompareTopN,
+                query.CompareStartNanos is { } from ? FromNanos(from) : null,
+                query.CompareEndNanos is { } to ? FromNanos(to) : null);
+        }
+
         var plan = TempoSearchPlanner.Plan(new TraceQlQuery([selection], "A"));
         if (plan.Conditions.Count != 1 || plan.RootServices.Count > 0 || plan.RootNames.Count > 0 || plan.MinTraceDurationNano is not null || plan.MaxTraceDurationNano is not null)
         {

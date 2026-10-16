@@ -23,11 +23,44 @@ public sealed record TempoSearchPlan
 
     public ulong? MaxTraceDurationNano { get; init; }
 
+    /// <summary>What a <c>| select(...)</c> stage asked each listed span to carry, in the order written (ADR-0227).</summary>
+    public IReadOnlyList<TempoSelectField> Select { get; init; } = [];
+
+    /// <summary>The <c>&amp;&gt;&gt;</c> relations: for these the spans listed are only the ones that take part, on both sides.</summary>
+    public IReadOnlyList<TraceQlUnionRelation> UnionDescendants { get; init; } = [];
+
+    /// <summary>
+    /// Whether the spans listed come from <c>TempoSpanSelector</c> rather than the plain matched-spans query: a <c>select()</c>
+    /// stage or a union relation needs the per-span fields or the trace's span tree.
+    /// </summary>
+    public bool UsesSelector => Select.Count > 0 || UnionDescendants.Count > 0;
+
+    /// <summary>
+    /// Whether the selector needs every span of each trace (not only the ones matching a condition): to number the span tree
+    /// (<c>nestedSetLeft</c> and friends) or to look for the ancestors of a union relation.
+    /// </summary>
+    public bool NeedsWholeTrace => UnionDescendants.Count > 0
+        || Select.Any(f => f.Scope == TempoSelectScope.Intrinsic && f.Key.StartsWith("nestedSet", StringComparison.Ordinal));
+
     /// <summary>Null when nothing in the query is about a particular span (every trace in the window matches).</summary>
     public TraceStructureFilter? Structure => Conditions.Count == 0
         ? null
         : new TraceStructureFilter { Conditions = Conditions, Expression = Expression };
 }
+
+public enum TempoSelectScope
+{
+    /// <summary><c>name</c>, <c>status</c>, <c>kind</c>, <c>duration</c> and the <c>nestedSet*</c> numbers.</summary>
+    Intrinsic,
+    Span,
+    Resource,
+
+    /// <summary>An attribute of the span's events (<c>event.exception.message</c>).</summary>
+    Event,
+}
+
+/// <param name="Key">The intrinsic's name, or the attribute key without its scope.</param>
+public sealed record TempoSelectField(TempoSelectScope Scope, string Key);
 
 /// <summary>
 /// Compiles Tempo search input - a parsed TraceQL query, or the legacy <c>tags</c> logfmt - into a
@@ -73,7 +106,15 @@ public static class TempoSearchPlanner
             var spanset = query.Spansets[i];
             if (spanset.Predicates.Count == 0 && query.Spansets.Count > 1)
             {
-                throw new TraceQlException("an empty spanset { } can only be the whole query.");
+                // Next to a structural operator an empty spanset is "any span" (Traces Drilldown asks for { true } descendants);
+                // combined with && or || it would change nothing or everything, so that stays an error.
+                if (!IsRelationOperand(query.Expression, (char)('A' + i)))
+                {
+                    throw new TraceQlException("an empty spanset { } can only be the whole query, or a side of > , >> or &>>.");
+                }
+
+                conditions.Add(new TraceSpanCondition { Name = ((char)('A' + i)).ToString(), MinDurationNano = 0 });
+                continue;
             }
 
             var builder = new ConditionBuilder();
@@ -90,7 +131,40 @@ public static class TempoSearchPlanner
             conditions.Add(builder.Build(((char)('A' + i)).ToString()));
         }
 
-        return Finish(conditions, conditions.Count == 0 ? null : query.Expression, trace);
+        var plan = Finish(conditions, conditions.Count == 0 ? null : query.Expression, trace);
+        return plan with { Select = query.Select.Select(SelectField).ToArray(), UnionDescendants = query.UnionDescendants };
+    }
+
+    /// <summary>Whether the letter stands directly beside <c>-&gt;</c> or <c>=&gt;</c> in the structural expression.</summary>
+    private static bool IsRelationOperand(string expression, char letter) =>
+        expression.Contains($"{letter} ->", StringComparison.Ordinal) || expression.Contains($"{letter} =>", StringComparison.Ordinal)
+        || expression.Contains($"-> {letter}", StringComparison.Ordinal) || expression.Contains($"=> {letter}", StringComparison.Ordinal);
+
+    /// <summary>A <c>select()</c> field as written, resolved like a filter's: an unscoped <c>.x</c> is a resource attribute in a resource namespace and a span attribute otherwise.</summary>
+    internal static TempoSelectField SelectField(string field)
+    {
+        if (field.StartsWith("span.", StringComparison.Ordinal))
+        {
+            return new TempoSelectField(TempoSelectScope.Span, field["span.".Length..]);
+        }
+
+        if (field.StartsWith("resource.", StringComparison.Ordinal))
+        {
+            return new TempoSelectField(TempoSelectScope.Resource, field["resource.".Length..]);
+        }
+
+        if (field.StartsWith("event.", StringComparison.Ordinal))
+        {
+            return new TempoSelectField(TempoSelectScope.Event, field["event.".Length..]);
+        }
+
+        if (field.StartsWith('.'))
+        {
+            var key = field[1..];
+            return new TempoSelectField(ResourceNamespaces.Any(p => key.StartsWith(p, StringComparison.Ordinal)) ? TempoSelectScope.Resource : TempoSelectScope.Span, key);
+        }
+
+        return new TempoSelectField(TempoSelectScope.Intrinsic, field);
     }
 
     /// <summary>
@@ -273,6 +347,10 @@ public static class TempoSearchPlanner
         {
             ApplyAttribute(predicate, field["resource.".Length..], SpanAttributeBag.Resource, builder);
         }
+        else if (field.StartsWith("event.", StringComparison.Ordinal))
+        {
+            ApplyAttribute(predicate, field["event.".Length..], SpanAttributeBag.Event, builder);
+        }
         else if (field.StartsWith('.'))
         {
             var key = field[1..];
@@ -448,9 +526,22 @@ public static class TempoSearchPlanner
         };
     }
 
-    private static ulong DurationNanos(TraceQlPredicate predicate) => predicate.Value.Kind == TraceQlValueKind.Duration
-        ? predicate.Value.Nanos
-        : throw new TraceQlException($"{predicate.Field} must be compared with a duration such as 250ms or 2s.");
+    /// <summary>A duration literal, or a plain number of nanoseconds: Tempo compares a duration with any number, and Traces Drilldown writes <c>duration &gt;= 0</c>.</summary>
+    private static ulong DurationNanos(TraceQlPredicate predicate)
+    {
+        var value = predicate.Value;
+        if (value.Kind == TraceQlValueKind.Duration)
+        {
+            return value.Nanos;
+        }
+
+        if (value.Kind == TraceQlValueKind.Number && double.TryParse(value.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var nanos) && nanos >= 0 && nanos < ulong.MaxValue)
+        {
+            return (ulong)Math.Round(nanos);
+        }
+
+        throw new TraceQlException($"{predicate.Field} must be compared with a duration such as 250ms or 2s (a plain number is read as nanoseconds).");
+    }
 
     private static void ApplyDuration(TraceQlPredicate predicate, DurationRange range)
     {

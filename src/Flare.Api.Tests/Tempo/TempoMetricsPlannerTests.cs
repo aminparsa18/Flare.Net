@@ -148,10 +148,14 @@ public class TempoMetricsPlannerTests
         Assert.Equal(direct, plan.Ancestor.Direct);
     }
 
-    [Theory]
-    [InlineData("{ } >> { name = \"b\" } | rate()")]
-    [InlineData("{ name = \"a\" } >> { } | rate()")]
-    public void AnEmptySideOfARelation_IsRejected(string traceQl) => Assert.Throws<TraceQlException>(() => Plan(traceQl));
+    [Fact]
+    public void AnEmptySideOfARelation_IsAnySpan()
+    {
+        var plan = Plan("{ name = \"a\" } >> { } | rate()");
+
+        Assert.Equal(0UL, plan.Condition!.MinDurationNano);
+        Assert.Equal("a", plan.Ancestor!.Condition.SpanName);
+    }
 
     [Fact]
     public void RootFieldsNextToARelation_AreRejectedAsInSearch() =>
@@ -186,10 +190,13 @@ public class TempoMetricsPlannerTests
     }
 
     [Theory]
-    [InlineData("{ } | compare({ }) ")]
     [InlineData("{ } | compare({ rootName = \"x\" })")]
     [InlineData("{ } | compare({ traceDuration > 1s })")]
     public void Compare_NeedsASpanSelection(string traceQl) => Assert.Throws<TraceQlException>(() => Plan(traceQl));
+
+    [Fact]
+    public void Compare_OfAnEmptySelection_SelectsEverySpan() =>
+        Assert.Equal(0UL, Plan("{ } | compare({ })").Compare!.Selection.MinDurationNano);
 
     [Fact]
     public void ANonCompareQuery_HasNoCompare() => Assert.Null(Plan("{ } | rate()").Compare);

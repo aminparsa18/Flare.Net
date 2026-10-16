@@ -8,6 +8,9 @@ public enum SpanAttributeBag
     Span,
     Resource,
     Scope,
+
+    /// <summary>The attributes of the span's events (<c>exception.message</c> of an <c>exception</c> event): the span matches when any one event does (ADR-0227).</summary>
+    Event,
 }
 
 /// <summary>

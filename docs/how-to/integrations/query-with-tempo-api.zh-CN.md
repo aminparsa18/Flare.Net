@@ -109,13 +109,18 @@ datasources:
 | 运算符 `=`、`!=`、`=~`、`!~`、`>`、`>=`、`<`、`<=` | `{ span.http.status_code >= 500 }` |
 | span 内置字段：`name`（`=`、`!=`、`=~`、`!~`）、`status`（`=`、`!=`：`error`、`ok`、`unset`）、`kind`（`=`、`!=`：`unspecified`、`internal`、`server`、`client`、`producer`、`consumer`）、`duration` | `{ kind = server && name =~ "POST .*" && status != ok }` |
 | 追踪内置字段（仅限由一个 spanset 组成的查询）：`rootName`、`rootServiceName`、`traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
-| 组合 spanset：`&&`、`\|\|`、子级 `>`、后代 `>>` | `{ resource.service.name = "checkout" } >> { status = error }` |
+| 组合 spanset：`&&`、`\|\|`、子级 `>`、后代 `>>`。`>`、`>>` 或 `&>>` 旁边的空 `{ }` 表示任意 span | `{ resource.service.name = "checkout" } >> { status = error }` |
+| `&>>`，两侧的 span：右侧有匹配祖先的 span，以及左侧有匹配后代的 span | `{ nestedSetParent < 0 } &>> { kind = server }` |
 | 不带作用域的属性 | `{ .service.name = "api" }` |
 | 根 span：`nestedSetParent < 0`（`> 0` 表示有父 span 的 span） | `{ nestedSetParent < 0 && status = error }` |
 | 已设置的属性 `!= nil`，或未设置 `= nil` | `{ resource.k8s.pod.name != nil }` |
 | 单独的 `true`，不改变任何内容 | `{ nestedSetParent < 0 && true }` |
+| 事件属性 `event.x`：当 span 的某个事件匹配时，该 span 匹配 | `{ status = error && event.exception.type = "TimeoutException" }` |
+| 查询之后的 `\| select(...)`，为每个列出的 span 附加字段：`name`、`status`、`kind`、`duration`、`nestedSetParent`、`nestedSetLeft`、`nestedSetRight`、`span.x`、`resource.x`、`.x`、`event.x`（最多 20 个），以及 `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-搜索中不支持：`|` 管道（`count()`、`avg()`、`select()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内的 `||`、`statusMessage`，以及两个字段之间的比较。
+搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内的 `||`、`statusMessage`、指标查询中的 `&>>`，以及两个字段之间的比较。
+
+`nestedSetLeft`、`nestedSetRight` 和 `nestedSetParent` 按 Tempo 的方式给追踪中的 span 编号：深度优先遍历，span 的左编号是进入它时的下一个数字，右编号是离开它时的下一个数字，因此一个 span 在另一个之下，当且仅当它的编号落在另一个的编号之内；父编号是父 span 的左编号，根为 -1。父 span 从未被摄入的 span 按根编号。编号最多读取每条追踪的 2,000 个 span。
 
 ### TraceQL 指标
 
@@ -155,7 +160,10 @@ datasources:
 - **Comparison**：按所选 span（例如出错的 span）与其余 span 的分布差异对属性排序。它运行的是 `compare()`。
 - **Traces**：匹配的追踪列表。
 
-下列部分需要 Flare 目前还读不懂的查询，会显示错误或空视图：**Service structure** 和 **Root cause errors**（它们用到 `&>>`、`select()` 以及 span 的嵌套集位置）和 **Exceptions**（它会选取 span 事件属性）。参见 [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md)。
+- **Service structure**、**Root cause errors** 和 **Root cause latency**：匹配的追踪所经过的服务和操作的树。它们用到 `&>>`、`select()` 以及 span 的嵌套集编号。
+- **Exceptions**：记录在匹配 span 上作为事件的异常，按类型和消息分组，并带有用于打开某个异常的过滤器。它们用到 `select()` 和 `event.` 属性。
+
+应用的每个标签页都能加载，没有查询错误。Drilldown 还会发送一个属性名为 `undefined` 的查询（应用自身的缺陷）；Flare 像 Tempo 一样拒绝它，应用会继续运行。Exceptions 标签页显示应用所询问的 span 的异常，在根 span 视图中就是根 span 的异常。参见 [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md) 和 [ADR-0227](../../../docs-internal/adr/0227-traceql-select-union-descendant-and-nested-sets.md)。
 
 ## 与 Tempo 的差异
 
@@ -163,7 +171,7 @@ datasources:
 - **不带前缀的属性作用域靠推测。** 在 Tempo 中 `.foo` 表示“span 或 resource”。当名称属于 OpenTelemetry 资源命名空间（`service.`、`k8s.`、`host.`、`cloud.`、`deployment.`、`process.`、`container.`、`os.` 等）时，Flare 从 resource 读取，否则从 span 读取。写成 `span.foo` 或 `resource.foo` 可以避免推测。
 - **`!=` 也会匹配没有该属性的 span。** 在 TraceQL 中该属性必须存在。
 - **搜索需要根 span。** 根 span 从未被摄入的追踪不会出现在列表中，但仍可按 ID 打开。
-- **匹配的 span 会列出查询比较过的属性。** 列出的每个 span 有 id、名称、开始时间、时长、`service.name` 和查询中点名的属性（最多 20 个），值均为字符串。同一属性有新旧两种写法时（`http.status_code`、`http.response.status_code`），列出 span 实际具有的那种。在包含多个 spanset 的查询（`{ a } >> { b }`）中，所有 spanset 的 span 合并列在同一组里，而不是每个 spanset 一组。
+- **匹配的 span 会列出查询比较过的属性。** 列出的每个 span 有 id、名称、开始时间、时长、`service.name` 和查询中点名的属性（最多 20 个），值均为字符串，另加 `select()` 的字段；嵌套集编号为整数。属性名不带作用域，与 Tempo 相同。`event.` 字段的属性取自第一个含有所选属性之一的事件。同一属性有新旧两种写法时（`http.status_code`、`http.response.status_code`），列出 span 实际具有的那种。在包含多个 spanset 的查询（`{ a } >> { b }`）中，所有 spanset 的 span 合并列在同一组里，而不是每个 spanset 一组。
 - **指标按步长分桶。** 采样点带的是所在步长起点的时间戳，`start` 和 `end` 会向外取整到步长的整数倍，所以时间范围结束于当前时刻时，最后一步是不完整的。`rate()`、`count_over_time()` 和 `histogram_over_time()` 在没有 span 的步长里为零；其他函数在这样的步长里没有采样点。
 - **指标只对具有该属性的 span 分组。** 在 `by (span.http.route)` 中，没有 `http.route` 的 span 会被排除，而不是算到空值下。新旧写法并存的属性（`http.status_code`、`http.response.status_code`）按 span 实际具有的那种分组。
 - **`histogram_over_time()` 最多保留 20 个分组，** 每组最多 63 条桶序列；小于 2 的值（短于 2 纳秒的时长）不会计入任何桶，与 Tempo 一致。
@@ -175,4 +183,4 @@ datasources:
 - **一次指标查询最多返回 200 条序列。** 分组更多时，保留 span 最多的 200 条，并把响应标记为 `PARTIAL`。计数和分位数会按[追踪采样](../../explanation/sampling-clustering-and-cost.zh-CN.md)下每个已存储 span 所代表的数量加权，所以被采样的服务仍能报告真实速率。
 - **标签列表来自采样。** 名称取自时间窗口内最多 50,000 个 span，按出现频率从高到低排列。缩小 `start` 和 `end` 可获得完整列表。
 
-设计说明：[ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md)、[ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md)、[ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md)、[ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md)、[ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md) 和 [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md)。
+设计说明：[ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md)、[ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md)、[ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md)、[ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md)、[ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md)、[ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md) 和 [ADR-0227](../../../docs-internal/adr/0227-traceql-select-union-descendant-and-nested-sets.md)。

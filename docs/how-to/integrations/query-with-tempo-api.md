@@ -125,14 +125,22 @@ TraceQL results table.
 | Operators `=`, `!=`, `=~`, `!~`, `>`, `>=`, `<`, `<=` | `{ span.http.status_code >= 500 }` |
 | Span intrinsics: `name` (`=`, `!=`, `=~`, `!~`), `status` (`=`, `!=`: `error`, `ok`, `unset`), `kind` (`=`, `!=`: `unspecified`, `internal`, `server`, `client`, `producer`, `consumer`), `duration` | `{ kind = server && name =~ "POST .*" && status != ok }` |
 | Trace intrinsics, in a query of one spanset: `rootName`, `rootServiceName`, `traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
-| Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>` | `{ resource.service.name = "checkout" } >> { status = error }` |
+| Combining spansets: `&&`, `\|\|`, child `>`, descendant `>>`. An empty `{ }` next to `>`, `>>` or `&>>` is any span | `{ resource.service.name = "checkout" } >> { status = error }` |
+| `&>>`, the spans of both sides: a span of the right with a matching ancestor, and a span of the left with a matching descendant | `{ nestedSetParent < 0 } &>> { kind = server }` |
 | Unscoped attributes | `{ .service.name = "api" }` |
 | Root spans: `nestedSetParent < 0` (`> 0` for spans with a parent) | `{ nestedSetParent < 0 && status = error }` |
 | An attribute that is set, `!= nil`, or not, `= nil` | `{ resource.k8s.pod.name != nil }` |
 | A bare `true`, which changes nothing | `{ nestedSetParent < 0 && true }` |
+| Event attributes, `event.x`: the span matches when one of its events does | `{ status = error && event.exception.type = "TimeoutException" }` |
+| `\| select(...)` after the query, to put fields on each listed span: `name`, `status`, `kind`, `duration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (at most 20), and `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-Not supported in a search: `|` pipelines (`count()`, `avg()`, `select()`, `by()`, ...; a metrics query takes one, below),
-`||` inside one spanset, `statusMessage`, and comparing two fields.
+Not supported in a search: `|` pipelines other than `select()` (`count()`, `avg()`, `by()`, ...; a metrics query takes one,
+below), `||` inside one spanset, `statusMessage`, `&>>` in a metrics query, and comparing two fields.
+
+`nestedSetLeft`, `nestedSetRight` and `nestedSetParent` number the spans of a trace the way Tempo does: a depth-first walk
+in which a span's left number is the next number when the walk enters it and its right number the next when it leaves, so
+a span is below another exactly when its numbers lie inside the other's; the parent is the parent's left number, or -1 for a
+root. A span whose parent was never ingested is numbered as a root. At most 2,000 spans of a trace are read for the numbering.
 
 ### TraceQL metrics
 
@@ -194,10 +202,16 @@ The **Traces Drilldown** app (Drilldown > Traces in Grafana 12 and later) works 
 - **Comparison**, which ranks the attributes by how differently the selected spans (for example the errors) are
   distributed from the rest. It runs `compare()`.
 - **Traces**, the list of matching traces.
+- **Service structure**, **Root cause errors** and **Root cause latency**, the tree of services and operations the
+  matching traces pass through. They use `&>>`, `select()` and the nested-set numbers of spans.
+- **Exceptions**, the exceptions recorded as events on the matching spans, grouped by type and message, with the filter
+  that opens one. They use `select()` and `event.` attributes.
 
-These parts need queries Flare does not read yet, and show an error or an empty view: **Service structure** and **Root cause
-errors** (they use `&>>`, `select()` and the nested-set positions of spans) and **Exceptions** (it selects span event
-attributes). See [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md).
+Every tab of the app loads without a query error. Drilldown also sends one query with an attribute named `undefined`
+(a bug in the app); Flare rejects it, as Tempo does, and the app carries on. The Exceptions tab shows the exceptions of the
+spans the app asks about, which in the root-spans view are the root spans'. See
+[ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md) and
+[ADR-0227](../../../docs-internal/adr/0227-traceql-select-union-descendant-and-nested-sets.md).
 
 ## Things that differ from Tempo
 
@@ -209,7 +223,9 @@ attributes). See [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-com
 - **`!=` also matches spans without the attribute.** In TraceQL it requires the attribute to exist.
 - **Search needs the root span.** A trace whose root was never ingested is not listed, though it opens by id.
 - **Matching spans list the attributes the query compared on.** Each listed span has its id, name, start, duration,
-  `service.name` and the attributes the query named (at most 20), as strings. An attribute with old and new spellings
+  `service.name` and the attributes the query named (at most 20), as strings, plus the fields of `select()`; the nested-set
+  numbers are integers. An attribute is named without its scope, as in Tempo. The attributes of an `event.` field come from
+  the first event that has any of the selected ones. An attribute with old and new spellings
   (`http.status_code`, `http.response.status_code`) lists whichever the span has. In a query of several spansets (`{ a } >> { b }`) the spans of every spanset are
   listed together in one group, not one group per spanset.
 - **Metrics are bucketed by the step.** A sample is stamped with the start of its step, and `start` and `end` are rounded
@@ -242,4 +258,5 @@ Design notes: [ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-
 [ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md) and
 [ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md) and
 [ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md) and
-[ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md).
+[ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md) and
+[ADR-0227](../../../docs-internal/adr/0227-traceql-select-union-descendant-and-nested-sets.md).

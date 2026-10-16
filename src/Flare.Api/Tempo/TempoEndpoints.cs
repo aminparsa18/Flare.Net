@@ -129,11 +129,21 @@ public static class TempoEndpoints
             // Which spans of each trace matched, for Grafana's nested result rows. A query with nothing span-specific
             // (only trace-level fields, or { }) has no spans to point at.
             IReadOnlyDictionary<string, TraceMatchedSpans> matched = new Dictionary<string, TraceMatchedSpans>();
+            IReadOnlyDictionary<string, TraceSelectedSpans> selected = new Dictionary<string, TraceSelectedSpans>();
             if (plan.Structure is { } structure && response.Spans.Count > 0)
             {
-                var found = await spans.GetMatchedSpansAsync(
-                    new MatchedSpansRequest(response.Spans.Select(r => r.TraceId).ToArray(), structure, spansPerSpanSet), ct);
-                matched = found.ToDictionary(t => t.TraceId, StringComparer.Ordinal);
+                var traceIds = response.Spans.Select(r => r.TraceId).ToArray();
+                if (plan.UsesSelector)
+                {
+                    // select() and &>> (ADR-0227): the spans come with their attribute values, and the selector decides which are listed.
+                    var rows = await spans.GetSelectedSpansAsync(SelectedSpansRequestFor(traceIds, structure, plan), ct);
+                    selected = TempoSpanSelector.Select(rows, plan, spansPerSpanSet).ToDictionary(t => t.TraceId, StringComparer.Ordinal);
+                }
+                else
+                {
+                    var found = await spans.GetMatchedSpansAsync(new MatchedSpansRequest(traceIds, structure, spansPerSpanSet), ct);
+                    matched = found.ToDictionary(t => t.TraceId, StringComparer.Ordinal);
+                }
             }
 
             return Json(w =>
@@ -154,12 +164,11 @@ public static class TempoEndpoints
                     w.WriteNumber("durationMs", root.DurationNano / 1_000_000);
                     if (matched.TryGetValue(root.TraceId, out var traceSpans) && traceSpans.Spans.Count > 0)
                     {
-                        // Tempo writes the spanset twice: the list, and the first one under its deprecated singular name.
-                        w.WriteStartArray("spanSets");
-                        WriteSpanSet(w, traceSpans);
-                        w.WriteEndArray();
-                        w.WritePropertyName("spanSet");
-                        WriteSpanSet(w, traceSpans);
+                        WriteSpanSets(w, set => WriteSpanSet(set, traceSpans));
+                    }
+                    else if (selected.TryGetValue(root.TraceId, out var selectedSpans) && selectedSpans.Spans.Count > 0)
+                    {
+                        WriteSpanSets(w, set => WriteSpanSet(set, selectedSpans));
                     }
 
                     w.WriteEndObject();
@@ -181,6 +190,41 @@ public static class TempoEndpoints
             // ClickHouse compiles the pattern (RE2) when the query runs; say so rather than surface its stack trace as a 500.
             return Error(StatusCodes.Status400BadRequest, "invalid regular expression in the query (RE2 syntax).");
         }
+    }
+
+    /// <summary>The keys a select path reads: the fields of <c>select()</c> and the attributes the conditions compared on, per bag.</summary>
+    internal static SelectedSpansRequest SelectedSpansRequestFor(IReadOnlyList<string> traceIds, TraceStructureFilter structure, TempoSearchPlan plan)
+    {
+        var (spanKeys, resourceKeys) = TraceMatchedSpansQueryBuilder.EchoedKeys(structure.Conditions);
+        var span = spanKeys.ToList();
+        var resource = resourceKeys.ToList();
+        var events = new List<string>();
+        foreach (var field in plan.Select)
+        {
+            var keys = field.Scope switch
+            {
+                TempoSelectScope.Span => span,
+                TempoSelectScope.Resource => resource,
+                TempoSelectScope.Event => events,
+                _ => null,
+            };
+            if (keys is not null && !keys.Contains(field.Key, StringComparer.Ordinal))
+            {
+                keys.Add(field.Key);
+            }
+        }
+
+        return new SelectedSpansRequest(traceIds, structure, span, resource, events, plan.NeedsWholeTrace);
+    }
+
+    /// <summary>Tempo writes the spanset twice: the list, and the first one under its deprecated singular name.</summary>
+    private static void WriteSpanSets(Utf8JsonWriter w, Action<Utf8JsonWriter> spanSet)
+    {
+        w.WriteStartArray("spanSets");
+        spanSet(w);
+        w.WriteEndArray();
+        w.WritePropertyName("spanSet");
+        spanSet(w);
     }
 
     /// <summary>TraceQL metrics (ADR-0221): <c>/metrics/query_range</c> is a series per group, <c>/metrics/query</c> one value per group.</summary>
@@ -284,6 +328,50 @@ public static class TempoEndpoints
                 foreach (var (key, value) in echoed)
                 {
                     WriteAttribute(w, key, value);
+                }
+
+                w.WriteEndArray();
+            }
+
+            w.WriteEndObject();
+        }
+
+        w.WriteEndArray();
+        w.WriteNumber("matched", trace.Matched);
+        w.WriteEndObject();
+    }
+
+    internal static void WriteSpanSet(Utf8JsonWriter w, TraceSelectedSpans trace)
+    {
+        w.WriteStartObject();
+        w.WriteStartArray("spans");
+        foreach (var span in trace.Spans)
+        {
+            w.WriteStartObject();
+            w.WriteString("spanID", span.SpanId);
+            w.WriteString("name", span.Name);
+            w.WriteString("startTimeUnixNano", TempoTraceEncoder.UnixNanos(span.StartTime).ToString(CultureInfo.InvariantCulture));
+            w.WriteString("durationNanos", span.DurationNano.ToString(CultureInfo.InvariantCulture));
+            if (span.Attributes.Count > 0)
+            {
+                w.WriteStartArray("attributes");
+                foreach (var attribute in span.Attributes)
+                {
+                    w.WriteStartObject();
+                    w.WriteString("key", attribute.Key);
+                    w.WriteStartObject("value");
+                    if (attribute.Number is { } number)
+                    {
+                        // An int64 is a string in protobuf JSON, which is what Grafana's Traces Drilldown parses.
+                        w.WriteString("intValue", number.ToString(CultureInfo.InvariantCulture));
+                    }
+                    else
+                    {
+                        w.WriteString("stringValue", attribute.Text);
+                    }
+
+                    w.WriteEndObject();
+                    w.WriteEndObject();
                 }
 
                 w.WriteEndArray();
