@@ -131,7 +131,8 @@ public sealed record TraceQlFilter(TraceQlComparison Op, double Value) : TraceQl
 /// <param name="By">The <c>by (...)</c> fields as written: <c>name</c>, <c>status</c>, <c>kind</c>, <c>span.x</c>, <c>resource.x</c> or <c>.x</c>.</param>
 /// <param name="Stages">What follows the function, in order: <c>| topk(n)</c>, <c>| bottomk(n)</c> and comparisons (<c>&gt; 5</c>); empty if none.</param>
 /// <param name="Exemplars">Whether the query asked for exemplars with <c>with(exemplars=true)</c>.</param>
-/// <param name="CompareSelection">For <see cref="TraceQlMetricsFunction.Compare"/>, the <c>{ selection }</c> argument: the spans it matches are compared with the rest of <see cref="Spanset"/>'s.</param>
+/// <param name="CompareSelection">For <see cref="TraceQlMetricsFunction.Compare"/>, the <c>{ selection }</c> argument (the first spanset of it, when it is a combination): the spans it matches are compared with the rest of <see cref="Spanset"/>'s.</param>
+/// <param name="CompareCombination">Set when the selection of <c>compare()</c> is a combination of spansets (<c>compare({ a } || { b })</c>, ADR-0234), in place of one spanset.</param>
 /// <param name="CompareTopN">The values kept per attribute by <c>compare()</c>, 10 unless the query says.</param>
 /// <param name="CompareStartNanos">With <paramref name="CompareEndNanos"/>: only spans that started in this window (unix nanoseconds, start exclusive, end inclusive) can be in the selection.</param>
 /// <param name="Ancestor">For <c>{ a } &gt;&gt; { b } | rate()</c>, the left spanset <c>{ a }</c>: <see cref="Spanset"/> (the right one) counts only spans that have a span matching it above them (ADR-0225). Null for a plain spanset.</param>
@@ -140,7 +141,7 @@ public sealed record TraceQlFilter(TraceQlComparison Op, double Value) : TraceQl
 /// <param name="Combination">Set when the query combines spansets with <c>&amp;&amp;</c>, <c>||</c> or a union operator (ADR-0232), in place of one spanset or one relation: <paramref name="Spanset"/> is then the first spanset and is not used.</param>
 /// <param name="ValueField">What <c>avg_over_time</c> and the other value functions aggregate, as written: <c>span.x</c>, <c>resource.x</c> or <c>.x</c> for a numeric attribute (ADR-0222); null is <c>duration</c> (and for <c>rate</c> and <c>count_over_time</c>, which take no argument).</param>
 public sealed record TraceQlMetricsQuery(TraceQlSpanset Spanset, TraceQlMetricsFunction Function, IReadOnlyList<double> Quantiles, IReadOnlyList<string> By, string? ValueField = null, IReadOnlyList<TraceQlMetricsStage>? Stages = null, bool Exemplars = false, TraceQlSpanset? Ancestor = null, Query.TraceRelationKind AncestorKind = Query.TraceRelationKind.Descendant,
-    TraceQlSpanset? CompareSelection = null, int CompareTopN = TraceQlParser.DefaultCompareTopN, ulong? CompareStartNanos = null, ulong? CompareEndNanos = null, bool AncestorNegated = false, TraceQlCombination? Combination = null)
+    TraceQlSpanset? CompareSelection = null, int CompareTopN = TraceQlParser.DefaultCompareTopN, ulong? CompareStartNanos = null, ulong? CompareEndNanos = null, bool AncestorNegated = false, TraceQlCombination? Combination = null, TraceQlCombination? CompareCombination = null)
 {
     /// <summary>True for <c>&gt;</c> (the matching span is the parent).</summary>
     public bool AncestorDirect => AncestorKind == Query.TraceRelationKind.Child;
@@ -594,6 +595,7 @@ public static class TraceQlParser
             var quantiles = new List<double>();
             string? valueField = null;
             TraceQlSpanset? selection = null;
+            TraceQlCombination? selectionCombination = null;
             var topN = DefaultCompareTopN;
             ulong? selectionStart = null;
             ulong? selectionEnd = null;
@@ -602,7 +604,7 @@ public static class TraceQlParser
             {
                 case "compare":
                     function = TraceQlMetricsFunction.Compare;
-                    (selection, topN, selectionStart, selectionEnd) = ParseCompareArguments();
+                    (selection, selectionCombination, topN, selectionStart, selectionEnd) = ParseCompareArguments();
                     break;
                 case "rate" or "count_over_time":
                     function = name == "rate" ? TraceQlMetricsFunction.Rate : TraceQlMetricsFunction.CountOverTime;
@@ -693,7 +695,7 @@ public static class TraceQlParser
                 throw Unexpected(Peek);
             }
 
-            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorKind, selection, topN, selectionStart, selectionEnd, ancestorNegated, combination);
+            return new TraceQlMetricsQuery(spanset, function, quantiles, by, valueField, stages, exemplars, ancestor, ancestorKind, selection, topN, selectionStart, selectionEnd, ancestorNegated, combination, selectionCombination);
         }
 
         /// <summary>
@@ -747,16 +749,34 @@ public static class TraceQlParser
             return new TraceQlRank(token.Text == "topk", k);
         }
 
-        /// <summary><c>{ selection }</c> and, optionally, the number of values to keep per attribute and the selection's time window in unix nanoseconds (both or neither).</summary>
-        private (TraceQlSpanset Selection, int TopN, ulong? Start, ulong? End) ParseCompareArguments()
+        /// <summary>
+        /// <c>{ selection }</c> (or a combination of spansets, <c>{ a } || { b }</c>, ADR-0234) and, optionally, the number of values to keep per
+        /// attribute and the selection's time window in unix nanoseconds (both or neither).
+        /// </summary>
+        private (TraceQlSpanset Selection, TraceQlCombination? Combination, int TopN, ulong? Start, ulong? End) ParseCompareArguments()
         {
-            if (Peek.Kind != TokenKind.LBrace)
+            if (Peek.Kind is not (TokenKind.LBrace or TokenKind.LParen))
             {
                 throw new TraceQlException("compare() needs the spans to select as its first argument, e.g. compare({ status = error }).");
             }
 
             var selections = new List<TraceQlSpanset>();
-            ParseOperand(selections);
+            // The relations written inside the selection belong to it: they are lettered against its own spansets, not the query's.
+            var relationsBefore = _relations.Count;
+            var expression = ParseOr(selections);
+            var relations = _relations.GetRange(relationsBefore, _relations.Count - relationsBefore);
+            _relations.RemoveRange(relationsBefore, relations.Count);
+            TraceQlCombination? combination = null;
+            if (selections.Count > 1 || expression != "A")
+            {
+                if (selections.Count > Query.TraceStructureSqlBuilder.MaxConditions)
+                {
+                    throw new TraceQlException($"the selection of compare() can combine at most {Query.TraceStructureSqlBuilder.MaxConditions} spansets.");
+                }
+
+                combination = new TraceQlCombination(selections, expression, Query.TraceStructureExpression.Parse(expression), relations);
+            }
+
             var topN = DefaultCompareTopN;
             ulong? start = null;
             ulong? end = null;
@@ -783,7 +803,7 @@ public static class TraceQlParser
                 }
             }
 
-            return (selections[0], topN, start, end);
+            return (selections[0], combination, topN, start, end);
         }
 
         private ulong ParseNanos()

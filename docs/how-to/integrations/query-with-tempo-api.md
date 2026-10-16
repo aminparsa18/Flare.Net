@@ -189,7 +189,9 @@ largest attribute value) with a trace id, and Grafana shows it as a point you ca
 **`compare()`** splits the spans of the query into a selection and a baseline and counts every attribute value in each:
 `{ nestedSetParent < 0 } | compare({ status = error }, 10)`. The second argument is how many values to keep per attribute
 (10 by default, at most 1,000), and two unix-nanosecond timestamps after it limit the selection to spans that started in
-that window. The response has a series `{ __meta_type="selection", span.http.route="/cart" }` (and `baseline`) for each
+that window. The selection can also combine spansets, `compare({ status = error } || { duration > 2s })`, with `&&`, `||`, parentheses and the
+structural operators as in a query (up to six spansets, and no `rootName`, `rootServiceName` or `traceDuration`); the spans in the result of the
+expression are the selection (a Flare extension: Tempo's grammar takes one spanset). The response has a series `{ __meta_type="selection", span.http.route="/cart" }` (and `baseline`) for each
 value, a `selection_total` and `baseline_total` series per attribute counting every span that has it, and, for an attribute
 with more values than were kept, a series labelled `__meta_error="__too_many_values__"`. The attributes are `name`, `status`,
 `kind` and every `span.` and `resource.` attribute. It takes no `by` and no stage after it, and a query is limited to 200 steps.
@@ -203,7 +205,7 @@ operators combine too, including the union ones (`&>>`, `&>`, `&~`, which count 
 `({ name = "a" } ~ { name = "b" }) || { status = error } | rate() by (name)`. At most six spansets, and `rootName`, `rootServiceName` and `traceDuration`
 cannot be used next to another spanset. A trace's spans are looked for from an hour before the range, as for a relation.
 
-Not supported: a combination of spansets as the selection of `compare()`, and `<`, `<<` and their negated and union forms.
+Not supported: `<`, `<<` and their negated and union forms.
 
 ## Grafana Traces Drilldown
 

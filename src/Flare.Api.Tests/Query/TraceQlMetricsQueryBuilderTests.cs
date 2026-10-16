@@ -335,7 +335,7 @@ public class TraceQlMetricsQueryBuilderTests
     private static SpanMetricsSql BuildCompare(int topN = 10, DateTimeOffset? selectionFrom = null, DateTimeOffset? selectionTo = null, TraceSpanCondition? condition = null) =>
         TraceQlMetricsQueryBuilder.BuildCompare(new SpanMetricsRequest(
             condition, SpanMetricFunction.Compare, [], [], From, To, 600,
-            Compare: new SpanCompare(new TraceSpanCondition { Name = "A", StatusCode = "STATUS_CODE_ERROR" }, topN, selectionFrom, selectionTo)));
+            Compare: new SpanCompare(new SpanSetCondition(new TraceSpanCondition { Name = "A", StatusCode = "STATUS_CODE_ERROR" }), topN, selectionFrom, selectionTo)));
 
     [Fact]
     public void Compare_RanksTheValuesOfEachAttributeInTwoPasses()
@@ -389,7 +389,7 @@ public class TraceQlMetricsQueryBuilderTests
     public void Compare_LimitsTheNumberOfSteps()
     {
         var request = new SpanMetricsRequest(null, SpanMetricFunction.Compare, [], [], From, From.AddSeconds(60 * (TraceQlMetricsQueryBuilder.MaxCompareSteps + 1)), 60,
-            Compare: new SpanCompare(new TraceSpanCondition { Name = "A", StatusCode = "STATUS_CODE_ERROR" }, 10, null, null));
+            Compare: new SpanCompare(new SpanSetCondition(new TraceSpanCondition { Name = "A", StatusCode = "STATUS_CODE_ERROR" }), 10, null, null));
 
         Assert.Throws<ArgumentException>(() => TraceQlMetricsQueryBuilder.BuildCompare(request));
     }
@@ -567,10 +567,66 @@ public class TraceQlMetricsQueryBuilderTests
     {
         var request = new SpanMetricsRequest(
             null, SpanMetricFunction.Compare, [], [], From, From.AddSeconds(600), 60,
-            Compare: new SpanCompare(CondA, 10, null, null), Spansets: new SpanSetOr(new SpanSetCondition(CondA), new SpanSetCondition(CondB)));
+            Compare: new SpanCompare(new SpanSetCondition(CondA), 10, null, null), Spansets: new SpanSetOr(new SpanSetCondition(CondA), new SpanSetCondition(CondB)));
 
         var built = TraceQlMetricsQueryBuilder.BuildCompare(request);
 
         Assert.Contains("((Name = {tsAName:String}) OR (Name = {tsBName:String}))", built.Sql);
+    }
+
+    private static SpanMetricsSql BuildCompareOf(SpanSetExpression selection, SpanSetExpression? spansets = null) =>
+        TraceQlMetricsQueryBuilder.BuildCompare(new SpanMetricsRequest(
+            null, SpanMetricFunction.Compare, [], [], From, From.AddSeconds(600), 60, Compare: new SpanCompare(selection, 10, null, null), Spansets: spansets));
+
+    [Fact]
+    public void Compare_OfAnOr_IsOneBooleanOnTheSpanRow()
+    {
+        var built = BuildCompareOf(new SpanSetOr(new SpanSetCondition(CondA), new SpanSetCondition(CondB)));
+
+        // The selection's conditions are lettered from S whatever they are called, so they meet no parameter of the query itself.
+        Assert.Contains("(((Name = {tsSName:String}) OR (Name = {tsTName:String}))) AS IsSel", built.Sql);
+        Assert.Equal(CondA.SpanName, built.Parameters["tsSName"].Value);
+        Assert.Equal(CondB.SpanName, built.Parameters["tsTName"].Value);
+    }
+
+    [Fact]
+    public void Compare_OfAnAnd_NeedsASpanOfEachSideInTheTrace()
+    {
+        var built = BuildCompareOf(new SpanSetAnd(new SpanSetCondition(CondA), new SpanSetCondition(CondB)));
+
+        Assert.Contains("TraceId GLOBAL IN (SELECT TraceId FROM (SELECT TraceId, (Name = {tsSName:String}) AS L, (Name = {tsTName:String}) AS R FROM spans", built.Sql);
+        Assert.Contains("HAVING max(L) > 0 AND max(R) > 0", built.Sql);
+        Assert.Contains(") AS IsSel", built.Sql);
+    }
+
+    [Fact]
+    public void Compare_OfARelation_UsesTheRelationClauseOnTheSelectionsLetters()
+    {
+        var built = BuildCompareOf(new SpanSetRelation(CondA, CondB, TraceRelationKind.Child, Negated: true, Union: false));
+
+        Assert.Contains("(TraceId, ParentSpanId) GLOBAL NOT IN (SELECT TraceId, SpanId FROM spans WHERE StartTime >= {mLookback:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)} AND (Name = {tsSName:String})", built.Sql);
+        Assert.Contains("AS IsSel", built.Sql);
+    }
+
+    [Fact]
+    public void Compare_SelectionAndQueryLettersDoNotCollide()
+    {
+        var other = CondA with { SpanName = "other", Name = "A" };
+        var built = BuildCompareOf(new SpanSetOr(new SpanSetCondition(CondA), new SpanSetCondition(CondB)), new SpanSetOr(new SpanSetCondition(other), new SpanSetCondition(CondB with { SpanName = "other-b" })));
+
+        Assert.Equal("other", built.Parameters["tsAName"].Value);
+        Assert.Equal(CondA.SpanName, built.Parameters["tsSName"].Value);
+        Assert.Equal("other-b", built.Parameters["tsBName"].Value);
+        Assert.Equal(CondB.SpanName, built.Parameters["tsTName"].Value);
+    }
+
+    [Fact]
+    public void Compare_OfACombination_WithAWindow_AppliesTheWindowToTheWholeExpression()
+    {
+        var built = TraceQlMetricsQueryBuilder.BuildCompare(new SpanMetricsRequest(
+            null, SpanMetricFunction.Compare, [], [], From, From.AddSeconds(600), 60,
+            Compare: new SpanCompare(new SpanSetOr(new SpanSetCondition(CondA), new SpanSetCondition(CondB)), 10, From.AddMinutes(1), From.AddMinutes(2))));
+
+        Assert.Contains("(Name = {tsTName:String})) AND StartTime > {mSelFrom:DateTime64(9)} AND StartTime <= {mSelTo:DateTime64(9)}) AS IsSel", built.Sql);
     }
 }

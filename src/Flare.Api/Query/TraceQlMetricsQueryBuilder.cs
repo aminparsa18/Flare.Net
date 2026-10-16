@@ -87,11 +87,12 @@ public sealed record SpanSetOr(SpanSetExpression Left, SpanSetExpression Right) 
 public sealed record SpanTraceRoot(IReadOnlyList<string> Services, IReadOnlyList<string> Names, ulong? MinDurationNano, ulong? MaxDurationNano);
 
 /// <summary>
-/// The arguments of <c>compare({ selection }, topN, start, end)</c> (ADR-0226): the spans matching <see cref="Selection"/>
+/// The arguments of <c>compare({ selection }, topN, start, end)</c> (ADR-0226): the spans in the result of <see cref="Selection"/>
 /// (and, with <see cref="From"/> and <see cref="To"/>, that started after the first and at or before the second) are the
 /// selection, the other spans of the query the baseline. Per attribute, the <see cref="TopN"/> most common values of each.
+/// The selection is a spanset expression (ADR-0234): one <see cref="SpanSetCondition"/>, or a combination such as <c>{ a } || { b }</c>.
 /// </summary>
-public sealed record SpanCompare(TraceSpanCondition Selection, int TopN, DateTimeOffset? From, DateTimeOffset? To);
+public sealed record SpanCompare(SpanSetExpression Selection, int TopN, DateTimeOffset? From, DateTimeOffset? To);
 
 /// <summary>One attribute value's span count in one step, for the selection or the baseline (ADR-0226).</summary>
 /// <param name="Bucket">The step's index from <see cref="SpanMetricsRequest.From"/>.</param>
@@ -244,7 +245,8 @@ public static class TraceQlMetricsQueryBuilder
         }
 
         var (parameters, _, _, _, filter) = Prepare(request, promoted);
-        var selected = TraceStructureSqlBuilder.ConditionMatch(compare.Selection, 'S', parameters, promoted);
+        // The selection's conditions are lettered from S, so their bound parameters never meet the query's own (A to F, and P for an ancestor).
+        var selected = new SpanSetCompiler(parameters, promoted, SelectionLetterBase).Predicate(compare.Selection);
         if (compare.From is { } from && compare.To is { } to)
         {
             parameters.AddParameter("mSelFrom", from.UtcDateTime);
@@ -375,6 +377,9 @@ public static class TraceQlMetricsQueryBuilder
         return (parameters, groups, value, where, filter);
     }
 
+    /// <summary>The first letter of the conditions of <c>compare()</c>'s selection (ADR-0234): up to <see cref="TraceStructureSqlBuilder.MaxConditions"/> of them, S to X.</summary>
+    private const char SelectionLetterBase = 'S';
+
     /// <summary>The window widened backwards by <see cref="Lookback"/>, where ancestors and roots are looked for.</summary>
     private const string LookbackWindow = "StartTime >= {mLookback:DateTime64(9)} AND StartTime < {mTo:DateTime64(9)}";
 
@@ -489,7 +494,7 @@ public static class TraceQlMetricsQueryBuilder
     /// Compiles a <see cref="SpanSetExpression"/> into one boolean over a span row (ADR-0232). A condition is compiled once, so its bound parameters
     /// are added once however often the expression repeats it.
     /// </summary>
-    private sealed class SpanSetCompiler(ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
+    private sealed class SpanSetCompiler(ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted, char? letterBase = null)
     {
         private readonly Dictionary<string, string> _matches = new(StringComparer.OrdinalIgnoreCase);
 
@@ -537,7 +542,10 @@ public static class TraceQlMetricsQueryBuilder
 
             if (!_matches.TryGetValue(letter, out var match))
             {
-                match = TraceStructureSqlBuilder.ConditionMatch(condition, letter[0], parameters, promoted);
+                // With a letter base the conditions are lettered in order of appearance, whatever they are called: the selection of compare() is
+                // planned like a query of its own, so its conditions are A, B... as the query's are.
+                var bound = letterBase is { } first ? (char)(first + _matches.Count) : letter[0];
+                match = TraceStructureSqlBuilder.ConditionMatch(condition, bound, parameters, promoted);
                 _matches[letter] = match;
             }
 
