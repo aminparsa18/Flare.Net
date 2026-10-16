@@ -111,6 +111,9 @@ datasources:
 | 追踪内置字段（仅限由一个 spanset 组成的查询）：`rootName`、`rootServiceName`、`traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
 | 组合 spanset：`&&`、`\|\|`、子级 `>`、后代 `>>` | `{ resource.service.name = "checkout" } >> { status = error }` |
 | 不带作用域的属性 | `{ .service.name = "api" }` |
+| 根 span：`nestedSetParent < 0`（`> 0` 表示有父 span 的 span） | `{ nestedSetParent < 0 && status = error }` |
+| 已设置的属性 `!= nil`，或未设置 `= nil` | `{ resource.k8s.pod.name != nil }` |
+| 单独的 `true`，不改变任何内容 | `{ nestedSetParent < 0 && true }` |
 
 搜索中不支持：`|` 管道（`count()`、`avg()`、`select()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内的 `||`、`statusMessage`，以及两个字段之间的比较。
 
@@ -138,7 +141,21 @@ datasources:
 
 **Exemplar** 把图表上的一个点链接到一条追踪。在 Metrics 选项中打开 **Exemplars**（Grafana 会发送 `exemplars=100`），或在查询里加上 `with(exemplars=true)`。之后每条序列的每一步都会带上其中最慢的 span（或属性值最大的 span）及追踪 ID，Grafana 把它显示为可以点开的点。仅限范围查询。
 
-不支持：`compare()`，以及指标查询中用 `&&` 或 `||` 连接 spanset。
+**`compare()`** 把查询中的 span 分成选中组和基线组（baseline），并统计两组中每个属性的每个取值：`{ nestedSetParent < 0 } | compare({ status = error }, 10)`。第二个参数是每个属性保留的取值个数（默认 10，最多 1,000），其后可再给两个以纳秒为单位的 unix 时间戳，把选中组限制为在该窗口内开始的 span。响应中每个取值对应一条序列 `{ __meta_type="selection", span.http.route="/cart" }`（以及 `baseline`），每个属性还有一条 `selection_total` 和 `baseline_total` 序列，统计所有带有该属性的 span；取值多于保留个数的属性会多出一条带 `__meta_error="__too_many_values__"` 标签的序列。属性包括 `name`、`status`、`kind` 以及所有 `span.` 和 `resource.` 属性。它不接受 `by`，其后也不能再跟阶段，查询最多 200 步。
+
+`with(sample=true)` 会被接受并忽略（Flare 的结果是精确的），可以与 `exemplars` 一起使用：`with(exemplars=true, sample=true)`。
+
+不支持：指标查询中用 `&&` 或 `||` 连接 spanset。
+
+## Grafana Traces Drilldown
+
+**Traces Drilldown** 应用（Grafana 12 及更高版本中的 Drilldown > Traces）可以配合上文配置的 Tempo 数据源使用，其中这些部分可用：
+
+- **span 速率、错误率和耗时**、耗时热力图，以及按任意属性做的**分解**（Breakdown）。
+- **Comparison**：按所选 span（例如出错的 span）与其余 span 的分布差异对属性排序。它运行的是 `compare()`。
+- **Traces**：匹配的追踪列表。
+
+下列部分需要 Flare 目前还读不懂的查询，会显示错误或空视图：**Service structure** 和 **Root cause errors**（它们用到 `&>>`、`select()` 以及 span 的嵌套集位置）和 **Exceptions**（它会选取 span 事件属性）。参见 [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md)。
 
 ## 与 Tempo 的差异
 
@@ -152,9 +169,10 @@ datasources:
 - **`histogram_over_time()` 最多保留 20 个分组，** 每组最多 63 条桶序列；小于 2 的值（短于 2 纳秒的时长）不会计入任何桶，与 Tempo 一致。
 - **`topk()` 对 Flare 算出的序列排名。** 和下面 200 条序列的上限一样，它只处理 span 最多的那些分组，所以平均值最大的分组可能已经被截掉（响应会标记 `PARTIAL`）。
 - **关系和追踪字段会向前回看一小时。** span 的祖先和追踪的根从范围开始前一小时起查找，所以祖先开始得更早的 span 不会被统计。两者都要读取候选追踪的 span，开销比普通 spanset 大。
+- **`compare()` 统计的是字符串，并且只看较短的取值。** 整数属性是一个字符串标签，长度超过 256 个字符的取值（带查询串的 URL、堆栈）不会被统计。它会读取范围内每个 span 的全部属性，是开销最大的指标查询；请在 spanset 里加过滤条件来缩小范围。
 - **Exemplar 只用于范围查询。** Tempo 的即时响应里同样没有放它们的位置。
 - **Exemplar 是最慢的 span，** 而不是像 Tempo 那样随机选取，并且放在它所属分组的序列上（`quantile_over_time` 放在最大的分位数序列上，直方图放在其值所在的桶里）。
 - **一次指标查询最多返回 200 条序列。** 分组更多时，保留 span 最多的 200 条，并把响应标记为 `PARTIAL`。计数和分位数会按[追踪采样](../../explanation/sampling-clustering-and-cost.zh-CN.md)下每个已存储 span 所代表的数量加权，所以被采样的服务仍能报告真实速率。
 - **标签列表来自采样。** 名称取自时间窗口内最多 50,000 个 span，按出现频率从高到低排列。缩小 `start` 和 `end` 可获得完整列表。
 
-设计说明：[ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md)、[ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md)、[ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md)、[ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md) 和 [ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md)。
+设计说明：[ADR-0217](../../../docs-internal/adr/0217-tempo-compatible-trace-api.md)、[ADR-0222](../../../docs-internal/adr/0222-traceql-metrics-over-an-attribute.md)、[ADR-0223](../../../docs-internal/adr/0223-traceql-histogram-and-exemplars.md)、[ADR-0224](../../../docs-internal/adr/0224-traceql-metrics-topk-bottomk.md)、[ADR-0225](../../../docs-internal/adr/0225-traceql-metrics-comparison-and-span-relations.md) 和 [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md)。

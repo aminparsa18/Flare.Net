@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Flare.Api.Model;
 
@@ -257,7 +258,10 @@ public static class TempoSearchPlanner
 
                 ApplyTraceLevel(predicate, trace);
                 return;
-            case "statusMessage" or "childCount" or "parent" or "nestedSetLeft" or "nestedSetRight" or "nestedSetParent" or "traceID" or "spanID":
+            case "nestedSetParent":
+                ApplyNestedSetParent(predicate, builder);
+                return;
+            case "statusMessage" or "childCount" or "parent" or "nestedSetLeft" or "nestedSetRight" or "traceID" or "spanID":
                 throw new TraceQlException($"the intrinsic '{field}' is not supported.");
         }
 
@@ -281,11 +285,52 @@ public static class TempoSearchPlanner
         }
     }
 
+    /// <summary>
+    /// <c>nestedSetParent</c> is -1 for a root span and the parent's (positive) nested-set position for any other, so a test on it
+    /// is a test for "is a root" and "has a parent": Grafana's Traces Drilldown selects root spans with <c>nestedSetParent&lt;0</c>.
+    /// Only a comparison with a whole number is read.
+    /// </summary>
+    private static void ApplyNestedSetParent(TraceQlPredicate predicate, ConditionBuilder builder)
+    {
+        if (predicate.Value.Kind != TraceQlValueKind.Number || !double.TryParse(predicate.Value.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var c) || c != Math.Floor(c))
+        {
+            throw new TraceQlException("'nestedSetParent' is compared with a whole number, e.g. nestedSetParent < 0 for a root span.");
+        }
+
+        bool Holds(double value) => predicate.Op switch
+        {
+            TraceQlOp.Eq => value == c,
+            TraceQlOp.Neq => value != c,
+            TraceQlOp.Gt => value > c,
+            TraceQlOp.Gte => value >= c,
+            TraceQlOp.Lt => value < c,
+            TraceQlOp.Lte => value <= c,
+            _ => throw new TraceQlException("'nestedSetParent' supports =, !=, >, >=, < and <=."),
+        };
+
+        // Any positive value is a possible parent position: the test holds for some span with a parent if it holds for one of 1 and a larger one.
+        var nonRoot = Holds(1) || Holds(double.MaxValue) || (predicate.Op == TraceQlOp.Eq && c >= 1);
+        builder.RestrictParent(Holds(-1), nonRoot, $"nestedSetParent {predicate.Op} {predicate.Value.Text}");
+    }
+
     private static void ApplyAttribute(TraceQlPredicate predicate, string key, SpanAttributeBag bag, ConditionBuilder builder)
     {
         if (key.Length == 0)
         {
             throw new TraceQlException($"'{predicate.Field}' has no attribute name.");
+        }
+
+        // `!= nil` is "the attribute exists", `= nil` "it does not": Traces Drilldown selects the spans that carry a resource attribute this way.
+        if (predicate.Value.Kind == TraceQlValueKind.Nil)
+        {
+            var presence = predicate.Op switch
+            {
+                TraceQlOp.Eq => SpanAttributeFilterOperator.Absent,
+                TraceQlOp.Neq => SpanAttributeFilterOperator.Exists,
+                _ => throw new TraceQlException($"{predicate.Field} can only be compared with nil using = or !=."),
+            };
+            builder.Attributes.Add(new SpanAttributeFilter { Bag = bag, Key = key, Value = string.Empty, Operator = presence });
+            return;
         }
 
         // The service is a first-class column, which the structure filter matches exactly (and the ingest sort key favours).
@@ -490,8 +535,25 @@ public static class TempoSearchPlanner
 
         public List<SpanAttributeFilter> Attributes { get; } = [];
 
+        private bool _rootAllowed = true;
+        private bool _nonRootAllowed = true;
+
+        /// <summary>Root only, non-root only, or null for either, from the <c>nestedSetParent</c> tests of the spanset.</summary>
+        public bool? RootSpan => _rootAllowed == _nonRootAllowed ? null : _rootAllowed;
+
         public bool IsBlank =>
-            Service is null && _spanName is null && _status is null && _kind is null && Duration.Min is null && Duration.Max is null && Attributes.Count == 0;
+            Service is null && _spanName is null && _status is null && _kind is null && RootSpan is null && Duration.Min is null && Duration.Max is null && Attributes.Count == 0;
+
+        /// <summary>Narrows to the spans a <c>nestedSetParent</c> test lets through; one that no span passes is an error rather than an empty result.</summary>
+        public void RestrictParent(bool rootMatches, bool nonRootMatches, string text)
+        {
+            _rootAllowed &= rootMatches;
+            _nonRootAllowed &= nonRootMatches;
+            if (!_rootAllowed && !_nonRootAllowed)
+            {
+                throw new TraceQlException($"no span satisfies '{text}'; nestedSetParent is -1 for a root span and positive for any other.");
+            }
+        }
 
         public void SetSpanName(string name, SpanNameMatch match)
         {
@@ -536,6 +598,7 @@ public static class TempoSearchPlanner
             SpanNameMatch = _spanNameMatch,
             Kind = _kind,
             KindNegated = _kindNegated,
+            RootSpan = RootSpan,
             MinDurationNano = Duration.Min,
             MaxDurationNano = Duration.Max,
             Attributes = Attributes.Count == 0 ? null : Attributes,

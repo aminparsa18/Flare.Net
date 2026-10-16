@@ -166,7 +166,7 @@ public static class TraceStructureSqlBuilder
             // Only a referenced condition must match on something - an unused blank one (a
             // card the user added but hasn't filled in yet) is just ignored.
             if (string.IsNullOrEmpty(condition.ServiceName) && string.IsNullOrEmpty(condition.SpanName) && string.IsNullOrEmpty(condition.StatusCode)
-                && condition.Kind is null && condition.MinDurationNano is null && condition.MaxDurationNano is null && condition.Attributes is not { Count: > 0 })
+                && condition.Kind is null && condition.RootSpan is null && condition.MinDurationNano is null && condition.MaxDurationNano is null && condition.Attributes is not { Count: > 0 })
             {
                 throw new ArgumentException($"Condition {letter} needs a service, span name, status, duration or attribute filter.");
             }
@@ -273,6 +273,11 @@ public static class TraceStructureSqlBuilder
         {
             parameters.AddParameter($"ts{letter}Kind", kind);
             clauses.Add($"Kind {(condition.KindNegated ? "!=" : "=")} {{ts{letter}Kind:UInt8}}");
+        }
+
+        if (condition.RootSpan is { } root)
+        {
+            clauses.Add(root ? "ParentSpanId = ''" : "ParentSpanId != ''");
         }
 
         if (condition.MinDurationNano is { } minDuration)

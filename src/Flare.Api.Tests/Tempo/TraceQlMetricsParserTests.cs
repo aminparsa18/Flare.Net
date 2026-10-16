@@ -167,7 +167,6 @@ public class TraceQlMetricsParserTests
     }
 
     [Theory]
-    [InlineData("{ } | compare({ status = error })", "compare")]
     [InlineData("{ } | rate() | filter(true)", "'filter' is not supported")]
     [InlineData("{ } | rate() | topk(0)", "whole number")]
     [InlineData("{ } | rate() | topk(x)", "whole number")]
@@ -181,7 +180,7 @@ public class TraceQlMetricsParserTests
     [InlineData("{ } | rate() by (duration)", "cannot be grouped by")]
     [InlineData("{ } | rate() by (span.)", "cannot be grouped by")]
     [InlineData("{ } | rate() by (name, name, name, name, name, name)", "at most 5")]
-    [InlineData("{ } | rate() with(sample=true)", "hint")]
+    [InlineData("{ } | rate() with(sample_rate=true)", "hint")]
     [InlineData("{ }", "needs a function")]
     [InlineData("{ } | rate() extra", "unexpected")]
     [InlineData("{ a = \"1\" } && { b = \"2\" } | rate()", "one spanset")]
@@ -217,4 +216,71 @@ public class TraceQlMetricsParserTests
     {
         Assert.Throws<TraceQlException>(() => TraceQlParser.Parse("{ } | rate()"));
     }
+
+    [Fact]
+    public void Compare_TakesASelectionAndDefaultsToTenValues()
+    {
+        var query = TraceQlParser.ParseMetrics("{nestedSetParent<0 && true} | compare({status = error})");
+
+        Assert.Equal(TraceQlMetricsFunction.Compare, query.Function);
+        Assert.Equal("compare", query.FunctionName);
+        Assert.Equal("status", Assert.Single(query.CompareSelection!.Predicates).Field);
+        Assert.Equal(10, query.CompareTopN);
+        Assert.Null(query.CompareStartNanos);
+    }
+
+    [Fact]
+    public void Compare_ReadsTheNumberOfValuesAndTheSelectionWindow()
+    {
+        var query = TraceQlParser.ParseMetrics("{ } | compare({ duration > 1s }, 25, 1700000000000000000, 1700000003600000000)");
+
+        Assert.Equal(25, query.CompareTopN);
+        Assert.Equal(1_700_000_000_000_000_000UL, query.CompareStartNanos);
+        Assert.Equal(1_700_000_003_600_000_000UL, query.CompareEndNanos);
+    }
+
+    [Theory]
+    [InlineData("{ } | compare()", "spans to select")]
+    [InlineData("{ } | compare({ status = error }, 0)", "1 to 1000")]
+    [InlineData("{ } | compare({ status = error }, 1001)", "1 to 1000")]
+    [InlineData("{ } | compare({ status = error }, x)", "1 to 1000")]
+    [InlineData("{ } | compare({ status = error }, 10, 5)", "unexpected")]
+    [InlineData("{ } | compare({ status = error }, 10, 100, 50)", "after its start")]
+    [InlineData("{ } | compare({ status = error }, 10, a, b)", "nanoseconds")]
+    [InlineData("{ } | compare({ status = error }) by (name)", "no by")]
+    [InlineData("{ } | compare({ status = error }) | topk(2)", "cannot be followed")]
+    [InlineData("{ } | compare({ status = error }) > 3", "cannot be followed")]
+    public void Compare_RejectsWhatItCannotRead(string traceQl, string mentions)
+    {
+        var ex = Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics(traceQl));
+
+        Assert.Contains(mentions, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("with(sample=true)", false)]
+    [InlineData("with(sample=0.5)", false)]
+    [InlineData("with(exemplars=true, sample=true)", true)]
+    [InlineData("with(sample=true, exemplars=true)", true)]
+    [InlineData("with(exemplars=false,sample=true)", false)]
+    public void SampleHint_IsAcceptedAndIgnored_AlongsideExemplars(string hint, bool exemplars) =>
+        Assert.Equal(exemplars, TraceQlParser.ParseMetrics("{ } | rate()  " + hint).Exemplars);
+
+    [Fact]
+    public void ExemplarsHintThenSampleHint_KeepsExemplarsOn() =>
+        Assert.True(TraceQlParser.ParseMetrics("{ } | rate() with(exemplars=true) | topk(2) with(sample=true)").Exemplars);
+
+    [Fact]
+    public void ByWithoutASpace_IsRead()
+    {
+        var query = TraceQlParser.ParseMetrics("{ } | rate() by(resource.service.name)");
+
+        Assert.Equal(new[] { "resource.service.name" }, query.By);
+    }
+
+    [Theory]
+    [InlineData("with(sample=maybe)")]
+    [InlineData("with(unknown=true)")]
+    [InlineData("with(exemplars=0.5)")]
+    public void OtherHints_AreRejected(string hint) => Assert.Throws<TraceQlException>(() => TraceQlParser.ParseMetrics("{ } | rate() " + hint));
 }

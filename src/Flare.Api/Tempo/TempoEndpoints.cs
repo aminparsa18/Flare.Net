@@ -193,6 +193,7 @@ public static class TempoEndpoints
             var window = TempoMetricsWindow.Resolve(
                 query["start"], query["end"], query["since"], query["step"], time.GetUtcNow(), instant, TraceQlMetricsQueryBuilder.MaxSteps);
 
+
             // Exemplars (ADR-0223) are for charts, so a range query only: `exemplars=n` as Grafana sends it, or with(exemplars=true) in the query.
             var exemplarCount = instant ? 0 : ExemplarCount(query["exemplars"], plan.Exemplars);
             var request = new SpanMetricsRequest(
@@ -206,12 +207,21 @@ public static class TempoEndpoints
                 plan.Value,
                 exemplarCount,
                 plan.Ancestor,
-                plan.Root);
+                plan.Root,
+                plan.Compare);
 
-            var rows = await spans.GetSpanMetricsAsync(request, ct);
-            var exemplars = exemplarCount > 0 && rows.Count > 0 ? await spans.GetSpanExemplarsAsync(request, ct) : null;
+            TempoMetricsResult result;
+            if (plan.Function == SpanMetricFunction.Compare)
+            {
+                result = TempoCompareSeries.Build(plan, await spans.GetSpanCompareAsync(request, ct), window);
+            }
+            else
+            {
+                var rows = await spans.GetSpanMetricsAsync(request, ct);
+                var exemplars = exemplarCount > 0 && rows.Count > 0 ? await spans.GetSpanExemplarsAsync(request, ct) : null;
+                result = TempoMetricsSeries.Build(plan, rows, window, exemplars);
+            }
 
-            var result = TempoMetricsSeries.Build(plan, rows, window, exemplars);
             return Json(w =>
             {
                 if (instant)

@@ -13,6 +13,7 @@ namespace Flare.Api.Tempo;
 /// <param name="Exemplars">Whether the query itself asked for exemplars; a request can also ask with <c>exemplars=n</c> (ADR-0223).</param>
 /// <param name="Ancestor">Set for <c>{ a } &gt;&gt; { b } | rate()</c>: only the spans matching <paramref name="Condition"/> that have a span matching this above them are counted (ADR-0225).</param>
 /// <param name="Root">Set when the spanset names the trace's root (<c>rootName</c>, <c>rootServiceName</c>, <c>traceDuration</c>): only spans of traces whose root row matches are counted (ADR-0225).</param>
+/// <param name="Compare">Set for <c>compare({ selection })</c> (ADR-0226).</param>
 /// <param name="Value">The numeric attribute a value function aggregates (ADR-0222); null is the span's duration, which is reported in seconds.</param>
 public sealed record TempoMetricsPlan(
     TraceSpanCondition? Condition,
@@ -25,7 +26,8 @@ public sealed record TempoMetricsPlan(
     IReadOnlyList<TraceQlMetricsStage>? Stages = null,
     bool Exemplars = false,
     SpanAncestor? Ancestor = null,
-    SpanTraceRoot? Root = null)
+    SpanTraceRoot? Root = null,
+    SpanCompare? Compare = null)
 {
     public IReadOnlyList<TraceQlMetricsStage> Stages { get; } = Stages ?? [];
 }
@@ -55,6 +57,7 @@ public static class TempoMetricsPlanner
             TraceQlMetricsFunction.MinOverTime => SpanMetricFunction.Min,
             TraceQlMetricsFunction.MaxOverTime => SpanMetricFunction.Max,
             TraceQlMetricsFunction.HistogramOverTime => SpanMetricFunction.Histogram,
+            TraceQlMetricsFunction.Compare => SpanMetricFunction.Compare,
             _ => SpanMetricFunction.Sum,
         };
 
@@ -69,8 +72,28 @@ public static class TempoMetricsPlanner
             query.Stages,
             query.Exemplars,
             query.Ancestor is null ? null : new SpanAncestor(search.Conditions[0], query.AncestorDirect),
-            TraceRoot(search));
+            TraceRoot(search),
+            query.CompareSelection is { } selection ? PlanCompare(query, selection) : null);
     }
+
+    /// <summary>The selection of <c>compare()</c> is one span predicate, planned like a spanset; trace-level fields have no per-span meaning in it.</summary>
+    private static SpanCompare PlanCompare(TraceQlMetricsQuery query, TraceQlSpanset selection)
+    {
+        var plan = TempoSearchPlanner.Plan(new TraceQlQuery([selection], "A"));
+        if (plan.Conditions.Count != 1 || plan.RootServices.Count > 0 || plan.RootNames.Count > 0 || plan.MinTraceDurationNano is not null || plan.MaxTraceDurationNano is not null)
+        {
+            throw new TraceQlException("compare() needs a selection of spans, e.g. compare({ status = error }); rootName, rootServiceName and traceDuration cannot select spans.");
+        }
+
+        return new SpanCompare(
+            plan.Conditions[0],
+            query.CompareTopN,
+            query.CompareStartNanos is { } start ? FromNanos(start) : null,
+            query.CompareEndNanos is { } end ? FromNanos(end) : null);
+    }
+
+    private static DateTimeOffset FromNanos(ulong nanos) =>
+        DateTimeOffset.UnixEpoch.AddTicks((long)Math.Min(nanos / 100, (ulong)(DateTimeOffset.MaxValue.Ticks - DateTimeOffset.UnixEpoch.Ticks)));
 
     private static SpanTraceRoot? TraceRoot(TempoSearchPlan search) =>
         search.RootServices.Count == 0 && search.RootNames.Count == 0 && search.MinTraceDurationNano is null && search.MaxTraceDurationNano is null

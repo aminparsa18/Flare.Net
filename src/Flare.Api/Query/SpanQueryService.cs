@@ -31,6 +31,9 @@ public interface ISpanQueryService
     /// <summary>A TraceQL metrics query's per-step, per-group aggregates over the matching spans - the Tempo-compatible API's <c>/api/metrics</c> (ADR-0221). See <see cref="TraceQlMetricsQueryBuilder"/>.</summary>
     Task<IReadOnlyList<SpanMetricRow>> GetSpanMetricsAsync(SpanMetricsRequest request, CancellationToken cancellationToken);
 
+    /// <summary>A <c>compare()</c> query's per-step counts of every attribute value in the selection and the baseline (ADR-0226). See <see cref="TraceQlMetricsQueryBuilder.BuildCompare"/>.</summary>
+    Task<IReadOnlyList<SpanCompareRow>> GetSpanCompareAsync(SpanMetricsRequest request, CancellationToken cancellationToken);
+
     /// <summary>The span with the largest value per step and group of a metrics query, to link a chart point to a trace (ADR-0223). See <see cref="TraceQlMetricsQueryBuilder.BuildExemplars"/>.</summary>
     Task<IReadOnlyList<SpanExemplarRow>> GetSpanExemplarsAsync(SpanMetricsRequest request, CancellationToken cancellationToken);
 
@@ -326,6 +329,34 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
             }
 
             rows.Add(new SpanMetricRow(Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture), group, weight, aggregate));
+        }
+
+        return rows;
+    }
+
+    public async Task<IReadOnlyList<SpanCompareRow>> GetSpanCompareAsync(SpanMetricsRequest request, CancellationToken cancellationToken)
+    {
+        var built = TraceQlMetricsQueryBuilder.BuildCompare(request, promotedAttributes.Spans);
+
+        // One row per step, group, attribute and kept value; an overflow is an error, as for the other metrics queries, and so is a group by that
+        // would not fit in memory (a span with thousands of distinct attribute values per step is what it protects against).
+        var options = SafetyOptions();
+        options.CustomSettings!["max_result_rows"] = Math.Max(queryLimits.Value.MaxResultRows, TraceQlMetricsQueryBuilder.MaxCompareRows);
+        options.CustomSettings["result_overflow_mode"] = "throw";
+        options.CustomSettings["max_rows_to_group_by"] = 20_000_000;
+        options.CustomSettings["group_by_overflow_mode"] = "throw";
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, options, cancellationToken);
+
+        var rows = new List<SpanCompareRow>();
+        while (reader.Read())
+        {
+            rows.Add(new SpanCompareRow(
+                Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture),
+                Convert.ToInt32(reader.GetValue(1), CultureInfo.InvariantCulture) != 0,
+                reader.GetString(2),
+                reader.GetString(3),
+                Convert.ToDouble(reader.GetValue(4), CultureInfo.InvariantCulture)));
         }
 
         return rows;
