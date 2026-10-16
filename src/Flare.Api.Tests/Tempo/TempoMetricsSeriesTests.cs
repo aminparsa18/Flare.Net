@@ -428,4 +428,60 @@ public class TempoMetricsSeriesTests
         Assert.Equal(new[] { 0.5, 0.1 }, values);
         Assert.False(json.GetProperty("series")[0].TryGetProperty("samples", out _));
     }
+
+    [Fact]
+    public void GroupingByAnAttribute_LabelsTheValuesTypedAndANameStaysText()
+    {
+        var plan = Plan("{ } | count_over_time() by (span.http.status_code, resource.cluster.ok, .tq.ratio, span.tq.code, name)");
+        var rows = new[]
+        {
+            Row(0, 9, [9], "500", "true", "0.25", "0123", "GET /"),
+            Row(0, 1, [1], "7", "false", "1E+21", "42", "200"),
+        };
+
+        var result = TempoMetricsSeries.Build(plan, rows, Window);
+
+        Assert.Equal(
+            new[]
+            {
+                new TempoLabel("span.http.status_code", null, Integer: 500), new TempoLabel("resource.cluster.ok", null, Boolean: true),
+                new TempoLabel(".tq.ratio", null, 0.25), new TempoLabel("span.tq.code", "0123"), new TempoLabel("name", "GET /"),
+            },
+            result.Series[0].Labels);
+        // A name that looks like a number is still a name.
+        Assert.Equal(new TempoLabel("name", "200"), result.Series[1].Labels[4]);
+        Assert.Equal(new TempoLabel("span.tq.code", null, Integer: 42), result.Series[1].Labels[3]);
+        Assert.Equal(new TempoLabel(".tq.ratio", null, 1e21), result.Series[1].Labels[2]);
+    }
+
+    [Fact]
+    public void GroupingByAnAttribute_WritesTheTypedMemberAndKeepsTheRankByWeight()
+    {
+        var plan = Plan("{ } | count_over_time() by (span.http.status_code)");
+        var rows = new[] { Row(0, 1, [1], "200"), Row(0, 5, [5], "1000"), Row(0, 5, [5], "500"), Row(0, 2, [2], "") };
+
+        var result = TempoMetricsSeries.Build(plan, rows, Window);
+
+        // Weight first, then the stored text: "1000" before "500" although 500 < 1000 as numbers.
+        Assert.Equal(new[] { 1000L, 500, 200 }, result.Series.Take(2).Concat(result.Series.Skip(3)).Select(s => s.Labels[0].Integer!.Value));
+        Assert.Equal("", result.Series[2].Labels[0].Text);
+        var json = Json(w => TempoMetricsSeries.WriteRange(w, result));
+        Assert.Equal("1000", json.GetProperty("series")[0].GetProperty("labels")[0].GetProperty("value").GetProperty("intValue").GetString());
+        Assert.Equal("", json.GetProperty("series")[2].GetProperty("labels")[0].GetProperty("value").GetProperty("stringValue").GetString());
+    }
+
+    [Fact]
+    public void GroupingByAnAttribute_LeavesTheExemplarLabelsText()
+    {
+        var plan = Plan("{ } | histogram_over_time(duration) by (span.http.status_code)");
+        var rows = new[] { Row(0, 3, [20], "500") };
+        var exemplars = new[] { new SpanExemplarRow(0, ["500"], "0123456789abcdef0123456789abcdef", "1234567890123456", 1e9, 1_790_000_050_000) };
+
+        var result = TempoMetricsSeries.Build(plan, rows, Window, exemplars);
+
+        var series = Assert.Single(result.Series);
+        Assert.Equal(500L, series.Labels[0].Integer);
+        var exemplar = Assert.Single(series.Exemplars!);
+        Assert.Equal(new[] { new TempoLabel("trace:id", "0123456789abcdef0123456789abcdef"), new TempoLabel("span:id", "1234567890123456") }, exemplar.Labels);
+    }
 }

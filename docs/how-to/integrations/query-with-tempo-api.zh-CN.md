@@ -109,8 +109,8 @@ datasources:
 | 运算符 `=`、`!=`、`=~`、`!~`、`>`、`>=`、`<`、`<=` | `{ span.http.status_code >= 500 }` |
 | span 内置字段：`name`（`=`、`!=`、`=~`、`!~`）、`status`（`=`、`!=`：`error`、`ok`、`unset`）、`kind`（`=`、`!=`：`unspecified`、`internal`、`server`、`client`、`producer`、`consumer`）、`duration` | `{ kind = server && name =~ "POST .*" && status != ok }` |
 | 追踪内置字段（仅限由一个 spanset 组成的查询）：`rootName`、`rootServiceName`、`traceDuration` | `{ rootServiceName = "gateway" && traceDuration > 1s }` |
-| Tempo 带作用域的内置字段，写法与 Tempo 文档一致：`span:duration`、`span:name`、`span:status`、`span:kind`、`trace:duration`、`trace:rootName`、`trace:rootService`、`event:name` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
-| Tempo 带作用域的内置字段，用于标识符、插桩范围、链接与事件：`span:id`、`span:parentID`、`trace:id`、`instrumentation:name`、`instrumentation:version`、`link:spanID`、`link:traceID`（`=`、`!=`、`=~`、`!~`、`= nil`；较短的十六进制标识符会在左侧补零，针对链接的测试在任一链接满足时成立）以及 `event:timeSinceStart`（时长，可用 `=`、`!=`、`>`、`>=`、`<`、`<=` 比较） | `{ trace:id = "5b8efff798038103d269b633813fc60c" && link:spanID != nil }` |
+| Tempo 带作用域的内置字段，写法与 Tempo 文档一致：`span:duration`、`span:name`、`span:status`、`span:kind`、`trace:duration`、`trace:rootName`、`trace:rootService` | `{ trace:rootService = "gateway" && span:duration > 100ms }` |
+| Tempo 带作用域的内置字段，用于标识符、插桩范围、链接与事件：`span:id`、`span:parentID`、`trace:id`、`instrumentation:name`、`instrumentation:version`、`link:spanID`、`link:traceID`、`event:name` 以及 `span:statusMessage` / `statusMessage`（`=`、`!=`、`=~`、`!~`、`= nil`；较短的十六进制标识符会在左侧补零，针对链接的测试在任一链接满足时成立，`event:name` 的测试在 span 的任一事件满足时成立）以及 `event:timeSinceStart`（时长，可用 `=`、`!=`、`>`、`>=`、`<`、`<=` 比较） | `{ link:spanID != nil && event:name = "exception" && statusMessage =~ "timeout.*" }` |
 | 同一字段的多个值，`(f = a \|\| f = b)`，在 Grafana 的 Search 选项卡中选了多个值时就会生成这种写法：服务、span 名称、状态、span 类型（二至四个）、属性、`rootName`、`rootServiceName`、标识符（以及 `f != a && f != b`） | `{ (resource.service.name = "api" \|\| resource.service.name = "web") && (name != "GET /health" && name != "GET /ready") }` |
 | 组合 spanset：`&&`、`\|\|`、子级 `>`、后代 `>>`。结构运算符旁边的空 `{ }` 表示任意 span | `{ resource.service.name = "checkout" } >> { status = error }` |
 | `&>>`、`&>` 和 `&~`，两侧的 span：右侧有匹配祖先（父级、同级）的 span，以及左侧有这样一个右侧 span 的 span | `{ nestedSetParent < 0 } &>> { kind = server }` |
@@ -123,7 +123,7 @@ datasources:
 | 事件属性 `event.x`：当 span 的某个事件匹配时，该 span 匹配 | `{ status = error && event.exception.type = "TimeoutException" }` |
 | 查询之后的 `\| select(...)`，为每个列出的 span 附加字段：`name`、`status`、`statusMessage`、`kind`、`duration`、`rootName`、`rootServiceName`、`traceDuration`、`nestedSetParent`、`nestedSetLeft`、`nestedSetRight`、`span.x`、`resource.x`、`.x`、`event.x`（最多 20 个），以及 `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
-搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内除同一字段的 `=` 测试之外的 `||`、作为过滤条件的 `statusMessage`、`<`、`<<` 及其否定与并集形式，以及两个字段之间的比较。
+搜索中不支持：除 `select()` 之外的 `|` 管道（`count()`、`avg()`、`by()` 等；指标查询可带一个，见下文）、同一个 spanset 内除同一字段的 `=` 测试之外的 `||`、`<`、`<<` 及其否定与并集形式，以及两个字段之间的比较。
 
 `nestedSetLeft`、`nestedSetRight` 和 `nestedSetParent` 按 Tempo 的方式给追踪中的 span 编号：深度优先遍历，span 的左编号是进入它时的下一个数字，右编号是离开它时的下一个数字，因此一个 span 在另一个之下，当且仅当它的编号落在另一个的编号之内；父编号是父 span 的左编号，根为 -1。父 span 从未被摄入的 span 按根编号。编号最多读取每条追踪的 2,000 个 span。
 
@@ -182,11 +182,11 @@ datasources:
 - **搜索需要根 span。** 根 span 从未被摄入的追踪不会出现在列表中，但仍可按 ID 打开。
 - **匹配的 span 会列出查询比较过的属性。** 列出的每个 span 有 id、名称、开始时间、时长、`service.name` 和查询中点名的属性（最多 20 个），另加 `select()` 的字段。span、资源或事件属性的值若无歧义地是整数、小数或 `true` / `false`，就写成 `intValue`、`doubleValue` 或 `boolValue`，`compare()` 的标签同样如此；其余的（如 `0123`、`5.0`、`+5`、`1e5`）仍为字符串，因为 Flare 存的是文本，来源给出的类型已经丢失。嵌套集编号为整数。属性名不带作用域，与 Tempo 相同。`rootName`、`rootServiceName` 和 `traceDuration` 可用于 `select()`，并且每条结果里本来就有（`rootTraceName`、`rootServiceName`、`durationMs`），与 Tempo 一致；span 有 `statusMessage` 时才会列出。`event.` 字段的属性会列出 span 的每个事件（最多 50 个），一个事件接一个事件，同一事件的属性放在一起：同一个异常的 `exception.type`、`exception.message` 和 `exception.stacktrace` 紧挨在一起，每个事件各出现一次该键。同一属性有新旧两种写法时（`http.status_code`、`http.response.status_code`），列出 span 实际具有的那种。在包含多个 spanset 的查询（`{ a } >> { b }`）中，所有 spanset 的 span 合并列在同一组里，而不是每个 spanset 一组。
 - **指标按步长分桶。** 采样点带的是所在步长起点的时间戳，`start` 和 `end` 会向外取整到步长的整数倍，所以时间范围结束于当前时刻时，最后一步是不完整的。`rate()`、`count_over_time()` 和 `histogram_over_time()` 在没有 span 的步长里为零；其他函数在这样的步长里没有采样点。
-- **指标只对具有该属性的 span 分组。** 在 `by (span.http.route)` 中，没有 `http.route` 的 span 会被排除，而不是算到空值下。新旧写法并存的属性（`http.status_code`、`http.response.status_code`）按 span 实际具有的那种分组。
+- **指标只对具有该属性的 span 分组。** 在 `by (span.http.route)` 中，没有 `http.route` 的 span 会被排除，而不是算到空值下。属性的取值按上面的规则标为数字或布尔值（`by (span.http.status_code)` 得到 `intValue` 500），而 `name`、`status` 和 `kind` 仍为文本。新旧写法并存的属性（`http.status_code`、`http.response.status_code`）按 span 实际具有的那种分组。
 - **`histogram_over_time()` 最多保留 20 个分组，** 每组最多 63 条桶序列；小于 2 的值（短于 2 纳秒的时长）不会计入任何桶，与 Tempo 一致。
 - **`topk()` 对 Flare 算出的序列排名。** 和下面 200 条序列的上限一样，它只处理 span 最多的那些分组，所以平均值最大的分组可能已经被截掉（响应会标记 `PARTIAL`）。
 - **关系和追踪字段会向前回看一小时。** span 的祖先和追踪的根从范围开始前一小时起查找，所以祖先开始得更早的 span 不会被统计。两者都要读取候选追踪的 span，开销比普通 spanset 大。
-- **`compare()` 统计的是字符串，并且只看较短的取值。** 整数属性是一个字符串标签，长度超过 256 个字符的取值（带查询串的 URL、堆栈）不会被统计。它会读取范围内每个 span 的全部属性，是开销最大的指标查询；请在 spanset 里加过滤条件来缩小范围。
+- **`compare()` 只看较短的取值。** 长度超过 256 个字符的取值（带查询串的 URL、堆栈）不会被统计。它会读取范围内每个 span 的全部属性，是开销最大的指标查询；请在 spanset 里加过滤条件来缩小范围。
 - **Exemplar 只用于范围查询。** Tempo 的即时响应里同样没有放它们的位置。
 - **Exemplar 是最慢的 span，** 而不是像 Tempo 那样随机选取，并且放在它所属分组的序列上（`quantile_over_time` 放在最大的分位数序列上，直方图放在其值所在的桶里）。
 - **一次指标查询最多返回 200 条序列。** 分组更多时，保留 span 最多的 200 条，并把响应标记为 `PARTIAL`。计数和分位数会按[追踪采样](../../explanation/sampling-clustering-and-cost.zh-CN.md)下每个已存储 span 所代表的数量加权，所以被采样的服务仍能报告真实速率。

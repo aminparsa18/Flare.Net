@@ -163,7 +163,7 @@ public class TempoSearchPlannerTests
     [Theory]
     [InlineData("{ rootName = \"x\" } || { name = \"y\" }", "single spanset")]
     [InlineData("{ } && { name = \"y\" }", "empty spanset")]
-    [InlineData("{ statusMessage = \"x\" }", "not supported")]
+    [InlineData("{ childCount > 1 }", "not supported")]
     [InlineData("{ status = \"weird\" }", "unknown status")]
     [InlineData("{ duration = \"5\" }", "duration")]
     [InlineData("{ duration > -1 }", "duration")]
@@ -505,15 +505,12 @@ public class TempoSearchPlannerTests
     }
 
     [Fact]
-    public void ScopedIntrinsics_WorkInSelectAndEventNameAndGrouping()
-    {
-        Assert.Equal("exception", Assert.Single(Assert.Single(Plan("""{ event:name = "exception" }""").Conditions).Attributes!).Value);
+    public void ScopedIntrinsics_WorkInSelect() =>
         Assert.Equal(TempoSelectScope.Intrinsic, Assert.Single(Plan("{ } | select(span:status)").Select).Scope);
-    }
 
     [Theory]
-    [InlineData("{ span:statusMessage = \"x\" }")]
     [InlineData("{ span:childCount > 1 }")]
+    [InlineData("{ parent = nil }")]
     public void ScopedIntrinsicsWithNoCounterpart_AreNamedAsUnsupported(string traceQl) =>
         Assert.Contains("is not supported", Assert.Throws<TraceQlException>(() => Plan(traceQl)).Message);
 
@@ -643,4 +640,58 @@ public class TempoSearchPlannerTests
     [Fact]
     public void AnEmptySpanset_NextToABooleanOperatorIsStillAnError() =>
         Assert.Contains("structural operator", Assert.Throws<TraceQlException>(() => Plan("{ } && { name = \"x\" }")).Message);
+
+    [Theory]
+    [InlineData("{ event:name = \"exception\" }", SpanAttributeFilterOperator.Equals, "exception")]
+    [InlineData("{ event:name != \"exception\" }", SpanAttributeFilterOperator.NotEquals, "exception")]
+    [InlineData("{ event:name =~ \"exc.*\" }", SpanAttributeFilterOperator.Regex, "^(?:exc.*)$")]
+    [InlineData("{ event:name !~ \"exc.*\" }", SpanAttributeFilterOperator.NotRegex, "^(?:exc.*)$")]
+    [InlineData("{ event:name = nil }", SpanAttributeFilterOperator.Absent, "")]
+    [InlineData("{ event:name != nil }", SpanAttributeFilterOperator.Exists, "")]
+    public void EventName_IsTheNamesOfTheSpansEvents_NotAnEventAttribute(string traceQl, SpanAttributeFilterOperator op, string value)
+    {
+        var attribute = Assert.Single(Assert.Single(Plan(traceQl).Conditions).Attributes!);
+
+        Assert.Equal((SpanAttributeBag.Intrinsic, "Events.Name", op, value), (attribute.Bag, attribute.Key, attribute.Operator, attribute.Value));
+    }
+
+    [Fact]
+    public void EventName_OrGroup_IsAMembershipTest_AndTheAttributeNamedNameIsLeftAlone()
+    {
+        var group = Assert.Single(Assert.Single(Plan("""{ (event:name = "a" || event:name = "b") }""").Conditions).Attributes!);
+        Assert.Equal((SpanAttributeFilterOperator.In, "Events.Name"), (group.Operator, group.Key));
+        Assert.Equal(new[] { "a", "b" }, group.Values);
+
+        var attribute = Assert.Single(Assert.Single(Plan("""{ event.name = "x" }""").Conditions).Attributes!);
+        Assert.Equal((SpanAttributeBag.Event, "name"), (attribute.Bag, attribute.Key));
+    }
+
+    [Fact]
+    public void EventName_IsNotSelectable_AndSaysWhatIs() =>
+        Assert.Contains("is not supported", Assert.Throws<TraceQlException>(() => Plan("{ } | select(event:name)")).Message);
+
+    [Theory]
+    [InlineData("{ statusMessage = \"boom\" }", SpanAttributeFilterOperator.Equals, "boom")]
+    [InlineData("{ span:statusMessage = \"boom\" }", SpanAttributeFilterOperator.Equals, "boom")]
+    [InlineData("{ statusMessage != \"boom\" }", SpanAttributeFilterOperator.NotEquals, "boom")]
+    [InlineData("{ statusMessage =~ \"bo+m\" }", SpanAttributeFilterOperator.Regex, "^(?:bo+m)$")]
+    [InlineData("{ statusMessage !~ \"bo+m\" }", SpanAttributeFilterOperator.NotRegex, "^(?:bo+m)$")]
+    [InlineData("{ statusMessage = nil }", SpanAttributeFilterOperator.Absent, "")]
+    [InlineData("{ span:statusMessage != nil }", SpanAttributeFilterOperator.Exists, "")]
+    public void StatusMessage_IsATextTestOnTheMessage(string traceQl, SpanAttributeFilterOperator op, string value)
+    {
+        var attribute = Assert.Single(Assert.Single(Plan(traceQl).Conditions).Attributes!);
+
+        Assert.Equal((SpanAttributeBag.Intrinsic, "StatusMessage", op, value), (attribute.Bag, attribute.Key, attribute.Operator, attribute.Value));
+    }
+
+    [Fact]
+    public void StatusMessage_OrGroupIsAMembershipTest_AndAnOrderingIsRejected()
+    {
+        var group = Assert.Single(Assert.Single(Plan("""{ (statusMessage = "a" || statusMessage = "b") }""").Conditions).Attributes!);
+        Assert.Equal(SpanAttributeFilterOperator.In, group.Operator);
+        Assert.Equal(new[] { "a", "b" }, group.Values);
+
+        Assert.Contains("supports =, !=, =~ and !~", Assert.Throws<TraceQlException>(() => Plan("""{ statusMessage > "a" }""")).Message);
+    }
 }
