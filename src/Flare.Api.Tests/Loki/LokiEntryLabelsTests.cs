@@ -7,6 +7,9 @@ namespace Flare.Api.Tests.Loki;
 
 public class LokiEntryLabelsTests
 {
+    private static LokiEntryPlan JsonPlan(Dictionary<string, string>? expressions = null) =>
+        new([new LokiParserSpec(LokiParserKind.Json, expressions ?? new Dictionary<string, string>())], null);
+
     private static LokiLogRow Row(string body = "hello", byte severity = 17, Dictionary<string, string>? resource = null, Dictionary<string, string>? log = null) => new(
         Ns: 1_760_000_000_123_456_789,
         Body: body,
@@ -51,7 +54,7 @@ public class LokiEntryLabelsTests
     {
         var parsed = LokiEntryLabels.Build(
             Row("""{"status":500,"request":{"method":"GET","path":"/x"},"ok":false,"tags":["a","b"],"gone":null}"""),
-            new LokiJsonSpec(new Dictionary<string, string>())).Parsed;
+            JsonPlan()).Parsed;
 
         Assert.Equal("500", parsed["status"]);
         Assert.Equal("GET", parsed["request_method"]);
@@ -66,7 +69,7 @@ public class LokiEntryLabelsTests
     {
         var parsed = LokiEntryLabels.Build(
             Row("""{"user":{"id":"42"},"other":1}"""),
-            new LokiJsonSpec(new Dictionary<string, string> { ["uid"] = "user.id", ["missing"] = "no.such" })).Parsed;
+            JsonPlan(new Dictionary<string, string> { ["uid"] = "user.id", ["missing"] = "no.such" })).Parsed;
 
         Assert.Equal(new Dictionary<string, string> { ["uid"] = "42" }, parsed);
     }
@@ -74,7 +77,7 @@ public class LokiEntryLabelsTests
     [Fact]
     public void Json_CollidingLabelsGetTheExtractedSuffix()
     {
-        var parsed = LokiEntryLabels.Build(Row("""{"service_name":"x","trace_id":"y"}"""), new LokiJsonSpec(new Dictionary<string, string>())).Parsed;
+        var parsed = LokiEntryLabels.Build(Row("""{"service_name":"x","trace_id":"y"}"""), JsonPlan()).Parsed;
 
         Assert.Equal("x", parsed["service_name_extracted"]);
         Assert.Equal("y", parsed["trace_id_extracted"]);
@@ -86,7 +89,7 @@ public class LokiEntryLabelsTests
     [InlineData("{broken")]
     public void Json_NonObjectBodySetsTheParserError(string body)
     {
-        var parsed = LokiEntryLabels.Build(Row(body), new LokiJsonSpec(new Dictionary<string, string>())).Parsed;
+        var parsed = LokiEntryLabels.Build(Row(body), JsonPlan()).Parsed;
 
         Assert.Equal("JSONParserErr", Assert.Single(parsed).Value);
     }
@@ -171,5 +174,151 @@ public class LokiEntryLabelsTests
         Assert.Equal("+Inf", LokiEndpoints.FormatSample(double.PositiveInfinity));
         Assert.Equal("NaN", LokiEndpoints.FormatSample(double.NaN));
         Assert.Equal("0.5", LokiEndpoints.FormatSample(0.5));
+    }
+
+    // ---- logfmt, mixed parsers and line_format (ADR-0237) ----
+
+    private static LokiParserSpec Json(params (string Label, string Path)[] expressions) =>
+        new(LokiParserKind.Json, expressions.ToDictionary(e => e.Label, e => e.Path));
+
+    private static LokiParserSpec Logfmt(params (string Label, string Key)[] expressions) =>
+        new(LokiParserKind.Logfmt, expressions.ToDictionary(e => e.Label, e => e.Key));
+
+    private static LokiEntryPlan Plan(string? lineFormat, params LokiParserSpec[] parsers) =>
+        new(parsers, lineFormat is null ? null : LokiTemplate.Parse(lineFormat));
+
+    [Fact]
+    public void Logfmt_ExtractsEveryPair()
+    {
+        var parsed = LokiEntryLabels.Build(Row("""level=warn msg="slow query" took=1.5s"""), Plan(null, Logfmt())).Parsed;
+
+        Assert.Equal(
+            new Dictionary<string, string> { ["level"] = "warn", ["msg"] = "slow query", ["took"] = "1.5s" },
+            parsed);
+    }
+
+    [Fact]
+    public void Logfmt_ExplicitExpressionsExtractOnlyThoseKeys()
+    {
+        var parsed = LokiEntryLabels.Build(Row("level=warn http.status=503 other=x"), Plan(null, Logfmt(("code", "http.status"), ("gone", "nokey")))).Parsed;
+
+        Assert.Equal(new Dictionary<string, string> { ["code"] = "503" }, parsed);
+    }
+
+    [Fact]
+    public void Logfmt_CollidingLabelsAreSuffixedExtracted()
+    {
+        var entry = LokiEntryLabels.Build(Row("trace_id=zzz service_name=other k8s_pod_name=p detected_level=fake"), Plan(null, Logfmt()));
+
+        Assert.Equal("zzz", entry.Parsed["trace_id_extracted"]);
+        Assert.Equal("other", entry.Parsed["service_name_extracted"]);
+        Assert.Equal("p", entry.Parsed["k8s_pod_name_extracted"]);
+        Assert.Equal("fake", entry.Parsed["detected_level_extracted"]);
+        Assert.Equal("abc123", entry.StructuredMetadata["trace_id"]);
+    }
+
+    [Fact]
+    public void MixedParsers_AJsonLineIsParsedByJsonAndALogfmtLineByLogfmt()
+    {
+        var plan = Plan(null, Json(), Logfmt());
+
+        var jsonLine = LokiEntryLabels.Build(Row("""{"status":500,"msg":"a b=c"}"""), plan).Parsed;
+        var logfmtLine = LokiEntryLabels.Build(Row("status=200 msg=ok"), plan).Parsed;
+
+        Assert.Equal(new Dictionary<string, string> { ["status"] = "500", ["msg"] = "a b=c" }, jsonLine);
+        // The line is not JSON, so json reports an error; logfmt still extracts, as in a Drilldown "mixed" query.
+        Assert.Equal("JSONParserErr", logfmtLine["__error__"]);
+        Assert.Equal("200", logfmtLine["status"]);
+        Assert.Equal("ok", logfmtLine["msg"]);
+    }
+
+    [Fact]
+    public void MixedParsers_ALaterStageCannotOverwriteAnEarlierLabel()
+    {
+        var parsed = LokiEntryLabels.Build(Row("""{"user":"a"}"""), Plan(null, Json(), Json(("user2", "user"), ("user", "user")))).Parsed;
+
+        Assert.Equal("a", parsed["user"]);
+        Assert.Equal("a", parsed["user_extracted"]);
+        Assert.Equal("a", parsed["user2"]);
+    }
+
+    [Fact]
+    public void LineFormat_RewritesTheLineFromParsedLabels()
+    {
+        var entry = LokiEntryLabels.Build(Row("""{"msg":"disk full","code":28}"""), Plan("[{{.code}}] {{.msg | upper}}", Json()));
+
+        Assert.Equal("[28] DISK FULL", entry.Line);
+        // The labels are unchanged by line_format.
+        Assert.Equal("disk full", entry.Parsed["msg"]);
+    }
+
+    [Fact]
+    public void LineFormat_SeesMetadataAndStreamLabelsAndTheLevelFallback()
+    {
+        var entry = LokiEntryLabels.Build(Row("plain text"), Plan("{{.service_name}}/{{.k8s_pod_name}} {{.detected_level}} {{.level}} {{.trace_id}} {{.http_method}}"));
+
+        Assert.Equal("api/web-1 error error abc123 GET", entry.Line);
+    }
+
+    [Fact]
+    public void LineFormat_ParsedLabelsWinOverMetadata()
+    {
+        var entry = LokiEntryLabels.Build(Row("""{"level":"custom"}"""), Plan("{{.level}}", Json()));
+
+        Assert.Equal("custom", entry.Line);
+    }
+
+    [Fact]
+    public void LineFormat_LineAndTimestamp()
+    {
+        var entry = LokiEntryLabels.Build(Row("orig"), Plan("{{ __line__ }} @ {{ __timestamp__ }}"));
+
+        Assert.Equal("orig @ 2025-10-09T08:53:20.1234567Z", entry.Line);
+    }
+
+    [Fact]
+    public void NoLineFormat_KeepsTheBody()
+    {
+        Assert.Equal("hello", LokiEntryLabels.Build(Row("hello"), Plan(null, Logfmt())).Line);
+    }
+
+    [Fact]
+    public void Flatten_ReportsTheKeyPathOfEveryLeaf()
+    {
+        var fields = LokiEntryLabels.TryFlattenJson("""{"a":{"b":{"c":1}},"d":"x","e":null}""")!;
+
+        Assert.Equal([("a_b_c", "1", new[] { "a", "b", "c" }), ("d", "x", new[] { "d" })], fields.Select(f => (f.Name, f.Value, f.Path.ToArray())));
+    }
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("[1,2]")]
+    [InlineData("\"str\"")]
+    public void TryFlattenJson_IsNullForAnythingButAnObject(string body)
+    {
+        Assert.Null(LokiEntryLabels.TryFlattenJson(body));
+    }
+
+    [Fact]
+    public void WriteStreams_Categorized_CarriesParsedLabelsOfBothParsers()
+    {
+        var entry = LokiEntryLabels.Build(Row("status=500 path=/x"), Plan(null, Json(), Logfmt()));
+
+        using var doc = JsonDocument.Parse(Write([entry], categorize: true));
+        var third = doc.RootElement.GetProperty("result")[0].GetProperty("values")[0][2];
+        Assert.Equal("500", third.GetProperty("parsed").GetProperty("status").GetString());
+        Assert.Equal("JSONParserErr", third.GetProperty("parsed").GetProperty("__error__").GetString());
+    }
+
+    [Fact]
+    public void Json_ExplicitExpressionsAcceptBracketPathsAndArrayIndexes()
+    {
+        var parsed = LokiEntryLabels.Build(
+            Row("""{"request":{"method":"GET","x.y":"dotted"},"servers":[{"name":"a"},{"name":"b"}]}"""),
+            Plan(
+                null,
+                Json(("m", """["request"]["method"]"""), ("dotted", """request["x.y"]"""), ("second", "servers[1].name"), ("gone", "servers[5].name")))).Parsed;
+
+        Assert.Equal(new Dictionary<string, string> { ["m"] = "GET", ["dotted"] = "dotted", ["second"] = "b" }, parsed);
     }
 }

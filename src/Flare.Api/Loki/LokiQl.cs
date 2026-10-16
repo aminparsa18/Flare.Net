@@ -23,8 +23,20 @@ internal abstract record LokiExpr;
 /// <summary>A stream selector plus its pipeline - the whole of a log query, or the argument of a range aggregation.</summary>
 internal sealed record LokiLogSelector(IReadOnlyList<LokiMatcher> Matchers, IReadOnlyList<LokiStage> Stages) : LokiExpr;
 
-/// <summary><c>count_over_time|rate|bytes_over_time|bytes_rate</c> over a log selector with a <c>[range]</c>.</summary>
-internal sealed record LokiRangeAggregation(string Function, LokiLogSelector Selector, TimeSpan Range) : LokiExpr;
+/// <summary>
+/// <c>count_over_time|rate|bytes_over_time|bytes_rate</c> over a log selector with a <c>[range]</c>, or an
+/// unwrapped <c>sum_over_time|avg_over_time|min_over_time|max_over_time|first_over_time|last_over_time|stddev_over_time|stdvar_over_time|quantile_over_time</c>
+/// whose selector ends in <c>| unwrap label</c>. <see cref="Quantile"/> is set for <c>quantile_over_time</c>;
+/// <see cref="Grouping"/> is the function's own <c>by</c>/<c>without</c> clause, which groups the samples
+/// <i>before</i> the function is applied (unlike a vector aggregation around it).
+/// </summary>
+internal sealed record LokiRangeAggregation(string Function, LokiLogSelector Selector, TimeSpan Range, double? Quantile = null, LokiGrouping? Grouping = null) : LokiExpr
+{
+    public bool IsUnwrapped => Selector.Stages.OfType<LokiUnwrapStage>().Any();
+}
+
+/// <summary>A <c>by (labels)</c> or <c>without (labels)</c> clause.</summary>
+internal sealed record LokiGrouping(bool Without, IReadOnlyList<string> Labels);
 
 /// <summary><c>sum|avg|min|max|count|topk|bottomk [by|without (labels)] (inner)</c>. <see cref="K"/> is set for topk/bottomk.</summary>
 internal sealed record LokiVectorAggregation(string Function, bool Without, IReadOnlyList<string> Labels, int? K, LokiExpr Inner) : LokiExpr;
@@ -42,8 +54,31 @@ internal abstract record LokiStage;
 /// <summary><c>|= "a" or "b"</c>, <c>!= "a"</c>, <c>|~ "re"</c>, <c>!~ "re"</c>. The patterns are alternatives; a negated filter excludes all of them.</summary>
 internal sealed record LokiLineFilter(LokiMatchOp Op, IReadOnlyList<string> Patterns) : LokiStage;
 
+/// <summary><c>|&gt; "pattern"</c> / <c>!&gt; "pattern"</c>: Loki's pattern line filter, <c>&lt;_&gt;</c> and <c>&lt;name&gt;</c> standing for any text.</summary>
+internal sealed record LokiPatternFilter(bool Negated, string Pattern) : LokiStage;
+
 /// <summary><c>| json</c> or <c>| json label="path.to.field", ...</c>.</summary>
 internal sealed record LokiJsonStage(IReadOnlyList<(string Label, string Path)> Expressions) : LokiStage;
+
+/// <summary><c>| logfmt</c> or <c>| logfmt label="key", ...</c>.</summary>
+internal sealed record LokiLogfmtStage(IReadOnlyList<(string Label, string Key)> Expressions) : LokiStage;
+
+/// <summary><c>| line_format "{{.label}}"</c>: rewrites the line that is returned. Always after every parser and line filter.</summary>
+internal sealed record LokiLineFormatStage(LokiTemplate Template) : LokiStage;
+
+/// <summary><c>| unwrap label</c>, <c>unwrap duration(label)</c>, <c>duration_seconds(label)</c> or <c>bytes(label)</c>: the number a range function aggregates.</summary>
+internal sealed record LokiUnwrapStage(string Label, LokiUnwrapConversion Conversion) : LokiStage;
+
+internal enum LokiUnwrapConversion
+{
+    None,
+
+    /// <summary>A Go duration such as <c>1.5s</c> or <c>2m30s</c>, in seconds.</summary>
+    Duration,
+
+    /// <summary>A size such as <c>10KB</c> or <c>1.5MiB</c>, in bytes.</summary>
+    Bytes,
+}
 
 /// <summary><c>| drop __error__</c>. Only the parser-error labels can be dropped, which never exist here, so it is a no-op kept for compatibility with Grafana's generated queries.</summary>
 internal sealed record LokiDropStage : LokiStage;
@@ -75,8 +110,10 @@ internal sealed record LokiOr(LokiPredicate Left, LokiPredicate Right) : LokiPre
 /// <summary>
 /// Hand-written recursive-descent parser for the LogQL subset Flare serves (ADR-0236): stream selectors
 /// with <c>= != =~ !~</c> matchers; line filters (<c>|= != |~ !~</c>, with <c>or</c> alternatives);
-/// <c>| json</c>; label filters (<c>| status &gt;= 500 and level="error"</c>); <c>| drop __error__</c>;
-/// <c>count_over_time</c>, <c>rate</c>, <c>bytes_over_time</c>, <c>bytes_rate</c> over a range;
+/// <c>| json</c>, <c>| logfmt</c>, <c>| line_format</c>, the pattern filters <c>|&gt;</c> / <c>!&gt;</c>; label filters
+/// (<c>| status &gt;= 500 and level="error"</c>); <c>| drop __error__</c>; <c>| unwrap</c>;
+/// <c>count_over_time</c>, <c>rate</c>, <c>bytes_over_time</c>, <c>bytes_rate</c> and the unwrapped
+/// <c>*_over_time</c> functions over a range;
 /// <c>sum|avg|min|max|count|topk|bottomk</c> with <c>by</c>/<c>without</c>; <c>+ - * / %</c> between
 /// metric expressions and numbers; and <c>vector(n)</c> (Grafana's data-source test is
 /// <c>vector(1)+vector(1)</c>). Everything else - <c>logfmt</c>, <c>line_format</c>, <c>unwrap</c>,
@@ -89,10 +126,12 @@ internal sealed class LokiQlParser
     private static readonly string[] VectorAggregations = ["sum", "avg", "min", "max", "count", "topk", "bottomk"];
 
     private static readonly string[] UnsupportedStages =
-        ["logfmt", "line_format", "label_format", "unwrap", "regexp", "pattern", "unpack", "decolorize", "keep", "distinct"];
+        ["label_format", "regexp", "pattern", "unpack", "decolorize", "keep", "distinct"];
 
     private static readonly string[] UnwrappedFunctions =
-        ["sum_over_time", "avg_over_time", "min_over_time", "max_over_time", "first_over_time", "last_over_time", "stddev_over_time", "stdvar_over_time", "quantile_over_time", "rate_counter", "absent_over_time"];
+        ["sum_over_time", "avg_over_time", "min_over_time", "max_over_time", "first_over_time", "last_over_time", "stddev_over_time", "stdvar_over_time", "quantile_over_time"];
+
+    private static readonly string[] UnsupportedRangeFunctions = ["rate_counter", "absent_over_time"];
 
     private readonly string _text;
     private int _pos;
@@ -109,7 +148,14 @@ internal sealed class LokiQlParser
         var parser = new LokiQlParser(query);
         var expr = parser.ParseAdditive();
         parser.SkipWhitespace();
-        return parser.AtEnd ? expr : throw parser.Error($"unexpected '{parser.Peek()}'");
+        if (!parser.AtEnd)
+        {
+            throw parser.Error($"unexpected '{parser.Peek()}'");
+        }
+
+        return expr is LokiLogSelector { Stages: var stages } && stages.OfType<LokiUnwrapStage>().Any()
+            ? throw new LokiException("unwrap is only valid inside a range function such as avg_over_time({...} | unwrap label [5m]).")
+            : expr;
     }
 
     /// <summary>Parses a stream selector with an optional pipeline, nothing else - the <c>query</c> parameter of the label-values endpoint and the <c>match[]</c> of <c>series</c>.</summary>
@@ -291,7 +337,12 @@ internal sealed class LokiQlParser
 
         if (Array.IndexOf(UnwrappedFunctions, name) >= 0)
         {
-            throw Error($"'{name}' is not supported (it needs unwrap); use count_over_time, rate, bytes_over_time or bytes_rate");
+            return ParseUnwrappedRangeAggregation(name);
+        }
+
+        if (Array.IndexOf(UnsupportedRangeFunctions, name) >= 0)
+        {
+            throw Error($"'{name}' is not supported");
         }
 
         throw Error($"unknown function '{name}'");
@@ -307,17 +358,56 @@ internal sealed class LokiQlParser
         }
 
         var selector = ParseLogSelector();
+        if (selector.Stages.OfType<LokiUnwrapStage>().Any())
+        {
+            throw Error($"{function}() cannot take an unwrapped selector; use sum_over_time, avg_over_time or another unwrapped function");
+        }
+
+        var range = ParseRange();
+        Expect(")");
+        return new LokiRangeAggregation(function, selector, range);
+    }
+
+    /// <summary><c>sum_over_time({...} | unwrap label [5m]) by (labels)</c>; <c>quantile_over_time</c> takes the quantile first.</summary>
+    private LokiRangeAggregation ParseUnwrappedRangeAggregation(string function)
+    {
+        Expect("(");
+        double? quantile = null;
+        if (function == "quantile_over_time")
+        {
+            SkipWhitespace();
+            var q = ReadNumber();
+            quantile = q is >= 0 and <= 1 ? q : throw Error("quantile_over_time() needs a quantile between 0 and 1");
+            Expect(",");
+        }
+
+        SkipWhitespace();
+        if (Peek() != '{')
+        {
+            throw Error($"{function}() takes a log stream selector");
+        }
+
+        var selector = ParseLogSelector();
+        if (!selector.Stages.OfType<LokiUnwrapStage>().Any())
+        {
+            throw Error($"{function}() needs '| unwrap label' before the range");
+        }
+
+        var range = ParseRange();
+        Expect(")");
+        var (without, labels, present) = ParseGrouping();
+        return new LokiRangeAggregation(function, selector, range, quantile, present ? new LokiGrouping(without, labels) : null);
+    }
+
+    private TimeSpan ParseRange()
+    {
         Expect("[");
         SkipWhitespace();
         var range = ReadDuration();
         Expect("]");
-        if (PeekIdent() is "offset" or "by" or "without")
-        {
-            throw Error($"'{PeekIdent()}' is not supported here");
-        }
-
-        Expect(")");
-        return new LokiRangeAggregation(function, selector, range);
+        return PeekIdent() is "offset" or "by" or "without"
+            ? throw Error($"'{PeekIdent()}' is not supported here")
+            : range;
     }
 
     private LokiVectorAggregation ParseVectorAggregation(string function)
@@ -403,6 +493,7 @@ internal sealed class LokiQlParser
         var stages = new List<LokiStage>();
         while (TryParseStage(stages))
         {
+            ValidateStageOrder(stages);
         }
 
         return new LokiLogSelector(matchers, stages);
@@ -449,9 +540,16 @@ internal sealed class LokiQlParser
             }
         }
 
-        if (string.CompareOrdinal(_text, _pos, "|>", 0, 2) == 0 || string.CompareOrdinal(_text, _pos, "!>", 0, 2) == 0)
+        foreach (var (token, negated) in new[] { ("|>", false), ("!>", true) })
         {
-            throw Error("pattern line filters (|> and !>) are not supported");
+            if (string.CompareOrdinal(_text, _pos, token, 0, token.Length) == 0)
+            {
+                _pos += token.Length;
+                var pattern = ReadString();
+                LokiPatternMatcher.Validate(pattern);
+                stages.Add(new LokiPatternFilter(negated, pattern));
+                return true;
+            }
         }
 
         if (Peek() != '|')
@@ -467,6 +565,36 @@ internal sealed class LokiQlParser
         {
             _pos += word.Length;
             stages.Add(ParseJsonStage());
+            return true;
+        }
+
+        if (word == "logfmt")
+        {
+            _pos += word.Length;
+            stages.Add(ParseLogfmtStage());
+            return true;
+        }
+
+        if (word == "line_format")
+        {
+            _pos += word.Length;
+            var template = ReadString();
+            try
+            {
+                stages.Add(new LokiLineFormatStage(LokiTemplate.Parse(template)));
+            }
+            catch (LokiException ex)
+            {
+                throw Error(ex.Message.TrimEnd('.'));
+            }
+
+            return true;
+        }
+
+        if (word == "unwrap")
+        {
+            _pos += word.Length;
+            stages.Add(ParseUnwrapStage());
             return true;
         }
 
@@ -514,6 +642,78 @@ internal sealed class LokiQlParser
         while (TryConsume(","));
 
         return new LokiJsonStage(expressions);
+    }
+
+    private LokiLogfmtStage ParseLogfmtStage()
+    {
+        var expressions = new List<(string, string)>();
+        SkipWhitespace();
+        if (Peek() == '-')
+        {
+            // Loki's --strict and --keep-empty change what counts as a parse error and a label; neither is modelled.
+            throw Error("logfmt flags (--strict, --keep-empty) are not supported");
+        }
+
+        if (!IsIdentStart(Peek()))
+        {
+            return new LokiLogfmtStage(expressions);
+        }
+
+        do
+        {
+            var label = ReadIdent();
+            Expect("=");
+            expressions.Add((label, ReadString()));
+        }
+        while (TryConsume(","));
+
+        return new LokiLogfmtStage(expressions);
+    }
+
+    private LokiUnwrapStage ParseUnwrapStage()
+    {
+        var first = ReadIdent();
+        SkipWhitespace();
+        if (Peek() != '(')
+        {
+            return new LokiUnwrapStage(first, LokiUnwrapConversion.None);
+        }
+
+        var conversion = first switch
+        {
+            "duration" or "duration_seconds" => LokiUnwrapConversion.Duration,
+            "bytes" => LokiUnwrapConversion.Bytes,
+            _ => throw Error($"unknown unwrap conversion '{first}' (expected duration, duration_seconds or bytes)"),
+        };
+        Expect("(");
+        var label = ReadIdent();
+        Expect(")");
+        return new LokiUnwrapStage(label, conversion);
+    }
+
+    /// <summary>
+    /// Rejects stage sequences whose meaning Flare does not model. <c>line_format</c> only rewrites the
+    /// line that is returned (ADR-0237), so a later stage that reads the line would see the original text
+    /// where Loki would see the rewritten one; and Loki accepts only label filters after <c>unwrap</c>.
+    /// </summary>
+    private void ValidateStageOrder(List<LokiStage> stages)
+    {
+        var last = stages[^1];
+        if (last is LokiLineFormatStage && stages.Count(s => s is LokiLineFormatStage) > 1)
+        {
+            throw Error("only one line_format stage is supported");
+        }
+
+        if (stages.Take(stages.Count - 1).Any(s => s is LokiLineFormatStage)
+            && last is LokiLineFilter or LokiPatternFilter or LokiJsonStage or LokiLogfmtStage)
+        {
+            throw Error("line filters and parsers after line_format are not supported; put them before it");
+        }
+
+        if (stages.Take(stages.Count - 1).Any(s => s is LokiUnwrapStage) && last is not (LokiLabelFilterStage or LokiDropStage))
+        {
+            throw Error("only label filters can follow unwrap");
+        }
     }
 
     private LokiPredicate ParseOr()

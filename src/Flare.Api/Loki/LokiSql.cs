@@ -9,8 +9,26 @@ namespace Flare.Api.Loki;
 /// <summary>A built <c>SELECT</c> and its bound parameters, ready for <see cref="LokiQueryService"/>.</summary>
 internal sealed record LokiSql(string Sql, ClickHouseParameterCollection Parameters);
 
-/// <summary>What the optional <c>| json</c> stage of a pipeline extracts: the explicit <c>label="path"</c> mappings, or every field when there are none.</summary>
-internal sealed record LokiJsonSpec(IReadOnlyDictionary<string, string> Expressions);
+internal enum LokiParserKind
+{
+    Json,
+    Logfmt,
+}
+
+/// <summary>One <c>| json</c> or <c>| logfmt</c> stage: the explicit <c>label="path"</c> mappings, or every field when there are none.</summary>
+internal sealed record LokiParserSpec(LokiParserKind Kind, IReadOnlyDictionary<string, string> Expressions);
+
+/// <summary>What a response needs to know about a pipeline to label and render an entry: its parser stages in order, and the final <c>line_format</c>.</summary>
+internal sealed record LokiEntryPlan(IReadOnlyList<LokiParserSpec> Parsers, LokiTemplate? LineFormat)
+{
+    public static readonly LokiEntryPlan None = new([], null);
+}
+
+/// <summary>Escapes a string as a ClickHouse string literal, for the fixed text of a query (user text is always a bound parameter).</summary>
+internal static class LokiSqlLiteral
+{
+    public static string Of(string value) => "'" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("'", "\\'", StringComparison.Ordinal) + "'";
+}
 
 /// <summary>
 /// Compiles a LogQL log selector and pipeline to the <c>WHERE</c> clause of a ClickHouse query over
@@ -26,7 +44,7 @@ internal sealed class LokiSqlContext
 
     private readonly List<string> _clauses;
     private readonly PromotedAttributeColumns? _promoted;
-    private readonly Dictionary<string, string> _jsonExpressions = new(StringComparer.Ordinal);
+    private readonly List<LokiParserSpec> _parsers = [];
     private int _counter;
 
     public LokiSqlContext(LokiLabelResolver resolver, DateTimeOffset from, DateTimeOffset to, DateTimeOffset now, PromotedAttributeColumns? promoted)
@@ -42,12 +60,25 @@ internal sealed class LokiSqlContext
 
     public ClickHouseParameterCollection Parameters { get; }
 
-    /// <summary>True once a <c>| json</c> stage has been applied, so later label names may be body fields.</summary>
-    public bool JsonSeen { get; private set; }
+    /// <summary>The parser stages applied so far, in order, so later label names may be body fields.</summary>
+    public IReadOnlyList<LokiParserSpec> Parsers => _parsers;
 
-    public LokiJsonSpec? Json => JsonSeen ? new LokiJsonSpec(_jsonExpressions) : null;
+    /// <summary>The pipeline's final <c>line_format</c>, applied to returned lines in C# (ADR-0237).</summary>
+    public LokiTemplate? LineFormat { get; private set; }
+
+    /// <summary>The numeric ClickHouse expression of <c>| unwrap</c> (a <c>Nullable(Float64)</c>), or null when the pipeline has none.</summary>
+    public string? UnwrapSql { get; private set; }
+
+    /// <summary>What a response needs to label and render an entry for this pipeline.</summary>
+    public LokiEntryPlan Plan => new(_parsers, LineFormat);
 
     public string WhereSql => string.Join(" AND ", _clauses);
+
+    /// <summary>The <c>WITH</c> clause a query must start with when the pipeline reads logfmt labels (an empty string otherwise).</summary>
+    public string WithSql => _parsers.Any(p => p.Kind == LokiParserKind.Logfmt) ? "WITH " + LokiLogfmt.MapSql + "\n" : string.Empty;
+
+    private LokiParserKinds Kinds => _parsers.Aggregate(
+        LokiParserKinds.None, (kinds, p) => kinds | (p.Kind == LokiParserKind.Json ? LokiParserKinds.Json : LokiParserKinds.Logfmt));
 
     /// <summary>Applies a selector's matchers and pipeline, in order, to the <c>WHERE</c> clause.</summary>
     public void AddSelector(LokiLogSelector selector)
@@ -69,16 +100,28 @@ internal sealed class LokiSqlContext
                     }
 
                     break;
-                case LokiJsonStage json:
-                    JsonSeen = true;
-                    foreach (var (label, path) in json.Expressions)
-                    {
-                        _jsonExpressions[label] = path;
-                    }
+                case LokiPatternFilter pattern:
+                {
+                    var match = $"match(Body, {Bind(LokiPatternMatcher.ToRegex(pattern.Pattern))})";
+                    _clauses.Add(pattern.Negated ? $"NOT {match}" : match);
+                    break;
+                }
 
+                case LokiJsonStage json:
+                    _parsers.Add(new LokiParserSpec(LokiParserKind.Json, ToMap(json.Expressions)));
+                    break;
+                case LokiLogfmtStage logfmt:
+                    _parsers.Add(new LokiParserSpec(LokiParserKind.Logfmt, ToMap(logfmt.Expressions)));
                     break;
                 case LokiLabelFilterStage filter:
                     _clauses.Add(PredicateSql(filter.Predicate));
+                    break;
+                case LokiLineFormatStage format:
+                    LineFormat = format.Template;
+                    break;
+                case LokiUnwrapStage unwrap:
+                    UnwrapSql = UnwrapValueSql(LabelSql(unwrap.Label), unwrap.Conversion);
+                    _clauses.Add($"{UnwrapSql} IS NOT NULL");
                     break;
                 case LokiDropStage:
                     break;
@@ -86,8 +129,25 @@ internal sealed class LokiSqlContext
         }
     }
 
+    /// <summary>Adds a parser stage the query did not spell out (<c>detected_field/{name}/values</c> parses with both, as Loki does).</summary>
+    public void AddParser(LokiParserKind kind) => _parsers.Add(new LokiParserSpec(kind, new Dictionary<string, string>()));
+
+    private static Dictionary<string, string> ToMap(IReadOnlyList<(string Label, string Target)> expressions)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (label, target) in expressions)
+        {
+            map[label] = target;
+        }
+
+        return map;
+    }
+
     /// <summary>The ClickHouse expression for a label name at the current point of the pipeline.</summary>
-    public string LabelSql(string name) => LabelSql(Resolver.Resolve(name, JsonSeen, _jsonExpressions));
+    public string LabelSql(string name) =>
+        _parsers.Any(p => p.Expressions.ContainsKey(name))
+            ? ParsedFieldSql(name, fallback: null)
+            : LabelSql(Resolver.Resolve(name, Kinds));
 
     private string LabelSql(LokiLabel label)
     {
@@ -97,12 +157,8 @@ internal sealed class LokiSqlContext
                 return "ServiceName";
             case LokiLabelKind.Level:
                 return LokiLabelResolver.LevelSql;
-            case LokiLabelKind.LevelOrJson:
-            {
-                var args = JsonPathArgs("level");
-                return $"if(JSONHas(Body, {args}), {JsonValueSql(args)}, {LokiLabelResolver.LevelSql})";
-            }
-
+            case LokiLabelKind.LevelOrParsed:
+                return ParsedFieldSql("level", fallback: LokiLabelResolver.LevelSql);
             case LokiLabelKind.SeverityText:
                 return "SeverityText";
             case LokiLabelKind.Scope:
@@ -118,7 +174,7 @@ internal sealed class LokiSqlContext
             case LokiLabelKind.LogAttribute:
                 return AttributeSql(AttributeBag.Log, label.Key);
             default:
-                return JsonFieldSql(label);
+                return ParsedFieldSql(label.Key, fallback: null);
         }
     }
 
@@ -132,22 +188,52 @@ internal sealed class LokiSqlContext
         return $"{LogFilterSqlBuilder.ColumnFor(bag)}[{Bind(key)}]";
     }
 
-    private string JsonFieldSql(LokiLabel label)
+    /// <summary>
+    /// A label extracted by the pipeline's parser stages. Each stage that could have produced it
+    /// contributes a branch (latest stage first, as a later label of the same name replaces an earlier
+    /// one): <c>| json</c> reads the body's JSON, <c>| logfmt</c> the <c>lkv</c> map of <see cref="WithSql"/>.
+    /// With one branch the value is returned bare (an absent field is the empty string); with several the
+    /// first stage that finds the field wins, then <paramref name="fallback"/>, then the empty string.
+    /// </summary>
+    private string ParsedFieldSql(string name, string? fallback)
     {
-        var candidates = label.Guessed ? FlattenedCandidates(label.Key) : [label.Key];
-        if (candidates.Count == 1)
+        var branches = new List<(string Condition, string Value)>();
+        for (var i = _parsers.Count - 1; i >= 0; i--)
         {
-            return JsonValueSql(JsonPathArgs(candidates[0]));
+            var parser = _parsers[i];
+            var explicitMapping = parser.Expressions.Count > 0;
+            string? target = null;
+            if (explicitMapping && !parser.Expressions.TryGetValue(name, out target))
+            {
+                continue;
+            }
+
+            if (parser.Kind == LokiParserKind.Json)
+            {
+                foreach (var path in explicitMapping ? [target!] : FlattenedCandidates(name))
+                {
+                    var args = JsonPathArgs(path);
+                    branches.Add(($"JSONHas(Body, {args})", JsonValueSql(args)));
+                }
+            }
+            else
+            {
+                var key = Bind(explicitMapping ? LokiLogfmt.Sanitize(target!) : name);
+                branches.Add(($"mapContains(lkv, {key})", $"lkv[{key}]"));
+            }
         }
 
-        var branches = new List<string>();
-        foreach (var path in candidates)
+        if (branches.Count == 0)
         {
-            var args = JsonPathArgs(path);
-            branches.Add($"JSONHas(Body, {args}), {JsonValueSql(args)}");
+            return fallback ?? "''";
         }
 
-        return $"multiIf({string.Join(", ", branches)}, '')";
+        if (branches.Count == 1 && fallback is null)
+        {
+            return branches[0].Value;
+        }
+
+        return $"multiIf({string.Join(", ", branches.SelectMany(b => new[] { b.Condition, b.Value }))}, {fallback ?? "''"})";
     }
 
     /// <summary>
@@ -184,12 +270,59 @@ internal sealed class LokiSqlContext
         return result;
     }
 
-    private string JsonPathArgs(string path) =>
-        LogFilterSqlBuilder.BodyJsonPathArgs(path, $"lkj{_counter++}", Parameters);
+    /// <summary>
+    /// The variadic key arguments of <c>JSONHas</c>/<c>JSONExtract*</c> for a path: one bound parameter per
+    /// segment, a <c>String</c> for a key and an <c>Int64</c> for an array index (ClickHouse counts from 1).
+    /// </summary>
+    private string JsonPathArgs(string path)
+    {
+        var prefix = $"lkj{_counter++}";
+        var args = new List<string>();
+        foreach (var (segment, i) in LokiJsonPath.Parse(path).Select((s, i) => (s, i)))
+        {
+            var name = $"{prefix}_{i}";
+            if (segment.Key is { } key)
+            {
+                Parameters.AddParameter(name, key);
+                args.Add($"{{{name}:String}}");
+            }
+            else
+            {
+                Parameters.AddParameter(name, (long)segment.Index + 1);
+                args.Add($"{{{name}:Int64}}");
+            }
+        }
+
+        return string.Join(", ", args);
+    }
 
     /// <summary>A JSON value as text: a string's content, anything else (number, boolean, object) as raw JSON.</summary>
     private static string JsonValueSql(string pathArgs) =>
         $"if(JSONType(Body, {pathArgs}) = 'String', JSONExtractString(Body, {pathArgs}), JSONExtractRaw(Body, {pathArgs}))";
+
+    private const string DurationUnits = "ns|us|µs|ms|s|m|h";
+
+    /// <summary>
+    /// The number <c>| unwrap</c> aggregates, as a nullable <c>Float64</c>: a plain number, a Go duration in
+    /// seconds, or a size in bytes. A value that does not parse is NULL, and a NULL sample is dropped (Loki
+    /// keeps it with an <c>__error__</c> label, which every sensible query filters out anyway).
+    /// The label expression is evaluated once, through a one-element lambda.
+    /// </summary>
+    internal static string UnwrapValueSql(string labelSql, LokiUnwrapConversion conversion) => conversion switch
+    {
+        LokiUnwrapConversion.Duration =>
+            $"arrayMap(s -> if(match(s, {LokiSqlLiteral.Of($"^(?:[0-9]+(?:\\.[0-9]+)?(?:{DurationUnits}))+$")}), " +
+            "arraySum(arrayMap(p -> toFloat64OrZero(extract(p, '^[0-9.]+')) * multiIf(endsWith(p, 'ns'), 1e-9, endsWith(p, 'us') OR endsWith(p, 'µs'), 1e-6, " +
+            "endsWith(p, 'ms'), 1e-3, endsWith(p, 's'), 1., endsWith(p, 'm'), 60., 3600.), " +
+            $"extractAll(s, {LokiSqlLiteral.Of($"[0-9.]+(?:{DurationUnits})")}))), NULL), [{labelSql}])[1]",
+        LokiUnwrapConversion.Bytes =>
+            "arrayMap(s -> if(match(s, '^[0-9]+(?:\\\\.[0-9]+)?[ ]*[a-zA-Z]*$'), toFloat64OrNull(extract(s, '^[0-9.]+')) * nullIf(" +
+            "map('', 1., 'b', 1., 'k', 1e3, 'kb', 1e3, 'm', 1e6, 'mb', 1e6, 'g', 1e9, 'gb', 1e9, 't', 1e12, 'tb', 1e12, 'p', 1e15, 'pb', 1e15, " +
+            "'ki', 1024., 'kib', 1024., 'mi', 1048576., 'mib', 1048576., 'gi', 1073741824., 'gib', 1073741824., " +
+            "'ti', 1099511627776., 'tib', 1099511627776., 'pi', 1125899906842624., 'pib', 1125899906842624.)[lower(extract(s, '[a-zA-Z]+$'))], 0.), NULL), " +
+            $"[{labelSql}])[1]",
+        _ => $"toFloat64OrNull({labelSql})",
+    };
 
     private string Bind(string value)
     {
@@ -301,7 +434,7 @@ internal static class LokiQueries
     {
         var order = forward ? "ASC" : "DESC";
         context.Parameters.AddParameter("lkLimit", (uint)Math.Clamp(limit, 1, MaxLimit));
-        var sql = "SELECT toUnixTimestamp64Nano(Timestamp) AS Ns, Body, ServiceName, SeverityText, SeverityNumber, TraceId, SpanId, " +
+        var sql = context.WithSql + "SELECT toUnixTimestamp64Nano(Timestamp) AS Ns, Body, ServiceName, SeverityText, SeverityNumber, TraceId, SpanId, " +
             "ScopeName, ScopeVersion, ResourceAttributes, LogAttributes\n" +
             $"FROM logs\nWHERE {context.WhereSql}\n" +
             $"ORDER BY Timestamp {order}, EventId {order}\n" +
@@ -338,7 +471,7 @@ internal static class LokiQueries
         }
 
         select.Add(bytes ? "toFloat64(sum(length(Body))) AS V" : "toFloat64(count()) AS V");
-        var sql = $"SELECT {string.Join(", ", select)}\nFROM logs\nWHERE {context.WhereSql}" +
+        var sql = $"{context.WithSql}SELECT {string.Join(", ", select)}\nFROM logs\nWHERE {context.WhereSql}" +
             (groupBy.Count > 0 ? $"\nGROUP BY {string.Join(", ", groupBy)}" : string.Empty) +
             "\nORDER BY BucketIdx";
         return new LokiSql(sql, context.Parameters);
@@ -349,7 +482,7 @@ internal static class LokiQueries
     {
         context.Parameters.AddParameter("lkSample", (uint)KeySampleRows);
         context.Parameters.AddParameter("lkKeys", (uint)MaxKeys);
-        var sql = "SELECT arrayJoin(arrayConcat(arrayMap(k -> concat('r:', k), mapKeys(R)), arrayMap(k -> concat('l:', k), mapKeys(L)))) AS K, count() AS Cnt\n" +
+        var sql = context.WithSql + "SELECT arrayJoin(arrayConcat(arrayMap(k -> concat('r:', k), mapKeys(R)), arrayMap(k -> concat('l:', k), mapKeys(L)))) AS K, count() AS Cnt\n" +
             $"FROM (SELECT ResourceAttributes AS R, LogAttributes AS L FROM logs WHERE {context.WhereSql} LIMIT {{lkSample:UInt32}})\n" +
             "GROUP BY K\nORDER BY Cnt DESC, K\nLIMIT {lkKeys:UInt32}";
         return new LokiSql(sql, context.Parameters);
@@ -359,7 +492,7 @@ internal static class LokiQueries
     public static LokiSql LabelValues(LokiSqlContext context, string label, int limit)
     {
         context.Parameters.AddParameter("lkValuesLimit", (uint)Math.Clamp(limit, 1, DefaultMetadataLimit));
-        var sql = $"SELECT {context.LabelSql(label)} AS V\nFROM logs\nWHERE {context.WhereSql}\nGROUP BY V\nHAVING V != ''\nORDER BY V\nLIMIT {{lkValuesLimit:UInt32}}";
+        var sql = $"{context.WithSql}SELECT {context.LabelSql(label)} AS V\nFROM logs\nWHERE {context.WhereSql}\nGROUP BY V\nHAVING V != ''\nORDER BY V\nLIMIT {{lkValuesLimit:UInt32}}";
         return new LokiSql(sql, context.Parameters);
     }
 
@@ -369,11 +502,123 @@ internal static class LokiQueries
         context.Parameters.AddParameter("lkStreamsLimit", (uint)Math.Clamp(limit, 1, DefaultMetadataLimit));
         var select = string.Join(", ", dimensions.Select((d, i) => $"{context.LabelSql(d)} AS d{i}"));
         var group = string.Join(", ", dimensions.Select((_, i) => $"d{i}"));
-        var sql = $"SELECT {select}\nFROM logs\nWHERE {context.WhereSql}\nGROUP BY {group}\nORDER BY {group}\nLIMIT {{lkStreamsLimit:UInt32}}";
+        var sql = $"{context.WithSql}SELECT {select}\nFROM logs\nWHERE {context.WhereSql}\nGROUP BY {group}\nORDER BY {group}\nLIMIT {{lkStreamsLimit:UInt32}}";
         return new LokiSql(sql, context.Parameters);
     }
 
     /// <summary>Entries, bytes and distinct services for <c>index/stats</c>.</summary>
     public static LokiSql Stats(LokiSqlContext context) =>
-        new($"SELECT toUInt64(count()) AS Entries, toUInt64(sum(length(Body))) AS Bytes, toUInt64(uniqExact(ServiceName)) AS Streams\nFROM logs\nWHERE {context.WhereSql}", context.Parameters);
+        new($"{context.WithSql}SELECT toUInt64(count()) AS Entries, toUInt64(sum(length(Body))) AS Bytes, toUInt64(uniqExact(ServiceName)) AS Streams\nFROM logs\nWHERE {context.WhereSql}", context.Parameters);
+
+    /// <summary>
+    /// An unwrapped range function's input: per (time bucket, label values) the statistics every mergeable
+    /// <c>*_over_time</c> function can be computed from - count, sum, min, max, first and last value (by
+    /// time), mean and the sum of squared deviations (<c>M2</c>, for Chan's parallel variance). The bucket
+    /// grid is that of <see cref="Buckets"/>. The unwrapped value is computed once, in the inner select.
+    /// </summary>
+    public static LokiSql UnwrapBuckets(LokiSqlContext context, IReadOnlyList<string> dimensions, long originMs, long bucketMs)
+    {
+        var unwrap = context.UnwrapSql ?? throw new LokiException("this function needs '| unwrap label'.");
+        var inner = new List<string>();
+        var outerGroup = new List<string>();
+        if (bucketMs > 0)
+        {
+            context.Parameters.AddParameter("lkOrigin", originMs);
+            context.Parameters.AddParameter("lkBucketMs", bucketMs);
+            inner.Add("intDiv(toUnixTimestamp64Milli(Timestamp) - {lkOrigin:Int64}, {lkBucketMs:Int64}) AS BucketIdx");
+        }
+        else
+        {
+            inner.Add("toInt64(0) AS BucketIdx");
+        }
+
+        outerGroup.Add("BucketIdx");
+        for (var i = 0; i < dimensions.Count; i++)
+        {
+            inner.Add($"{context.LabelSql(dimensions[i])} AS d{i}");
+            outerGroup.Add($"d{i}");
+        }
+
+        inner.Add($"ifNull({unwrap}, 0.) AS V");
+        inner.Add("Timestamp");
+        var sql = "SELECT " + string.Join(", ", outerGroup) +
+            ", toFloat64(count()) AS N, sum(V), min(V), max(V), argMin(V, Timestamp), argMax(V, Timestamp), avg(V), varPop(V) * count()\n" +
+            $"FROM (\n{context.WithSql}SELECT {string.Join(", ", inner)}\nFROM logs\nWHERE {context.WhereSql})\n" +
+            $"GROUP BY {string.Join(", ", outerGroup)}\nORDER BY BucketIdx";
+        return new LokiSql(sql, context.Parameters);
+    }
+
+    /// <summary>
+    /// <c>quantile_over_time</c>: an exact quantile cannot be merged from buckets, so each row is expanded to
+    /// the evaluation steps whose window <c>[step - range, step)</c> contains it and the quantile (linear
+    /// interpolation, as in Prometheus) is taken per step in ClickHouse. A row lands in about
+    /// <c>range / step</c> windows; the caller bounds that factor.
+    /// </summary>
+    public static LokiSql UnwrapQuantiles(LokiSqlContext context, IReadOnlyList<string> dimensions, double quantile, long firstStepMs, long stepMs, int stepCount, long rangeMs)
+    {
+        var unwrap = context.UnwrapSql ?? throw new LokiException("this function needs '| unwrap label'.");
+        context.Parameters.AddParameter("lkFirst", firstStepMs);
+        context.Parameters.AddParameter("lkStep", stepMs);
+        context.Parameters.AddParameter("lkRange", rangeMs);
+        context.Parameters.AddParameter("lkLastStep", (long)stepCount - 1);
+        context.Parameters.AddParameter("lkQuantile", quantile);
+
+        // u is the offset from the start of the first window, so it is never negative.
+        const string u = "(toUnixTimestamp64Milli(Timestamp) - {lkFirst:Int64} + {lkRange:Int64})";
+        var inner = new List<string>
+        {
+            $"arrayJoin(range(toUInt64(if({u} < {{lkRange:Int64}}, 0, intDiv({u} - {{lkRange:Int64}}, {{lkStep:Int64}}) + 1)), toUInt64(least(intDiv({u}, {{lkStep:Int64}}), {{lkLastStep:Int64}})) + 1)) AS StepIdx",
+        };
+        var group = new List<string> { "StepIdx" };
+        for (var i = 0; i < dimensions.Count; i++)
+        {
+            inner.Add($"{context.LabelSql(dimensions[i])} AS d{i}");
+            group.Add($"d{i}");
+        }
+
+        inner.Add($"ifNull({unwrap}, 0.) AS V");
+        var sql = $"SELECT {string.Join(", ", group)}, quantileExactInclusive({{lkQuantile:Float64}})(V) AS Q\n" +
+            $"FROM (\n{context.WithSql}SELECT {string.Join(", ", inner)}\nFROM logs\nWHERE {context.WhereSql})\n" +
+            $"GROUP BY {string.Join(", ", group)}\nORDER BY StepIdx";
+        return new LokiSql(sql, context.Parameters);
+    }
+
+    /// <summary>Bytes and entries per combination of <paramref name="dimensions"/>, biggest first (<c>index/volume</c>).</summary>
+    public static LokiSql Volume(LokiSqlContext context, IReadOnlyList<string> dimensions, int limit)
+    {
+        context.Parameters.AddParameter("lkVolumeLimit", (uint)Math.Clamp(limit, 1, VolumeMaxLimit));
+        var select = dimensions.Select((d, i) => $"{context.LabelSql(d)} AS d{i}").Append("toUInt64(sum(length(Body))) AS Bytes").Append("toUInt64(count()) AS Entries");
+        var group = dimensions.Count == 0 ? string.Empty : $"\nGROUP BY {string.Join(", ", dimensions.Select((_, i) => $"d{i}"))}";
+        var sql = $"{context.WithSql}SELECT {string.Join(", ", select)}\nFROM logs\nWHERE {context.WhereSql}{group}\nORDER BY Bytes DESC\nLIMIT {{lkVolumeLimit:UInt32}}";
+        return new LokiSql(sql, context.Parameters);
+    }
+
+    public const int VolumeMaxLimit = 5000;
+
+    public const int DefaultPatternLimit = 100;
+
+    /// <summary>
+    /// Drain pattern clusters over time (<c>patterns</c>): per (pattern, level, bucket) the line count, for the
+    /// <paramref name="topN"/> busiest patterns. The template is the latest one seen in the bucket, as Drain
+    /// generalises a template as more lines arrive (ADR-0007).
+    /// </summary>
+    public static LokiSql Patterns(LokiSqlContext context, long originMs, long stepMs, int topN)
+    {
+        context.Parameters.AddParameter("lkOrigin", originMs);
+        context.Parameters.AddParameter("lkBucketMs", stepMs);
+        context.Parameters.AddParameter("lkTopN", (uint)Math.Clamp(topN, 1, 1000));
+        var where = $"{context.WhereSql} AND PatternId != ''";
+        var sql = $"{context.WithSql}SELECT PatternId, {LokiLabelResolver.LevelSql} AS Lvl, argMax(PatternTemplate, Timestamp) AS T, " +
+            "intDiv(toUnixTimestamp64Milli(Timestamp) - {lkOrigin:Int64}, {lkBucketMs:Int64}) AS B, toUInt64(count()) AS C\n" +
+            $"FROM logs\nWHERE {where} AND PatternId IN (SELECT PatternId FROM logs WHERE {where} GROUP BY PatternId ORDER BY count() DESC LIMIT {{lkTopN:UInt32}})\n" +
+            "GROUP BY PatternId, Lvl, B\nORDER BY B";
+        return new LokiSql(sql, context.Parameters);
+    }
+
+    /// <summary>The number of distinct values of each of <paramref name="labels"/> (<c>detected_labels</c>), in one pass.</summary>
+    public static LokiSql Cardinalities(LokiSqlContext context, IReadOnlyList<string> labels)
+    {
+        var select = string.Join(", ", labels.Select(l => $"toUInt64(uniq({context.LabelSql(l)}))"));
+        return new LokiSql($"{context.WithSql}SELECT {select}\nFROM logs\nWHERE {context.WhereSql}", context.Parameters);
+    }
 }
