@@ -135,10 +135,10 @@ TraceQL results table.
 | An attribute that is set, `!= nil`, or not, `= nil` | `{ resource.k8s.pod.name != nil }` |
 | A bare `true`, which changes nothing | `{ nestedSetParent < 0 && true }` |
 | Event attributes, `event.x`: the span matches when one of its events does | `{ status = error && event.exception.type = "TimeoutException" }` |
-| `\| select(...)` after the query, to put fields on each listed span: `name`, `status`, `kind`, `duration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (at most 20), and `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
+| `\| select(...)` after the query, to put fields on each listed span: `name`, `status`, `statusMessage`, `kind`, `duration`, `rootName`, `rootServiceName`, `traceDuration`, `nestedSetParent`, `nestedSetLeft`, `nestedSetRight`, `span.x`, `resource.x`, `.x`, `event.x` (at most 20), and `with(most_recent=true)` | `{ status = error } \| select(resource.service.name, event.exception.message)` |
 
 Not supported in a search: `|` pipelines other than `select()` (`count()`, `avg()`, `by()`, ...; a metrics query takes one,
-below), `||` inside one spanset between anything but `=` tests of one field, `statusMessage`, `&>>` in a metrics query, and comparing two fields.
+below), `||` inside one spanset between anything but `=` tests of one field, `statusMessage` as a filter, `&>>` in a metrics query, and comparing two fields.
 
 `nestedSetLeft`, `nestedSetRight` and `nestedSetParent` number the spans of a trace the way Tempo does: a depth-first walk
 in which a span's left number is the next number when the walk enters it and its right number the next when it leaves, so
@@ -226,9 +226,14 @@ spans the app asks about, which in the root-spans view are the root spans'. See
 - **`!=` also matches spans without the attribute.** In TraceQL it requires the attribute to exist.
 - **Search needs the root span.** A trace whose root was never ingested is not listed, though it opens by id.
 - **Matching spans list the attributes the query compared on.** Each listed span has its id, name, start, duration,
-  `service.name` and the attributes the query named (at most 20), as strings, plus the fields of `select()`; the nested-set
-  numbers are integers. An attribute is named without its scope, as in Tempo. The attributes of an `event.` field come from
-  the first event that has any of the selected ones. An attribute with old and new spellings
+  `service.name` and the attributes the query named (at most 20), plus the fields of `select()`. A value of a span, resource or event attribute that is unambiguously a whole
+  number, a decimal or `true` / `false` is written as an `intValue`, `doubleValue` or `boolValue`, and so is a `compare()` label; anything
+  else, such as `0123`, `5.0`, `+5` or `1e5`, stays a string, because Flare stores text and the type the source gave is gone. The
+  nested-set numbers are integers. An attribute is named without its scope, as in Tempo. `rootName`, `rootServiceName` and
+  `traceDuration` are accepted by `select()` and are on every result already (`rootTraceName`, `rootServiceName`, `durationMs`), as in
+  Tempo; `statusMessage` is listed when the span has one. The attributes of an `event.` field are listed for every event of the span
+  (at most 50), one event after the other and each event's attributes together, so `exception.type`, `exception.message` and
+  `exception.stacktrace` of one exception stay side by side and a key appears once per event. An attribute with old and new spellings
   (`http.status_code`, `http.response.status_code`) lists whichever the span has. In a query of several spansets (`{ a } >> { b }`) the spans of every spanset are
   listed together in one group, not one group per spanset.
 - **Metrics are bucketed by the step.** A sample is stamped with the start of its step, and `start` and `end` are rounded

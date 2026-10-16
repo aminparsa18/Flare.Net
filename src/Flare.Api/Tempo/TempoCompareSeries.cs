@@ -46,7 +46,7 @@ public static class TempoCompareSeries
                 tooMany |= values.Count > topN;
                 foreach (var (value, valueRows, _) in values.Take(topN))
                 {
-                    series.Add(new TempoMetricSeries([new TempoLabel(MetaType, type), new TempoLabel(attribute.Key, value)], Samples(valueRows, window)));
+                    series.Add(new TempoMetricSeries([new TempoLabel(MetaType, type), TempoLabel.Attribute(attribute.Key, value)], Samples(valueRows, window)));
                 }
 
                 totals.Add(new TempoMetricSeries([new TempoLabel(MetaType, type + "_total"), TempoLabel.Nil(attribute.Key)], Samples(group, window)));

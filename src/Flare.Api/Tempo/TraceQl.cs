@@ -458,7 +458,7 @@ public static class TraceQlParser
                 if (!IsSelectableField(field.Text))
                 {
                     throw new TraceQlException(
-                        $"select({field.Text}) is not supported; select name, status, kind, duration, nestedSetParent, nestedSetLeft, nestedSetRight, span.x, resource.x, .x or event.x.");
+                        $"select({field.Text}) is not supported; select name, status, statusMessage, kind, duration, rootName, rootServiceName, traceDuration, nestedSetParent, nestedSetLeft, nestedSetRight, span.x, resource.x, .x or event.x.");
                 }
 
                 if (!fields.Contains(field.Text, StringComparer.Ordinal))
@@ -489,7 +489,8 @@ public static class TraceQlParser
         }
 
         private static bool IsSelectableField(string field) =>
-            field is "name" or "status" or "kind" or "duration" or "nestedSetParent" or "nestedSetLeft" or "nestedSetRight"
+            field is "name" or "status" or "statusMessage" or "kind" or "duration" or "rootName" or "rootServiceName" or "traceDuration"
+                or "nestedSetParent" or "nestedSetLeft" or "nestedSetRight"
             || (field.StartsWith("span.", StringComparison.Ordinal) && field.Length > "span.".Length)
             || (field.StartsWith("resource.", StringComparison.Ordinal) && field.Length > "resource.".Length)
             || (field.StartsWith("event.", StringComparison.Ordinal) && field.Length > "event.".Length)

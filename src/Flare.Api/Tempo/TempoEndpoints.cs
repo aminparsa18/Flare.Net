@@ -214,7 +214,8 @@ public static class TempoEndpoints
             }
         }
 
-        return new SelectedSpansRequest(traceIds, structure, span, resource, events, plan.NeedsWholeTrace);
+        return new SelectedSpansRequest(traceIds, structure, span, resource, events, plan.NeedsWholeTrace,
+            plan.Select.Any(f => f.Scope == TempoSelectScope.Intrinsic && f.Key == "statusMessage"));
     }
 
     /// <summary>Tempo writes the spanset twice: the list, and the first one under its deprecated singular name.</summary>
@@ -327,7 +328,7 @@ public static class TempoEndpoints
 
                 foreach (var (key, value) in echoed)
                 {
-                    WriteAttribute(w, key, value);
+                    WriteAttribute(w, key, value, infer: true);
                 }
 
                 w.WriteEndArray();
@@ -367,7 +368,7 @@ public static class TempoEndpoints
                     }
                     else
                     {
-                        w.WriteString("stringValue", attribute.Text);
+                        TempoTypedValue.WriteMember(w, attribute.Text ?? string.Empty, attribute.Infer);
                     }
 
                     w.WriteEndObject();
@@ -385,12 +386,12 @@ public static class TempoEndpoints
         w.WriteEndObject();
     }
 
-    private static void WriteAttribute(Utf8JsonWriter w, string key, string value)
+    private static void WriteAttribute(Utf8JsonWriter w, string key, string value, bool infer = false)
     {
         w.WriteStartObject();
         w.WriteString("key", key);
         w.WriteStartObject("value");
-        w.WriteString("stringValue", value);
+        TempoTypedValue.WriteMember(w, value, infer);
         w.WriteEndObject();
         w.WriteEndObject();
     }

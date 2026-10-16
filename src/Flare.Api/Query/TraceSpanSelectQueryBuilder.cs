@@ -9,6 +9,7 @@ namespace Flare.Api.Query;
 /// <see cref="TraceIds"/> (all of them when <see cref="WholeTrace"/>, otherwise those matching a condition), each
 /// with which conditions it matches and the attribute values asked for.
 /// </summary>
+/// <param name="StatusMessage">Whether to read each span's status message (<c>select(statusMessage)</c>); an empty string otherwise.</param>
 /// <param name="SpanKeys">Span attribute keys to read; likewise <paramref name="ResourceKeys"/> and, from the span's events, <paramref name="EventKeys"/>.</param>
 public sealed record SelectedSpansRequest(
     IReadOnlyList<string> TraceIds,
@@ -16,7 +17,8 @@ public sealed record SelectedSpansRequest(
     IReadOnlyList<string> SpanKeys,
     IReadOnlyList<string> ResourceKeys,
     IReadOnlyList<string> EventKeys,
-    bool WholeTrace);
+    bool WholeTrace,
+    bool StatusMessage = false);
 
 /// <param name="MatchMask">Bit <c>letter - 'A'</c> is set when the span satisfies that condition of the structure.</param>
 /// <param name="StatusCode">The column's label, <c>STATUS_CODE_ERROR</c> and so on.</param>
@@ -34,7 +36,8 @@ public sealed record SpanTreeRow(
     uint MatchMask,
     IReadOnlyDictionary<string, string> SpanAttributes,
     IReadOnlyDictionary<string, string> ResourceAttributes,
-    IReadOnlyList<IReadOnlyDictionary<string, string>> EventAttributes);
+    IReadOnlyList<IReadOnlyDictionary<string, string>> EventAttributes,
+    string StatusMessage = "");
 
 /// <summary>Fully-built <c>SELECT</c> for <see cref="ISpanQueryService.GetSelectedSpansAsync"/>.</summary>
 public sealed record SelectedSpansSql(string Sql, ClickHouseParameterCollection Parameters);
@@ -91,7 +94,8 @@ public static class TraceSpanSelectQueryBuilder
             $"toUInt32({mask}) AS MatchMask, " +
             $"{KeyMap("SpanAttributes", "ssSpanKeys", request.SpanKeys, parameters)} AS SelectedSpanAttributes, " +
             $"{KeyMap("ResourceAttributes", "ssResourceKeys", request.ResourceKeys, parameters)} AS SelectedResourceAttributes, " +
-            $"{EventMaps(request.EventKeys, parameters)} AS SelectedEventAttributes\n" +
+            $"{EventMaps(request.EventKeys, parameters)} AS SelectedEventAttributes, " +
+            $"{(request.StatusMessage ? "StatusMessage" : "''")} AS SelectedStatusMessage\n" +
             $"FROM spans WHERE {where}\n" +
             "ORDER BY TraceId, StartTime, SpanId\n" +
             "LIMIT {ssPerTrace:UInt32} BY TraceId";

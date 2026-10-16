@@ -174,16 +174,79 @@ public class TempoSpanSelectorTests
         Assert.Equal(
             [
                 new SelectedAttribute("service.name", "pay"),
-                new SelectedAttribute("k8s.pod.name", "pay-1"),
-                new SelectedAttribute("http.method", "POST"),
+                new SelectedAttribute("k8s.pod.name", "pay-1", Infer: true),
+                new SelectedAttribute("http.method", "POST", Infer: true),
                 new SelectedAttribute("status", "error"),
                 new SelectedAttribute("kind", "server"),
                 new SelectedAttribute("name", "POST /pay"),
-                new SelectedAttribute("exception.message", "bad"),
-                new SelectedAttribute("exception.type", "Boom"),
-                new SelectedAttribute("http.route", "/pay"),
+                new SelectedAttribute("exception.message", "bad", Infer: true),
+                new SelectedAttribute("exception.type", "Boom", Infer: true),
+                new SelectedAttribute("exception.type", "Later", Infer: true),
+                new SelectedAttribute("http.route", "/pay", Infer: true),
             ],
             span.Attributes);
+    }
+
+    [Fact]
+    public void EventAttributes_ListEveryEventTogether_InTheOrderOfTheEvents()
+    {
+        var plan = Plan("{ status = error } | select(event.exception.type, event.exception.message, event.exception.stacktrace)");
+        var row = Row("s", null, "pay", "x", 1, 0,
+            events:
+            [
+                new() { ["exception.message"] = "m1", ["exception.type"] = "T1", ["exception.stacktrace"] = "s1" },
+                new(),
+                new() { ["exception.message"] = "m2", ["exception.type"] = "T2" },
+                new() { ["exception.type"] = "T3", ["exception.stacktrace"] = "s3" },
+            ]);
+
+        var span = Assert.Single(Assert.Single(TempoSpanSelector.Select([row], plan, 3)).Spans);
+
+        // Each event's attributes sit side by side, in the order the fields were written; an event lacking a key leaves it out.
+        Assert.Equal(
+            [
+                "service.name=pay",
+                "exception.type=T1", "exception.message=m1", "exception.stacktrace=s1",
+                "exception.type=T2", "exception.message=m2",
+                "exception.type=T3", "exception.stacktrace=s3",
+            ],
+            span.Attributes.Select(a => $"{a.Key}={a.Text}"));
+    }
+
+    [Fact]
+    public void EventAttributes_AreListedForAtMostFiftyEventsOfASpan()
+    {
+        var plan = Plan("{ status = error } | select(event.exception.type)");
+        var events = Enumerable.Range(0, TempoSpanSelector.MaxEventsPerSpan + 10).Select(i => new Dictionary<string, string> { ["exception.type"] = $"T{i}" }).ToArray();
+
+        var span = Assert.Single(Assert.Single(TempoSpanSelector.Select([Row("s", null, "pay", "x", 1, 0, events: events)], plan, 3)).Spans);
+
+        Assert.Equal(TempoSpanSelector.MaxEventsPerSpan, span.Attributes.Count(a => a.Key == "exception.type"));
+        Assert.Equal("T49", span.Attributes.Last(a => a.Key == "exception.type").Text);
+    }
+
+    [Fact]
+    public void EventFieldsMixedWithOthers_AreListedWhereTheFirstEventFieldWas()
+    {
+        var plan = Plan("{ status = error } | select(span.a, event.x, span.b, event.y)");
+        var row = Row("s", null, "pay", "x", 1, 0, span: new() { ["a"] = "1", ["b"] = "2" }, events: [new() { ["x"] = "ex", ["y"] = "ey" }]);
+
+        var span = Assert.Single(Assert.Single(TempoSpanSelector.Select([row], plan, 3)).Spans);
+
+        Assert.Equal(["service.name", "a", "x", "y", "b"], span.Attributes.Select(a => a.Key));
+    }
+
+    [Fact]
+    public void StatusMessage_IsAnAttributeWhenTheSpanHasOne()
+    {
+        var plan = Plan("{ status = error } | select(statusMessage, rootName, rootServiceName, traceDuration)");
+
+        var withMessage = Assert.Single(Assert.Single(TempoSpanSelector.Select([Row("s", null, "pay", "x", 1, 0) with { StatusMessage = "card declined" }], plan, 3)).Spans);
+        var without = Assert.Single(Assert.Single(TempoSpanSelector.Select([Row("s", null, "pay", "x", 1, 0)], plan, 3)).Spans);
+
+        // The trace-level fields are on every result row already; a span adds nothing for them.
+        Assert.Equal([new SelectedAttribute("service.name", "pay"), new SelectedAttribute("statusMessage", "card declined")], withMessage.Attributes);
+        Assert.Equal([new SelectedAttribute("service.name", "pay")], without.Attributes);
     }
 
     [Fact]

@@ -326,7 +326,8 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
                 reader.GetFieldValue<uint>(9),
                 reader.GetFieldValue<Dictionary<string, string>>(10),
                 reader.GetFieldValue<Dictionary<string, string>>(11),
-                reader.GetFieldValue<Dictionary<string, string>[]>(12)));
+                reader.GetFieldValue<Dictionary<string, string>[]>(12),
+                reader.GetString(13)));
         }
 
         return rows;

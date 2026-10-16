@@ -160,14 +160,22 @@ public class TraceQlParserTests
 
     [Theory]
     [InlineData("{ } | count() > 1", "pipeline stages")]
-    [InlineData("{ } | select(statusMessage)", "select(statusMessage)")]
-    [InlineData("{ } | select(rootName)", "select(rootName)")]
+    [InlineData("{ } | select(childCount)", "select(childCount)")]
+    [InlineData("{ } | select(parent)", "select(parent)")]
     [InlineData("{ } | select()", "unexpected")]
     [InlineData("{ } | select(name) with(sample=true)", "most_recent")]
     [InlineData("{ } | select(name) with(most_recent=2)", "unexpected")]
     [InlineData("{ } | select(name) | select(status)", "unexpected")]
     public void SelectStage_RejectsWhatItCannotRead(string traceQl, string message) =>
         Assert.Contains(message, Assert.Throws<TraceQlException>(() => TraceQlParser.Parse(traceQl)).Message);
+
+    [Fact]
+    public void SelectStage_TakesStatusMessageAndTheTraceLevelFields()
+    {
+        var query = TraceQlParser.Parse("{ } | select(statusMessage, rootName, rootServiceName, traceDuration, span:statusMessage, trace:rootName)");
+
+        Assert.Equal(["statusMessage", "rootName", "rootServiceName", "traceDuration"], query.Select);
+    }
 
     [Fact]
     public void SelectStage_TakesAtMostTwentyFields()
