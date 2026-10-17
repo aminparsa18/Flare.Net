@@ -58,10 +58,12 @@ Flare переводит имена OTel в соглашения Prometheus:
 | `and`, `or`, `unless` | `rate(a_total[5m]) > 1 and on(job) rate(b_total[5m]) > 1` |
 | `on(...)`, `ignoring(...)`, `group_left`, `group_right` | `errors / on(job) group_left(team) owners` |
 | `abs`, `ceil`, `floor`, `round`, `sqrt`, `exp`, `ln`, `log2`, `log10`, `sgn`, `clamp`, `clamp_min`, `clamp_max`, `vector` | `clamp_min(free_ratio, 0)` |
+| `absent` | `absent(up{job="api"})` |
+| `label_replace`, `label_join` | `label_replace(x, "host", "$1", "instance", "(.*):\\d+")` |
 
 Эндпоинты: `query`, `query_range`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Не поддерживается: `@`, подзапросы, `label_replace`, `absent`, `delta`, `predict_linear`, `min_over_time` и `max_over_time` (Flare хранит gauge как одно среднее на бакет, поэтому они были бы неверны), exemplars, правила записи и запись данных.
+Не поддерживается: `@`, подзапросы, `delta`, `predict_linear`, `min_over_time` и `max_over_time` (Flare хранит gauge как одно среднее на бакет, поэтому они были бы неверны), exemplars, правила записи и запись данных.
 
 ## Отличия от Prometheus
 

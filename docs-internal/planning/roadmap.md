@@ -89,7 +89,8 @@ folders are where "what happened and why" actually lives.
 - **Grafana interoperability.** Today there is OTLP forwarding to a Grafana endpoint
   ([ADR-0155](../adr/0155-otlp-forwarding.md)), a read-only Prometheus API a Grafana data source can query
   ([ADR-0109](../adr/0109-prometheus-query-api.md), extended with operators between series, `offset`, `topk` and more
-  functions in [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)), a read-only Tempo-compatible trace API
+  functions in [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), then `absent`,
+  `label_replace` and `label_join` in [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md)), a read-only Tempo-compatible trace API
   ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)) and a read-only Loki-compatible log API
   ([ADR-0236](../adr/0236-loki-compatible-log-api.md), extended with `logfmt`, `line_format`, `unwrap`, live tail and
   Logs Drilldown in [ADR-0237](../adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md), then
@@ -97,8 +98,9 @@ folders are where "what happened and why" actually lives.
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
   - Prometheus exemplars, so a latency chart links to a sample trace. The metric tables hold none today, so ingest has to
-    keep them first. The query language gaps are closed in [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md);
-    `@`, subqueries, `label_replace`, `absent` and `min`/`max_over_time` (which needs per-bucket min and max stored) remain.
+    keep them first. The query language gaps are closed in [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)
+    and [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md);
+    `@`, subqueries and `min`/`max_over_time` (which needs per-bucket min and max stored) remain.
   - Deep links both ways: an "Open in Grafana" action on a TraceId from a configurable URL template, and Grafana data
     links that open the trace or session in Flare.
   - A Grafana Cloud preset for forwarding targets (region, instance id and token instead of a hand-built URL and Basic

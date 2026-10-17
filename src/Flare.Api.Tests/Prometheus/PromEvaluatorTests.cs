@@ -649,6 +649,31 @@ public class PromEvaluatorTests
             Task.FromResult(new MetricAttributeKeysResponse { Keys = [] });
     }
 
+    [Fact]
+    public async Task Absent_IsOneWhereNoSeriesHasASample_AndLabelledFromEqualityMatchers()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "queue.depth", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 5), Point(2, 7)] }]);
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("absent(queue_depth{service_name=\"api\"})"), T0, T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+
+        var series = Assert.Single(result.Series);
+        Assert.Equal("api", series.Labels["service_name"]);
+        Assert.Equal([T0.AddMinutes(1).ToUnixTimeMilliseconds(), T0.AddMinutes(3).ToUnixTimeMilliseconds()], series.Samples.Select(x => x.TimestampMs));
+        Assert.All(series.Samples, x => Assert.Equal(1, x.Value));
+    }
+
+    [Fact]
+    public async Task Absent_OfUnknownMetric_IsOneAtEveryStep()
+    {
+        var result = await new PromEvaluator(new StubMetrics([], [])).EvaluateAsync(
+            PromQlParser.Parse("absent(nothing_here)"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(3, Assert.Single(result.Series).Samples.Count);
+    }
+
     private sealed class StubMetrics(
         IReadOnlyList<MetricNameInfo> names,
         IReadOnlyList<MetricSeries> series,
