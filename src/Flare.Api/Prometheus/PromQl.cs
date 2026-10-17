@@ -21,8 +21,8 @@ internal abstract record PromExpr;
 
 internal sealed record PromNumber(double Value) : PromExpr;
 
-/// <summary>A vector selector. <see cref="Range"/> is set only for the <c>[5m]</c> form (a range selector), which is valid solely as a range function's argument.</summary>
-internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatcher> Matchers, TimeSpan? Range) : PromExpr
+/// <summary>A vector selector. <see cref="Range"/> is set only for the <c>[5m]</c> form (a range selector), which is valid solely as a range function's argument. <see cref="Offset"/> is the <c>offset 1h</c> modifier (zero when absent).</summary>
+internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatcher> Matchers, TimeSpan? Range, TimeSpan Offset = default) : PromExpr
 {
     /// <summary>The metric name, from the bare name or a <c>__name__="..."</c> matcher.</summary>
     public string? EffectiveMetricName =>
@@ -32,27 +32,72 @@ internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatche
     public IEnumerable<PromMatcher> LabelMatchers => Matchers.Where(m => m.Name != "__name__");
 }
 
-/// <summary><c>rate</c>/<c>increase</c> over a range selector.</summary>
+/// <summary><c>rate</c>/<c>increase</c>/<c>irate</c> (counters) or <c>avg_over_time</c>/<c>last_over_time</c> (gauges) over a range selector.</summary>
 internal sealed record PromRangeFunction(string Name, PromSelector Selector) : PromExpr;
 
-/// <summary><c>sum|avg|min|max|count [by|without (labels)] (inner)</c>.</summary>
-internal sealed record PromAggregation(string Op, bool Without, IReadOnlyList<string> Labels, PromExpr Inner) : PromExpr;
+/// <summary>
+/// <c>sum|avg|min|max|count|group|stddev|stdvar [by|without (labels)] (inner)</c>, plus the parameterised
+/// <c>topk|bottomk|quantile [by|without (labels)] (param, inner)</c>; <see cref="Parameter"/> is k or the quantile.
+/// </summary>
+internal sealed record PromAggregation(string Op, bool Without, IReadOnlyList<string> Labels, PromExpr Inner, double? Parameter = null) : PromExpr;
+
+/// <summary>An instant-vector function applied sample by sample: <c>abs</c>, <c>ceil</c>, <c>floor</c>, <c>round</c>, <c>sqrt</c>, <c>exp</c>, <c>ln</c>, <c>log2</c>, <c>log10</c>, <c>sgn</c>, <c>clamp*</c>, and <c>vector(s)</c>.</summary>
+internal sealed record PromFunction(string Name, PromExpr Argument, IReadOnlyList<double> Parameters) : PromExpr;
+
+internal enum PromCardinality
+{
+    OneToOne,
+
+    /// <summary><c>group_left</c>: many left-hand series match one right-hand series.</summary>
+    ManyToOne,
+
+    /// <summary><c>group_right</c>: one left-hand series matches many right-hand series.</summary>
+    OneToMany,
+}
+
+/// <summary>The <c>on</c>/<c>ignoring</c> and <c>group_left</c>/<c>group_right</c> clauses of a binary operator. The default matches on every label except <c>__name__</c>.</summary>
+internal sealed record PromVectorMatching(bool On, IReadOnlyList<string> Labels, PromCardinality Cardinality, IReadOnlyList<string> Include)
+{
+    public static readonly PromVectorMatching Default = new(false, [], PromCardinality.OneToOne, []);
+}
+
+/// <summary>A binary operator where at least one side is a vector (scalar-scalar is folded at parse time).</summary>
+internal sealed record PromBinary(string Op, bool ReturnBool, PromExpr Left, PromExpr Right, PromVectorMatching Matching) : PromExpr
+{
+    public static bool IsComparison(string op) => op is "==" or "!=" or ">" or "<" or ">=" or "<=";
+
+    public static bool IsSetOperator(string op) => op is "and" or "or" or "unless";
+}
 
 internal sealed record PromHistogramQuantile(double Quantile, PromExpr Inner) : PromExpr;
 
 /// <summary>
-/// Hand-written recursive-descent parser for the PromQL subset Flare serves (ADR-0109): vector
-/// selectors with <c>= != =~ !~</c> matchers, <c>rate</c>/<c>increase</c> over a range selector,
-/// <c>sum|avg|min|max|count</c> with <c>by</c>/<c>without</c>, <c>histogram_quantile</c>, and
-/// arithmetic between scalar literals (Grafana's data-source test is <c>1+1</c>). Everything else -
-/// vector/vector operators, <c>offset</c>, <c>@</c>, subqueries, other functions - throws a
-/// <see cref="PromQlException"/> naming the construct, rather than evaluating a partial answer.
-/// Pure and I/O-free.
+/// Hand-written recursive-descent parser for the PromQL subset Flare serves (ADR-0109, extended by
+/// ADR-0239): vector selectors with <c>= != =~ !~</c> matchers and an <c>offset</c>, range functions
+/// over a range selector, aggregations (<c>sum avg min max count group stddev stdvar</c>, and
+/// <c>topk bottomk quantile</c> with a parameter) with <c>by</c>/<c>without</c>, <c>histogram_quantile</c>,
+/// instant-vector math functions, and binary operators (arithmetic, comparison with <c>bool</c>, and
+/// <c>and or unless</c>) between scalars and vectors with <c>on</c>/<c>ignoring</c>/<c>group_left</c>/<c>group_right</c>.
+/// Everything else - <c>@</c>, subqueries, other functions - throws a <see cref="PromQlException"/>
+/// naming the construct, rather than evaluating a partial answer. Pure and I/O-free.
 /// </summary>
 internal sealed class PromQlParser
 {
-    private static readonly string[] AggregationOps = ["sum", "avg", "min", "max", "count"];
-    private static readonly string[] RangeFunctions = ["rate", "increase"];
+    private static readonly string[] AggregationOps = ["sum", "avg", "min", "max", "count", "group", "stddev", "stdvar", "topk", "bottomk", "quantile"];
+    private static readonly string[] ParameterisedAggregations = ["topk", "bottomk", "quantile"];
+    private static readonly string[] RangeFunctions = ["rate", "increase", "irate", "avg_over_time", "last_over_time"];
+
+    /// <summary>Instant-vector functions and how many number-literal parameters follow the vector (min, max).</summary>
+    private static readonly Dictionary<string, (int Min, int Max)> InstantFunctions = new()
+    {
+        ["abs"] = (0, 0), ["ceil"] = (0, 0), ["floor"] = (0, 0), ["sqrt"] = (0, 0), ["exp"] = (0, 0),
+        ["ln"] = (0, 0), ["log2"] = (0, 0), ["log10"] = (0, 0), ["sgn"] = (0, 0),
+        ["round"] = (0, 1), ["clamp"] = (2, 2), ["clamp_min"] = (1, 1), ["clamp_max"] = (1, 1),
+    };
+
+    // Longest first so ">=" is not read as ">".
+    private static readonly string[] SymbolOperators = ["==", "!=", ">=", "<=", "+", "-", "*", "/", "%", "^", ">", "<"];
+    private static readonly string[] WordOperators = ["unless", "and", "or"];
 
     private readonly string _text;
     private int _pos;
@@ -114,39 +159,204 @@ internal sealed class PromQlParser
         }
     }
 
-    private static int Precedence(char op) => op is '*' or '/' or '%' ? 2 : 1;
+    // PromQL precedence, lowest first: or / and unless / comparisons / + - / * / % / ^ (right-associative).
+    private static int Precedence(string op) => op switch
+    {
+        "or" => 1,
+        "and" or "unless" => 2,
+        "==" or "!=" or ">" or "<" or ">=" or "<=" => 3,
+        "+" or "-" => 4,
+        "*" or "/" or "%" => 5,
+        _ => 6,
+    };
 
-    // Precedence climbing, but operands must be number literals: Flare evaluates scalar
-    // arithmetic so Grafana's `1+1` health check works, and rejects series operands.
+    private bool TryPeekBinaryOperator(out string op, out int length)
+    {
+        SkipWhitespace();
+        var rest = _text.AsSpan(_pos);
+        foreach (var symbol in SymbolOperators)
+        {
+            if (rest.StartsWith(symbol, StringComparison.Ordinal))
+            {
+                (op, length) = (symbol, symbol.Length);
+                return true;
+            }
+        }
+
+        foreach (var word in WordOperators)
+        {
+            if (rest.StartsWith(word, StringComparison.OrdinalIgnoreCase)
+                && (rest.Length == word.Length || !IsIdentChar(rest[word.Length])))
+            {
+                (op, length) = (word, word.Length);
+                return true;
+            }
+        }
+
+        (op, length) = ("", 0);
+        return false;
+    }
+
+    private static bool IsIdentChar(char c) => char.IsLetterOrDigit(c) || c is '_' or ':';
+
+    // Precedence climbing. Scalar-scalar operands are folded here (Grafana's health check is `1+1`);
+    // anything with a vector side becomes a PromBinary for the evaluator.
     private PromExpr ParseBinary(int minPrecedence)
     {
-        var left = ParsePrimary();
-        while (true)
+        var left = ParseUnary();
+        while (TryPeekBinaryOperator(out var op, out var length) && Precedence(op) >= minPrecedence)
         {
-            SkipWhitespace();
-            var op = Peek();
-            if (op is not ('+' or '-' or '*' or '/' or '%') || Precedence(op) < minPrecedence)
+            _pos += length;
+            var returnBool = false;
+            var matching = PromVectorMatching.Default;
+            if (!PromBinary.IsSetOperator(op) && TryParseKeyword("bool"))
             {
-                return left;
+                if (!PromBinary.IsComparison(op))
+                {
+                    throw new PromQlException($"the bool modifier is only valid on comparison operators, not '{op}'.");
+                }
+
+                returnBool = true;
             }
 
-            _pos++;
-            var right = ParseBinary(Precedence(op) + 1);
-            if (left is not PromNumber l || right is not PromNumber r)
-            {
-                throw new PromQlException(
-                    $"binary operator '{op}' between series is not supported; only arithmetic between number literals is.");
-            }
-
-            left = new PromNumber(op switch
-            {
-                '+' => l.Value + r.Value,
-                '-' => l.Value - r.Value,
-                '*' => l.Value * r.Value,
-                '/' => l.Value / r.Value,
-                _ => l.Value % r.Value,
-            });
+            matching = ParseMatching(op, matching);
+            var precedence = Precedence(op);
+            var right = ParseBinary(op == "^" ? precedence : precedence + 1);
+            left = MakeBinary(op, returnBool, left, right, matching);
         }
+
+        return left;
+    }
+
+    private bool TryParseKeyword(string keyword)
+    {
+        SkipWhitespace();
+        var rest = _text.AsSpan(_pos);
+        if (rest.StartsWith(keyword, StringComparison.OrdinalIgnoreCase)
+            && (rest.Length == keyword.Length || !IsIdentChar(rest[keyword.Length])))
+        {
+            _pos += keyword.Length;
+            return true;
+        }
+
+        return false;
+    }
+
+    private PromVectorMatching ParseMatching(string op, PromVectorMatching matching)
+    {
+        bool on;
+        if (TryParseKeyword("on"))
+        {
+            on = true;
+        }
+        else if (TryParseKeyword("ignoring"))
+        {
+            on = false;
+        }
+        else
+        {
+            return matching;
+        }
+
+        var labels = ParseLabelList();
+        var cardinality = PromCardinality.OneToOne;
+        IReadOnlyList<string> include = [];
+        if (TryParseKeyword("group_left"))
+        {
+            cardinality = PromCardinality.ManyToOne;
+        }
+        else if (TryParseKeyword("group_right"))
+        {
+            cardinality = PromCardinality.OneToMany;
+        }
+
+        if (cardinality != PromCardinality.OneToOne)
+        {
+            if (PromBinary.IsSetOperator(op))
+            {
+                throw new PromQlException($"no grouping allowed for '{op}' operation.");
+            }
+
+            SkipWhitespace();
+            if (Peek() == '(')
+            {
+                include = ParseLabelList();
+            }
+        }
+
+        return new PromVectorMatching(on, labels, cardinality, include);
+    }
+
+    private List<string> ParseLabelList()
+    {
+        var labels = new List<string>();
+        Expect('(');
+        if (!TryConsume(')'))
+        {
+            do
+            {
+                SkipWhitespace();
+                labels.Add(ParseIdentifier());
+            }
+            while (TryConsume(','));
+            Expect(')');
+        }
+
+        return labels;
+    }
+
+    private static PromExpr MakeBinary(string op, bool returnBool, PromExpr left, PromExpr right, PromVectorMatching matching)
+    {
+        RequireInstant(left);
+        RequireInstant(right);
+        if (left is PromNumber l && right is PromNumber r)
+        {
+            if (PromBinary.IsSetOperator(op))
+            {
+                throw new PromQlException($"set operator '{op}' not allowed in binary scalar expression.");
+            }
+
+            if (PromBinary.IsComparison(op) && !returnBool)
+            {
+                throw new PromQlException("comparisons between scalars must use the bool modifier.");
+            }
+
+            return new PromNumber(PromBinaryOperations.Compute(op, l.Value, r.Value, returnBool).Value);
+        }
+
+        if (PromBinary.IsSetOperator(op) && (left is PromNumber || right is PromNumber))
+        {
+            throw new PromQlException($"set operator '{op}' not allowed in binary scalar expression.");
+        }
+
+        return new PromBinary(op, returnBool, left, right, matching);
+    }
+
+    private static PromExpr RequireInstant(PromExpr expr) =>
+        expr is PromSelector { Range: not null }
+            ? throw new PromQlException("a range selector is only valid inside rate(), increase() and the other range functions.")
+            : expr;
+
+    private PromExpr ParseUnary()
+    {
+        SkipWhitespace();
+        var c = Peek();
+        if (c is '-' or '+')
+        {
+            _pos++;
+            // Binds tighter than * but looser than ^, so -2^2 is -4.
+            var operand = ParseBinary(Precedence("^"));
+            if (c == '+')
+            {
+                return operand;
+            }
+
+            return operand is PromNumber n
+                ? new PromNumber(-n.Value)
+                : new PromBinary("*", false, new PromNumber(-1), RequireInstant(operand), PromVectorMatching.Default);
+        }
+
+        return ParsePrimary();
     }
 
     private PromExpr ParsePrimary()
@@ -165,14 +375,6 @@ internal sealed class PromQlParser
             return new PromNumber(ParseNumber());
         }
 
-        if (c == '-')
-        {
-            _pos++;
-            return ParsePrimary() is PromNumber n
-                ? new PromNumber(-n.Value)
-                : throw new PromQlException("unary minus is only supported on number literals.");
-        }
-
         if (c == '{')
         {
             return ParseSelectorTail(null);
@@ -185,6 +387,11 @@ internal sealed class PromQlParser
 
         var ident = ParseIdentifier();
         var lower = ident.ToLowerInvariant();
+
+        if (lower is "inf" or "nan" && NextNonSpace() != '(')
+        {
+            return new PromNumber(lower == "inf" ? double.PositiveInfinity : double.NaN);
+        }
 
         if (AggregationOps.Contains(lower))
         {
@@ -207,19 +414,61 @@ internal sealed class PromQlParser
             var q = ParseBinary(0) as PromNumber
                 ?? throw new PromQlException("histogram_quantile's first argument must be a number literal.");
             Expect(',');
-            var inner = ParseBinary(0);
+            var inner = RequireInstant(ParseBinary(0));
             Expect(')');
             return new PromHistogramQuantile(q.Value, inner);
+        }
+
+        if (lower == "vector")
+        {
+            Expect('(');
+            var scalar = ParseBinary(0) as PromNumber
+                ?? throw new PromQlException("vector()'s argument must be a number literal.");
+            Expect(')');
+            return new PromFunction("vector", scalar, []);
+        }
+
+        if (InstantFunctions.TryGetValue(lower, out var arity))
+        {
+            Expect('(');
+            var inner = RequireInstant(ParseBinary(0));
+            if (inner is PromNumber)
+            {
+                throw new PromQlException($"{lower}() expects an instant vector, got a scalar; wrap the number in vector().");
+            }
+
+            var parameters = new List<double>();
+            while (TryConsume(','))
+            {
+                parameters.Add(ParseBinary(0) is PromNumber p
+                    ? p.Value
+                    : throw new PromQlException($"{lower}()'s extra arguments must be number literals."));
+            }
+
+            Expect(')');
+            if (parameters.Count < arity.Min || parameters.Count > arity.Max)
+            {
+                throw new PromQlException($"{lower}() takes {(arity.Min == arity.Max ? $"{arity.Min + 1}" : $"{arity.Min + 1} or {arity.Max + 1}")} argument(s), got {parameters.Count + 1}.");
+            }
+
+            return new PromFunction(lower, inner, parameters);
         }
 
         SkipWhitespace();
         if (Peek() == '(')
         {
             throw new PromQlException(
-                $"function '{ident}' is not supported (supported: rate, increase, histogram_quantile, sum, avg, min, max, count).");
+                $"function '{ident}' is not supported (supported: rate, increase, irate, avg_over_time, last_over_time, histogram_quantile, "
+                + "sum, avg, min, max, count, group, stddev, stdvar, topk, bottomk, quantile, vector, abs, ceil, floor, round, sqrt, exp, ln, log2, log10, sgn, clamp, clamp_min, clamp_max).");
         }
 
         return ParseSelectorTail(ident);
+    }
+
+    private char NextNonSpace()
+    {
+        SkipWhitespace();
+        return Peek();
     }
 
     private PromExpr ParseAggregation(string op)
@@ -229,14 +478,23 @@ internal sealed class PromQlParser
         // The clause may precede the parenthesised argument (`sum by (a) (x)`) or follow it (`sum(x) by (a)`).
         var grouped = TryParseGrouping(ref without, labels);
         Expect('(');
-        var inner = ParseBinary(0);
+        double? parameter = null;
+        if (ParameterisedAggregations.Contains(op))
+        {
+            parameter = ParseBinary(0) is PromNumber p
+                ? p.Value
+                : throw new PromQlException($"{op}'s first argument must be a number literal.");
+            Expect(',');
+        }
+
+        var inner = RequireInstant(ParseBinary(0));
         Expect(')');
         if (!grouped)
         {
             TryParseGrouping(ref without, labels);
         }
 
-        return new PromAggregation(op, without, labels, inner);
+        return new PromAggregation(op, without, labels, inner, parameter);
     }
 
     private bool TryParseGrouping(ref bool without, List<string> labels)
@@ -328,18 +586,31 @@ internal sealed class PromQlParser
             _pos = end + 1;
         }
 
-        SkipWhitespace();
-        if (_pos + 6 <= _text.Length && _text.AsSpan(_pos).StartsWith("offset", StringComparison.OrdinalIgnoreCase))
+        var offset = TimeSpan.Zero;
+        if (TryParseKeyword("offset"))
         {
-            throw new PromQlException("the offset modifier is not supported.");
+            SkipWhitespace();
+            if (Peek() == '-')
+            {
+                throw new PromQlException("a negative offset is not supported.");
+            }
+
+            var start = _pos;
+            while (!AtEnd && char.IsLetterOrDigit(_text[_pos]))
+            {
+                _pos++;
+            }
+
+            offset = ParseDuration(_text[start.._pos]);
         }
 
+        SkipWhitespace();
         if (Peek() == '@')
         {
             throw new PromQlException("the @ modifier is not supported.");
         }
 
-        return new PromSelector(name, matchers, range);
+        return new PromSelector(name, matchers, range, offset);
     }
 
     private PromMatchOp ParseMatchOp()

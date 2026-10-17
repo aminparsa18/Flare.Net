@@ -1,6 +1,6 @@
 # Interroger Flare avec Grafana ou l'API Prometheus
 
-Flare expose un **sous-ensemble en lecture seule de l'API HTTP Prometheus** sur vos métriques OTel. Grafana, `promtool` et `prometheus-adapter` (HPA Kubernetes sur métriques personnalisées) peuvent donc l'utiliser comme source de données Prometheus. Il couvre les sélecteurs, `rate`/`increase`, `sum|avg|min|max|count` et `histogram_quantile`. Tout le reste est refusé avec une erreur qui nomme la construction non prise en charge, jamais traité partiellement.
+Flare expose un **sous-ensemble en lecture seule de l'API HTTP Prometheus** sur vos métriques OTel. Grafana, `promtool` et `prometheus-adapter` (HPA Kubernetes sur métriques personnalisées) peuvent donc l'utiliser comme source de données Prometheus. Il couvre les sélecteurs avec `offset`, `rate`/`increase`, les agrégations dont `topk` et `quantile`, `histogram_quantile`, les opérateurs entre séries (`a / b`) et un ensemble de fonctions mathématiques. Tout le reste est refusé avec une erreur qui nomme la construction non prise en charge, jamais traité partiellement.
 
 ## Connecter Grafana
 
@@ -46,22 +46,32 @@ Trouvez les noms exacts avec `GET /api/v1/label/__name__/values`.
 | Construction | Exemple |
 |---|---|
 | Sélecteurs, avec `=`, `!=`, `=~`, `!~` | `up{service_name="api", code!="200"}` |
-| `rate`, `increase` | `rate(requests_total[5m])` |
-| `sum`, `avg`, `min`, `max`, `count` avec `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
+| `offset` sur un sélecteur ou une plage | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
+| `rate`, `increase`, `irate` | `rate(requests_total[5m])` |
+| `avg_over_time`, `last_over_time` (jauges) | `avg_over_time(queue_depth[10m])` |
+| `sum`, `avg`, `min`, `max`, `count`, `group`, `stddev`, `stdvar` avec `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
+| `topk`, `bottomk`, `quantile` avec `by`/`without` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
 | `histogram_quantile` sur `rate`/`increase`, éventuellement dans `sum by (...)` | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
 | `_sum` et `_count` d'un histogramme sous `rate`/`increase` | `rate(d_seconds_count[1m])` |
-| Arithmétique entre nombres | `1+1` |
+| Arithmétique `+ - * / % ^` entre séries et nombres | `100 * sum(rate(errors_total[5m])) / sum(rate(requests_total[5m]))` |
+| Comparaisons `== != > < >= <=`, avec filtrage, ou `bool` pour 1/0 | `queue_depth > 100`, `up > bool 0` |
+| `and`, `or`, `unless` | `rate(a_total[5m]) > 1 and on(job) rate(b_total[5m]) > 1` |
+| `on(...)`, `ignoring(...)`, `group_left`, `group_right` | `errors / on(job) group_left(team) owners` |
+| `abs`, `ceil`, `floor`, `round`, `sqrt`, `exp`, `ln`, `log2`, `log10`, `sgn`, `clamp`, `clamp_min`, `clamp_max`, `vector` | `clamp_min(free_ratio, 0)` |
 
 Points d'accès : `query`, `query_range`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Non pris en charge : opérateurs entre séries (`a / b`), `offset`, `@`, sous-requêtes, autres fonctions, `topk`, `quantile`, règles d'enregistrement et écriture de données. Pour un taux d'erreur, définissez un [SLO](../alerting/define-slos.fr.md).
+Non pris en charge : `@`, sous-requêtes, `label_replace`, `absent`, `delta`, `predict_linear`, `min_over_time` et `max_over_time` (Flare stocke une jauge comme une moyenne par bucket, elles seraient fausses), exemplars, règles d'enregistrement et écriture de données.
 
 ## Différences avec Prometheus
 
+- **Les erreurs d'appariement sont réelles.** `a / b` échoue avec « found duplicate series for the match group » si un jeu de labels correspond à deux séries d'un côté. Agrégez d'abord, restreignez avec `on(...)`/`ignoring(...)`, ou activez `group_left`/`group_right`, exactement comme dans Prometheus.
+- **`offset` est arrondi à un nombre entier de pas.** `offset 90s` avec un pas de 60 s est lu comme 120 s, afin que la série décalée reste sur les mêmes horodatages que le reste de la requête.
+- **`irate` et `avg_over_time` travaillent sur des buckets.** `irate` est l'incrément du bucket le plus récent par seconde, et `avg_over_time` fait la moyenne des moyennes de buckets.
 - **Les compteurs exigent `rate()` ou `increase()`.** Flare stocke des incréments par intervalle ; un compteur nu comme `requests_total` est donc refusé, avec un renvoi vers `rate()`. Une jauge utilisée sous `rate()` est lue comme un compteur, c'est ainsi qu'arrivent les métriques Prometheus `*_total` sans type.
 - **Les horodatages sont des débuts de bucket.** Les échantillons tombent sur des multiples du pas, pas sur `start + k*step`. Une fenêtre `[5m]` glisse sur `round(5m / pas)` buckets, au moins un.
 - **200 séries par sélecteur.** Un sélecteur correspondant à plus de séries renvoie les 200 plus grosses et ajoute une entrée `warnings`. Ajoutez des matchers de label pour restreindre. Les matchers `!=` et regex s'appliquent après cette limite.
 - **Les requêtes instantanées** regardent les cinq dernières minutes.
 - **`labels` et les valeurs de label sans `match[]`** échantillonnent les dix métriques ayant le plus de séries. Passez `match[]` pour une réponse complète.
 
-Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md).
+Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md).
