@@ -19,6 +19,16 @@ public class LokiEvaluatorTests
 
         public List<LokiQuantileRequest> QuantileRequests { get; } = [];
 
+        public List<LokiCounterRow> CounterRows { get; init; } = [];
+
+        public List<LokiCounterRequest> CounterRequests { get; } = [];
+
+        public Task<IReadOnlyList<LokiCounterRow>> FetchCounterBucketsAsync(LokiCounterRequest request, CancellationToken cancellationToken)
+        {
+            CounterRequests.Add(request);
+            return Task.FromResult<IReadOnlyList<LokiCounterRow>>(CounterRows.Where(r => r.BucketMs >= request.FromMs && r.BucketMs < request.ToMs).ToList());
+        }
+
         public Task<IReadOnlyList<LokiUnwrapRow>> FetchUnwrapBucketsAsync(LokiUnwrapRequest request, CancellationToken cancellationToken)
         {
             UnwrapRequests.Add(request);
@@ -339,7 +349,7 @@ public class LokiEvaluatorTests
         await Run(source, """avg_over_time({service_name="api"} | json | unwrap latency [2m]) by (region)""", 2 * Minute, 2 * Minute, Minute);
 
         // The samples are grouped by region before the function runs, so the read groups by region alone.
-        Assert.Equal(["region"], Assert.Single(source.UnwrapRequests).Dimensions);
+        Assert.Equal(["region", "__error__"], Assert.Single(source.UnwrapRequests).Dimensions);
     }
 
     [Fact]
@@ -350,7 +360,7 @@ public class LokiEvaluatorTests
 
         await Run(withStreams, """avg_over_time({service_name="api"} | json | unwrap latency [2m]) without (k8s_pod_name)""", 2 * Minute, 2 * Minute, Minute);
 
-        Assert.Equal(["service_name"], Assert.Single(withStreams.UnwrapRequests).Dimensions);
+        Assert.Equal(["service_name", "__error__"], Assert.Single(withStreams.UnwrapRequests).Dimensions);
     }
 
     [Fact]
@@ -358,12 +368,12 @@ public class LokiEvaluatorTests
     {
         var additive = TwoBuckets();
         await Run(additive, """sum by (region) (sum_over_time({service_name="api"} | json | unwrap latency [2m]))""", 2 * Minute, 2 * Minute, Minute);
-        Assert.Equal(["region"], Assert.Single(additive.UnwrapRequests).Dimensions);
+        Assert.Equal(["region", "__error__"], Assert.Single(additive.UnwrapRequests).Dimensions);
 
         var average = TwoBuckets();
         await Run(average, """sum by (region) (avg_over_time({service_name="api"} | json | unwrap latency [2m]))""", 2 * Minute, 2 * Minute, Minute);
         // An average of averages is not the average, so whole streams are read and grouped afterwards.
-        Assert.Equal(["service_name", "region"], Assert.Single(average.UnwrapRequests).Dimensions);
+        Assert.Equal(["service_name", "region", "__error__"], Assert.Single(average.UnwrapRequests).Dimensions);
     }
 
     [Fact]
@@ -470,5 +480,211 @@ public class LokiEvaluatorTests
         Assert.Equal((all.Min, all.Max, all.First, all.Last), (merged.Min, merged.Max, merged.First, merged.Last));
         Assert.Equal(all.Mean, merged.Mean, precision: 12);
         Assert.Equal(all.M2, merged.M2, precision: 12);
+    }
+
+    // ---- absent_over_time (ADR-0238) ----
+
+    [Fact]
+    public async Task Absent_IsOneAtTheStepsWhoseWindowHasNoLine()
+    {
+        var source = new FakeSource(Row(0, 4));
+
+        var result = await Run(source, """absent_over_time({service_name="api", detected_level=~"error|warn"}[1m])""", Minute, 3 * Minute, Minute);
+
+        var series = Assert.Single(result.Series);
+        // The line is in the window that ends at 1m; the next two windows are empty.
+        Assert.Equal([null, 1d, 1d], series.Values);
+        // Only the equality matcher names the series.
+        Assert.Equal(new Dictionary<string, string> { ["service_name"] = "api" }, series.Labels);
+        Assert.Empty(Assert.Single(source.Requests).Dimensions);
+    }
+
+    [Fact]
+    public async Task Absent_HasNoSeriesWhenEveryWindowHasLines()
+    {
+        var source = new FakeSource(Row(0, 1), Row(Minute, 2));
+
+        var result = await Run(source, """absent_over_time({service_name="api"}[1m])""", Minute, 2 * Minute, Minute);
+
+        Assert.Empty(result.Series);
+    }
+
+    [Fact]
+    public async Task Absent_LongerWindowSpansBuckets()
+    {
+        var source = new FakeSource(Row(0, 1));
+
+        var result = await Run(source, """absent_over_time({service_name="api"}[2m])""", 2 * Minute, 4 * Minute, Minute);
+
+        // Windows (0,2m] and (1m,3m]: the first holds the line, the second and third do not.
+        Assert.Equal([null, 1d, 1d], Assert.Single(result.Series).Values);
+    }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(3, false)]
+    public async Task Absent_InstantQueryChecksTheWholeWindow(double lines, bool absent)
+    {
+        var source = new FakeSource(lines > 0 ? [Row(6 * Minute, lines)] : []);
+
+        var result = await Run(source, """absent_over_time({service_name="api"}[5m])""", 10 * Minute, 10 * Minute, Minute, instant: true);
+
+        Assert.Equal(absent, result.Series.Count == 1);
+    }
+
+    [Fact]
+    public void AbsentLabels_KeepOnlyNamesWithAnEqualityMatcherAndNoOther()
+    {
+        var labels = LokiEvaluator.AbsentLabels(
+        [
+            new LokiMatcher("service_name", LokiMatchOp.Equal, "api"),
+            new LokiMatcher("env", LokiMatchOp.Regex, "prod.*"),
+            new LokiMatcher("pod", LokiMatchOp.Equal, "p1"),
+            new LokiMatcher("pod", LokiMatchOp.NotEqual, "p2"),
+            new LokiMatcher("empty", LokiMatchOp.Equal, ""),
+        ]);
+
+        Assert.Equal(new Dictionary<string, string> { ["service_name"] = "api" }, labels);
+    }
+
+    // ---- rate_counter (ADR-0238) ----
+
+    private static LokiCounterStats CounterOf(params (long Seconds, double Value)[] samples)
+    {
+        var correction = 0d;
+        for (var i = 1; i < samples.Length; i++)
+        {
+            if (samples[i].Value < samples[i - 1].Value)
+            {
+                correction += samples[i - 1].Value;
+            }
+        }
+
+        return new LokiCounterStats(samples.Length, samples[0].Seconds * 1_000_000_000, samples[0].Value, samples[^1].Seconds * 1_000_000_000, samples[^1].Value, correction);
+    }
+
+    private static LokiCounterRow CounterRow(long bucketMs, LokiCounterStats stats, params string[] dims) => new(bucketMs, dims, stats);
+
+    private const long Second = 1_000_000_000;
+
+    [Fact]
+    public void CounterRate_SamplesSpanningTheWindowAreNotExtrapolated()
+    {
+        // 0, 10, 20 at t = 0, 10s, 20s in the window [0, 30s): the end is 10s away, within 1.1 * the 10s spacing.
+        var rate = CounterOf((0, 0), (10, 10), (20, 20)).ExtrapolatedRate(0, 30 * Second);
+
+        Assert.Equal(1d, rate, 12);
+    }
+
+    [Fact]
+    public void CounterRate_ExtrapolatesTowardsTheEdgesOnlyWhenTheyAreCloseAndNeverBelowZero()
+    {
+        // Samples 100 (t=5s) and 130 (t=25s) in [0, 30s): both edges are within the threshold, the zero point is far.
+        var rate = CounterOf((5, 100), (25, 130)).ExtrapolatedRate(0, 30 * Second);
+
+        // increase 30 over 20s sampled, stretched by (20 + 5 + 5) / 20, per 30s window.
+        Assert.Equal(30d * 30 / 20 / 30, rate, 12);
+    }
+
+    [Fact]
+    public void CounterRate_ACounterResetAddsTheValueItFellFrom()
+    {
+        // 90 -> 100, then a reset to 5 -> 15: 15 - 90 + the 100 the counter fell from = an increase of 25 over 30s of samples.
+        var rate = CounterOf((0, 90), (10, 100), (20, 5), (30, 15)).ExtrapolatedRate(0, 40 * Second);
+
+        Assert.Equal(25d * 40 / 30 / 40, rate, 12);
+    }
+
+    [Fact]
+    public void CounterRate_FewerThanTwoSamplesIsZero() =>
+        Assert.Equal(0d, CounterOf((5, 100)).ExtrapolatedRate(0, 30 * Second));
+
+    [Fact]
+    public void CounterStats_MergingBucketsGivesTheStatisticsOfTheWholeSequence()
+    {
+        (long, double)[] samples = [(1, 5), (2, 9), (3, 2), (4, 7), (5, 1), (6, 3), (7, 3), (8, 10)];
+
+        var whole = CounterOf(samples);
+        var merged = CounterOf(samples[..3]).Then(CounterOf(samples[3..4])).Then(CounterOf(samples[4..]));
+
+        Assert.Equal(whole, merged);
+        Assert.Equal(whole.ExtrapolatedRate(0, 10 * Second), merged.ExtrapolatedRate(0, 10 * Second));
+    }
+
+    [Fact]
+    public async Task RateCounter_MergesTheBucketsOfEachWindowInOrder()
+    {
+        // Two one-minute buckets: 10 -> 40 (t = 0..50s), then a reset: 4 -> 10 (t = 60..110s), window (0, 2m].
+        var first = CounterOf((0, 10), (50, 40));
+        var second = CounterOf((60, 4), (110, 10));
+        var source = new FakeSource
+        {
+            CounterRows = [CounterRow(0, first, "api", ""), CounterRow(Minute, second, "api", "")],
+        };
+
+        var result = await Run(source, """rate_counter({service_name="api"} | unwrap bytes_total [2m])""", 2 * Minute, 2 * Minute, Minute);
+
+        var expected = first.Then(second).ExtrapolatedRate(0, 120 * Second);
+        var series = Assert.Single(result.Series);
+        Assert.Equal(expected, series.Values[0]!.Value, 12);
+        Assert.Equal(["service_name", "__error__"], Assert.Single(source.CounterRequests).Dimensions);
+    }
+
+    [Fact]
+    public async Task RateCounter_InstantQueryReadsTheWindowEndingAtTheEvaluationTime()
+    {
+        var stats = CounterOf((0, 0), (10, 10), (20, 20));
+        var source = new FakeSource { CounterRows = [CounterRow(0, stats, "api", "")] };
+
+        var result = await Run(source, """rate_counter({service_name="api"} | unwrap n [30s])""", 30_000, 30_000, 30_000, instant: true);
+
+        Assert.Equal(1d, Assert.Single(result.Series).Values[0]!.Value, 12);
+        Assert.Equal(0L, Assert.Single(source.CounterRequests).BucketMs);
+    }
+
+    // ---- conversion errors of unwrap (ADR-0238) ----
+
+    [Fact]
+    public async Task Unwrap_AnErrorSampleFailsTheQueryUnlessThePipelineKeepsErrors()
+    {
+        var source = new FakeSource
+        {
+            UnwrapRows = [Unwrapped(0, Stats(1, 3), "api", ""), Unwrapped(0, Stats(0, 0), "api", "SampleExtractionErr")],
+        };
+
+        var ex = await Assert.ThrowsAsync<LokiException>(() =>
+            Run(source, """sum_over_time({service_name="api"} | json | unwrap latency [1m])""", Minute, Minute, Minute));
+
+        Assert.Contains("pipeline error: 'SampleExtractionErr'", ex.Message);
+        Assert.Contains("service_name=\"api\"", ex.Message);
+        Assert.Contains("__error__!=", ex.Message);
+    }
+
+    [Fact]
+    public async Task Unwrap_AnErrorFilterThatAcceptsErrorsKeepsThemAsTheirOwnSeries()
+    {
+        var source = new FakeSource
+        {
+            UnwrapRows = [Unwrapped(0, Stats(1, 3), "api", ""), Unwrapped(0, Stats(0, 0), "api", "SampleExtractionErr")],
+        };
+
+        var result = await Run(source, """sum_over_time({service_name="api"} | json | unwrap latency | __error__!="JSONParserErr" [1m])""", Minute, Minute, Minute);
+
+        Assert.Equal(2, result.Series.Count);
+        var errored = Assert.Single(result.Series, s => s.Labels.ContainsKey("__error__"));
+        Assert.Equal("SampleExtractionErr", errored.Labels["__error__"]);
+        Assert.Equal(0d, errored.Values[0]);
+        Assert.Equal(4d, Assert.Single(result.Series, s => !s.Labels.ContainsKey("__error__")).Values[0]);
+    }
+
+    [Fact]
+    public async Task Unwrap_RowsWithoutErrorsNeverCarryTheErrorLabel()
+    {
+        var source = new FakeSource { UnwrapRows = [Unwrapped(0, Stats(1, 3), "api", "")] };
+
+        var result = await Run(source, """sum_over_time({service_name="api"} | unwrap latency | __error__="" [1m])""", Minute, Minute, Minute);
+
+        Assert.Equal(new Dictionary<string, string> { ["service_name"] = "api" }, Assert.Single(result.Series).Labels);
+        Assert.Equal(["service_name", "__error__"], Assert.Single(source.UnwrapRequests).Dimensions);
     }
 }

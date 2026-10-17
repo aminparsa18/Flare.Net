@@ -114,8 +114,10 @@ public class LokiQlParserTests
     [Theory]
     [InlineData("""{a="b"} | label_format x=y""", "label_format")]
     [InlineData("""{a="b"} | regexp "(?P<x>.+)" """, "regexp")]
-    [InlineData("""rate_counter({a="b"} | unwrap x [1m])""", "rate_counter")]
-    [InlineData("""{a="b"} | logfmt --strict""", "--strict")]
+    [InlineData("""rate_counter({a="b"} [1m])""", "needs '| unwrap")]
+    [InlineData("""absent_over_time({a="b"} | unwrap x [1m])""", "unwrapped")]
+    [InlineData("""{a="b"} | logfmt --lenient""", "--lenient")]
+    [InlineData("""{a="b"} | logfmt --strict | logfmt""", "same --strict setting")]
     [InlineData("""{a="b"} | line_format "{{ if .x }}y{{ end }}" """, "'if' is not supported")]
     [InlineData("""{a="b"} | line_format "{{ .x | nosuchfn }}" """, "nosuchfn")]
     [InlineData("""{a="b"} | line_format "{{.x}}" |= "y" """, "after line_format")]
@@ -247,5 +249,87 @@ public class LokiQlParserTests
 
         var range = Assert.IsType<LokiRangeAggregation>(sum.Inner);
         Assert.Null(range.Grouping);
+    }
+
+    // ---- ADR-0238 ----
+
+    [Fact]
+    public void Parse_RateCounterIsAnUnwrappedFunctionWithItsOwnGrouping()
+    {
+        var range = Assert.IsType<LokiRangeAggregation>(LokiQlParser.Parse("""rate_counter({a="b"} | unwrap bytes_total [5m]) by (service_name)"""));
+
+        Assert.Equal("rate_counter", range.Function);
+        Assert.True(range.IsUnwrapped);
+        Assert.Equal(["service_name"], range.Grouping!.Labels);
+    }
+
+    [Fact]
+    public void Parse_AbsentOverTimeTakesAPipelineAndARange()
+    {
+        var range = Assert.IsType<LokiRangeAggregation>(LokiQlParser.Parse("""absent_over_time({a="b"} |= "heartbeat" [5m])"""));
+
+        Assert.Equal("absent_over_time", range.Function);
+        Assert.False(range.IsUnwrapped);
+        Assert.Equal(TimeSpan.FromMinutes(5), range.Range);
+        Assert.IsType<LokiLineFilter>(Assert.Single(range.Selector.Stages));
+    }
+
+    [Theory]
+    [InlineData("| logfmt", false, false)]
+    [InlineData("| logfmt --strict", true, false)]
+    [InlineData("| logfmt --keep-empty", false, true)]
+    [InlineData("| logfmt --keep-empty --strict", true, true)]
+    public void Parse_LogfmtFlags(string stage, bool strict, bool keepEmpty)
+    {
+        var selector = LokiQlParser.ParseSelector($$"""{a="b"} {{stage}}""");
+
+        var logfmt = Assert.IsType<LokiLogfmtStage>(Assert.Single(selector.Stages));
+        Assert.Equal((strict, keepEmpty), (logfmt.Strict, logfmt.KeepEmpty));
+    }
+
+    [Fact]
+    public void Parse_LogfmtFlagsMayPrecedeExpressions()
+    {
+        var selector = LokiQlParser.ParseSelector("""{a="b"} | logfmt --strict code="status" """);
+
+        var logfmt = Assert.IsType<LokiLogfmtStage>(Assert.Single(selector.Stages));
+        Assert.True(logfmt.Strict);
+        Assert.Equal([("code", "status")], logfmt.Expressions);
+    }
+
+    [Theory]
+    [InlineData("""| drop __error__""", true)]
+    [InlineData("""| drop __error__, __error_details__""", true)]
+    [InlineData("""| drop __error_details__""", false)]
+    public void Parse_DropRemembersWhetherItResetsTheError(string stage, bool resets)
+    {
+        var selector = LokiQlParser.ParseSelector($$"""{a="b"} {{stage}}""");
+
+        Assert.Equal(resets, Assert.IsType<LokiDropStage>(Assert.Single(selector.Stages)).ResetsError);
+    }
+
+    [Theory]
+    [InlineData("| __error__=\"\"", false)]
+    [InlineData("| __error__!=\"\"", true)]
+    [InlineData("| __error__=\"SampleExtractionErr\"", true)]
+    [InlineData("| __error__!=\"JSONParserErr\"", true)]
+    [InlineData("| __error__=~\".+\"", true)]
+    [InlineData("| __error__!~\".+\"", false)]
+    [InlineData("""| __error_details__!="" """, false)]
+    [InlineData("""| status >= 500""", false)]
+    [InlineData("""| status >= 500 or __error__!="" """, true)]
+    public void KeepsErroredLines_FollowsWhatTheErrorFilterAccepts(string stage, bool keeps)
+    {
+        var range = Assert.IsType<LokiRangeAggregation>(LokiQlParser.Parse($$"""sum_over_time({a="b"} | unwrap x {{stage}} [1m])"""));
+
+        Assert.Equal(keeps, range.KeepsErroredLines);
+    }
+
+    [Fact]
+    public void KeepsErroredLines_CountsAFilterBeforeTheUnwrapToo()
+    {
+        var range = Assert.IsType<LokiRangeAggregation>(LokiQlParser.Parse("""sum_over_time({a="b"} | __error__!="JSONParserErr" | unwrap x [1m])"""));
+
+        Assert.True(range.KeepsErroredLines);
     }
 }

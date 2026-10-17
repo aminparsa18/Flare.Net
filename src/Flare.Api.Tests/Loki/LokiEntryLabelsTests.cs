@@ -321,4 +321,55 @@ public class LokiEntryLabelsTests
 
         Assert.Equal(new Dictionary<string, string> { ["m"] = "GET", ["dotted"] = "dotted", ["second"] = "b" }, parsed);
     }
+
+    // ---- ADR-0238 ----
+
+    [Fact]
+    public void StrictLogfmt_AMalformedLineKeepsTheLabelsBeforeTheFaultAndSetsTheError()
+    {
+        var plan = new LokiEntryPlan([new LokiParserSpec(LokiParserKind.Logfmt, new Dictionary<string, string>(), Strict: true)], null);
+
+        var bad = LokiEntryLabels.Build(Row("level=info msg=\"unterminated code=5"), plan).Parsed;
+        var good = LokiEntryLabels.Build(Row("level=info code=5"), plan).Parsed;
+
+        Assert.Equal(new Dictionary<string, string> { ["level"] = "info", ["__error__"] = "LogfmtParserErr" }, bad);
+        Assert.Equal(new Dictionary<string, string> { ["level"] = "info", ["code"] = "5" }, good);
+    }
+
+    [Fact]
+    public void LenientLogfmt_NeverSetsTheError()
+    {
+        var plan = new LokiEntryPlan([new LokiParserSpec(LokiParserKind.Logfmt, new Dictionary<string, string>())], null);
+
+        Assert.DoesNotContain("__error__", LokiEntryLabels.Build(Row("level=info msg=\"unterminated"), plan).Parsed.Keys);
+    }
+
+    private static LokiLogEntry Entry(long ns, string line, string service, string pod) =>
+        LokiEntryLabels.Build(Row(line, resource: new() { ["service.name"] = service, ["k8s.pod.name"] = pod }) with { Ns = ns }, null);
+
+    [Fact]
+    public void TailFrame_WithoutDroppedEntriesHasNoDroppedKey()
+    {
+        using var frame = JsonDocument.Parse(LokiEndpoints.TailFrame([Entry(1_760_000_000_000_000_001, "a", "api", "p1")], []));
+
+        Assert.Single(frame.RootElement.GetProperty("streams").EnumerateArray());
+        Assert.False(frame.RootElement.TryGetProperty("dropped_entries", out _));
+    }
+
+    [Fact]
+    public void TailFrame_ReportsEachDroppedEntryWithItsLabelsAndTimestamp()
+    {
+        var dropped = new[] { Entry(1_760_000_000_000_000_002, "lost one", "api", "p2"), Entry(1_760_000_000_000_000_003, "lost two", "api", "p3") };
+
+        using var frame = JsonDocument.Parse(LokiEndpoints.TailFrame([], dropped));
+
+        Assert.Empty(frame.RootElement.GetProperty("streams").EnumerateArray());
+        var reported = frame.RootElement.GetProperty("dropped_entries").EnumerateArray().ToList();
+        Assert.Equal(2, reported.Count);
+        Assert.Equal("1760000000000000002", reported[0].GetProperty("timestamp").GetString());
+        Assert.Equal("p2", reported[0].GetProperty("labels").GetProperty("k8s_pod_name").GetString());
+        Assert.Equal("api", reported[1].GetProperty("labels").GetProperty("service_name").GetString());
+        // The line itself is not repeated: only the labels and the time identify what was lost.
+        Assert.DoesNotContain("lost one", System.Text.Encoding.UTF8.GetString(LokiEndpoints.TailFrame([], dropped)));
+    }
 }

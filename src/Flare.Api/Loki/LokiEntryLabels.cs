@@ -128,14 +128,30 @@ internal static class LokiEntryLabels
     /// <summary>
     /// Runs one parser stage over <paramref name="body"/> and adds what it extracts to <paramref name="parsed"/>.
     /// A label that collides with a stream, metadata or already-parsed label gets Loki's <c>_extracted</c>
-    /// suffix; a body that is not a JSON object sets <c>__error__</c>.
+    /// suffix; a body that is not a JSON object (or, under <c>logfmt --strict</c>, a malformed line) sets <c>__error__</c>.
     /// </summary>
     public static void Apply(
         LokiParserSpec parser, string body, Dictionary<string, string> parsed, IReadOnlyDictionary<string, string> stream, IReadOnlyDictionary<string, string> metadata)
     {
         if (parser.Kind == LokiParserKind.Logfmt)
         {
-            foreach (var (key, value) in LokiLogfmt.Parse(body))
+            IReadOnlyList<(string Key, string Value)> pairs;
+            if (parser.Strict)
+            {
+                // A malformed line keeps the labels read before the fault and carries the error (ADR-0238).
+                bool failed;
+                (pairs, failed) = LokiLogfmt.ParseStrict(body);
+                if (failed)
+                {
+                    parsed["__error__"] = "LogfmtParserErr";
+                }
+            }
+            else
+            {
+                pairs = LokiLogfmt.Parse(body);
+            }
+
+            foreach (var (key, value) in pairs)
             {
                 if (parser.Expressions.Count == 0)
                 {

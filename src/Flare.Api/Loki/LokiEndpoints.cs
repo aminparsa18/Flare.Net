@@ -426,6 +426,7 @@ public static class LokiEndpoints
         WebSocket socket;
         try
         {
+            subscription.DroppedSampleLimit = MaxDroppedEntriesPerFrame;
             subscription.SetFilter(matcher.Prefilter, null);
             socket = await http.WebSockets.AcceptWebSocketAsync();
         }
@@ -503,7 +504,15 @@ public static class LokiEndpoints
         }
     }
 
-    /// <summary>Drains the subscription, keeps the entries the query matches and sends them in frames of up to 100.</summary>
+    /// <summary>Most entries one tail frame reports as dropped.</summary>
+    private const int MaxDroppedEntriesPerFrame = 100;
+
+    /// <summary>
+    /// Drains the subscription, keeps the entries the query matches and sends them in frames of up to 100. Entries
+    /// that did not fit in the connection's bounded channel are reported in the frame that follows as Loki's
+    /// <c>dropped_entries</c>: those among a sample of the lost events that the query would have matched, with
+    /// their labels and timestamp (ADR-0238).
+    /// </summary>
     private static async Task StreamEntriesAsync(WebSocket socket, LogTailSubscription subscription, LokiTailMatcher matcher, CancellationToken ct)
     {
         const int maxPerFrame = 100;
@@ -524,9 +533,19 @@ public static class LokiEndpoints
                     }
                 }
 
-                if (batch.Count > 0)
+                var dropped = new List<LokiLogEntry>();
+                foreach (var lost in subscription.TakeDroppedEvents())
                 {
-                    await SendTailAsync(socket, batch, ct);
+                    if (matcher.TryMatch(LokiTailMatcher.ToRow(lost), out var lostEntry))
+                    {
+                        dropped.Add(lostEntry);
+                    }
+                }
+
+                subscription.TakeDroppedCount();
+                if (batch.Count > 0 || dropped.Count > 0)
+                {
+                    await SendTailAsync(socket, batch, ct, dropped);
                 }
             }
         }
@@ -536,32 +555,52 @@ public static class LokiEndpoints
         }
     }
 
-    private static async Task SendTailAsync(WebSocket socket, IReadOnlyList<LokiLogEntry> entries, CancellationToken ct)
+    private static async Task SendTailAsync(WebSocket socket, IReadOnlyList<LokiLogEntry> entries, CancellationToken ct, IReadOnlyList<LokiLogEntry>? dropped = null)
     {
-        var bytes = JsonBytes(w =>
+        var bytes = TailFrame(entries, dropped ?? []);
+        await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, endOfMessage: true, ct);
+    }
+
+    /// <summary>
+    /// One tail frame: <c>{"streams":[...]}</c>, plus <c>"dropped_entries":[{"labels":{...},"timestamp":"ns"}]</c>
+    /// when entries were lost to a slow connection (Loki's <c>DroppedStream</c>; the key is absent otherwise).
+    /// </summary>
+    internal static byte[] TailFrame(IReadOnlyList<LokiLogEntry> entries, IReadOnlyList<LokiLogEntry> dropped) => JsonBytes(w =>
+    {
+        w.WriteStartArray("streams");
+        foreach (var (labels, members) in GroupStreams(entries, categorize: false))
         {
-            w.WriteStartArray("streams");
-            foreach (var (labels, members) in GroupStreams(entries, categorize: false))
+            w.WriteStartObject();
+            WriteLabels(w, "stream", labels);
+            w.WriteStartArray("values");
+            foreach (var entry in members)
+            {
+                w.WriteStartArray();
+                w.WriteStringValue(entry.Ns.ToString(CultureInfo.InvariantCulture));
+                w.WriteStringValue(entry.Line);
+                w.WriteEndArray();
+            }
+
+            w.WriteEndArray();
+            w.WriteEndObject();
+        }
+
+        w.WriteEndArray();
+
+        if (dropped.Count > 0)
+        {
+            w.WriteStartArray("dropped_entries");
+            foreach (var entry in dropped)
             {
                 w.WriteStartObject();
-                WriteLabels(w, "stream", labels);
-                w.WriteStartArray("values");
-                foreach (var entry in members)
-                {
-                    w.WriteStartArray();
-                    w.WriteStringValue(entry.Ns.ToString(CultureInfo.InvariantCulture));
-                    w.WriteStringValue(entry.Line);
-                    w.WriteEndArray();
-                }
-
-                w.WriteEndArray();
+                WriteLabels(w, "labels", entry.StreamLabels.Concat(entry.StructuredMetadata).Concat(entry.Parsed).GroupBy(kv => kv.Key, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.Ordinal));
+                w.WriteString("timestamp", entry.Ns.ToString(CultureInfo.InvariantCulture));
                 w.WriteEndObject();
             }
 
             w.WriteEndArray();
-        });
-        await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, endOfMessage: true, ct);
-    }
+        }
+    });
 
     /// <summary>
     /// <c>resultType: streams</c>. With Loki's <c>categorize-labels</c> encoding flag (which Grafana sends)

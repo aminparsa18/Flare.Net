@@ -1,6 +1,6 @@
 # 如何用 Loki API 在 Grafana 中读取 Flare 的日志
 
-Flare 在您的日志之上提供 **Loki HTTP API 的只读子集**，因此 Grafana 的 Loki 数据源可以对 Flare 运行 LogQL：Explore、日志面板、日志量图、标签选择器、实时跟踪、从追踪跳转到日志的链接，以及 Logs Drilldown 应用。它支持流选择器、行过滤、`| json`、`| logfmt`、`| line_format`、标签过滤，把日志转换为指标的函数（`rate`、`count_over_time`、`bytes_rate`、`bytes_over_time`），以及基于 `unwrap` 的函数（`avg_over_time`、`quantile_over_time` 等），并可配合 `sum`、`topk` 和算术运算。其余内容都会被拒绝，并返回指明不支持的语法结构的错误，绝不会给出部分结果。
+Flare 在您的日志之上提供 **Loki HTTP API 的只读子集**，因此 Grafana 的 Loki 数据源可以对 Flare 运行 LogQL：Explore、日志面板、日志量图、标签选择器、实时跟踪、从追踪跳转到日志的链接，以及 Logs Drilldown 应用。它支持流选择器、行过滤、`| json`、`| logfmt`、`| line_format`、标签过滤，把日志转换为指标的函数（`rate`、`count_over_time`、`bytes_rate`、`bytes_over_time`）、`absent_over_time`，以及基于 `unwrap` 的函数（`avg_over_time`、`quantile_over_time`、`rate_counter` 等），并可配合 `sum`、`topk` 和算术运算。其余内容都会被拒绝，并返回指明不支持的语法结构的错误，绝不会给出部分结果。
 
 ## 连接 Grafana
 
@@ -42,6 +42,8 @@ Grafana 的 **Logs Drilldown** 应用（插件 `grafana-lokiexplore-app`；Grafa
 websocat -H "Authorization: Bearer $TOKEN" \
   'ws://localhost:8080/loki/api/v1/tail?query=%7Bservice_name%3D%22shop-api%22%7D%20%7C%3D%20%22error%22'
 ```
+
+如果连接跟不上，随后的帧会以 Loki 的 `dropped_entries`（`[{"labels": {...}, "timestamp": "<ns>"}]`）列出它错过的、查询本应匹配的条目。Flare 一次最多只记住 100 条丢失条目的样本，因此大量突发时报告的数量会少于实际丢失的数量。
 
 实时跟踪有两个限制。正则表达式必须是线性时间的（不支持前瞻和反向引用），与仪表板的实时跟踪相同；违反该限制的查询会被拒绝，并指出对应的模式。此外，连接会在几分钟后关闭（`LiveTail:MaxSocketLifetime`，默认五分钟），以便重新校验令牌；Grafana 的实时视图会自动重连。如果 Grafana 所在的来源不在 `Cors:AllowedOrigins` 中，也无需修改：带有 `Authorization` 请求头的请求会跳过来源检查。
 
@@ -91,19 +93,22 @@ Flare 把自己的字段映射为 Loki 标签，方式与 Loki 自身的 OTLP �
 | 行过滤：`\|=`、`!=`、`\|~`、`!~`，可用 `or` | `{service_name="api"} \|= "timeout" or "refused" != "health"` |
 | `\| json`，可带表达式 | `\| json uid="user.id"` |
 | `\| logfmt`，可带表达式；可连续使用多个解析器 | `\| logfmt \| level="error"`、`\| json \| logfmt` |
+| `\| logfmt --strict`、`--keep-empty`（见下文） | `\| logfmt --strict \| __error__=""` |
 | `\| line_format`（见下文） | `\| line_format "{{.method}} {{.path}} {{.status \| default \"-\"}}"` |
 | 模式行过滤 `\|>` 和 `!>` | `\|> "<_> failed to connect <_>"` |
 | 标签过滤：`=`、`!=`、`=~`、`!~`、`>`、`>=`、`<`、`<=`，可用 `and`、`,`、`or` 和括号组合 | `\| json \| status >= 500 and method="POST"` |
-| `\| drop __error__` | 接受，不产生任何效果 |
+| `\| drop __error__` | 接受；会清除其之前的 `unwrap` 引发的转换错误 |
 | `count_over_time`、`rate`、`bytes_over_time`、`bytes_rate` | `rate({service_name="api"} \|= "error" [5m])` |
-| `\| unwrap label`、`unwrap duration(label)`、`unwrap bytes(label)`，配合 `sum_over_time`、`avg_over_time`、`min_over_time`、`max_over_time`、`first_over_time`、`last_over_time`、`stddev_over_time`、`stdvar_over_time`、`quantile_over_time`，均可带可选的 `by`/`without` | `quantile_over_time(0.95, {service_name="api"} \| json \| unwrap latency_ms [5m]) by (k8s_pod_name)` |
+| `absent_over_time` | `absent_over_time({service_name="worker"} \|= "heartbeat" [5m])` |
+| `\| unwrap label`、`unwrap duration(label)`、`unwrap bytes(label)`，配合 `sum_over_time`、`avg_over_time`、`min_over_time`、`max_over_time`、`first_over_time`、`last_over_time`、`stddev_over_time`、`stdvar_over_time`、`quantile_over_time`，均可带可选的 `by`/`without` | `quantile_over_time(0.95, {service_name="api"} \| json \| unwrap latency_ms \| __error__="" [5m]) by (k8s_pod_name)` |
+| `rate_counter`，可带可选的 `by`/`without` | `rate_counter({service_name="api"} \| logfmt \| unwrap bytes_total \| __error__="" [5m])` |
 | 带 `by`/`without` 的 `sum`、`avg`、`min`、`max`、`count` | `sum by (service_name) (rate({service_name=~".+"}[5m]))` |
 | `topk`、`bottomk` | `topk(5, sum by (service_name) (rate({service_name=~".+"}[5m])))` |
 | 表达式与数字之间的 `+ - * / %`，以及 `vector(n)` | `sum(rate({...} \|= "error" [5m])) / sum(rate({...}[5m]))` |
 
 接口：`query_range`、`query`（指标查询）、`labels`、`label/<name>/values`、`series`、`index/stats`、`index/volume`、`detected_labels`、`detected_fields`、`detected_field/<name>/values`、`patterns`、`tail`（WebSocket）、`status/buildinfo`。GET 和表单编码的 POST 都可使用。
 
-不支持：`label_format`、`pattern`、`regexp`、`unpack`、`rate_counter`、`absent_over_time`、`offset`、指标之间的比较和集合运算符（`>`、`and`、`or`、`unless`）、`on`/`ignoring` 匹配、`logfmt --strict` 和 `--keep-empty`，以及 `index/volume_range`。
+不支持：`label_format`、`pattern`、`regexp`、`unpack`、`offset`、指标之间的比较和集合运算符（`>`、`and`、`or`、`unless`）、`on`/`ignoring` 匹配，以及 `index/volume_range`。
 
 ## 与 Loki 的差异
 
@@ -112,10 +117,12 @@ Flare 把自己的字段映射为 Loki 标签，方式与 Loki 自身的 OTLP �
 - **标签正则是整体匹配的**（`=~"web"` 只匹配 `web`），与 Loki 相同；**行正则不是**（`|~"5\d\d"` 在行内任意位置匹配）。`|=` 区分大小写。
 - **指标窗口基于时间桶。** 范围聚合读取的时间桶宽度是范围与步长的最大公约数（桶数过多时取步长），并与查询的各个步长对齐。没有匹配行的步长没有采样点。
 - **`| line_format` 只改写返回的那一行。** 模板支持 `{{.label}}`、`{{ __line__ }}`、`{{ __timestamp__ }}`、字符串和数字字面量、管道，以及函数 `lower`、`upper`、`title`、`trim`、`trimAll`、`trimPrefix`、`trimSuffix`、`replace`、`trunc` 和 `default`（不支持 `if`/`range`）。由于过滤发生在改写之前，在 `line_format` *之后*使用行过滤、解析器或第二个 `line_format` 会被拒绝，对改写后的行使用 `bytes_over_time` / `bytes_rate` 也一样。标签过滤可以放在它后面。
+- **`| logfmt --strict` 在第一个错误处停止。** 一行只有由 `key`、`key=`、`key=value` 或 `key="带引号的值"` 组成时才格式正确（普通值不含 `=` 和 `"`，带引号的值只允许 Go 接受的转义）。格式错误的行，以及任何是 JSON 对象的行，会保留错误之前的标签并得到 `__error__="LogfmtParserErr"`；不提供 `__error_details__` 的错误文本。`--keep-empty` 会被接受但不产生任何效果，因为在 Flare 求值的所有位置，空标签都等同于没有该标签。一个查询中的所有 logfmt 阶段必须在 `--strict` 上保持一致。
+- **`rate_counter` 和 `absent_over_time`。** `rate_counter` 把 `unwrap` 的值当作计数器：从第一个到最后一个样本的增量（加回重置），像 Prometheus 的 `rate` 那样向窗口边缘外推，按每秒计；样本少于两个的窗口为 0。`absent_over_time` 在没有匹配行的步长上返回值为 1 的序列，标签取自选择器的相等匹配，没有空步长时不返回序列。
 - **`| logfmt` 的键会成为标签**，`[a-zA-Z0-9_]` 之外的每个字符都会变成 `_`；没有值或值为空的键不是标签；本身是 JSON 对象的行没有 logfmt 标签。与流标签或元数据标签重名的标签会被改名为 `<名称>_extracted`，与 Loki 相同。
-- **`unwrap` 会丢弃值不是数字的行。** Loki 会保留它们并带上 `__error__` 标签。`quantile_over_time` 按每个步长精确计算，因此它的范围最多只能是 120 个步长宽（`[5m]` 需要至少 2.5 秒的步长），任何在很长范围上使用很小步长的 `unwrap` 函数都会被拒绝，并提示增大步长。
+- **`unwrap` 的错误遵循 Loki 的规则。** 没有该标签的行不是样本。值不是数字的行（对 `duration()` 和 `bytes()` 则指不是有效的时长或大小）是值为 0、带 `__error__="SampleExtractionErr"` 的样本。`unwrap` 之后拒绝它的过滤（`| __error__=""`，Logs Drilldown 就是这样写的）会移除它；接受它的过滤（`| __error__!=""`）会把它保留为单独的序列；两者都没做的查询会被 Loki 的 `pipeline error: 'SampleExtractionErr' ...` 消息拒绝，请在 `unwrap` 之后加上 `| __error__=""`。与 Loki 不同，该序列不带 `__error_details__`。`quantile_over_time` 按每个步长精确计算，因此它的范围最多只能是 120 个步长宽（`[5m]` 需要至少 2.5 秒的步长），任何在很长范围上使用很小步长的 `unwrap` 函数都会被拒绝，并提示增大步长。
 - **限制。** 日志查询最多返回 5000 行（`limit` 默认为 100）；指标查询在超过 500 个序列或每个序列 11,000 个点时报错，而不是截断。
 - **无效的正则表达式**会在查询对数据执行时报告，使用 RE2 语法。
 - **即时查询**只适用于指标查询；日志选择器需要使用 `query_range`。
 
-设计说明：[ADR-0236](../../../docs-internal/adr/0236-loki-compatible-log-api.md) 和 [ADR-0237](../../../docs-internal/adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md)。
+设计说明：[ADR-0236](../../../docs-internal/adr/0236-loki-compatible-log-api.md)、[ADR-0237](../../../docs-internal/adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md) 和 [ADR-0238](../../../docs-internal/adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)。

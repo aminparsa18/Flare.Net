@@ -89,7 +89,7 @@ internal sealed class LokiTailMatcher
                     AddParser(new LokiParserSpec(LokiParserKind.Json, ToMap(json.Expressions)));
                     break;
                 case LokiLogfmtStage logfmt:
-                    AddParser(new LokiParserSpec(LokiParserKind.Logfmt, ToMap(logfmt.Expressions)));
+                    AddParser(new LokiParserSpec(LokiParserKind.Logfmt, ToMap(logfmt.Expressions), logfmt.Strict));
                     break;
                 case LokiLabelFilterStage filter:
                     _steps.Add(PredicateStep(filter.Predicate, CompileRegex));

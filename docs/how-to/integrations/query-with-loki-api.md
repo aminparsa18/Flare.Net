@@ -4,8 +4,8 @@ Flare serves a read-only **subset of the Loki HTTP API** over your logs, so Graf
 can run LogQL against Flare: Explore, log panels, log volume, label pickers, live tail,
 trace-to-logs links and the Logs Drilldown app. It covers stream selectors, line filters, `| json`,
 `| logfmt`, `| line_format`, label filters, the log-to-metric functions (`rate`, `count_over_time`,
-`bytes_rate`, `bytes_over_time`) and the `unwrap` functions (`avg_over_time`, `quantile_over_time` and
-more) with `sum`, `topk` and arithmetic. Anything else is rejected with an error that names the
+`bytes_rate`, `bytes_over_time`), `absent_over_time` and the `unwrap` functions (`avg_over_time`, `quantile_over_time`,
+`rate_counter` and more) with `sum`, `topk` and arithmetic. Anything else is rejected with an error that names the
 unsupported construct, never answered partially.
 
 ## Connect Grafana
@@ -58,6 +58,10 @@ to `limit` older entries; without it only new entries arrive.
 websocat -H "Authorization: Bearer $TOKEN" \
   'ws://localhost:8080/loki/api/v1/tail?query=%7Bservice_name%3D%22shop-api%22%7D%20%7C%3D%20%22error%22'
 ```
+
+If the connection cannot keep up, the frame that follows lists what it missed as Loki's `dropped_entries`
+(`[{"labels": {...}, "timestamp": "<ns>"}]`), for the entries the query would have matched. Flare remembers a sample
+of at most 100 lost entries at a time, so a large burst reports fewer than it lost.
 
 Live tail has two limits. Regular expressions must be linear-time (no lookaheads or backreferences), the same limit as
 the dashboard's live tail; a query that breaks it is refused with the pattern named. And the connection is closed
@@ -114,12 +118,15 @@ Unlike Loki, any label can appear in the stream selector, including log attribut
 | Line filters: `\|=`, `!=`, `\|~`, `!~`, with `or` | `{service_name="api"} \|= "timeout" or "refused" != "health"` |
 | `\| json`, bare or with expressions | `\| json uid="user.id"` |
 | `\| logfmt`, bare or with expressions; several parsers in a row | `\| logfmt \| level="error"`, `\| json \| logfmt` |
+| `\| logfmt --strict`, `--keep-empty` (see below) | `\| logfmt --strict \| __error__=""` |
 | `\| line_format` (see below) | `\| line_format "{{.method}} {{.path}} {{.status \| default \"-\"}}"` |
 | Pattern line filters `\|>` and `!>` | `\|> "<_> failed to connect <_>"` |
 | Label filters: `=`, `!=`, `=~`, `!~`, `>`, `>=`, `<`, `<=`, joined by `and`, `,`, `or` and parentheses | `\| json \| status >= 500 and method="POST"` |
-| `\| drop __error__` | accepted, a no-op |
+| `\| drop __error__` | accepted; it clears a conversion error raised by an `unwrap` before it |
 | `count_over_time`, `rate`, `bytes_over_time`, `bytes_rate` | `rate({service_name="api"} \|= "error" [5m])` |
-| `\| unwrap label`, `unwrap duration(label)`, `unwrap bytes(label)` with `sum_over_time`, `avg_over_time`, `min_over_time`, `max_over_time`, `first_over_time`, `last_over_time`, `stddev_over_time`, `stdvar_over_time`, `quantile_over_time`, each with an optional `by`/`without` | `quantile_over_time(0.95, {service_name="api"} \| json \| unwrap latency_ms [5m]) by (k8s_pod_name)` |
+| `absent_over_time` | `absent_over_time({service_name="worker"} \|= "heartbeat" [5m])` |
+| `\| unwrap label`, `unwrap duration(label)`, `unwrap bytes(label)` with `sum_over_time`, `avg_over_time`, `min_over_time`, `max_over_time`, `first_over_time`, `last_over_time`, `stddev_over_time`, `stdvar_over_time`, `quantile_over_time`, each with an optional `by`/`without` | `quantile_over_time(0.95, {service_name="api"} \| json \| unwrap latency_ms \| __error__="" [5m]) by (k8s_pod_name)` |
+| `rate_counter`, with an optional `by`/`without` | `rate_counter({service_name="api"} \| logfmt \| unwrap bytes_total \| __error__="" [5m])` |
 | `sum`, `avg`, `min`, `max`, `count` with `by`/`without` | `sum by (service_name) (rate({service_name=~".+"}[5m]))` |
 | `topk`, `bottomk` | `topk(5, sum by (service_name) (rate({service_name=~".+"}[5m])))` |
 | `+ - * / %` between expressions and numbers, `vector(n)` | `sum(rate({...} \|= "error" [5m])) / sum(rate({...}[5m]))` |
@@ -128,9 +135,8 @@ Endpoints: `query_range`, `query` (metric queries), `labels`, `label/<name>/valu
 `index/volume`, `detected_labels`, `detected_fields`, `detected_field/<name>/values`, `patterns`, `tail` (WebSocket),
 `status/buildinfo`. GET and form-encoded POST both work.
 
-Not supported: `label_format`, `pattern`, `regexp`, `unpack`, `rate_counter`, `absent_over_time`, `offset`,
-comparison and set operators (`>`, `and`, `or`, `unless`) between metrics, `on`/`ignoring` matching,
-`logfmt --strict` and `--keep-empty`, and `index/volume_range`.
+Not supported: `label_format`, `pattern`, `regexp`, `unpack`, `offset`, comparison and set operators (`>`, `and`,
+`or`, `unless`) between metrics, `on`/`ignoring` matching, and `index/volume_range`.
 
 ## Things that differ from Loki
 
@@ -151,16 +157,30 @@ comparison and set operators (`>`, `and`, `or`, `unless`) between metrics, `on`/
   `trimAll`, `trimPrefix`, `trimSuffix`, `replace`, `trunc` and `default` (not `if`/`range`). Because the filtering is done before
   the line is rewritten, a line filter, a parser or a second `line_format` *after* a `line_format` is refused, and so is
   `bytes_over_time` / `bytes_rate` over a rewritten line. Label filters may follow it.
+- **`| logfmt --strict` stops at the first fault.** A line is well formed when it is whole `key`, `key=`, `key=value`
+  or `key="quoted value"` items (a bare value has no `=` or `"`, a quoted value only the escapes Go accepts). A
+  malformed line, and any line that is a JSON object, keeps the labels before the fault and gets
+  `__error__="LogfmtParserErr"`; the error text of `__error_details__` is not provided. `--keep-empty` is accepted and
+  changes nothing, because an empty label is the same as no label everywhere Flare evaluates one. All the logfmt
+  stages of a query must agree about `--strict`.
+- **`rate_counter` and `absent_over_time`.** `rate_counter` treats the unwrapped value as a counter: the increase
+  from the first to the last sample, with resets added back, stretched towards the window edges the way Prometheus's
+  `rate` does, per second; a window with fewer than two samples is 0. `absent_over_time` returns a series of 1s at the
+  steps with no matching line, labelled with the selector's equality matchers, and no series when no step is empty.
 - **`| logfmt` keys become labels** with every character outside `[a-zA-Z0-9_]` turned into `_`; a key without a value, or
   with an empty one, is not a label; a line that is a JSON object has no logfmt labels. A label that collides with a
   stream or metadata label is renamed `<name>_extracted`, as in Loki.
-- **`unwrap` drops lines whose value is not a number.** Loki keeps them with an `__error__` label. `quantile_over_time`
-  is computed exactly, per step, so its range may be at most 120 steps wide (`[5m]` needs a step of 2.5 seconds or
-  more), and any unwrapped function over a very long range at a tiny step is refused with a request for a larger step.
+- **`unwrap` errors follow Loki's rule.** A line without the label is not a sample. One whose value is not a number
+  (or a duration or size, for `duration()` and `bytes()`) is a sample of 0 with `__error__="SampleExtractionErr"`.
+  A filter after the `unwrap` that rejects it (`| __error__=""`, which Logs Drilldown writes) removes it; a filter
+  that accepts it (`| __error__!=""`) keeps it as a series of its own; and a query that does neither is refused with
+  Loki's `pipeline error: 'SampleExtractionErr' ...` message, so add `| __error__=""` after the `unwrap`. Unlike
+  Loki, the series does not carry `__error_details__`. `quantile_over_time` is computed exactly, per step, so its
+  range may be at most 120 steps wide (`[5m]` needs a step of 2.5 seconds or more), and any unwrapped function over a very long range at a tiny step is refused with a request for a larger step.
 - **Limits.** A log query returns at most 5000 lines (`limit` defaults to 100); a metric query errors rather than
   truncate past 500 series or 11,000 points per series.
 - **Invalid regular expressions** are reported when the query runs against data, in RE2 syntax.
 - **Instant queries** work for metric queries only; a log selector needs `query_range`.
 
-Design notes: [ADR-0236](../../../docs-internal/adr/0236-loki-compatible-log-api.md) and
-[ADR-0237](../../../docs-internal/adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md).
+Design notes: [ADR-0236](../../../docs-internal/adr/0236-loki-compatible-log-api.md),
+[ADR-0237](../../../docs-internal/adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md) and [ADR-0238](../../../docs-internal/adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md).

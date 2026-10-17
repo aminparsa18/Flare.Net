@@ -15,8 +15,8 @@ internal enum LokiParserKind
     Logfmt,
 }
 
-/// <summary>One <c>| json</c> or <c>| logfmt</c> stage: the explicit <c>label="path"</c> mappings, or every field when there are none.</summary>
-internal sealed record LokiParserSpec(LokiParserKind Kind, IReadOnlyDictionary<string, string> Expressions);
+/// <summary>One <c>| json</c> or <c>| logfmt</c> stage: the explicit <c>label="path"</c> mappings, or every field when there are none. <see cref="Strict"/> is <c>logfmt --strict</c>.</summary>
+internal sealed record LokiParserSpec(LokiParserKind Kind, IReadOnlyDictionary<string, string> Expressions, bool Strict = false);
 
 /// <summary>What a response needs to know about a pipeline to label and render an entry: its parser stages in order, and the final <c>line_format</c>.</summary>
 internal sealed record LokiEntryPlan(IReadOnlyList<LokiParserSpec> Parsers, LokiTemplate? LineFormat)
@@ -46,6 +46,7 @@ internal sealed class LokiSqlContext
     private readonly PromotedAttributeColumns? _promoted;
     private readonly List<LokiParserSpec> _parsers = [];
     private int _counter;
+    private bool _unwrapError;
 
     public LokiSqlContext(LokiLabelResolver resolver, DateTimeOffset from, DateTimeOffset to, DateTimeOffset now, PromotedAttributeColumns? promoted)
     {
@@ -75,7 +76,9 @@ internal sealed class LokiSqlContext
     public string WhereSql => string.Join(" AND ", _clauses);
 
     /// <summary>The <c>WITH</c> clause a query must start with when the pipeline reads logfmt labels (an empty string otherwise).</summary>
-    public string WithSql => _parsers.Any(p => p.Kind == LokiParserKind.Logfmt) ? "WITH " + LokiLogfmt.MapSql + "\n" : string.Empty;
+    public string WithSql => _parsers.Any(p => p.Kind == LokiParserKind.Logfmt)
+        ? "WITH " + (_parsers.Any(p => p is { Kind: LokiParserKind.Logfmt, Strict: true }) ? LokiLogfmt.StrictMapSql : LokiLogfmt.MapSql) + "\n"
+        : string.Empty;
 
     private LokiParserKinds Kinds => _parsers.Aggregate(
         LokiParserKinds.None, (kinds, p) => kinds | (p.Kind == LokiParserKind.Json ? LokiParserKinds.Json : LokiParserKinds.Logfmt));
@@ -111,7 +114,7 @@ internal sealed class LokiSqlContext
                     _parsers.Add(new LokiParserSpec(LokiParserKind.Json, ToMap(json.Expressions)));
                     break;
                 case LokiLogfmtStage logfmt:
-                    _parsers.Add(new LokiParserSpec(LokiParserKind.Logfmt, ToMap(logfmt.Expressions)));
+                    _parsers.Add(new LokiParserSpec(LokiParserKind.Logfmt, ToMap(logfmt.Expressions), logfmt.Strict));
                     break;
                 case LokiLabelFilterStage filter:
                     _clauses.Add(PredicateSql(filter.Predicate));
@@ -120,10 +123,18 @@ internal sealed class LokiSqlContext
                     LineFormat = format.Template;
                     break;
                 case LokiUnwrapStage unwrap:
-                    UnwrapSql = UnwrapValueSql(LabelSql(unwrap.Label), unwrap.Conversion);
-                    _clauses.Add($"{UnwrapSql} IS NOT NULL");
+                {
+                    // A line without the label is not a sample; one whose value does not convert is a sample of 0 that
+                    // carries __error__="SampleExtractionErr" (ADR-0238), which a later filter or the evaluator deals with.
+                    var raw = LabelSql(unwrap.Label);
+                    UnwrapSql = UnwrapValueSql(raw, unwrap.Conversion);
+                    _unwrapError = true;
+                    _clauses.Add($"{raw} != ''");
                     break;
-                case LokiDropStage:
+                }
+
+                case LokiDropStage drop:
+                    _unwrapError &= !drop.ResetsError;
                     break;
             }
         }
@@ -168,7 +179,7 @@ internal sealed class LokiSqlContext
             case LokiLabelKind.SpanId:
                 return "SpanId";
             case LokiLabelKind.ParseError:
-                return label.Key == "json" ? "if(isValidJSON(Body), '', 'JSONParserErr')" : "''";
+                return ErrorSql();
             case LokiLabelKind.ResourceAttribute:
                 return AttributeSql(AttributeBag.Resource, label.Key);
             case LokiLabelKind.LogAttribute:
@@ -176,6 +187,35 @@ internal sealed class LokiSqlContext
             default:
                 return ParsedFieldSql(label.Key, fallback: null);
         }
+    }
+
+    /// <summary>
+    /// <c>__error__</c> at the current point of the pipeline: the error the latest failing stage left on the
+    /// line. An unwrap conversion error comes last in the pipeline, so it wins; then the parser stages from
+    /// the last to the first (<c>| json</c> on a body that is not JSON, <c>| logfmt --strict</c> on a malformed
+    /// one). Empty when nothing failed.
+    /// </summary>
+    private string ErrorSql()
+    {
+        var branches = new List<string>();
+        if (_unwrapError && UnwrapSql is { } unwrap)
+        {
+            branches.Add($"({unwrap}) IS NULL, 'SampleExtractionErr'");
+        }
+
+        for (var i = _parsers.Count - 1; i >= 0; i--)
+        {
+            if (_parsers[i].Kind == LokiParserKind.Json)
+            {
+                branches.Add("NOT isValidJSON(Body), 'JSONParserErr'");
+            }
+            else if (_parsers[i].Strict)
+            {
+                branches.Add("NOT lkok, 'LogfmtParserErr'");
+            }
+        }
+
+        return branches.Count == 0 ? "''" : $"multiIf({string.Join(", ", branches)}, '')";
     }
 
     private string AttributeSql(AttributeBag bag, string key)
@@ -304,8 +344,8 @@ internal sealed class LokiSqlContext
 
     /// <summary>
     /// The number <c>| unwrap</c> aggregates, as a nullable <c>Float64</c>: a plain number, a Go duration in
-    /// seconds, or a size in bytes. A value that does not parse is NULL, and a NULL sample is dropped (Loki
-    /// keeps it with an <c>__error__</c> label, which every sensible query filters out anyway).
+    /// seconds, or a size in bytes. A value that does not parse is NULL: the line stays a sample of 0 with
+    /// <c>__error__="SampleExtractionErr"</c> (<see cref="LokiSqlContext.AddSelector"/>), as in Loki.
     /// The label expression is evaluated once, through a one-element lambda.
     /// </summary>
     internal static string UnwrapValueSql(string labelSql, LokiUnwrapConversion conversion) => conversion switch
@@ -580,6 +620,46 @@ internal static class LokiQueries
         var sql = $"SELECT {string.Join(", ", group)}, quantileExactInclusive({{lkQuantile:Float64}})(V) AS Q\n" +
             $"FROM (\n{context.WithSql}SELECT {string.Join(", ", inner)}\nFROM logs\nWHERE {context.WhereSql})\n" +
             $"GROUP BY {string.Join(", ", group)}\nORDER BY StepIdx";
+        return new LokiSql(sql, context.Parameters);
+    }
+
+    /// <summary>
+    /// <c>rate_counter</c>'s input: per (time bucket, label values) what its extrapolated rate needs from the
+    /// bucket's samples taken in time order - the count, the time (unix ns) and value of the first and last
+    /// sample, and the counter-reset correction (the sum of the values a reset fell from). Buckets merge in
+    /// <see cref="LokiCounterStats.Then"/>. The samples of a bucket are held in memory to be ordered, so a very
+    /// wide bucket of a very busy counter is bounded by the query's memory limit.
+    /// </summary>
+    public static LokiSql UnwrapCounterBuckets(LokiSqlContext context, IReadOnlyList<string> dimensions, long originMs, long bucketMs)
+    {
+        var unwrap = context.UnwrapSql ?? throw new LokiException("this function needs '| unwrap label'.");
+        var inner = new List<string>();
+        var group = new List<string> { "BucketIdx" };
+        if (bucketMs > 0)
+        {
+            context.Parameters.AddParameter("lkOrigin", originMs);
+            context.Parameters.AddParameter("lkBucketMs", bucketMs);
+            inner.Add("intDiv(toUnixTimestamp64Milli(Timestamp) - {lkOrigin:Int64}, {lkBucketMs:Int64}) AS BucketIdx");
+        }
+        else
+        {
+            inner.Add("toInt64(0) AS BucketIdx");
+        }
+
+        for (var i = 0; i < dimensions.Count; i++)
+        {
+            inner.Add($"{context.LabelSql(dimensions[i])} AS d{i}");
+            group.Add($"d{i}");
+        }
+
+        inner.Add($"ifNull({unwrap}, 0.) AS V");
+        inner.Add("toUnixTimestamp64Nano(Timestamp) AS Tn");
+        var keys = string.Join(", ", group);
+        var sql = $"SELECT {keys}, toFloat64(length(arr)), arr[1].1, arr[1].2, arr[-1].1, arr[-1].2, " +
+            "arraySum(arrayMap(i -> if(arr[i].2 < arr[i - 1].2, arr[i - 1].2, 0.), range(2, length(arr) + 1))) AS Corr\n" +
+            $"FROM (\nSELECT {keys}, arraySort(x -> x.1, groupArray((Tn, V))) AS arr\n" +
+            $"FROM (\n{context.WithSql}SELECT {string.Join(", ", inner)}\nFROM logs\nWHERE {context.WhereSql})\nGROUP BY {keys})\n" +
+            "ORDER BY BucketIdx";
         return new LokiSql(sql, context.Parameters);
     }
 
