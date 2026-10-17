@@ -253,4 +253,27 @@ public class LokiTailMatcherTests
         Assert.Equal(new DateTimeOffset(2026, 10, 16, 12, 0, 0, 500, TimeSpan.Zero).ToUnixTimeMilliseconds() * 1_000_000, row.Ns);
         Assert.Equal(("api", "b", (byte)13, "t", "s"), (row.ServiceName, row.Body, row.SeverityNumber, row.TraceId, row.SpanId));
     }
+
+    // ---- ADR-0238 ----
+
+    [Fact]
+    public void StrictLogfmt_FaultyLinesCarryTheErrorAndKeepTheLabelsBeforeIt()
+    {
+        var query = """{service_name="api"} | logfmt --strict | __error__="LogfmtParserErr" """;
+
+        var entry = Match(query, Row("code=500 msg=\"unterminated"));
+
+        Assert.NotNull(entry);
+        Assert.Equal("500", entry!.Parsed["code"]);
+        Assert.Null(Match(query, Row("code=500 msg=ok")));
+    }
+
+    [Fact]
+    public void StrictLogfmt_AnErrorFreeFilterDropsFaultyLines()
+    {
+        var query = """{service_name="api"} | logfmt --strict | __error__="" | code="500" """;
+
+        Assert.NotNull(Match(query, Row("code=500 msg=ok")));
+        Assert.Null(Match(query, Row("code=500 msg=\"unterminated")));
+    }
 }

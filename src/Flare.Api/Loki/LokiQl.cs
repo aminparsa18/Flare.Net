@@ -24,8 +24,8 @@ internal abstract record LokiExpr;
 internal sealed record LokiLogSelector(IReadOnlyList<LokiMatcher> Matchers, IReadOnlyList<LokiStage> Stages) : LokiExpr;
 
 /// <summary>
-/// <c>count_over_time|rate|bytes_over_time|bytes_rate</c> over a log selector with a <c>[range]</c>, or an
-/// unwrapped <c>sum_over_time|avg_over_time|min_over_time|max_over_time|first_over_time|last_over_time|stddev_over_time|stdvar_over_time|quantile_over_time</c>
+/// <c>count_over_time|rate|bytes_over_time|bytes_rate|absent_over_time</c> over a log selector with a <c>[range]</c>, or an
+/// unwrapped <c>sum_over_time|avg_over_time|min_over_time|max_over_time|first_over_time|last_over_time|stddev_over_time|stdvar_over_time|quantile_over_time|rate_counter</c>
 /// whose selector ends in <c>| unwrap label</c>. <see cref="Quantile"/> is set for <c>quantile_over_time</c>;
 /// <see cref="Grouping"/> is the function's own <c>by</c>/<c>without</c> clause, which groups the samples
 /// <i>before</i> the function is applied (unlike a vector aggregation around it).
@@ -33,6 +33,9 @@ internal sealed record LokiLogSelector(IReadOnlyList<LokiMatcher> Matchers, IRea
 internal sealed record LokiRangeAggregation(string Function, LokiLogSelector Selector, TimeSpan Range, double? Quantile = null, LokiGrouping? Grouping = null) : LokiExpr
 {
     public bool IsUnwrapped => Selector.Stages.OfType<LokiUnwrapStage>().Any();
+
+    /// <summary>Whether the pipeline asks to keep lines that carry <c>__error__</c> (see <see cref="LokiPipelineErrors"/>); when it does not, a conversion error fails the query.</summary>
+    public bool KeepsErroredLines => LokiPipelineErrors.KeepsErroredLines(Selector.Stages);
 }
 
 /// <summary>A <c>by (labels)</c> or <c>without (labels)</c> clause.</summary>
@@ -60,8 +63,11 @@ internal sealed record LokiPatternFilter(bool Negated, string Pattern) : LokiSta
 /// <summary><c>| json</c> or <c>| json label="path.to.field", ...</c>.</summary>
 internal sealed record LokiJsonStage(IReadOnlyList<(string Label, string Path)> Expressions) : LokiStage;
 
-/// <summary><c>| logfmt</c> or <c>| logfmt label="key", ...</c>.</summary>
-internal sealed record LokiLogfmtStage(IReadOnlyList<(string Label, string Key)> Expressions) : LokiStage;
+/// <summary>
+/// <c>| logfmt</c> or <c>| logfmt label="key", ...</c>, with the flags <c>--strict</c> (a malformed line sets
+/// <c>__error__="LogfmtParserErr"</c>) and <c>--keep-empty</c> (accepted: an empty label is the same as an absent one in every construct Flare supports).
+/// </summary>
+internal sealed record LokiLogfmtStage(IReadOnlyList<(string Label, string Key)> Expressions, bool Strict = false, bool KeepEmpty = false) : LokiStage;
 
 /// <summary><c>| line_format "{{.label}}"</c>: rewrites the line that is returned. Always after every parser and line filter.</summary>
 internal sealed record LokiLineFormatStage(LokiTemplate Template) : LokiStage;
@@ -80,8 +86,12 @@ internal enum LokiUnwrapConversion
     Bytes,
 }
 
-/// <summary><c>| drop __error__</c>. Only the parser-error labels can be dropped, which never exist here, so it is a no-op kept for compatibility with Grafana's generated queries.</summary>
-internal sealed record LokiDropStage : LokiStage;
+/// <summary>
+/// <c>| drop __error__, __error_details__</c>. Only the pipeline-error labels can be dropped. It never removes a
+/// line; <see cref="ResetsError"/> (the <c>__error__</c> label is among the dropped) makes a conversion error that
+/// an <c>unwrap</c> before it raised disappear, as in Loki. A parse error read after it still shows, which Grafana's generated queries do not depend on.
+/// </summary>
+internal sealed record LokiDropStage(bool ResetsError = true) : LokiStage;
 
 /// <summary><c>| label op value</c> filters, combined with <c>and</c>/<c>,</c>/<c>or</c> and parentheses.</summary>
 internal sealed record LokiLabelFilterStage(LokiPredicate Predicate) : LokiStage;
@@ -112,26 +122,24 @@ internal sealed record LokiOr(LokiPredicate Left, LokiPredicate Right) : LokiPre
 /// with <c>= != =~ !~</c> matchers; line filters (<c>|= != |~ !~</c>, with <c>or</c> alternatives);
 /// <c>| json</c>, <c>| logfmt</c>, <c>| line_format</c>, the pattern filters <c>|&gt;</c> / <c>!&gt;</c>; label filters
 /// (<c>| status &gt;= 500 and level="error"</c>); <c>| drop __error__</c>; <c>| unwrap</c>;
-/// <c>count_over_time</c>, <c>rate</c>, <c>bytes_over_time</c>, <c>bytes_rate</c> and the unwrapped
-/// <c>*_over_time</c> functions over a range;
+/// <c>count_over_time</c>, <c>rate</c>, <c>bytes_over_time</c>, <c>bytes_rate</c>, <c>absent_over_time</c>, the unwrapped
+/// <c>*_over_time</c> functions and <c>rate_counter</c> over a range;
 /// <c>sum|avg|min|max|count|topk|bottomk</c> with <c>by</c>/<c>without</c>; <c>+ - * / %</c> between
 /// metric expressions and numbers; and <c>vector(n)</c> (Grafana's data-source test is
-/// <c>vector(1)+vector(1)</c>). Everything else - <c>logfmt</c>, <c>line_format</c>, <c>unwrap</c>,
-/// <c>offset</c>, comparison and set operators - throws a <see cref="LokiException"/> naming the
-/// construct, rather than evaluating a partial answer. Pure and I/O-free.
+/// <c>vector(1)+vector(1)</c>). Everything else - <c>label_format</c>, <c>offset</c>, comparison and set
+/// operators - throws a <see cref="LokiException"/> naming the construct, rather than evaluating a partial
+/// answer. Pure and I/O-free.
 /// </summary>
 internal sealed class LokiQlParser
 {
-    private static readonly string[] RangeFunctions = ["count_over_time", "rate", "bytes_over_time", "bytes_rate"];
+    private static readonly string[] RangeFunctions = ["count_over_time", "rate", "bytes_over_time", "bytes_rate", "absent_over_time"];
     private static readonly string[] VectorAggregations = ["sum", "avg", "min", "max", "count", "topk", "bottomk"];
 
     private static readonly string[] UnsupportedStages =
         ["label_format", "regexp", "pattern", "unpack", "decolorize", "keep", "distinct"];
 
     private static readonly string[] UnwrappedFunctions =
-        ["sum_over_time", "avg_over_time", "min_over_time", "max_over_time", "first_over_time", "last_over_time", "stddev_over_time", "stdvar_over_time", "quantile_over_time"];
-
-    private static readonly string[] UnsupportedRangeFunctions = ["rate_counter", "absent_over_time"];
+        ["sum_over_time", "avg_over_time", "min_over_time", "max_over_time", "first_over_time", "last_over_time", "stddev_over_time", "stdvar_over_time", "quantile_over_time", "rate_counter"];
 
     private readonly string _text;
     private int _pos;
@@ -338,11 +346,6 @@ internal sealed class LokiQlParser
         if (Array.IndexOf(UnwrappedFunctions, name) >= 0)
         {
             return ParseUnwrappedRangeAggregation(name);
-        }
-
-        if (Array.IndexOf(UnsupportedRangeFunctions, name) >= 0)
-        {
-            throw Error($"'{name}' is not supported");
         }
 
         throw Error($"unknown function '{name}'");
@@ -601,6 +604,7 @@ internal sealed class LokiQlParser
         if (word == "drop")
         {
             _pos += word.Length;
+            var resetsError = false;
             do
             {
                 var label = ReadIdent();
@@ -608,10 +612,12 @@ internal sealed class LokiQlParser
                 {
                     throw Error($"drop is only supported for __error__ and __error_details__, not '{label}'");
                 }
+
+                resetsError |= label == "__error__";
             }
             while (TryConsume(","));
 
-            stages.Add(new LokiDropStage());
+            stages.Add(new LokiDropStage(resetsError));
             return true;
         }
 
@@ -647,16 +653,29 @@ internal sealed class LokiQlParser
     private LokiLogfmtStage ParseLogfmtStage()
     {
         var expressions = new List<(string, string)>();
+        bool strict = false, keepEmpty = false;
         SkipWhitespace();
-        if (Peek() == '-')
+        while (TryConsume("--"))
         {
-            // Loki's --strict and --keep-empty change what counts as a parse error and a label; neither is modelled.
-            throw Error("logfmt flags (--strict, --keep-empty) are not supported");
+            var flag = ReadIdentWithDashes();
+            switch (flag)
+            {
+                case "strict":
+                    strict = true;
+                    break;
+                case "keep-empty":
+                    keepEmpty = true;
+                    break;
+                default:
+                    throw Error($"unknown logfmt flag '--{flag}' (expected --strict or --keep-empty)");
+            }
+
+            SkipWhitespace();
         }
 
         if (!IsIdentStart(Peek()))
         {
-            return new LokiLogfmtStage(expressions);
+            return new LokiLogfmtStage(expressions, strict, keepEmpty);
         }
 
         do
@@ -667,7 +686,18 @@ internal sealed class LokiQlParser
         }
         while (TryConsume(","));
 
-        return new LokiLogfmtStage(expressions);
+        return new LokiLogfmtStage(expressions, strict, keepEmpty);
+    }
+
+    private string ReadIdentWithDashes()
+    {
+        var start = _pos;
+        while (!AtEnd && (IsIdentPart(_text[_pos]) || _text[_pos] == '-'))
+        {
+            _pos++;
+        }
+
+        return _pos > start ? _text[start.._pos] : throw Error("expected a flag name");
     }
 
     private LokiUnwrapStage ParseUnwrapStage()
@@ -699,6 +729,11 @@ internal sealed class LokiQlParser
     private void ValidateStageOrder(List<LokiStage> stages)
     {
         var last = stages[^1];
+        if (stages.OfType<LokiLogfmtStage>().Select(l => l.Strict).Distinct().Count() > 1)
+        {
+            throw Error("every logfmt stage of a query must use the same --strict setting");
+        }
+
         if (last is LokiLineFormatStage && stages.Count(s => s is LokiLineFormatStage) > 1)
         {
             throw Error("only one line_format stage is supported");

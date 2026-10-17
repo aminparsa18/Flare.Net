@@ -383,6 +383,41 @@ internal sealed class LokiQueryService(
             return rows;
         }
 
+        public async Task<IReadOnlyList<LokiCounterRow>> FetchCounterBucketsAsync(LokiCounterRequest request, CancellationToken cancellationToken)
+        {
+            var context = new LokiSqlContext(
+                resolver,
+                DateTimeOffset.FromUnixTimeMilliseconds(request.FromMs),
+                DateTimeOffset.FromUnixTimeMilliseconds(request.ToMs),
+                service.Now,
+                service.Promoted);
+            context.AddSelector(request.Selector);
+            var built = LokiQueries.UnwrapCounterBuckets(context, request.Dimensions, request.FromMs, request.BucketMs);
+
+            await using var reader = await service.Client.ExecuteReaderAsync(built.Sql, built.Parameters, service.SafetyOptions(), cancellationToken);
+            var rows = new List<LokiCounterRow>();
+            var dims = request.Dimensions.Count;
+            while (reader.Read())
+            {
+                var values = new string[dims];
+                for (var i = 0; i < dims; i++)
+                {
+                    values[i] = reader.GetString(i + 1);
+                }
+
+                var bucketMs = request.BucketMs > 0 ? request.FromMs + reader.GetFieldValue<long>(0) * request.BucketMs : request.FromMs;
+                var c = dims + 1;
+                rows.Add(new LokiCounterRow(
+                    bucketMs,
+                    values,
+                    new LokiCounterStats(
+                        reader.GetDouble(c), reader.GetFieldValue<long>(c + 1), reader.GetDouble(c + 2),
+                        reader.GetFieldValue<long>(c + 3), reader.GetDouble(c + 4), reader.GetDouble(c + 5))));
+            }
+
+            return rows;
+        }
+
         public async Task<IReadOnlyList<LokiQuantileRow>> FetchQuantilesAsync(LokiQuantileRequest request, CancellationToken cancellationToken)
         {
             var from = DateTimeOffset.FromUnixTimeMilliseconds(request.FirstStepMs - request.RangeMs);

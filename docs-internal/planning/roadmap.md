@@ -91,7 +91,9 @@ folders are where "what happened and why" actually lives.
   ([ADR-0109](../adr/0109-prometheus-query-api.md)), a read-only Tempo-compatible trace API
   ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)) and a read-only Loki-compatible log API
   ([ADR-0236](../adr/0236-loki-compatible-log-api.md), extended with `logfmt`, `line_format`, `unwrap`, live tail and
-  Logs Drilldown in [ADR-0237](../adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md)). Remaining,
+  Logs Drilldown in [ADR-0237](../adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md), then
+  `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
+  [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
   - A fuller Prometheus API: operators between series (`a / b`), `offset`, `topk`, `quantile` and more functions, which
     error ratios and "top N hosts by CPU" panels need. Exemplars, so a latency chart links to a sample trace.

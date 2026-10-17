@@ -328,12 +328,14 @@ public class LokiSqlTests
     }
 
     [Fact]
-    public void Unwrap_RequiresANumberAndDropsLinesWithout()
+    public void Unwrap_DropsLinesWithoutTheLabelButKeepsOnesThatDoNotConvert()
     {
         var context = UnwrapContext("""{service_name="api"} | json | unwrap latency""");
 
         Assert.StartsWith("toFloat64OrNull(", context.UnwrapSql);
-        Assert.Contains($"{context.UnwrapSql} IS NOT NULL", context.WhereSql);
+        // A missing label is not a sample; a value that does not convert stays one (ADR-0238).
+        Assert.Contains(" != ''", context.WhereSql);
+        Assert.DoesNotContain("IS NOT NULL", context.WhereSql);
     }
 
     [Fact]
@@ -471,5 +473,81 @@ public class LokiSqlTests
         Assert.Contains(all, p => p.Value is 2L);
         Assert.Matches(@"\{lkj\d+_1:Int64\}", context.WhereSql);
         Assert.Contains(all, p => p.Value is "request");
+    }
+
+    // ---- ADR-0238 ----
+
+    [Fact]
+    public void Strict_Logfmt_UsesThePrefixMapAndFlagsTheLine()
+    {
+        var context = Context("""{service_name="api"} | logfmt --strict | __error__="" """);
+
+        Assert.Contains("AS lkok", context.WithSql);
+        Assert.Contains("AS lkb", context.WithSql);
+        Assert.Contains("NOT lkok", context.WhereSql);
+        Assert.Contains("LogfmtParserErr", context.WhereSql);
+        Assert.DoesNotContain("AS lkok", Context("""{service_name="api"} | logfmt""").WithSql);
+    }
+
+    [Fact]
+    public void Strict_Logfmt_LabelsStillComeFromTheMap()
+    {
+        var context = Context("""{service_name="api"} | logfmt --strict | status="500" """);
+
+        Assert.Contains("lkv[", context.WhereSql);
+        Assert.StartsWith("WITH extract(Body", context.WithSql);
+    }
+
+    [Fact]
+    public void ErrorLabel_TheLatestFailingStageWins()
+    {
+        var jsonThenStrict = Context("""{service_name="api"} | json | logfmt --strict | __error__="" """).WhereSql;
+        var strictThenJson = Context("""{service_name="api"} | logfmt --strict | json | __error__="" """).WhereSql;
+
+        Assert.True(jsonThenStrict.IndexOf("LogfmtParserErr", StringComparison.Ordinal) < jsonThenStrict.IndexOf("JSONParserErr", StringComparison.Ordinal));
+        Assert.True(strictThenJson.IndexOf("JSONParserErr", StringComparison.Ordinal) < strictThenJson.IndexOf("LogfmtParserErr", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Unwrap_AFilterAfterTheUnwrapSeesTheConversionError()
+    {
+        var context = UnwrapContext("""{service_name="api"} | json | unwrap latency | __error__="" """);
+
+        Assert.Contains("SampleExtractionErr", context.WhereSql);
+        Assert.Contains(") IS NULL", context.WhereSql);
+    }
+
+    [Fact]
+    public void Unwrap_AFilterBeforeTheUnwrapDoesNotSeeIt()
+    {
+        var context = UnwrapContext("""{service_name="api"} | json | __error__="" | unwrap latency""");
+
+        Assert.DoesNotContain("SampleExtractionErr", context.WhereSql);
+    }
+
+    [Fact]
+    public void Unwrap_ErrorLabelAsADimensionIsTheConversionErrorUntilItIsDropped()
+    {
+        Assert.Contains("SampleExtractionErr", UnwrapContext("""{service_name="api"} | json | unwrap latency""").LabelSql("__error__"));
+        Assert.DoesNotContain("SampleExtractionErr", UnwrapContext("""{service_name="api"} | json | unwrap latency | drop __error__""").LabelSql("__error__"));
+        Assert.Contains("SampleExtractionErr", UnwrapContext("""{service_name="api"} | json | unwrap latency | drop __error_details__""").LabelSql("__error__"));
+        // Dropped before the unwrap, the conversion error that comes after it still shows.
+        Assert.Contains("SampleExtractionErr", UnwrapContext("""{service_name="api"} | json | drop __error__ | unwrap latency""").LabelSql("__error__"));
+    }
+
+    [Fact]
+    public void CounterBuckets_OrderTheSamplesInTimeAndComputeResetsInSql()
+    {
+        var context = UnwrapContext("""{service_name="api"} | json | unwrap bytes_total | __error__="" """);
+
+        var sql = LokiQueries.UnwrapCounterBuckets(context, ["service_name"], originMs: 0, bucketMs: 60_000).Sql;
+
+        Assert.Contains("arraySort(x -> x.1, groupArray((Tn, V)))", sql);
+        Assert.Contains("toUnixTimestamp64Nano(Timestamp) AS Tn", sql);
+        Assert.Contains("arr[1].1", sql);
+        Assert.Contains("arr[-1].2", sql);
+        Assert.Contains("range(2, length(arr) + 1)", sql);
+        Assert.Contains("GROUP BY BucketIdx, d0", sql);
+        Assert.Contains("ORDER BY BucketIdx", sql);
     }
 }

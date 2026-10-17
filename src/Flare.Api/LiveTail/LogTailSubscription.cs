@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Flare.Api.Model;
 
@@ -22,16 +23,34 @@ public sealed class LogTailSubscription
     public LogTailSubscription(int channelCapacity, string userKey = "")
     {
         UserKey = userKey;
-        _channel = Channel.CreateBounded<LogTailServerMessage>(new BoundedChannelOptions(channelCapacity)
+        _channel = Channel.CreateBounded<LogTailServerMessage>(
+            new BoundedChannelOptions(channelCapacity)
+            {
+                // A full channel means this connection's send loop can't keep up - drop the
+                // write and count it (see OnDropped) rather than block the shared broadcaster
+                // loop for every other subscriber, or silently evict via DropOldest. TryWrite
+                // returns true for a dropped item in DropWrite mode, so the drop is observed
+                // through the itemDropped callback instead of the return value.
+                FullMode = BoundedChannelFullMode.DropWrite,
+                SingleReader = true,
+                SingleWriter = false, // the broadcaster loop and this connection's own receive loop (error replies) both write.
+            },
+            OnDropped);
+    }
+
+    private void OnDropped(LogTailServerMessage message)
+    {
+        // A dropped protocol error reply is not backpressure on the event feed.
+        if (message.Type != LogTailServerMessageType.Event)
         {
-            // A full channel means this connection's send loop can't keep up - fail the
-            // write and count it (see TryPublishEvent) rather than block the shared
-            // broadcaster loop for every other subscriber, or silently evict via
-            // DropOldest (which can't report back that anything was lost).
-            FullMode = BoundedChannelFullMode.DropWrite,
-            SingleReader = true,
-            SingleWriter = false, // the broadcaster loop and this connection's own receive loop (error replies) both write.
-        });
+            return;
+        }
+
+        Interlocked.Increment(ref _droppedSinceLastReport);
+        if (DroppedSampleLimit > 0 && message.Event is { } logEvent && _droppedSample.Count < DroppedSampleLimit)
+        {
+            _droppedSample.Enqueue(logEvent);
+        }
     }
 
     /// <summary>The identity this connection counts against for <see cref="LiveTailOptions.MaxConnectionsPerUser"/>.</summary>
@@ -64,6 +83,26 @@ public sealed class LogTailSubscription
 
     public ChannelReader<LogTailServerMessage> Reader => _channel.Reader;
 
+    private readonly ConcurrentQueue<LogEventDto> _droppedSample = new();
+
+    /// <summary>
+    /// How many events lost to a full channel are kept (not only counted) for <see cref="TakeDroppedEvents"/>; 0, the
+    /// default, keeps none. Loki's tail protocol names each dropped entry (ADR-0238), so its endpoint turns this on.
+    /// </summary>
+    public int DroppedSampleLimit { get; set; }
+
+    /// <summary>The events kept since the last call (at most <see cref="DroppedSampleLimit"/> per interval), oldest first.</summary>
+    public IReadOnlyList<LogEventDto> TakeDroppedEvents()
+    {
+        var taken = new List<LogEventDto>();
+        while (_droppedSample.TryDequeue(out var dropped))
+        {
+            taken.Add(dropped);
+        }
+
+        return taken;
+    }
+
     /// <summary>
     /// Enqueues a matching event unless <see cref="Paused"/>; if the channel is full,
     /// increments the dropped-event counter instead of blocking the caller.
@@ -75,10 +114,7 @@ public sealed class LogTailSubscription
             return;
         }
 
-        if (!_channel.Writer.TryWrite(new LogTailServerMessage { Type = LogTailServerMessageType.Event, Event = logEvent }))
-        {
-            Interlocked.Increment(ref _droppedSinceLastReport);
-        }
+        _channel.Writer.TryWrite(new LogTailServerMessage { Type = LogTailServerMessageType.Event, Event = logEvent });
     }
 
     /// <summary>

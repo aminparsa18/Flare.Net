@@ -169,3 +169,72 @@ public class LokiJsonPathTests
         Assert.Throws<LokiException>(() => LokiJsonPath.Parse(path));
     }
 }
+
+public class LokiLogfmtStrictTests
+{
+    // ---- --strict (ADR-0238) ----
+
+    [Fact]
+    public void Strict_AWellFormedLineHasNoFault()
+    {
+        var (pairs, failed) = LokiLogfmt.ParseStrict("""level=info msg="user \"x\" in" bare standalone= n=42""");
+
+        Assert.False(failed);
+        Assert.Equal([("level", "info"), ("msg", "user \"x\" in"), ("n", "42")], pairs);
+    }
+
+    [Theory]
+    [InlineData("a=1 b=c=d e=2", "a=1")]
+    [InlineData("a=1 b=\"unterminated c=2", "a=1")]
+    [InlineData("a=1 =oops", "a=1")]
+    [InlineData("a=1 bad\"key=2", "a=1")]
+    [InlineData("a=1 b=x\"y", "a=1")]
+    [InlineData("a=1 b=\"x\\qy\"", "a=1")]
+    [InlineData("a=\"1\"\"2\"", "a=1")]
+    public void Strict_StopsAtTheFirstFaultAndKeepsTheLabelsBeforeIt(string line, string expectedPrefix)
+    {
+        var (pairs, failed) = LokiLogfmt.ParseStrict(line);
+
+        Assert.True(failed);
+        Assert.Equal(LokiLogfmt.Parse(expectedPrefix), pairs);
+    }
+
+    [Fact]
+    public void Strict_AJsonLineIsAFaultWithNoLabels()
+    {
+        var (pairs, failed) = LokiLogfmt.ParseStrict("""{"level":"info"}""");
+
+        Assert.True(failed);
+        Assert.Empty(pairs);
+    }
+
+    [Fact]
+    public void Strict_AQuotedValueMayBeFollowedDirectlyByAnotherKey()
+    {
+        var (_, failed) = LokiLogfmt.ParseStrict("""a="1"b=2""");
+
+        Assert.False(failed);
+    }
+
+    [Fact]
+    public void StrictSql_ReadsLabelsFromThePrefixAndFlagsTheWholeLine()
+    {
+        var sql = LokiLogfmt.StrictMapSql;
+
+        Assert.Contains(LokiSqlLiteral.Of(LokiLogfmt.StrictPrefixPattern), sql);
+        Assert.Contains(LokiSqlLiteral.Of(LokiLogfmt.StrictValidPattern), sql);
+        Assert.Contains("AS lkok", sql);
+        Assert.Contains("AS lkv", sql);
+        Assert.DoesNotContain("startsWith(trimLeft(Body)", sql);
+    }
+
+    [Fact]
+    public void StrictPatterns_ArePlainRe2Syntax()
+    {
+        foreach (var pattern in new[] { LokiLogfmt.StrictItemPattern, LokiLogfmt.StrictPrefixPattern, LokiLogfmt.StrictValidPattern })
+        {
+            Assert.DoesNotContain("(?<", pattern);
+            Assert.DoesNotContain("\\s", pattern);
+        }
+    }
+}
