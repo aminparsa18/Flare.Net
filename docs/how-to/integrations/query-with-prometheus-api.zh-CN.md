@@ -58,10 +58,12 @@ Flare 会把 OTel 名称映射为 Prometheus 约定：
 | `and`、`or`、`unless` | `rate(a_total[5m]) > 1 and on(job) rate(b_total[5m]) > 1` |
 | `on(...)`、`ignoring(...)`、`group_left`、`group_right` | `errors / on(job) group_left(team) owners` |
 | `abs`、`ceil`、`floor`、`round`、`sqrt`、`exp`、`ln`、`log2`、`log10`、`sgn`、`clamp`、`clamp_min`、`clamp_max`、`vector` | `clamp_min(free_ratio, 0)` |
+| `absent` | `absent(up{job="api"})` |
+| `label_replace`, `label_join` | `label_replace(x, "host", "$1", "instance", "(.*):\\d+")` |
 
 端点：`query`、`query_range`、`series`、`labels`、`label/<name>/values`、`status/buildinfo`。
 
-不支持：`@`、子查询、`label_replace`、`absent`、`delta`、`predict_linear`、`min_over_time` 和 `max_over_time`（Flare 把 gauge 存为每个 bucket 一个平均值，这两者会给出错误结果）、exemplar、记录规则以及写入数据。
+不支持：`@`、子查询、`delta`、`predict_linear`、`min_over_time` 和 `max_over_time`（Flare 把 gauge 存为每个 bucket 一个平均值，这两者会给出错误结果）、exemplar、记录规则以及写入数据。
 
 ## 与 Prometheus 的差异
 

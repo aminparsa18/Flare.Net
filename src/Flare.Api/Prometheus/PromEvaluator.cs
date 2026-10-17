@@ -121,6 +121,12 @@ internal sealed class PromEvaluator(IMetricQueryService metrics)
             case PromFunction fn:
                 return PromFunctions.Apply(fn, await EvalAsync(fn.Argument, ctx, cancellationToken));
 
+            case PromLabelFunction lf:
+                return PromLabelFunctions.Apply(lf, await EvalAsync(lf.Inner, ctx, cancellationToken));
+
+            case PromAbsent absent:
+                return Absent(absent, await EvalAsync(absent.Inner, ctx, cancellationToken), ctx);
+
             case PromBinary binary:
                 return await EvalBinaryAsync(binary, ctx, cancellationToken);
 
@@ -130,6 +136,15 @@ internal sealed class PromEvaluator(IMetricQueryService metrics)
             default:
                 throw new PromQlException("unsupported expression.");
         }
+    }
+
+    // 1 at every step the inner vector has no sample, as Prometheus does; a never-resolved metric is absent everywhere.
+    private static List<PromSeries> Absent(PromAbsent absent, List<PromSeries> inner, Context ctx)
+    {
+        var present = inner.SelectMany(s => s.Samples.Select(x => x.TimestampMs)).ToHashSet();
+        var series = new PromSeries(absent.Labels.ToDictionary(kv => kv.Key, kv => kv.Value));
+        series.Samples.AddRange(ctx.Timestamps().Where(t => !present.Contains(t)).Select(t => new PromSample(t, 1)));
+        return series.Samples.Count == 0 ? [] : [series];
     }
 
     private static PromSeries ScalarSeries(PromNumber number, Context ctx)

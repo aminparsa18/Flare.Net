@@ -63,7 +63,7 @@ public class PromQlParserTests
     }
 
     [Theory]
-    [InlineData("label_replace(x, \"a\", \"b\", \"c\", \"d\")", "not supported")]
+    [InlineData("predict_linear(x[5m], 60)", "not supported")]
     [InlineData("x offset -5m", "negative offset")]
     [InlineData("a and 1", "scalar expression")]
     [InlineData("1 > 2", "bool")]
@@ -217,6 +217,31 @@ public class PromQlParserTests
         Assert.Equal(name, fn.Name);
         Assert.Equal(parameters, fn.Parameters.Count);
     }
+
+    [Fact]
+    public void Parse_Absent_CarriesEqualityMatchersAsLabels()
+    {
+        var absent = Assert.IsType<PromAbsent>(PromQlParser.Parse("absent(up{job=\"api\", env!=\"dev\", zone=\"a\", zone=~\"b\"})"));
+
+        Assert.Equal(new Dictionary<string, string> { ["job"] = "api" }, absent.Labels);
+    }
+
+    [Fact]
+    public void Parse_LabelReplace_AndLabelJoin()
+    {
+        var replace = Assert.IsType<PromLabelFunction>(PromQlParser.Parse("label_replace(x, \"dst\", \"$1\", \"src\", \"(.*)\")"));
+        var join = Assert.IsType<PromLabelFunction>(PromQlParser.Parse("label_join(x, \"dst\", \"-\", \"a\", \"b\")"));
+
+        Assert.Equal(["dst", "$1", "src", "(.*)"], replace.Arguments);
+        Assert.Equal(["dst", "-", "a", "b"], join.Arguments);
+    }
+
+    [Theory]
+    [InlineData("label_replace(x, \"a\", \"b\")")]
+    [InlineData("label_join(x, \"a\")")]
+    [InlineData("label_replace(x, a, b, c, d)")]
+    public void Parse_LabelFunctions_RejectBadArguments(string query) =>
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse(query));
 
     [Theory]
     [InlineData("30s", 30)]

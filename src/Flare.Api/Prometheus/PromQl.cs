@@ -44,6 +44,12 @@ internal sealed record PromAggregation(string Op, bool Without, IReadOnlyList<st
 /// <summary>An instant-vector function applied sample by sample: <c>abs</c>, <c>ceil</c>, <c>floor</c>, <c>round</c>, <c>sqrt</c>, <c>exp</c>, <c>ln</c>, <c>log2</c>, <c>log10</c>, <c>sgn</c>, <c>clamp*</c>, and <c>vector(s)</c>.</summary>
 internal sealed record PromFunction(string Name, PromExpr Argument, IReadOnlyList<double> Parameters) : PromExpr;
 
+/// <summary><c>label_replace(v, dst, replacement, src, regex)</c> or <c>label_join(v, dst, separator, src...)</c>; <see cref="Arguments"/> are the string arguments after the vector.</summary>
+internal sealed record PromLabelFunction(string Name, PromExpr Inner, IReadOnlyList<string> Arguments) : PromExpr;
+
+/// <summary><c>absent(v)</c>: a single series of 1 at each step where <see cref="Inner"/> has no series. <see cref="Labels"/> are the selector's equality matchers.</summary>
+internal sealed record PromAbsent(PromExpr Inner, IReadOnlyDictionary<string, string> Labels) : PromExpr;
+
 internal enum PromCardinality
 {
     OneToOne,
@@ -332,6 +338,33 @@ internal sealed class PromQlParser
         return new PromBinary(op, returnBool, left, right, matching);
     }
 
+    /// <summary>Prometheus names the series <c>absent()</c> returns after the selector's equality matchers, unless a label is matched twice.</summary>
+    private static Dictionary<string, string> AbsentLabels(PromExpr inner)
+    {
+        var labels = new Dictionary<string, string>();
+        if (inner is not PromSelector selector)
+        {
+            return labels;
+        }
+
+        var seen = new HashSet<string>();
+        var duplicated = new HashSet<string>();
+        foreach (var m in selector.LabelMatchers)
+        {
+            if (!seen.Add(m.Name))
+            {
+                duplicated.Add(m.Name);
+            }
+        }
+
+        foreach (var m in selector.LabelMatchers.Where(m => m.Op == PromMatchOp.Equal && !duplicated.Contains(m.Name)))
+        {
+            labels[m.Name] = m.Value;
+        }
+
+        return labels;
+    }
+
     private static PromExpr RequireInstant(PromExpr expr) =>
         expr is PromSelector { Range: not null }
             ? throw new PromQlException("a range selector is only valid inside rate(), increase() and the other range functions.")
@@ -419,6 +452,37 @@ internal sealed class PromQlParser
             return new PromHistogramQuantile(q.Value, inner);
         }
 
+        if (lower == "absent")
+        {
+            Expect('(');
+            var inner = RequireInstant(ParseBinary(0));
+            Expect(')');
+            return new PromAbsent(inner, AbsentLabels(inner));
+        }
+
+        if (lower is "label_replace" or "label_join")
+        {
+            Expect('(');
+            var inner = RequireInstant(ParseBinary(0));
+            var args = new List<string>();
+            while (TryConsume(','))
+            {
+                SkipWhitespace();
+                args.Add(ParseString());
+            }
+
+            Expect(')');
+            var minArgs = lower == "label_replace" ? 4 : 2;
+            if (lower == "label_replace" ? args.Count != minArgs : args.Count < minArgs)
+            {
+                throw new PromQlException(lower == "label_replace"
+                    ? "label_replace() takes 5 arguments: label_replace(v, dst_label, replacement, src_label, regex)."
+                    : "label_join() takes at least 3 arguments: label_join(v, dst_label, separator, src_label...).");
+            }
+
+            return new PromLabelFunction(lower, inner, args);
+        }
+
         if (lower == "vector")
         {
             Expect('(');
@@ -459,7 +523,7 @@ internal sealed class PromQlParser
         {
             throw new PromQlException(
                 $"function '{ident}' is not supported (supported: rate, increase, irate, avg_over_time, last_over_time, histogram_quantile, "
-                + "sum, avg, min, max, count, group, stddev, stdvar, topk, bottomk, quantile, vector, abs, ceil, floor, round, sqrt, exp, ln, log2, log10, sgn, clamp, clamp_min, clamp_max).");
+                + "sum, avg, min, max, count, group, stddev, stdvar, topk, bottomk, quantile, vector, abs, ceil, floor, round, sqrt, exp, ln, log2, log10, sgn, clamp, clamp_min, clamp_max, absent, label_replace, label_join).");
         }
 
         return ParseSelectorTail(ident);

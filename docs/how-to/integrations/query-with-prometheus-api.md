@@ -64,10 +64,12 @@ Find the exact names with `GET /api/v1/label/__name__/values`.
 | `and`, `or`, `unless` | `rate(a_total[5m]) > 1 and on(job) rate(b_total[5m]) > 1` |
 | `on(...)`, `ignoring(...)`, `group_left`, `group_right` | `errors / on(job) group_left(team) owners` |
 | `abs`, `ceil`, `floor`, `round`, `sqrt`, `exp`, `ln`, `log2`, `log10`, `sgn`, `clamp`, `clamp_min`, `clamp_max`, `vector` | `clamp_min(free_ratio, 0)` |
+| `absent` | `absent(up{job="api"})` |
+| `label_replace`, `label_join` | `label_replace(x, "host", "$1", "instance", "(.*):\\d+")` |
 
 Endpoints: `query`, `query_range`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Not supported: `@`, subqueries, `label_replace`, `absent`, `delta`, `predict_linear`, `min_over_time` and
+Not supported: `@`, subqueries, `delta`, `predict_linear`, `min_over_time` and
 `max_over_time` (Flare stores a gauge as one average per bucket, so they would be wrong), exemplars, recording rules,
 and writing data.
 
