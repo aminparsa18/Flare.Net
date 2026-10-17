@@ -2,7 +2,8 @@
 
 Flare serves a read-only **subset of the Prometheus HTTP API** over your OTel metrics, so Grafana,
 `promtool` and `prometheus-adapter` (Kubernetes HPA on custom metrics) can use it as a Prometheus data
-source. It covers selectors, `rate`/`increase`, `sum|avg|min|max|count`, and `histogram_quantile`.
+source. It covers selectors with `offset`, `rate`/`increase`, aggregations including `topk` and `quantile`,
+`histogram_quantile`, operators between series (`a / b`) and a set of math functions.
 Anything else is rejected with an error that names the unsupported construct, never answered partially.
 
 ## Connect Grafana
@@ -51,19 +52,34 @@ Find the exact names with `GET /api/v1/label/__name__/values`.
 | Construct | Example |
 |---|---|
 | Selectors, with `=`, `!=`, `=~`, `!~` | `up{service_name="api", code!="200"}` |
-| `rate`, `increase` | `rate(requests_total[5m])` |
-| `sum`, `avg`, `min`, `max`, `count` with `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
+| `offset` on a selector or range | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
+| `rate`, `increase`, `irate` | `rate(requests_total[5m])` |
+| `avg_over_time`, `last_over_time` (gauges) | `avg_over_time(queue_depth[10m])` |
+| `sum`, `avg`, `min`, `max`, `count`, `group`, `stddev`, `stdvar` with `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
+| `topk`, `bottomk`, `quantile` with `by`/`without` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
 | `histogram_quantile` over `rate`/`increase`, optionally inside `sum by (...)` | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
 | `_sum` and `_count` of a histogram under `rate`/`increase` | `rate(d_seconds_count[1m])` |
-| Arithmetic between numbers | `1+1` |
+| Arithmetic `+ - * / % ^` between series and numbers | `100 * sum(rate(errors_total[5m])) / sum(rate(requests_total[5m]))` |
+| Comparisons `== != > < >= <=`, filtering, or `bool` for 1/0 | `queue_depth > 100`, `up > bool 0` |
+| `and`, `or`, `unless` | `rate(a_total[5m]) > 1 and on(job) rate(b_total[5m]) > 1` |
+| `on(...)`, `ignoring(...)`, `group_left`, `group_right` | `errors / on(job) group_left(team) owners` |
+| `abs`, `ceil`, `floor`, `round`, `sqrt`, `exp`, `ln`, `log2`, `log10`, `sgn`, `clamp`, `clamp_min`, `clamp_max`, `vector` | `clamp_min(free_ratio, 0)` |
 
 Endpoints: `query`, `query_range`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Not supported: operators between series (`a / b`), `offset`, `@`, subqueries, other functions, `topk`,
-`quantile`, recording rules, and writing data. For an error ratio, define an [SLO](../alerting/define-slos.md).
+Not supported: `@`, subqueries, `label_replace`, `absent`, `delta`, `predict_linear`, `min_over_time` and
+`max_over_time` (Flare stores a gauge as one average per bucket, so they would be wrong), exemplars, recording rules,
+and writing data.
 
 ## Things that differ from Prometheus
 
+- **Matching errors are real.** `a / b` fails with "found duplicate series for the match group" if a label set
+  matches two series on one side. Aggregate first, narrow it with `on(...)`/`ignoring(...)`, or opt in with
+  `group_left`/`group_right`, exactly as in Prometheus.
+- **`offset` is rounded to whole steps.** `offset 90s` at a 60s step is read as 120s, so the shifted series stays on
+  the same timestamps as the rest of the query.
+- **`irate` and `avg_over_time` work on buckets.** `irate` is the newest bucket's increase per second, and
+  `avg_over_time` averages bucket averages.
 - **Counters need `rate()` or `increase()`.** Flare stores per-interval increases, so a bare counter
   such as `requests_total` is rejected with a pointer to `rate()`. A gauge used under `rate()` is read as
   a counter, which is how untyped Prometheus `*_total` metrics arrive.
@@ -76,4 +92,4 @@ Not supported: operators between series (`a / b`), `offset`, `@`, subqueries, ot
 - **`labels` and label values without `match[]`** sample the ten metrics with the most series. Pass
   `match[]` for a complete answer.
 
-Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md).
+Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md).
