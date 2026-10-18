@@ -643,7 +643,8 @@ service:
   "Job": "node-exporter",
   "Url": "http://node-exporter:9100/metrics",
   "Headers": { "Authorization": "Bearer <token>" },
-  "Labels": { "service.name": "my-custom-name" }
+  "Labels": { "service.name": "my-custom-name" },
+  "Exemplars": true
 }`
 					}
 				},

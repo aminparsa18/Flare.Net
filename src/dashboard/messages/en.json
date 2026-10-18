@@ -1614,7 +1614,7 @@
 	"dataSourceCatalog_prometheusStep2Heading": "Or via docker-compose environment variables",
 	"dataSourceCatalog_prometheusStep2Body": "Same shape, no file to mount - .NET's standard double-underscore config-key binding reaches the same array/object structure. \"ingest\" is Flare's own docker-compose.yml service name; the target itself just needs to be reachable from that container's network.",
 	"dataSourceCatalog_prometheusStep3Heading": "Protected endpoint, or extra labels?",
-	"dataSourceCatalog_prometheusStep3Body": "Headers are sent on every scrape request (e.g. a bearer token). Labels are merged onto every point's resource attributes, applied after - and able to override - the computed service.name/service.instance.id.",
+	"dataSourceCatalog_prometheusStep3Body": "Headers are sent on every scrape request (e.g. a bearer token). Labels are merged onto every point's resource attributes, applied after - and able to override - the computed service.name/service.instance.id. Exemplars asks the target for OpenMetrics and keeps the exemplars that carry a trace_id, so metric charts can link to the trace.",
 	"dataSourceCatalog_prometheusStep4Heading": "Check it worked",
 	"dataSourceCatalog_prometheusStep4Body": "Give it one scrape interval, then look for the target's metric names on the Metrics page, or watch the \"Prometheus scrape\" row on the Ingestion page's Receivers table for real request counts.",
 	"dataSourceCatalog_kafkaTitle": "Kafka",

@@ -44,6 +44,14 @@ public sealed class PrometheusScrapeTargetOptions
     /// </summary>
     public Dictionary<string, string> Labels { get; set; } = [];
 
+    /// <summary>
+    /// Ask the target for OpenMetrics (<c>Accept: application/openmetrics-text</c>) so it includes exemplars, and keep
+    /// the ones that carry a <c>trace_id</c> (ADR-0243). Off by default: a target that only speaks the classic text
+    /// format answers with it either way, but one that speaks both would change format, and with it the sample
+    /// names it writes, the day this is switched on. An explicit <c>Accept</c> in <see cref="Headers"/> wins.
+    /// </summary>
+    public bool Exemplars { get; set; }
+
     /// <summary>Extra HTTP request headers, e.g. <c>Authorization: Bearer &lt;token&gt;</c> for a protected endpoint.</summary>
     public Dictionary<string, string> Headers { get; set; } = [];
 }

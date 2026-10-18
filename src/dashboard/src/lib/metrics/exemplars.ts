@@ -3,6 +3,7 @@
 
 import { getMetricExemplars, type MetricExemplar, type MetricFilter, type MetricPointType } from '#lib/metrics-api.ts';
 import { fractionInBuckets } from '#lib/releases/markers.ts';
+import { withBase } from '#lib/paths.ts';
 
 /** Dots beyond this are noise on a chart a few hundred pixels wide. */
 export const MAX_EXEMPLAR_DOTS = 100;
@@ -33,6 +34,51 @@ export function placeExemplars(exemplars: readonly MetricExemplar[], bucketTimes
 	return placed.sort((a, b) => b.time - a.time).slice(0, MAX_EXEMPLAR_DOTS);
 }
 
+/** One drawn exemplar, in the chart's viewBox coordinates (see `ExemplarDots.svelte`). */
+export interface ExemplarMark {
+	x: number;
+	y: number;
+	href: string;
+	title: string;
+	label: string;
+}
+
+/**
+ * Whether an exemplar was recorded on a chart series: same service, and every attribute the series is keyed by
+ * (all of the point's attributes when ungrouped, the single group-by key when grouped) has the series' value on
+ * the exemplar. A key the exemplar lacks reads as '', which is how a grouped response names its "missing key" series.
+ */
+export function exemplarOnSeries(exemplar: MetricExemplar, series: { serviceName: string; attributes: Record<string, string> }): boolean {
+	return (
+		exemplar.serviceName === series.serviceName &&
+		Object.entries(series.attributes).every(([key, value]) => (exemplar.dataPointAttributes[key] ?? '') === value)
+	);
+}
+
+/**
+ * The y of the drawn line at `x`, interpolated along its straight segments (chart pixel coordinates, `points` in x
+ * order); null before the first or after the last point. For a counter or a formula the exemplar's own value is a
+ * measurement on no axis the chart has (an increment, not a rate), so its dot rides the line itself, exactly on
+ * the segment the pointer would follow, rather than floating at the containing bucket's height.
+ */
+export function yOnLine(points: readonly { x: number; y: number }[], x: number): number | null {
+	for (let i = 0; i < points.length; i++) {
+		if (points[i].x === x) return points[i].y;
+		if (points[i].x > x) {
+			if (i === 0) return null;
+			const a = points[i - 1];
+			const b = points[i];
+			return a.y + ((b.y - a.y) * (x - a.x)) / (b.x - a.x);
+		}
+	}
+	return null;
+}
+
+/** The trace link as an href (base path applied), for an anchor. */
+export function exemplarHref(exemplar: Pick<MetricExemplar, 'traceId' | 'spanId'>): string {
+	return withBase(exemplarTracePath(exemplar));
+}
+
 /** Link to the exemplar's trace, focused on its span when it recorded one. */
 export function exemplarTracePath(exemplar: Pick<MetricExemplar, 'traceId' | 'spanId'>): string {
 	const base = `/traces/${encodeURIComponent(exemplar.traceId)}`;
@@ -40,9 +86,7 @@ export function exemplarTracePath(exemplar: Pick<MetricExemplar, 'traceId' | 'sp
 }
 
 /**
- * Exemplars for one metric over a window. Only histograms: a histogram's exemplar is a single
- * observation on the same axis as its percentile lines, whereas a counter's is an increment that
- * sits on no line the chart draws. A failure is an empty list: dots are decoration and must never
+ * Exemplars for one metric over a window. A failure is an empty list: dots are decoration and must never
  * break the chart they sit on.
  */
 export async function loadExemplars(

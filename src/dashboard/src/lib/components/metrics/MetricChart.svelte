@@ -35,9 +35,9 @@
 	import { fractionInBuckets, loadReleases, placeMarkers } from '#lib/releases/markers.ts';
 	import type { Release } from '#lib/releases-api.ts';
 	import ReleaseMarkers from '#lib/components/releases/ReleaseMarkers.svelte';
-	import { exemplarTracePath, loadExemplars, placeExemplars } from '#lib/metrics/exemplars.ts';
+	import { exemplarHref, exemplarOnSeries, loadExemplars, placeExemplars, yOnLine, type ExemplarMark } from '#lib/metrics/exemplars.ts';
 	import type { MetricExemplar } from '#lib/metrics-api.ts';
-	import { withBase } from '#lib/paths.ts';
+	import ExemplarDots from './ExemplarDots.svelte';
 
 	const explorer = metricsExplorerContext.get();
 
@@ -105,7 +105,7 @@
 		title?: string;
 		/** Draw deploy markers (ADR-0182) for the filtered services. */
 		releaseMarkers?: boolean;
-		/** Histograms only: draw a dot per exemplar (ADR-0242) linking to the trace it was recorded in. */
+		/** Draw a dot per exemplar (ADR-0242, ADR-0244) linking to the trace it was recorded in. */
 		exemplars?: boolean;
 		onPointClick?: (time: number) => void;
 	} = $props();
@@ -810,23 +810,53 @@
 	});
 	const markers = $derived(releaseMarkers ? placeMarkers(releases, (t) => fractionInBuckets(t, bucketTimes)) : []);
 
-	// Exemplar dots (ADR-0242): the sampled observations behind a histogram's percentile lines, each
-	// linking to its trace. Histograms only - see loadExemplars. Fetched for the window the chart was
-	// actually queried over (queryRangeFrom/To), so a dot never lands outside the plotted buckets.
+	// Exemplar dots (ADR-0242, ADR-0244): the sampled observations behind the chart, each linking to its trace.
+	// Fetched for the window the chart was actually queried over (queryRangeFrom/To), so a dot never lands outside
+	// the plotted buckets. A histogram's exemplar is one observation on the percentile lines' own axis, so it sits at
+	// its value; a counter's or gauge's is a measurement on no axis the chart has (an increment, not a rate), so it
+	// rides the line of the series it was recorded on, at the bucket containing it.
 	let exemplarList = $state<MetricExemplar[]>([]);
 	$effect(() => {
 		const metric = explorer.selected;
 		const from = explorer.queryRangeFrom;
 		const to = explorer.queryRangeTo;
 		exemplarList = [];
-		if (!exemplars || !metric || !isHistogramType(metric.type) || !from || !to) return;
+		if (!exemplars || !metric || !from || !to) return;
 		const controller = new AbortController();
 		void loadExemplars(metric, { from, to, services: [metric.serviceName] }, controller.signal).then((list) => {
 			if (!controller.signal.aborted) exemplarList = list;
 		});
 		return () => controller.abort();
 	});
-	const exemplarDots = $derived(isHistogram && !stackActive ? placeExemplars(exemplarList, bucketTimes, (explorer.intervalSeconds ?? 0) * 1000) : []);
+	const exemplarMarks = $derived.by((): ExemplarMark[] => {
+		if (stackActive || overlayActive) return [];
+		const marks: ExemplarMark[] = [];
+		for (const dot of placeExemplars(exemplarList, bucketTimes, (explorer.intervalSeconds ?? 0) * 1000)) {
+			const x = dot.fraction * CHART_WIDTH;
+			let y: number | null = null;
+			if (isHistogram) {
+				if (!logActive || dot.exemplar.value > 0) y = yFor(Math.min(maxValue, Math.max(minValue, dot.exemplar.value)));
+			} else {
+				const index = visibleSeries.findIndex((s) => exemplarOnSeries(dot.exemplar, s));
+				const line = index >= 0 ? lines[index] : undefined;
+				if (!line || !drawnLines.includes(line)) continue;
+				y = yOnLine(plotted(line.points).map((p) => ({ x: xFor(p.time), y: yFor(p.raw) })), x);
+			}
+			if (y === null) continue;
+			marks.push({
+				x,
+				y,
+				href: exemplarHref(dot.exemplar),
+				title: m.metricChart_exemplarTitle({
+					value: formatAutoScaled(dot.exemplar.value, explorer.selected?.unit),
+					time: formatBucketTime(dot.time),
+					trace: dot.exemplar.traceId.slice(0, 8)
+				}),
+				label: dot.exemplar.traceId.slice(0, 8)
+			});
+		}
+		return marks;
+	});
 
 	function xFor(time: number): number {
 		const count = bucketTimes.length;
@@ -1305,31 +1335,7 @@
 										{/each}
 										{/if}
 
-										{#each exemplarDots as dot, i (i)}
-											<!-- Exemplar: a hollow ring at the observation's own value (clamped to the plot, the
-											     title still carries the true value) linking to its trace. Pointer events stop here so
-											     opening a trace is not also a drag-to-zoom or a panel click. -->
-											{#if !logActive || dot.exemplar.value > 0}
-												<a
-													href={withBase(exemplarTracePath(dot.exemplar))}
-													aria-label={m.metricChart_exemplarAriaLabel({ trace: dot.exemplar.traceId })}
-													onpointerdown={(e) => e.stopPropagation()}
-													onpointerup={(e) => e.stopPropagation()}
-													class="cursor-pointer"
-												>
-													<circle
-														cx={dot.fraction * CHART_WIDTH}
-														cy={yFor(Math.min(maxValue, Math.max(minValue, dot.exemplar.value)))}
-														r="4"
-														style="fill: var(--background); stroke: var(--foreground);"
-														stroke-width="1.5"
-														vector-effect="non-scaling-stroke"
-													>
-														<title>{m.metricChart_exemplarTitle({ value: formatValue(dot.exemplar.value), time: formatBucketTime(dot.time), trace: dot.exemplar.traceId.slice(0, 8) })}</title>
-													</circle>
-												</a>
-											{/if}
-										{/each}
+										<ExemplarDots marks={exemplarMarks} />
 
 										{#if isDragging && allowZoom}
 											<!-- Drag-to-zoom selection overlay - same visual as VolumeChart's own, width

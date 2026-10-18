@@ -42,6 +42,9 @@ public sealed class PrometheusScrapeWorker(
     ILogger<PrometheusScrapeWorker> logger) : BackgroundService
 {
     private const string HttpClientName = "PrometheusScrape";
+    private const string OpenMetricsMediaType = "application/openmetrics-text";
+    private const string OpenMetricsAccept =
+        "application/openmetrics-text;version=1.0.0,application/openmetrics-text;version=0.0.1;q=0.75,text/plain;version=0.0.4;q=0.5,*/*;q=0.1";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -98,6 +101,12 @@ public sealed class PrometheusScrapeWorker(
                 request.Headers.TryAddWithoutValidation(key, value);
             }
 
+            if (target.Exemplars && !target.Headers.Keys.Any(k => string.Equals(k, "Accept", StringComparison.OrdinalIgnoreCase)))
+            {
+                // Prometheus's own negotiation: OpenMetrics when the target has it, the classic format when not.
+                request.Headers.TryAddWithoutValidation("Accept", OpenMetricsAccept);
+            }
+
             var client = httpClientFactory.CreateClient(HttpClientName);
             using var response = await client.SendAsync(request, timeoutCts.Token);
 
@@ -114,7 +123,8 @@ public sealed class PrometheusScrapeWorker(
             var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);
             var byteCount = Encoding.UTF8.GetByteCount(body);
 
-            var parsed = PrometheusExpositionParser.Parse(body);
+            var openMetrics = string.Equals(response.Content.Headers.ContentType?.MediaType, OpenMetricsMediaType, StringComparison.OrdinalIgnoreCase);
+            var parsed = PrometheusExpositionParser.Parse(body, openMetrics);
             // Also becomes every mapped point's IngestedAt - see PrometheusMetricsMapper's
             // remarks for why "scrape time" and "receipt time" are the same moment here,
             // unlike OTLP's push model.

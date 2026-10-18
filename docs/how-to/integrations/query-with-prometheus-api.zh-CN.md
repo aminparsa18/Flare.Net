@@ -79,9 +79,9 @@ curl -H "Authorization: Bearer $TOKEN" \
   $FLARE/api/v1/query_exemplars
 ```
 
-每个结果是一条带有 `exemplars` 的序列，每个 exemplar 含 `trace_id`（以及 `span_id`）、值和时间戳。最多返回 1000 个，最新的在前。只有升级后摄取的数据点才带 exemplar，且仅限 OTLP。
+每个结果是一条带有 `exemplars` 的序列，每个 exemplar 含 `trace_id`（以及 `span_id`）、值和时间戳。最多返回 1000 个，最新的在前。只有升级后摄取的数据点才带 exemplar。它们来自 OTLP，或来自开启了 `Exemplars` 的 Prometheus 抓取目标（Flare 会向目标请求 OpenMetrics，并保留带 32 位十六进制 `trace_id` 的 exemplar）。
 
-Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们：在直方图图表上，每个 exemplar 是其观测值处的一个圆环，点击即可在记录它的 span 上打开其追踪。高于图表范围的 exemplar 会停在上边缘，悬停可查看真实值。仪表板最多显示时间窗口内最新的 100 个。
+Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们：每个 exemplar 是一个圆环，点击即可在记录它的 span 上打开其追踪。在直方图图表上，圆环位于观测值处（高于图表范围的会停在上边缘，悬停可查看真实值）。在计数器、仪表（gauge）或公式图表上，圆环落在其所属序列的折线上、包含它的时间桶处，因为增量在速率轴上没有高度。仪表板最多显示时间窗口内最新的 100 个；堆叠面积图和对比叠加图不绘制。
 
 ## 与 Prometheus 的差异
 

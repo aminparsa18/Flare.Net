@@ -101,6 +101,7 @@ public static class PrometheusMetricsMapper
                         Value = sample.Value,
                         AggregationTemporality = CumulativeTemporality,
                         IsMonotonic = true,
+                        Exemplars = MapExemplars([sample.Exemplar], time),
                     });
                     break;
 
@@ -143,6 +144,54 @@ public static class PrometheusMetricsMapper
 
     private static readonly Dictionary<string, string> EmptyAttributes = [];
 
+    private const string TraceIdLabel = "trace_id";
+    private const string SpanIdLabel = "span_id";
+
+    /// <summary>
+    /// Keeps the exemplars that name a trace (<c>trace_id</c>, 32 hex digits - what the OTel SDKs and
+    /// prometheus-net write), the same "no trace, no link" rule ADR-0241 applies to OTLP. Returns
+    /// <see langword="null"/> when none qualify so ordinary points carry nothing extra through Redis. An exemplar
+    /// with no timestamp of its own takes the point's time.
+    /// </summary>
+    private static List<MetricExemplar>? MapExemplars(IEnumerable<PrometheusExemplar?> exemplars, DateTimeOffset pointTime)
+    {
+        List<MetricExemplar>? result = null;
+        foreach (var e in exemplars)
+        {
+            if (e is null
+                || !e.Labels.TryGetValue(TraceIdLabel, out var traceId)
+                || !IsHex(traceId, 32)
+                || (result?.Count ?? 0) >= Otlp.OtlpMetricsMapper.MaxExemplarsPerPoint)
+            {
+                continue;
+            }
+
+            var spanId = e.Labels.TryGetValue(SpanIdLabel, out var span) && IsHex(span, 16) ? span.ToLowerInvariant() : null;
+            var filtered = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (key, value) in e.Labels)
+            {
+                if (key is not (TraceIdLabel or SpanIdLabel))
+                {
+                    filtered[key] = value;
+                }
+            }
+
+            (result ??= []).Add(new MetricExemplar
+            {
+                Time = e.TimestampMillis is { } ms ? DateTimeOffset.FromUnixTimeMilliseconds(ms) : pointTime,
+                Value = e.Value,
+                TraceId = traceId.ToLowerInvariant(),
+                SpanId = spanId,
+                FilteredAttributes = filtered,
+            });
+        }
+
+        return result;
+    }
+
+    private static bool IsHex(string value, int length) =>
+        value.Length == length && value.All(char.IsAsciiHexDigit);
+
     private static Dictionary<string, string> BuildResourceAttributes(PrometheusScrapeTargetOptions target)
     {
         var attrs = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -170,6 +219,7 @@ public static class PrometheusMetricsMapper
         public double? Count { get; set; }
         public double? Sum { get; set; }
         public long? TimestampMillis { get; set; }
+        public List<PrometheusExemplar> Exemplars { get; } = [];
     }
 
     private static void MapHistogram(
@@ -202,6 +252,11 @@ public static class PrometheusMetricsMapper
                 var group = GetOrAddGroup(groups, groupLabels);
                 group.Buckets.Add((le, sample.Value));
                 group.TimestampMillis ??= sample.TimestampMillis;
+                if (sample.Exemplar is not null)
+                {
+                    group.Exemplars.Add(sample.Exemplar);
+                }
+
                 consumed[i] = true;
             }
             else if (sample.Name == sumSuffix)
@@ -268,6 +323,7 @@ public static class PrometheusMetricsMapper
                 Sum = group.Sum,
                 BucketCounts = bucketCounts,
                 ExplicitBounds = explicitBounds,
+                Exemplars = MapExemplars(group.Exemplars, time),
             });
         }
     }

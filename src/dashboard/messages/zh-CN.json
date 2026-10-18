@@ -1614,7 +1614,7 @@
 	"dataSourceCatalog_prometheusStep2Heading": "或者通过 docker-compose 环境变量",
 	"dataSourceCatalog_prometheusStep2Body": "形式相同，不需要挂载文件 - .NET 标准的双下划线配置键绑定可以映射到同样的数组/对象结构。\"ingest\" 是 Flare 自己 docker-compose.yml 里的服务名；目标本身只需要能被该容器所在网络访问到即可。",
 	"dataSourceCatalog_prometheusStep3Heading": "端点需要鉴权，或者想加额外标签？",
-	"dataSourceCatalog_prometheusStep3Body": "Headers 会随每次抓取请求发送（例如一个 bearer token）。Labels 会合并到每个数据点的资源属性上，且是在计算出 service.name/service.instance.id 之后应用的，因此可以覆盖它们。",
+	"dataSourceCatalog_prometheusStep3Body": "Headers 会随每次抓取请求发送（例如一个 bearer token）。Labels 会合并到每个数据点的资源属性上，且是在计算出 service.name/service.instance.id 之后应用的，因此可以覆盖它们。 Exemplars 会向目标请求 OpenMetrics 格式，并保留带 trace_id 的 exemplar，使指标图表可以链接到对应的追踪。",
 	"dataSourceCatalog_prometheusStep4Heading": "确认它生效了",
 	"dataSourceCatalog_prometheusStep4Body": "等待一个抓取周期后，去 Metrics 页面查看该目标的指标名称，或者在 Ingestion 页面 Receivers 表格里观察 \"Prometheus scrape\" 这一行的真实请求数。",
 	"dataSourceCatalog_kafkaTitle": "Kafka",
