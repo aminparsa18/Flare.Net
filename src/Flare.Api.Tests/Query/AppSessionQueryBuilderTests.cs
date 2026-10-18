@@ -79,6 +79,22 @@ public class AppSessionQueryBuilderTests
         Assert.DoesNotContain("{version:String}", built.Sql);
     }
 
+    [Fact]
+    public void BuildReleaseHealthSeries_AlignsBucketsToTheEpoch_AndGroupsByServiceAndVersion()
+    {
+        var built = AppSessionQueryBuilder.BuildReleaseHealthSeries(End.AddHours(-6), End, 300, "shop-app");
+
+        Assert.Contains("intDiv(toUnixTimestamp64Milli(FirstSeen), 300000) * 300000", built.Sql);
+        Assert.Contains("min(StartTime) AS FirstSeen", built.Sql);
+        Assert.Contains("GROUP BY SpanAttributes['session.id']", built.Sql);
+        Assert.Contains("GROUP BY BucketUnixMs, Svc, Version", built.Sql);
+        Assert.Contains("uniqExactIf(UserId, UserId != '' AND Crashed) AS CrashedUsers", built.Sql);
+        // The inner alias is Svc so it cannot shadow the ServiceName column the WHERE clause filters on.
+        Assert.Contains("any(ServiceName) AS Svc", built.Sql);
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.EndsWith($"LIMIT {AppSessionQueryBuilder.MaxSeriesRows + 1}", built.Sql);
+    }
+
     [Theory]
     [InlineData(null, 60, 5)]
     [InlineData(null, 1440, 30)]

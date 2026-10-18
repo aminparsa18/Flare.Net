@@ -72,6 +72,32 @@ Flare переводит имена OTel в соглашения Prometheus:
 
 Не поддерживается: `rate`/`increase`/`irate` над подзапросом, функции нативных гистограмм (`histogram_count`, `histogram_sum`, `histogram_avg`; используйте ряды `_count` и `_sum` гистограммы), правила записи и запись данных.
 
+## Release health
+
+Flare отдаёт release health мобильных приложений (см. [Мониторинг MAUI-приложения](../../tutorials/monitor-a-maui-app.md)) как четыре
+встроенные метрики, поэтому панель или правило алерта в Grafana может использовать долю сессий без падений через тот же
+источник данных. У них есть метки `service_name` и `service_version`, и они видны в `label/__name__/values`.
+
+| Метрика | Тип | Значение |
+|---|---|---|
+| `flare_release_sessions_total` | counter | Начатые сессии |
+| `flare_release_crashed_sessions_total` | counter | Сессии, закончившиеся фатальным необработанным исключением |
+| `flare_release_users` | gauge | Уникальные пользователи с сессией, начатой в этом шаге |
+| `flare_release_crashed_users` | gauge | Уникальные пользователи с упавшей сессией, начатой в этом шаге |
+
+Доля сессий без падений по версиям за последние 24 часа, для панели или правила алерта ниже `0.99`:
+
+```promql
+1 - sum by (service_version) (increase(flare_release_crashed_sessions_total[24h]))
+  / sum by (service_version) (increase(flare_release_sessions_total[24h]))
+```
+
+Добавьте `{service_name="shop-app"}`, чтобы ограничить одним приложением. Чтобы версия с тремя запусками никого не будила,
+добавьте `and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`. Пользователи считаются на
+шаг, поэтому долю пользователей без падений стройте диапазонным запросом с шагом нужного периода
+(`1 - flare_release_crashed_users / flare_release_users` с шагом в сутки); у мгновенного запроса шаг одна минута.
+Пользователи появляются, только если приложение задаёт `user.id`. Префикс имени `flare.release.` зарезервирован за этими метриками.
+
 ## Exemplars
 
 Точка гистограммы или счётчика, записанная внутри трейса, несёт **exemplar**: пример значения с трейсом и спаном, которые его породили. Flare сохраняет те, у которых есть идентификатор трейса, и отдаёт их через `query_exemplars`, чтобы Grafana рисовала их на графике задержки и открывала медленный запрос.
@@ -109,4 +135,4 @@ curl -H "Authorization: Bearer $TOKEN" \
 - **Мгновенные запросы** смотрят на последние пять минут.
 - **`labels` и значения меток без `match[]`** берут выборку из десяти метрик с наибольшим числом рядов. Передайте `match[]`, чтобы получить полный ответ.
 
-Заметки о дизайне: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
+Заметки о дизайне: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md), [ADR-0250](../../../docs-internal/adr/0250-release-health-prometheus-metrics.md).

@@ -257,8 +257,12 @@ builder.Services.AddSingleton<IMetricQueryService>(sp => new CachingMetricQueryS
     sp.GetRequiredService<TimeProvider>()));
 // Prometheus-compatible query API subset (ADR-0109) - a PromQL translator over IMetricQueryService.
 builder.Services.AddSingleton<IMetricExemplarService, MetricExemplarService>();
+// The flare.release.* release-health metrics (ADR-0250) are overlaid for this API only, so the Metrics page and
+// dashboards never list them.
 builder.Services.AddSingleton(sp => new Flare.Api.Prometheus.PromEvaluator(
-    sp.GetRequiredService<IMetricQueryService>(), sp.GetRequiredService<IMetricExemplarService>()));
+    new Flare.Api.Prometheus.ReleaseHealthMetricQueryService(
+        sp.GetRequiredService<IMetricQueryService>(), sp.GetRequiredService<IAppSessionQueryService>()),
+    sp.GetRequiredService<IMetricExemplarService>()));
 // Loki-compatible log query API subset (ADR-0236) - a LogQL translator straight over the logs table.
 builder.Services.AddSingleton<LokiQueryService>();
 // ServiceMetricsOptions - the ADR-0030 rollback valve for the pre-aggregated

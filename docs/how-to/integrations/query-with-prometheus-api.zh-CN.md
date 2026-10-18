@@ -72,6 +72,31 @@ Flare 会把 OTel 名称映射为 Prometheus 约定：
 
 不支持：对子查询使用 `rate`/`increase`/`irate`、原生直方图函数（`histogram_count`、`histogram_sum`、`histogram_avg`；请使用直方图的 `_count` 和 `_sum` 序列）、记录规则以及写入数据。
 
+## Release health
+
+Flare 把移动应用的 release health（参见[监控 MAUI 应用](../../tutorials/monitor-a-maui-app.md)）作为四个内置指标提供，
+这样 Grafana 面板或告警规则可以通过同一个数据源使用无崩溃率。它们带有 `service_name` 和 `service_version` 标签，
+并会出现在 `label/__name__/values` 中。
+
+| 指标 | 类型 | 含义 |
+|---|---|---|
+| `flare_release_sessions_total` | counter | 启动的会话数 |
+| `flare_release_crashed_sessions_total` | counter | 以致命未处理异常结束的会话数 |
+| `flare_release_users` | gauge | 在该步长内启动会话的不同用户数 |
+| `flare_release_crashed_users` | gauge | 在该步长内启动了崩溃会话的不同用户数 |
+
+过去 24 小时各版本的无崩溃会话率，可用于面板，或用于低于 `0.99` 时触发的告警规则：
+
+```promql
+1 - sum by (service_version) (increase(flare_release_crashed_sessions_total[24h]))
+  / sum by (service_version) (increase(flare_release_sessions_total[24h]))
+```
+
+加上 `{service_name="shop-app"}` 可限定为单个应用。为避免只有三次启动的版本触发告警，可加上
+`and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`。用户数按步长统计，所以要绘制无崩溃用户率，
+请用步长等于目标周期的范围查询（步长为一天时用 `1 - flare_release_crashed_users / flare_release_users`）；即时查询的步长是一分钟。
+只有应用设置了 `user.id` 才会出现用户数。名称前缀 `flare.release.` 为这些指标保留。
+
 ## Exemplar
 
 在 trace 内记录的直方图或计数器数据点会携带 **exemplar**：一个样本值，以及产生它的 trace 和 span。Flare 会保存带有 trace id 的 exemplar，并通过 `query_exemplars` 提供，Grafana 因此可以把它们画在延迟图上并打开对应的慢请求。
@@ -109,4 +134,4 @@ Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们�
 - **即时查询** 查看最近五分钟。
 - **不带 `match[]` 的 `labels` 与标签值** 会从序列最多的十个指标中采样。传入 `match[]` 可得到完整结果。
 
-设计说明：[ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md)、[ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)、[ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md)、[ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md)、[ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md)、[ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md)。
+设计说明：[ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md)、[ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)、[ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md)、[ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md)、[ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md)、[ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md)、[ADR-0250](../../../docs-internal/adr/0250-release-health-prometheus-metrics.md)。

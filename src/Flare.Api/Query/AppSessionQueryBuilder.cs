@@ -178,6 +178,46 @@ public static class AppSessionQueryBuilder
         return new AppSessionSql(sql, parameters);
     }
 
+    /// <summary>Row cap for <see cref="BuildReleaseHealthSeries"/>: buckets x services x versions. One more is fetched so the caller can tell it was cut.</summary>
+    public const int MaxSeriesRows = 50_000;
+
+    /// <summary>
+    /// Release health as a time series for the Prometheus API (ADR-0250): per epoch-aligned bucket, service and version, the
+    /// sessions whose first span fell in the bucket, how many of them crashed, and the distinct users in them and in the
+    /// crashed ones. Same session definition as <see cref="BuildReleaseHealth"/>. Columns: BucketUnixMs, ServiceName, Version,
+    /// Sessions, CrashedSessions, Users, CrashedUsers; oldest bucket first.
+    /// </summary>
+    public static AppSessionSql BuildReleaseHealthSeries(DateTimeOffset from, DateTimeOffset to, int bucketSeconds, string? service)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = Where(parameters, from, to, service, version: null);
+        var bucketMs = checked(bucketSeconds * 1000L);
+        var sql = "SELECT\n" +
+            $"    toInt64(intDiv(toUnixTimestamp64Milli(FirstSeen), {bucketMs}) * {bucketMs}) AS BucketUnixMs,\n" +
+            "    Svc AS ServiceName,\n" +
+            "    Version,\n" +
+            "    count() AS Sessions,\n" +
+            "    countIf(Crashed) AS CrashedSessions,\n" +
+            "    uniqExactIf(UserId, UserId != '') AS Users,\n" +
+            "    uniqExactIf(UserId, UserId != '' AND Crashed) AS CrashedUsers\n" +
+            "FROM (\n" +
+            "    SELECT\n" +
+            "        min(StartTime) AS FirstSeen,\n" +
+            "        any(ServiceName) AS Svc,\n" +
+            "        any(ResourceAttributes['service.version']) AS Version,\n" +
+            "        anyIf(if(SpanAttributes['user.id'] != '', SpanAttributes['user.id'], ResourceAttributes['user.id']), " +
+            "SpanAttributes['user.id'] != '' OR ResourceAttributes['user.id'] != '') AS UserId,\n" +
+            "        countIf(Name = 'app.unhandled_exception' AND lower(SpanAttributes['exception.escaped']) = 'true') > 0 AS Crashed\n" +
+            "    FROM spans\n" +
+            $"    WHERE {where}\n" +
+            $"    GROUP BY {SessionId}\n" +
+            ")\n" +
+            "GROUP BY BucketUnixMs, Svc, Version\n" +
+            "ORDER BY BucketUnixMs, Svc, Version\n" +
+            $"LIMIT {MaxSeriesRows + 1}";
+        return new AppSessionSql(sql, parameters);
+    }
+
     /// <summary>Row cap for each performance table. Neither is expected to reach it: one row per screen, or per version and start type.</summary>
     public const int MaxPerformanceRows = 200;
 
@@ -368,10 +408,13 @@ public static class AppSessionQueryBuilder
         return new AppSessionSql($"{select}\nFROM app_screenshots\nWHERE {string.Join(" AND ", clauses)}\n{tail}".TrimEnd(), parameters);
     }
 
-    private static string Where(ClickHouseParameterCollection parameters, int windowMinutes, DateTimeOffset end, string? service, string? version)
+    private static string Where(ClickHouseParameterCollection parameters, int windowMinutes, DateTimeOffset end, string? service, string? version) =>
+        Where(parameters, end.AddMinutes(-windowMinutes), end, service, version);
+
+    private static string Where(ClickHouseParameterCollection parameters, DateTimeOffset from, DateTimeOffset to, string? service, string? version)
     {
-        parameters.AddParameter("from", end.AddMinutes(-windowMinutes).UtcDateTime);
-        parameters.AddParameter("to", end.UtcDateTime);
+        parameters.AddParameter("from", from.UtcDateTime);
+        parameters.AddParameter("to", to.UtcDateTime);
 
         var clauses = new List<string>
         {

@@ -75,6 +75,9 @@ public class CrashFreeRateEvaluatorTests
 
         public Task<ReleaseHealthTrendResponse> GetReleaseHealthTrendAsync(ReleaseHealthTrendRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetReleaseHealthSeriesAsync(
+            DateTimeOffset from, DateTimeOffset to, int bucketSeconds, string? service, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<AppPerformanceResponse> GetPerformanceAsync(AppPerformanceRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
