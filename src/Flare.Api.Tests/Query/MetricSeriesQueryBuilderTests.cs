@@ -30,6 +30,21 @@ public class MetricSeriesQueryBuilderTests
         Assert.Equal(MetricPointType.Gauge, result.Type);
     }
 
+    [Theory]
+    [InlineData(MetricGaugeAggregate.Min, "min(Value) AS Value")]
+    [InlineData(MetricGaugeAggregate.Max, "max(Value) AS Value")]
+    [InlineData(MetricGaugeAggregate.Sum, "sum(Value) AS Value")]
+    [InlineData(MetricGaugeAggregate.Count, "toFloat64(count()) AS Value")]
+    public void Build_Gauge_GaugeAggregate_ReplacesTheAverage_ButNotTheRanking(MetricGaugeAggregate aggregate, string expected)
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, GaugeAggregate = aggregate }, Now);
+
+        Assert.Contains(expected, result.Sql);
+        Assert.DoesNotContain("avg(Value) AS Value", result.Sql);
+        Assert.Contains("avg(Value) AS RankValue", result.Sql);
+    }
+
     [Fact]
     public void Build_ExponentialHistogram_GroupsByScale_AndOrdersScaleLast()
     {

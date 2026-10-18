@@ -21,8 +21,23 @@ internal abstract record PromExpr;
 
 internal sealed record PromNumber(double Value) : PromExpr;
 
-/// <summary>A vector selector. <see cref="Range"/> is set only for the <c>[5m]</c> form (a range selector), which is valid solely as a range function's argument. <see cref="Offset"/> is the <c>offset 1h</c> modifier (zero when absent).</summary>
-internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatcher> Matchers, TimeSpan? Range, TimeSpan Offset = default) : PromExpr
+internal enum PromAtKind
+{
+    /// <summary><c>@ 1700000000</c>: a fixed unix time in seconds.</summary>
+    Timestamp,
+
+    /// <summary><c>@ start()</c>: the start of the query range (the evaluation time of an instant query).</summary>
+    Start,
+
+    /// <summary><c>@ end()</c>: the end of the query range (the evaluation time of an instant query).</summary>
+    End,
+}
+
+/// <summary>The <c>@</c> modifier: the expression is evaluated at this one time for every step instead of at the step itself.</summary>
+internal sealed record PromAt(PromAtKind Kind, long TimestampMs = 0);
+
+/// <summary>A vector selector. <see cref="Range"/> is set only for the <c>[5m]</c> form (a range selector), which is valid solely as a range function's argument. <see cref="Offset"/> is the <c>offset 1h</c> modifier (zero when absent) and <see cref="At"/> the <c>@</c> modifier.</summary>
+internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatcher> Matchers, TimeSpan? Range, TimeSpan Offset = default, PromAt? At = null) : PromExpr
 {
     /// <summary>The metric name, from the bare name or a <c>__name__="..."</c> matcher.</summary>
     public string? EffectiveMetricName =>
@@ -32,8 +47,17 @@ internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatche
     public IEnumerable<PromMatcher> LabelMatchers => Matchers.Where(m => m.Name != "__name__");
 }
 
-/// <summary><c>rate</c>/<c>increase</c>/<c>irate</c> (counters) or <c>avg_over_time</c>/<c>last_over_time</c> (gauges) over a range selector.</summary>
+/// <summary><c>rate</c>/<c>increase</c>/<c>irate</c> (counters) or <c>avg|min|max|sum|count|last_over_time</c> (gauges) over a range selector.</summary>
 internal sealed record PromRangeFunction(string Name, PromSelector Selector) : PromExpr;
+
+/// <summary>
+/// A subquery <c>expr[range:resolution]</c>: <see cref="Inner"/> evaluated every <see cref="Resolution"/> (the query
+/// step when null) over the last <see cref="Range"/>. Valid only as the argument of an <c>*_over_time</c> function.
+/// </summary>
+internal sealed record PromSubquery(PromExpr Inner, TimeSpan Range, TimeSpan? Resolution, TimeSpan Offset, PromAt? At) : PromExpr;
+
+/// <summary><c>avg|min|max|sum|count|last_over_time</c> over a <see cref="PromSubquery"/>.</summary>
+internal sealed record PromSubqueryFunction(string Name, PromSubquery Subquery) : PromExpr;
 
 /// <summary>
 /// <c>sum|avg|min|max|count|group|stddev|stdvar [by|without (labels)] (inner)</c>, plus the parameterised
@@ -97,6 +121,9 @@ internal static class PromSelectors
             case PromRangeFunction fn:
                 into.Add(fn.Selector);
                 break;
+            case PromSubqueryFunction sf:
+                Walk(sf.Subquery.Inner, into);
+                break;
             case PromAggregation agg:
                 Walk(agg.Inner, into);
                 break;
@@ -122,19 +149,22 @@ internal static class PromSelectors
 
 /// <summary>
 /// Hand-written recursive-descent parser for the PromQL subset Flare serves (ADR-0109, extended by
-/// ADR-0239): vector selectors with <c>= != =~ !~</c> matchers and an <c>offset</c>, range functions
+/// ADR-0239, ADR-0245): vector selectors with <c>= != =~ !~</c> matchers and <c>offset</c>/<c>@</c> modifiers, range functions
 /// over a range selector, aggregations (<c>sum avg min max count group stddev stdvar</c>, and
 /// <c>topk bottomk quantile</c> with a parameter) with <c>by</c>/<c>without</c>, <c>histogram_quantile</c>,
-/// instant-vector math functions, and binary operators (arithmetic, comparison with <c>bool</c>, and
+/// <c>*_over_time</c> over subqueries, instant-vector math functions, and binary operators (arithmetic, comparison with <c>bool</c>, and
 /// <c>and or unless</c>) between scalars and vectors with <c>on</c>/<c>ignoring</c>/<c>group_left</c>/<c>group_right</c>.
-/// Everything else - <c>@</c>, subqueries, other functions - throws a <see cref="PromQlException"/>
+/// Everything else - other functions - throws a <see cref="PromQlException"/>
 /// naming the construct, rather than evaluating a partial answer. Pure and I/O-free.
 /// </summary>
 internal sealed class PromQlParser
 {
     private static readonly string[] AggregationOps = ["sum", "avg", "min", "max", "count", "group", "stddev", "stdvar", "topk", "bottomk", "quantile"];
     private static readonly string[] ParameterisedAggregations = ["topk", "bottomk", "quantile"];
-    private static readonly string[] RangeFunctions = ["rate", "increase", "irate", "avg_over_time", "last_over_time"];
+    private static readonly string[] RangeFunctions = ["rate", "increase", "irate", "avg_over_time", "last_over_time", "min_over_time", "max_over_time", "sum_over_time", "count_over_time"];
+
+    /// <summary>The range functions that read a gauge's samples (and so also accept a subquery) rather than a counter's increases.</summary>
+    internal static readonly string[] OverTimeFunctions = ["avg_over_time", "last_over_time", "min_over_time", "max_over_time", "sum_over_time", "count_over_time"];
 
     /// <summary>Instant-vector functions and how many number-literal parameters follow the vector (min, max).</summary>
     private static readonly Dictionary<string, (int Min, int Max)> InstantFunctions = new()
@@ -168,9 +198,9 @@ internal sealed class PromQlParser
             throw new PromQlException($"unexpected '{parser.Peek()}' at position {parser._pos}.");
         }
 
-        if (expr is PromSelector { Range: not null })
+        if (expr is PromSelector { Range: not null } or PromSubquery)
         {
-            throw new PromQlException("a range selector is only valid inside rate() or increase().");
+            throw new PromQlException("a range selector or subquery is only valid inside rate(), increase() and the other range functions.");
         }
 
         return expr;
@@ -409,7 +439,7 @@ internal sealed class PromQlParser
     }
 
     private static PromExpr RequireInstant(PromExpr expr) =>
-        expr is PromSelector { Range: not null }
+        expr is PromSelector { Range: not null } or PromSubquery
             ? throw new PromQlException("a range selector is only valid inside rate(), increase() and the other range functions.")
             : expr;
 
@@ -436,6 +466,125 @@ internal sealed class PromQlParser
     }
 
     private PromExpr ParsePrimary()
+    {
+        var expr = ParsePrimaryCore();
+        SkipWhitespace();
+        while (Peek() == '[')
+        {
+            expr = ParseSubquery(expr);
+            SkipWhitespace();
+        }
+
+        return expr;
+    }
+
+    // expr[range:resolution] [offset d] [@ t]. A plain range selector (x[5m]) never reaches here: the selector parser consumes its own bracket.
+    private PromSubquery ParseSubquery(PromExpr inner)
+    {
+        if (inner is PromSelector { Range: not null } or PromSubquery)
+        {
+            throw new PromQlException("a subquery is only allowed on an instant vector.");
+        }
+
+        if (inner is PromNumber)
+        {
+            throw new PromQlException("a subquery is only allowed on an instant vector; wrap the number in vector().");
+        }
+
+        _pos++;
+        var end = _text.IndexOf(']', _pos);
+        if (end < 0)
+        {
+            throw new PromQlException("unterminated subquery.");
+        }
+
+        var spec = _text[_pos..end];
+        var colon = spec.IndexOf(':');
+        if (colon < 0)
+        {
+            throw new PromQlException("a range selector is only valid on a metric selector; a subquery needs a resolution separator, e.g. [1h:1m].");
+        }
+
+        var range = ParseDuration(spec[..colon].Trim());
+        var resolutionText = spec[(colon + 1)..].Trim();
+        TimeSpan? resolution = resolutionText.Length == 0 ? null : ParseDuration(resolutionText);
+        _pos = end + 1;
+
+        var offset = TimeSpan.Zero;
+        PromAt? at = null;
+        ParseModifiers(ref offset, ref at);
+        return new PromSubquery(inner, range, resolution, offset, at);
+    }
+
+    // `offset 1h` and `@ t` may appear in either order, each at most once.
+    private void ParseModifiers(ref TimeSpan offset, ref PromAt? at)
+    {
+        var sawOffset = false;
+        while (true)
+        {
+            if (!sawOffset && TryParseKeyword("offset"))
+            {
+                SkipWhitespace();
+                if (Peek() == '-')
+                {
+                    throw new PromQlException("a negative offset is not supported.");
+                }
+
+                var start = _pos;
+                while (!AtEnd && char.IsLetterOrDigit(_text[_pos]))
+                {
+                    _pos++;
+                }
+
+                offset = ParseDuration(_text[start.._pos]);
+                sawOffset = true;
+                continue;
+            }
+
+            SkipWhitespace();
+            if (at is null && Peek() == '@')
+            {
+                _pos++;
+                at = ParseAt();
+                continue;
+            }
+
+            break;
+        }
+    }
+
+    private PromAt ParseAt()
+    {
+        SkipWhitespace();
+        if (IsIdentStart(Peek()))
+        {
+            var word = ParseIdentifier().ToLowerInvariant();
+            if (word is not ("start" or "end"))
+            {
+                throw new PromQlException($"unexpected '{word}' after @; expected a unix timestamp, start() or end().");
+            }
+
+            Expect('(');
+            Expect(')');
+            return new PromAt(word == "start" ? PromAtKind.Start : PromAtKind.End);
+        }
+
+        var negative = Peek() == '-';
+        if (negative || Peek() == '+')
+        {
+            _pos++;
+        }
+
+        if (!char.IsDigit(Peek()) && Peek() != '.')
+        {
+            throw new PromQlException($"expected a unix timestamp, start() or end() after @ at position {_pos}.");
+        }
+
+        var seconds = ParseNumber();
+        return new PromAt(PromAtKind.Timestamp, (long)Math.Round((negative ? -seconds : seconds) * 1000));
+    }
+
+    private PromExpr ParsePrimaryCore()
     {
         SkipWhitespace();
         if (TryConsume('('))
@@ -479,6 +628,14 @@ internal sealed class PromQlParser
             Expect('(');
             var arg = ParseBinary(0);
             Expect(')');
+            if (arg is PromSubquery subquery)
+            {
+                return OverTimeFunctions.Contains(lower)
+                    ? new PromSubqueryFunction(lower, subquery)
+                    : throw new PromQlException(
+                        $"{lower}() over a subquery is not supported; apply rate() to the metric selector inside it, and use avg_over_time, min_over_time, max_over_time, sum_over_time, count_over_time or last_over_time over the subquery.");
+            }
+
             return arg is PromSelector { Range: not null } selector
                 ? new PromRangeFunction(lower, selector)
                 : throw new PromQlException($"{lower}() requires a range selector, e.g. {lower}(metric[5m]).");
@@ -565,7 +722,7 @@ internal sealed class PromQlParser
         if (Peek() == '(')
         {
             throw new PromQlException(
-                $"function '{ident}' is not supported (supported: rate, increase, irate, avg_over_time, last_over_time, histogram_quantile, "
+                $"function '{ident}' is not supported (supported: rate, increase, irate, avg_over_time, last_over_time, min_over_time, max_over_time, sum_over_time, count_over_time, histogram_quantile, "
                 + "sum, avg, min, max, count, group, stddev, stdvar, topk, bottomk, quantile, vector, abs, ceil, floor, round, sqrt, exp, ln, log2, log10, sgn, clamp, clamp_min, clamp_max, absent, label_replace, label_join).");
         }
 
@@ -684,40 +841,26 @@ internal sealed class PromQlParser
             }
 
             var inner = _text[_pos..end].Trim();
+            // `x[5m:1m]` is a subquery over the selector: leave the bracket for ParsePrimary.
             if (inner.Contains(':'))
             {
-                throw new PromQlException("subqueries are not supported.");
+                _pos--;
             }
-
-            range = ParseDuration(inner);
-            _pos = end + 1;
+            else
+            {
+                range = ParseDuration(inner);
+                _pos = end + 1;
+            }
         }
 
         var offset = TimeSpan.Zero;
-        if (TryParseKeyword("offset"))
+        PromAt? at = null;
+        if (Peek() != '[')
         {
-            SkipWhitespace();
-            if (Peek() == '-')
-            {
-                throw new PromQlException("a negative offset is not supported.");
-            }
-
-            var start = _pos;
-            while (!AtEnd && char.IsLetterOrDigit(_text[_pos]))
-            {
-                _pos++;
-            }
-
-            offset = ParseDuration(_text[start.._pos]);
+            ParseModifiers(ref offset, ref at);
         }
 
-        SkipWhitespace();
-        if (Peek() == '@')
-        {
-            throw new PromQlException("the @ modifier is not supported.");
-        }
-
-        return new PromSelector(name, matchers, range, offset);
+        return new PromSelector(name, matchers, range, offset, at);
     }
 
     private PromMatchOp ParseMatchOp()

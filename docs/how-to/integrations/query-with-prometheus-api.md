@@ -54,7 +54,9 @@ Find the exact names with `GET /api/v1/label/__name__/values`.
 | Selectors, with `=`, `!=`, `=~`, `!~` | `up{service_name="api", code!="200"}` |
 | `offset` on a selector or range | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
 | `rate`, `increase`, `irate` | `rate(requests_total[5m])` |
-| `avg_over_time`, `last_over_time` (gauges) | `avg_over_time(queue_depth[10m])` |
+| `avg_over_time`, `min_over_time`, `max_over_time`, `sum_over_time`, `count_over_time`, `last_over_time` (gauges) | `max_over_time(queue_depth[10m])` |
+| `@` on a selector, range or subquery | `requests_total @ 1700000000`, `queue_depth / queue_depth @ start()` |
+| Subqueries inside an `*_over_time` function | `max_over_time(rate(requests_total[5m])[1h:1m])` |
 | `sum`, `avg`, `min`, `max`, `count`, `group`, `stddev`, `stdvar` with `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
 | `topk`, `bottomk`, `quantile` with `by`/`without` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
 | `histogram_quantile` over `rate`/`increase`, optionally inside `sum by (...)` | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
@@ -69,9 +71,7 @@ Find the exact names with `GET /api/v1/label/__name__/values`.
 
 Endpoints: `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Not supported: `@`, subqueries, `delta`, `predict_linear`, `min_over_time` and
-`max_over_time` (Flare stores a gauge as one average per bucket, so they would be wrong), recording rules,
-and writing data.
+Not supported: `rate`/`increase`/`irate` over a subquery, `delta`, `predict_linear`, recording rules, and writing data.
 
 ## Exemplars
 
@@ -109,7 +109,12 @@ of the newest in the window; stacked areas and comparison overlays draw none.
 - **`offset` is rounded to whole steps.** `offset 90s` at a 60s step is read as 120s, so the shifted series stays on
   the same timestamps as the rest of the query.
 - **`irate` and `avg_over_time` work on buckets.** `irate` is the newest bucket's increase per second, and
-  `avg_over_time` averages bucket averages.
+  `avg_over_time` averages bucket averages. `min_over_time`, `max_over_time`, `sum_over_time` and `count_over_time`
+  reduce the raw points of each bucket, so they are exact down to the step.
+- **`@` pins the evaluation time.** `x @ 1700000000` is read once, at that time rounded down to a step, and repeated at
+  every step. In an instant query `start()` and `end()` both mean the query time.
+- **Subqueries** `expr[1h:1m]` evaluate the inner expression every `1m` (the query step when the resolution is
+  left out) and reduce the samples in `(t - 1h, t]`. They need an `*_over_time` function around them.
 - **Counters need `rate()` or `increase()`.** Flare stores per-interval increases, so a bare counter
   such as `requests_total` is rejected with a pointer to `rate()`. A gauge used under `rate()` is read as
   a counter, which is how untyped Prometheus `*_total` metrics arrive.
@@ -122,4 +127,4 @@ of the newest in the window; stacked areas and comparison overlays draw none.
 - **`labels` and label values without `match[]`** sample the ten metrics with the most series. Pass
   `match[]` for a complete answer.
 
-Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
+Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).

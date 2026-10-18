@@ -74,10 +74,16 @@ public class PromQlParserTests
     [InlineData("a + x[5m]", "range selector")]
     [InlineData("topk(x, y)", "number literal")]
     [InlineData("clamp(x, 1)", "argument")]
-    [InlineData("x @ 100", "@")]
+    [InlineData("x @ foo()", "start() or end()")]
+    [InlineData("x @", "unix timestamp")]
+    [InlineData("x @ 1 @ 2", "unexpected")]
     [InlineData("rate(x)", "range selector")]
     [InlineData("x[5m]", "range selector")]
-    [InlineData("rate(x[5m:1m])", "subqueries")]
+    [InlineData("rate(x[5m:1m])", "over a subquery is not supported")]
+    [InlineData("x[5m:1m]", "range selector or subquery")]
+    [InlineData("x[5m][1h:1m]", "instant vector")]
+    [InlineData("1[5m:1m]", "instant vector")]
+    [InlineData("max_over_time(x[5m:1m]) + x[5m:1m]", "range selector")]
     [InlineData("sum(", "unexpected end")]
     [InlineData("", "empty")]
     [InlineData("{}", "at least one")]
@@ -200,8 +206,84 @@ public class PromQlParserTests
     [InlineData("irate(x[5m])")]
     [InlineData("avg_over_time(x[5m])")]
     [InlineData("last_over_time(x[5m])")]
+    [InlineData("min_over_time(x[5m])")]
+    [InlineData("max_over_time(x[5m])")]
+    [InlineData("sum_over_time(x[5m])")]
+    [InlineData("count_over_time(x[5m])")]
     public void Parse_RangeFunctions(string query) =>
         Assert.IsType<PromRangeFunction>(PromQlParser.Parse(query));
+
+    [Theory]
+    [InlineData("x @ 1700000000", "Timestamp", 1_700_000_000_000)]
+    [InlineData("x @ 1700000000.5", "Timestamp", 1_700_000_000_500)]
+    [InlineData("x @ -30", "Timestamp", -30_000)]
+    [InlineData("x @ start()", "Start", 0)]
+    [InlineData("x @ end()", "End", 0)]
+    [InlineData("x{a=\"b\"} @ 10", "Timestamp", 10_000)]
+    public void Parse_AtModifier_OnSelector(string query, string kind, long timestampMs)
+    {
+        var at = Assert.IsType<PromSelector>(PromQlParser.Parse(query)).At;
+
+        Assert.Equal(new PromAt(Enum.Parse<PromAtKind>(kind), timestampMs), at);
+    }
+
+    [Theory]
+    [InlineData("x @ 100 offset 5m")]
+    [InlineData("x offset 5m @ 100")]
+    public void Parse_AtAndOffset_AcceptEitherOrder(string query)
+    {
+        var selector = Assert.IsType<PromSelector>(PromQlParser.Parse(query));
+
+        Assert.Equal(TimeSpan.FromMinutes(5), selector.Offset);
+        Assert.Equal(100_000, selector.At!.TimestampMs);
+    }
+
+    [Fact]
+    public void Parse_AtModifier_OnRangeSelector()
+    {
+        var fn = Assert.IsType<PromRangeFunction>(PromQlParser.Parse("rate(x[5m] @ end())"));
+
+        Assert.Equal(PromAtKind.End, fn.Selector.At!.Kind);
+        Assert.Equal(TimeSpan.FromMinutes(5), fn.Selector.Range);
+    }
+
+    [Fact]
+    public void Parse_Subquery_OverAFunction()
+    {
+        var fn = Assert.IsType<PromSubqueryFunction>(PromQlParser.Parse("max_over_time(rate(x[5m])[1h:1m])"));
+
+        Assert.Equal("max_over_time", fn.Name);
+        Assert.Equal(TimeSpan.FromHours(1), fn.Subquery.Range);
+        Assert.Equal(TimeSpan.FromMinutes(1), fn.Subquery.Resolution);
+        Assert.IsType<PromRangeFunction>(fn.Subquery.Inner);
+    }
+
+    [Fact]
+    public void Parse_Subquery_DefaultResolutionIsNull_AndModifiersFollowTheBracket()
+    {
+        var fn = Assert.IsType<PromSubqueryFunction>(PromQlParser.Parse("avg_over_time((sum(x) / 2)[30m:] offset 1h @ 100)"));
+
+        Assert.Null(fn.Subquery.Resolution);
+        Assert.Equal(TimeSpan.FromHours(1), fn.Subquery.Offset);
+        Assert.Equal(100_000, fn.Subquery.At!.TimestampMs);
+        Assert.IsType<PromBinary>(fn.Subquery.Inner);
+    }
+
+    [Fact]
+    public void Parse_Subquery_OverASelectorWithItsOwnOffset()
+    {
+        var fn = Assert.IsType<PromSubqueryFunction>(PromQlParser.Parse("min_over_time(x offset 5m[10m:1m])"));
+
+        Assert.Equal(TimeSpan.FromMinutes(5), Assert.IsType<PromSelector>(fn.Subquery.Inner).Offset);
+    }
+
+    [Fact]
+    public void Selectors_Collect_WalksIntoSubqueries()
+    {
+        var selectors = PromSelectors.Collect(PromQlParser.Parse("max_over_time(sum(x)[1h:1m]) + y"));
+
+        Assert.Equal(["x", "y"], selectors.Select(s => s.MetricName));
+    }
 
     [Theory]
     [InlineData("abs(x)", "abs", 0)]

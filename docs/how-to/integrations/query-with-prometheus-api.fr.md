@@ -48,7 +48,9 @@ Trouvez les noms exacts avec `GET /api/v1/label/__name__/values`.
 | Sélecteurs, avec `=`, `!=`, `=~`, `!~` | `up{service_name="api", code!="200"}` |
 | `offset` sur un sélecteur ou une plage | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
 | `rate`, `increase`, `irate` | `rate(requests_total[5m])` |
-| `avg_over_time`, `last_over_time` (jauges) | `avg_over_time(queue_depth[10m])` |
+| `avg_over_time`, `min_over_time`, `max_over_time`, `sum_over_time`, `count_over_time`, `last_over_time` (jauges) | `max_over_time(queue_depth[10m])` |
+| `@` sur un sélecteur, une plage ou une sous-requête | `requests_total @ 1700000000`, `queue_depth / queue_depth @ start()` |
+| Sous-requêtes dans une fonction `*_over_time` | `max_over_time(rate(requests_total[5m])[1h:1m])` |
 | `sum`, `avg`, `min`, `max`, `count`, `group`, `stddev`, `stdvar` avec `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
 | `topk`, `bottomk`, `quantile` avec `by`/`without` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
 | `histogram_quantile` sur `rate`/`increase`, éventuellement dans `sum by (...)` | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
@@ -63,7 +65,7 @@ Trouvez les noms exacts avec `GET /api/v1/label/__name__/values`.
 
 Points d'accès : `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Non pris en charge : `@`, sous-requêtes, `delta`, `predict_linear`, `min_over_time` et `max_over_time` (Flare stocke une jauge comme une moyenne par bucket, elles seraient fausses), règles d'enregistrement et écriture de données.
+Non pris en charge : `rate`/`increase`/`irate` sur une sous-requête, `delta`, `predict_linear`, règles d'enregistrement et écriture de données.
 
 ## Exemplars
 
@@ -87,11 +89,13 @@ La page Metrics de Flare et les panneaux Metrics des tableaux de bord les affich
 
 - **Les erreurs d'appariement sont réelles.** `a / b` échoue avec « found duplicate series for the match group » si un jeu de labels correspond à deux séries d'un côté. Agrégez d'abord, restreignez avec `on(...)`/`ignoring(...)`, ou activez `group_left`/`group_right`, exactement comme dans Prometheus.
 - **`offset` est arrondi à un nombre entier de pas.** `offset 90s` avec un pas de 60 s est lu comme 120 s, afin que la série décalée reste sur les mêmes horodatages que le reste de la requête.
-- **`irate` et `avg_over_time` travaillent sur des buckets.** `irate` est l'incrément du bucket le plus récent par seconde, et `avg_over_time` fait la moyenne des moyennes de buckets.
+- **`irate` et `avg_over_time` travaillent sur des buckets.** `irate` est l'incrément du bucket le plus récent par seconde, et `avg_over_time` fait la moyenne des moyennes de buckets. `min_over_time`, `max_over_time`, `sum_over_time` et `count_over_time` réduisent les points bruts de chaque bucket, elles sont donc exactes à l'échelle du pas.
+- **`@` fige l'instant d'évaluation.** `x @ 1700000000` est lu une fois, à cet instant arrondi à l'inférieur au pas, puis répété à chaque pas. Dans une requête instantanée, `start()` et `end()` désignent tous deux l'instant de la requête.
+- **Les sous-requêtes** `expr[1h:1m]` évaluent l'expression interne toutes les `1m` (le pas de la requête si la résolution est omise) et réduisent les échantillons de `(t - 1h, t]`. Elles doivent être entourées d'une fonction `*_over_time`.
 - **Les compteurs exigent `rate()` ou `increase()`.** Flare stocke des incréments par intervalle ; un compteur nu comme `requests_total` est donc refusé, avec un renvoi vers `rate()`. Une jauge utilisée sous `rate()` est lue comme un compteur, c'est ainsi qu'arrivent les métriques Prometheus `*_total` sans type.
 - **Les horodatages sont des débuts de bucket.** Les échantillons tombent sur des multiples du pas, pas sur `start + k*step`. Une fenêtre `[5m]` glisse sur `round(5m / pas)` buckets, au moins un.
 - **200 séries par sélecteur.** Un sélecteur correspondant à plus de séries renvoie les 200 plus grosses et ajoute une entrée `warnings`. Ajoutez des matchers de label pour restreindre. Les matchers `!=` et regex s'appliquent après cette limite.
 - **Les requêtes instantanées** regardent les cinq dernières minutes.
 - **`labels` et les valeurs de label sans `match[]`** échantillonnent les dix métriques ayant le plus de séries. Passez `match[]` pour une réponse complète.
 
-Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
+Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
