@@ -1104,6 +1104,189 @@ public class PromEvaluatorTests
         Assert.All(result, s => Assert.Equal("1", s.Labels["v"]));
     }
 
+    [Fact]
+    public async Task Idelta_IsTheNewestPointsStep_FromTheLastDeltaAggregate()
+    {
+        var stub = GaugeStub(Point(0, 3), Point(1, -2), Point(2, 5));
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("idelta(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(MetricGaugeAggregate.LastDelta, stub.LastQuery!.GaugeAggregate);
+        Assert.Equal(5.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
+    }
+
+    [Fact]
+    public async Task Idelta_OverASubquery_IsTheLastTwoInnerSamples()
+    {
+        var result = await new PromEvaluator(GaugeStub(Point(0, 1), Point(1, 4), Point(2, 10))).EvaluateAsync(
+            PromQlParser.Parse("idelta(temp[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(6.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
+    }
+
+    [Fact]
+    public void HoltWinters_FollowsPrometheusDoubleExponentialSmoothing()
+    {
+        // Worked by hand with sf = tf = 0.5: levels 3, 3.5, 4.875.
+        Assert.Equal(4.875, PromWindowMath.HoltWinters([1, 3, 2, 5], 0.5, 0.5));
+        Assert.Null(PromWindowMath.HoltWinters([1], 0.5, 0.5));
+    }
+
+    [Theory]
+    [InlineData("holt_winters(temp[3m], 0.5, 0.5)")]
+    [InlineData("double_exponential_smoothing(temp[3m], 0.5, 0.5)")]
+    public async Task HoltWinters_SmoothsTheBucketAverages(string query)
+    {
+        var result = await new PromEvaluator(GaugeStub(Point(0, 1), Point(1, 3), Point(2, 2))).EvaluateAsync(
+            PromQlParser.Parse(query), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(3.5, Assert.Single(Assert.Single(result.Series).Samples).Value);
+    }
+
+    [Fact]
+    public async Task Timestamp_OfASelector_IsTheNewestPointsTime()
+    {
+        var stub = GaugeStub(Point(0, 7));
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("timestamp(temp)"), T0, T0, TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(MetricGaugeAggregate.LastTime, stub.LastQuery!.GaugeAggregate);
+        var series = Assert.Single(result.Series);
+        Assert.DoesNotContain("__name__", series.Labels.Keys);
+        // The stub returns the value the SQL would: seconds.
+        Assert.Equal(7.0, Assert.Single(series.Samples).Value);
+    }
+
+    [Fact]
+    public async Task Timestamp_OfAnythingElse_IsTheStep()
+    {
+        var stub = GaugeStub(Point(0, 7), Point(1, 9));
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("timestamp(temp * 2)"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(
+            [(double)T0.ToUnixTimeSeconds(), T0.AddMinutes(1).ToUnixTimeSeconds()],
+            Assert.Single(result.Series).Samples.Select(s => s.Value));
+        Assert.Null(stub.LastQuery!.GaugeAggregate);
+    }
+
+    [Fact]
+    public void HistogramFraction_InterpolatesInsideABucket()
+    {
+        var buckets = new SortedDictionary<(double Lower, double Upper), double>
+        {
+            [(0, 1)] = 2,
+            [(1, 2)] = 2,
+            [(2, 4)] = 4,
+        };
+
+        Assert.Equal(0.25, PromWindowMath.HistogramFraction(1, 2, buckets));
+        // below(3) = 2 + 2 + 4 * 1/2 = 6; below(0.5) = 1.
+        Assert.Equal(5.0 / 8, PromWindowMath.HistogramFraction(0.5, 3, buckets));
+        Assert.Equal(1.0, PromWindowMath.HistogramFraction(double.NegativeInfinity, double.PositiveInfinity, buckets));
+        Assert.Equal(0.0, PromWindowMath.HistogramFraction(3, 3, buckets));
+        Assert.Null(PromWindowMath.HistogramFraction(0, 1, []));
+    }
+
+    [Fact]
+    public async Task HistogramFraction_IsTheShareUnderABound_OfTheRateBuckets()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "d", ServiceName = "api", Type = MetricPointType.Histogram, Unit = "s", SeriesCount = 1 }],
+            [new MetricSeries
+            {
+                ServiceName = "api",
+                Attributes = new Dictionary<string, string>(),
+                Points = [new MetricSeriesPoint { BucketStart = T0, BucketLowers = [0, 1], BucketUppers = [1, 2], BucketCounts = [30, 10] }],
+            }]);
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("histogram_fraction(0, 1, sum by (le) (rate(d_seconds_bucket[1m])))"), T0, T0, TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(0.75, Assert.Single(Assert.Single(result.Series).Samples).Value);
+    }
+
+    private static StubMetrics NamedStub() =>
+        new(
+            [
+                new MetricNameInfo { MetricName = "temp.a", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 },
+                new MetricNameInfo { MetricName = "temp.b", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 },
+                new MetricNameInfo { MetricName = "temp.jobs", ServiceName = "api", Type = MetricPointType.Sum, SeriesCount = 1 },
+                new MetricNameInfo { MetricName = "other", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 },
+            ],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 4)] }]);
+
+    [Fact]
+    public async Task NamePattern_EvaluatesEveryMatchingMetric_AndSkipsTheOnesItCannotRead()
+    {
+        var result = await new PromEvaluator(NamedStub()).EvaluateAsync(
+            PromQlParser.Parse("""{__name__=~"temp_.*"}"""), T0, T0, TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(["temp_a", "temp_b"], result.Series.Select(s => s.Labels["__name__"]).Order());
+        Assert.Contains(result.Warnings, w => w.Contains("skipped 'temp_jobs_total'") && w.Contains("rate()"));
+    }
+
+    [Fact]
+    public async Task NamePattern_WithANegativeMatcher_NarrowsTheMatches()
+    {
+        var result = await new PromEvaluator(NamedStub()).EvaluateAsync(
+            PromQlParser.Parse("""{__name__=~"temp_.*", __name__!~".*_b|.*_total"}"""), T0, T0, TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal("temp_a", Assert.Single(result.Series).Labels["__name__"]);
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public async Task NamePattern_UnderRate_ReadsTheCounters_AndSkipsTheGauges()
+    {
+        var stub = new StubMetrics(
+            [
+                new MetricNameInfo { MetricName = "jobs.ok", ServiceName = "api", Type = MetricPointType.Sum, SeriesCount = 1 },
+                new MetricNameInfo { MetricName = "jobs.failed", ServiceName = "api", Type = MetricPointType.Sum, SeriesCount = 1 },
+            ],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 60)] }]);
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("""sum(rate({__name__=~"jobs_.*"}[1m]))"""), T0, T0, TimeSpan.FromMinutes(1), default);
+
+        // Two counters of 1/s each.
+        Assert.Equal(2.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
+    }
+
+    [Fact]
+    public async Task NamePattern_MatchingNothing_IsEmpty_AndWhenEveryMatchFailsTheFirstErrorIsRaised()
+    {
+        var evaluator = new PromEvaluator(NamedStub());
+
+        var none = await evaluator.EvaluateAsync(PromQlParser.Parse("""{__name__=~"zzz.*"}"""), T0, T0, TimeSpan.FromMinutes(1), default);
+        var error = await Assert.ThrowsAsync<PromQlException>(() => evaluator.EvaluateAsync(
+            PromQlParser.Parse("""{__name__=~".*_total"}"""), T0, T0, TimeSpan.FromMinutes(1), default));
+
+        Assert.Empty(none.Series);
+        Assert.Contains("rate()", error.Message);
+    }
+
+    [Fact]
+    public async Task NamePattern_OnTheSeriesEndpoint_ListsEveryMatchingMetricsSeries()
+    {
+        var series = await new PromEvaluator(NamedStub()).SelectSeriesAsync(
+            (PromSelector)PromQlParser.Parse("""{__name__=~"temp_.*"}"""), T0, T0.AddMinutes(5), [], default);
+
+        Assert.Equal(["temp_a", "temp_b", "temp_jobs_total"], series.Select(s => s.Labels["__name__"]).Order());
+    }
+
+    [Fact]
+    public async Task NamePattern_InHistogramQuantile_ExplainsItNeedsOneName()
+    {
+        var error = await Assert.ThrowsAsync<PromQlException>(() => new PromEvaluator(NamedStub()).EvaluateAsync(
+            PromQlParser.Parse("""histogram_quantile(0.5, rate({__name__=~"d_.*"}[1m]))"""), T0, T0, TimeSpan.FromMinutes(1), default));
+
+        Assert.Contains("single metric name", error.Message);
+    }
+
     private sealed class StubMetrics(
         IReadOnlyList<MetricNameInfo> names,
         IReadOnlyList<MetricSeries> series,

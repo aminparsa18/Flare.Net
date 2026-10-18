@@ -43,6 +43,12 @@ internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatche
     public string? EffectiveMetricName =>
         MetricName ?? Matchers.FirstOrDefault(m => m is { Name: "__name__", Op: PromMatchOp.Equal })?.Value;
 
+    /// <summary>The matchers on <c>__name__</c>.</summary>
+    public IEnumerable<PromMatcher> NameMatchers => Matchers.Where(m => m.Name == "__name__");
+
+    /// <summary>Whether the selector names its metrics with a pattern (<c>{__name__=~"http_.*"}</c>) rather than one name; the evaluator expands it into one selector per matching metric.</summary>
+    public bool IsMultiMetric => EffectiveMetricName is null;
+
     /// <summary>Matchers other than <c>__name__</c>.</summary>
     public IEnumerable<PromMatcher> LabelMatchers => Matchers.Where(m => m.Name != "__name__");
 }
@@ -50,9 +56,10 @@ internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatche
 /// <summary>
 /// <c>rate</c>/<c>increase</c>/<c>irate</c> (counters) or <c>avg|min|max|sum|count|last_over_time</c>, <c>delta</c>,
 /// <c>changes</c>, <c>resets</c>, <c>deriv</c> and <c>predict_linear</c> (gauges) over a range selector.
-/// <see cref="Parameter"/> is <c>predict_linear</c>'s seconds ahead.
+/// <see cref="Parameter"/> is <c>predict_linear</c>'s seconds ahead, or <c>holt_winters</c>'s smoothing factor with
+/// <see cref="Parameter2"/> its trend factor.
 /// </summary>
-internal sealed record PromRangeFunction(string Name, PromSelector Selector, double? Parameter = null) : PromExpr;
+internal sealed record PromRangeFunction(string Name, PromSelector Selector, double? Parameter = null, double? Parameter2 = null) : PromExpr;
 
 /// <summary>
 /// A subquery <c>expr[range:resolution]</c>: <see cref="Inner"/> evaluated every <see cref="Resolution"/> (the query
@@ -61,7 +68,13 @@ internal sealed record PromRangeFunction(string Name, PromSelector Selector, dou
 internal sealed record PromSubquery(PromExpr Inner, TimeSpan Range, TimeSpan? Resolution, TimeSpan Offset, PromAt? At) : PromExpr;
 
 /// <summary>A gauge range function (<c>avg|min|max|sum|count|last_over_time</c>, <c>delta</c>, <c>changes</c>, <c>resets</c>, <c>deriv</c>, <c>predict_linear</c>) over a <see cref="PromSubquery"/>.</summary>
-internal sealed record PromSubqueryFunction(string Name, PromSubquery Subquery, double? Parameter = null) : PromExpr;
+internal sealed record PromSubqueryFunction(string Name, PromSubquery Subquery, double? Parameter = null, double? Parameter2 = null) : PromExpr;
+
+/// <summary><c>timestamp(v)</c>: the time of each sample in seconds. For a plain selector that is the newest point behind the sample; for any other expression, the step.</summary>
+internal sealed record PromTimestamp(PromExpr Inner) : PromExpr;
+
+/// <summary><c>histogram_fraction(lower, upper, v)</c>: the share of observations between the two bounds, estimated from the buckets of <see cref="Inner"/> (shaped like <c>histogram_quantile</c>'s argument).</summary>
+internal sealed record PromHistogramFraction(double Lower, double Upper, PromExpr Inner) : PromExpr;
 
 /// <summary><c>time()</c>: the evaluation time in unix seconds, a scalar that changes at every step.</summary>
 internal sealed record PromTime : PromExpr;
@@ -152,6 +165,12 @@ internal static class PromSelectors
             case PromScalar scalar:
                 Walk(scalar.Inner, into);
                 break;
+            case PromTimestamp timestamp:
+                Walk(timestamp.Inner, into);
+                break;
+            case PromHistogramFraction fraction:
+                Walk(fraction.Inner, into);
+                break;
             case PromSort sort:
                 Walk(sort.Inner, into);
                 break;
@@ -195,14 +214,14 @@ internal sealed class PromQlParser
     private static readonly string[] RangeFunctions =
     [
         "rate", "increase", "irate", "avg_over_time", "last_over_time", "min_over_time", "max_over_time", "sum_over_time", "count_over_time",
-        "delta", "changes", "resets", "deriv", "predict_linear",
+        "delta", "changes", "resets", "deriv", "predict_linear", "idelta", "holt_winters", "double_exponential_smoothing",
     ];
 
     /// <summary>The range functions that read a gauge's samples (and so also accept a subquery) rather than a counter's increases.</summary>
     internal static readonly string[] OverTimeFunctions =
     [
         "avg_over_time", "last_over_time", "min_over_time", "max_over_time", "sum_over_time", "count_over_time",
-        "delta", "changes", "resets", "deriv", "predict_linear",
+        "delta", "changes", "resets", "deriv", "predict_linear", "idelta", "holt_winters",
     ];
 
     private static readonly string[] SortFunctions = ["sort", "sort_desc", "sort_by_label", "sort_by_label_desc"];
@@ -673,6 +692,12 @@ internal sealed class PromQlParser
             Expect('(');
             var arg = ParseBinary(0);
             double? parameter = null;
+            double? parameter2 = null;
+            if (lower == "double_exponential_smoothing")
+            {
+                lower = "holt_winters";
+            }
+
             if (lower == "predict_linear")
             {
                 Expect(',');
@@ -680,18 +705,29 @@ internal sealed class PromQlParser
                     ? ahead.Value
                     : throw new PromQlException("predict_linear's second argument (seconds ahead) must be a number.");
             }
+            else if (lower == "holt_winters")
+            {
+                Expect(',');
+                parameter = ParseBinary(0) is PromNumber sf ? sf.Value : throw new PromQlException("holt_winters' smoothing factor must be a number.");
+                Expect(',');
+                parameter2 = ParseBinary(0) is PromNumber tf ? tf.Value : throw new PromQlException("holt_winters' trend factor must be a number.");
+                if (parameter is not (> 0 and < 1) || parameter2 is not (> 0 and < 1))
+                {
+                    throw new PromQlException("invalid smoothing factor. Expected: 0 < sf < 1 and 0 < tf < 1.");
+                }
+            }
 
             Expect(')');
             if (arg is PromSubquery subquery)
             {
                 return OverTimeFunctions.Contains(lower)
-                    ? new PromSubqueryFunction(lower, subquery, parameter)
+                    ? new PromSubqueryFunction(lower, subquery, parameter, parameter2)
                     : throw new PromQlException(
-                        $"{lower}() over a subquery is not supported; apply rate() to the metric selector inside it, and use avg_over_time, min_over_time, max_over_time, sum_over_time, count_over_time, last_over_time, delta, changes, resets, deriv or predict_linear over the subquery.");
+                        $"{lower}() over a subquery is not supported; apply rate() to the metric selector inside it, and use avg_over_time, min_over_time, max_over_time, sum_over_time, count_over_time, last_over_time, delta, idelta, changes, resets, deriv, predict_linear or holt_winters over the subquery.");
             }
 
             return arg is PromSelector { Range: not null } selector
-                ? new PromRangeFunction(lower, selector, parameter)
+                ? new PromRangeFunction(lower, selector, parameter, parameter2)
                 : throw new PromQlException($"{lower}() requires a range selector, e.g. {lower}(metric[5m]).");
         }
 
@@ -700,6 +736,16 @@ internal sealed class PromQlParser
             Expect('(');
             Expect(')');
             return new PromTime();
+        }
+
+        if (lower == "timestamp" && NextNonSpace() == '(')
+        {
+            Expect('(');
+            var inner = RequireInstant(ParseBinary(0));
+            Expect(')');
+            return PromExprs.IsScalar(inner)
+                ? throw new PromQlException("timestamp() expects an instant vector, got a scalar; wrap it in vector().")
+                : new PromTimestamp(inner);
         }
 
         if (lower == "scalar" && NextNonSpace() == '(')
@@ -726,6 +772,18 @@ internal sealed class PromQlParser
             var inner = RequireInstant(ParseBinary(0));
             Expect(')');
             return new PromHistogramQuantile(q.Value, inner);
+        }
+
+        if (lower == "histogram_fraction")
+        {
+            Expect('(');
+            var lowerBound = ParseBinary(0) as PromNumber ?? throw new PromQlException("histogram_fraction's first argument must be a number.");
+            Expect(',');
+            var upperBound = ParseBinary(0) as PromNumber ?? throw new PromQlException("histogram_fraction's second argument must be a number.");
+            Expect(',');
+            var inner = RequireInstant(ParseBinary(0));
+            Expect(')');
+            return new PromHistogramFraction(lowerBound.Value, upperBound.Value, inner);
         }
 
         if (lower == "absent")
@@ -799,7 +857,7 @@ internal sealed class PromQlParser
         if (Peek() == '(')
         {
             throw new PromQlException(
-                $"function '{ident}' is not supported (supported: rate, increase, irate, avg_over_time, last_over_time, min_over_time, max_over_time, sum_over_time, count_over_time, delta, changes, resets, deriv, predict_linear, histogram_quantile, "
+                $"function '{ident}' is not supported (supported: rate, increase, irate, avg_over_time, last_over_time, min_over_time, max_over_time, sum_over_time, count_over_time, delta, idelta, changes, resets, deriv, predict_linear, holt_winters, histogram_quantile, histogram_fraction, timestamp, "
                 + "sum, avg, min, max, count, group, stddev, stdvar, topk, bottomk, quantile, count_values, time, scalar, sort, sort_desc, sort_by_label, sort_by_label_desc, vector, abs, ceil, floor, round, sqrt, exp, ln, log2, log10, sgn, clamp, clamp_min, clamp_max, absent, label_replace, label_join).");
         }
 
@@ -953,9 +1011,9 @@ internal sealed class PromQlParser
             throw new PromQlException("vector selector must contain at least one matcher or a metric name.");
         }
 
-        if (name is null && !matchers.Any(m => m is { Name: "__name__", Op: PromMatchOp.Equal }))
+        if (name is null && !matchers.Any(m => m is { Name: "__name__", Op: PromMatchOp.Equal or PromMatchOp.Regex }))
         {
-            throw new PromQlException("vector selector must name a metric (a bare name or __name__=\"...\").");
+            throw new PromQlException("vector selector must name a metric (a bare name, __name__=\"...\" or __name__=~\"...\").");
         }
 
         TimeSpan? range = null;

@@ -297,7 +297,7 @@ public static class MetricSeriesQueryBuilder
     /// average unless <see cref="Model.MetricQueryRequest.GaugeAggregate"/> asks for another reduction of the raw points.
     /// </summary>
     private static string BuildGaugeSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr, MetricGaugeAggregate? aggregate) =>
-        aggregate is MetricGaugeAggregate.Delta or MetricGaugeAggregate.Changes or MetricGaugeAggregate.Resets
+        aggregate is MetricGaugeAggregate.Delta or MetricGaugeAggregate.Changes or MetricGaugeAggregate.Resets or MetricGaugeAggregate.LastDelta
             ? BuildGaugeStepSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr, aggregate.Value)
             : BuildGaugeFlatSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr, aggregate);
 
@@ -323,12 +323,13 @@ public static class MetricSeriesQueryBuilder
         {
             MetricGaugeAggregate.Delta => "sumIf(Value - PrevValue, SeriesRowNum > 1)",
             MetricGaugeAggregate.Changes => "toFloat64(countIf(SeriesRowNum > 1 AND Value != PrevValue AND NOT (isNaN(Value) AND isNaN(PrevValue))))",
+            MetricGaugeAggregate.LastDelta => "argMaxIf(Value - PrevValue, Time, SeriesRowNum > 1)",
             _ => "toFloat64(countIf(SeriesRowNum > 1 AND Value < PrevValue))",
         };
 
         return "WITH ranked AS (\n" +
             $"  SELECT ServiceName, DataPointAttributes, {seriesKeyExpr}, " +
-            "toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, Value,\n" +
+            "toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, Time, Value,\n" +
             "    row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum,\n" +
             "    lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS PrevValue\n" +
             $"  FROM {table}\n" +
@@ -348,6 +349,7 @@ public static class MetricSeriesQueryBuilder
         MetricGaugeAggregate.Max => "max(Value)",
         MetricGaugeAggregate.Sum => "sum(Value)",
         MetricGaugeAggregate.Count => "toFloat64(count())",
+        MetricGaugeAggregate.LastTime => "toFloat64(max(toUnixTimestamp64Milli(Time))) / 1000",
         _ => "avg(Value)",
     };
 

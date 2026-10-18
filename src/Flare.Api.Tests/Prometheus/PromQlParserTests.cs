@@ -63,7 +63,7 @@ public class PromQlParserTests
     }
 
     [Theory]
-    [InlineData("holt_winters(x[5m], 0.5, 0.5)", "not supported")]
+    [InlineData("quantile_over_time(0.5, x[5m])", "not supported")]
     [InlineData("x offset -5m", "negative offset")]
     [InlineData("a and 1", "scalar expression")]
     [InlineData("1 > 2", "bool")]
@@ -452,4 +452,56 @@ public class PromQlParserTests
     [Fact]
     public void SelectorCollector_FindsSelectorsInsideScalarAndSort() =>
         Assert.Equal(["a", "b"], PromSelectors.Collect(PromQlParser.Parse("sort(a) * scalar(b)")).Select(s => s.MetricName));
+
+    [Fact]
+    public void Parse_IdeltaAndHoltWinters()
+    {
+        Assert.Equal("idelta", Assert.IsType<PromRangeFunction>(PromQlParser.Parse("idelta(temp[5m])")).Name);
+        Assert.IsType<PromSubqueryFunction>(PromQlParser.Parse("idelta(temp[1h:1m])"));
+
+        var hw = Assert.IsType<PromRangeFunction>(PromQlParser.Parse("holt_winters(temp[5m], 0.3, 0.1)"));
+        Assert.Equal((0.3, 0.1), (hw.Parameter, hw.Parameter2));
+        // The Prometheus 3 name is an alias.
+        Assert.Equal("holt_winters", Assert.IsType<PromRangeFunction>(PromQlParser.Parse("double_exponential_smoothing(temp[5m], 0.3, 0.1)")).Name);
+    }
+
+    [Theory]
+    [InlineData("holt_winters(temp[5m], 0, 0.5)")]
+    [InlineData("holt_winters(temp[5m], 0.5, 1)")]
+    [InlineData("holt_winters(temp[5m], 0.5)")]
+    [InlineData("holt_winters(temp[5m], x, 0.5)")]
+    public void Parse_HoltWintersFactors_AreValidated(string query) =>
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse(query));
+
+    [Fact]
+    public void Parse_Timestamp()
+    {
+        Assert.IsType<PromSelector>(Assert.IsType<PromTimestamp>(PromQlParser.Parse("timestamp(temp)")).Inner);
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse("timestamp(time())"));
+        Assert.IsType<PromSelector>(PromQlParser.Parse("timestamp"));
+    }
+
+    [Fact]
+    public void Parse_HistogramFraction()
+    {
+        var hf = Assert.IsType<PromHistogramFraction>(PromQlParser.Parse("histogram_fraction(0, 0.3, rate(d_bucket[5m]))"));
+
+        Assert.Equal((0.0, 0.3), (hf.Lower, hf.Upper));
+        Assert.Equal(double.PositiveInfinity, Assert.IsType<PromHistogramFraction>(PromQlParser.Parse("histogram_fraction(0.3, +Inf, rate(d_bucket[5m]))")).Upper);
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse("histogram_fraction(x, 1, rate(d_bucket[5m]))"));
+    }
+
+    [Fact]
+    public void Parse_NamePattern_IsAMultiMetricSelector()
+    {
+        var pattern = Assert.IsType<PromSelector>(PromQlParser.Parse("""{__name__=~"http_.*", job="api"}"""));
+        var single = Assert.IsType<PromSelector>(PromQlParser.Parse("""{__name__="up"}"""));
+
+        Assert.True(pattern.IsMultiMetric);
+        Assert.Single(pattern.NameMatchers);
+        Assert.Equal(["job"], pattern.LabelMatchers.Select(m => m.Name));
+        Assert.False(single.IsMultiMetric);
+        Assert.IsType<PromRangeFunction>(PromQlParser.Parse("""rate({__name__=~"jobs_.*"}[5m])"""));
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse("""{__name__!~"http_.*"}"""));
+    }
 }

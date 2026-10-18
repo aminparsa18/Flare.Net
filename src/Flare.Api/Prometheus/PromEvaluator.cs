@@ -100,6 +100,17 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
     public async Task<IReadOnlyList<PromRawSeries>> SelectSeriesAsync(
         PromSelector selector, DateTimeOffset from, DateTimeOffset to, List<string> warnings, CancellationToken cancellationToken)
     {
+        if (selector.IsMultiMetric)
+        {
+            var all = new List<PromRawSeries>();
+            foreach (var one in await ExpandAsync(selector, from, to, warnings, cancellationToken))
+            {
+                all.AddRange(await SelectSeriesAsync(one, from, to, warnings, cancellationToken));
+            }
+
+            return all;
+        }
+
         var metric = await ResolveAsync(selector, from, to, cancellationToken);
         if (metric is null)
         {
@@ -120,6 +131,25 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         {
             case PromNumber number:
                 return [ScalarSeries(number, ctx)];
+
+            // A __name__ pattern is expanded into one selector per matching metric first (see EvalMultiMetricAsync).
+            case PromSelector { IsMultiMetric: true } selector:
+                return await EvalMultiMetricAsync(selector, s => s, ctx, cancellationToken);
+
+            case PromRangeFunction { Selector.IsMultiMetric: true } fn:
+                return await EvalMultiMetricAsync(fn.Selector, s => fn with { Selector = s }, ctx, cancellationToken);
+
+            case PromTimestamp { Inner: PromSelector { IsMultiMetric: true } selector }:
+                return await EvalMultiMetricAsync(selector, s => new PromTimestamp(s), ctx, cancellationToken);
+
+            case PromTimestamp { Inner: PromSelector { At: { } at } selector }:
+                return await PinnedAsync(at, ctx, async c => WithoutNames(await EvalSelectorAsync(selector, c, cancellationToken, MetricGaugeAggregate.LastTime)));
+
+            case PromTimestamp { Inner: PromSelector selector }:
+                return WithoutNames(await EvalSelectorAsync(selector, ctx, cancellationToken, MetricGaugeAggregate.LastTime));
+
+            case PromTimestamp timestamp:
+                return StepTimestamps(await EvalAsync(timestamp.Inner, ctx, cancellationToken));
 
             case PromSelector { At: { } at } selector:
                 return await PinnedAsync(at, ctx, c => EvalSelectorAsync(selector, c, cancellationToken));
@@ -163,23 +193,107 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             case PromBinary binary:
                 return await EvalBinaryAsync(binary, ctx, cancellationToken);
 
-            case PromHistogramQuantile hq when HistogramAt(hq) is { } at:
-                return await PinnedAsync(at, ctx, c => EvalHistogramQuantileAsync(hq, c, cancellationToken));
+            case PromHistogramQuantile hq when HistogramAt(hq.Inner) is { } at:
+                return await PinnedAsync(at, ctx, c => EvalHistogramAsync("histogram_quantile", hq.Inner, w => Quantile(hq.Quantile, w), c, cancellationToken));
 
             case PromHistogramQuantile hq:
-                return await EvalHistogramQuantileAsync(hq, ctx, cancellationToken);
+                return await EvalHistogramAsync("histogram_quantile", hq.Inner, w => Quantile(hq.Quantile, w), ctx, cancellationToken);
+
+            case PromHistogramFraction hf when HistogramAt(hf.Inner) is { } at:
+                return await PinnedAsync(at, ctx, c => EvalHistogramAsync("histogram_fraction", hf.Inner, w => PromWindowMath.HistogramFraction(hf.Lower, hf.Upper, w), c, cancellationToken));
+
+            case PromHistogramFraction hf:
+                return await EvalHistogramAsync("histogram_fraction", hf.Inner, w => PromWindowMath.HistogramFraction(hf.Lower, hf.Upper, w), ctx, cancellationToken);
 
             default:
                 throw new PromQlException("unsupported expression.");
         }
     }
 
-    private static PromAt? HistogramAt(PromHistogramQuantile hq) => hq.Inner switch
+    private static PromAt? HistogramAt(PromExpr inner) => inner switch
     {
         PromRangeFunction fn => fn.Selector.At,
         PromAggregation { Inner: PromRangeFunction fn } => fn.Selector.At,
         _ => null,
     };
+
+    private static List<PromSeries> WithoutNames(List<PromSeries> series) =>
+        series.Select(s => new PromSeries(WithoutName(s.Labels)).With(s.Samples)).ToList();
+
+    // timestamp() of anything but a selector: each sample's own step, in seconds.
+    private static List<PromSeries> StepTimestamps(List<PromSeries> series)
+    {
+        var result = new List<PromSeries>(series.Count);
+        foreach (var s in series)
+        {
+            var stamped = new PromSeries(WithoutName(s.Labels));
+            stamped.Samples.AddRange(s.Samples.Select(x => new PromSample(x.TimestampMs, x.TimestampMs / 1000.0)));
+            result.Add(stamped);
+        }
+
+        return result;
+    }
+
+    /// <summary>How many metrics one <c>__name__</c> pattern is evaluated against; more are skipped with a warning.</summary>
+    private const int MaxExpandedMetrics = 50;
+
+    /// <summary>
+    /// A selector that names its metrics with a pattern (<c>{__name__=~"http_.*"}</c>) is evaluated once per matching
+    /// metric and the series are concatenated, each keeping its own <c>__name__</c>. A metric the surrounding
+    /// expression cannot read (a counter outside <c>rate()</c>, a histogram under a gauge function) is skipped with a
+    /// warning; if every match fails, the first error is the answer.
+    /// </summary>
+    private async Task<List<PromSeries>> EvalMultiMetricAsync(
+        PromSelector selector, Func<PromSelector, PromExpr> rebuild, Context ctx, CancellationToken cancellationToken)
+    {
+        var shift = OffsetMs(selector.Offset, ctx);
+        var from = DateTimeOffset.FromUnixTimeMilliseconds(ctx.StartMs - shift) - (selector.Range ?? TimeSpan.Zero);
+        var to = DateTimeOffset.FromUnixTimeMilliseconds(ctx.EndMs - shift).AddMilliseconds(1);
+        var concrete = await ExpandAsync(selector, from, to, ctx.Warnings, cancellationToken);
+
+        var result = new List<PromSeries>();
+        PromQlException? first = null;
+        var failed = 0;
+        foreach (var one in concrete)
+        {
+            try
+            {
+                result.AddRange(await EvalAsync(rebuild(one), ctx, cancellationToken));
+            }
+            catch (PromQlException ex)
+            {
+                first ??= ex;
+                failed++;
+                ctx.Warnings.Add($"skipped '{one.MetricName}': {ex.Message}");
+            }
+        }
+
+        return failed > 0 && failed == concrete.Count ? throw first! : result;
+    }
+
+    /// <summary>The metrics a <c>__name__</c> pattern matches, as one single-name selector each (alphabetical, at most <see cref="MaxExpandedMetrics"/>).</summary>
+    private async Task<List<PromSelector>> ExpandAsync(
+        PromSelector selector, DateTimeOffset from, DateTimeOffset to, List<string> warnings, CancellationToken cancellationToken)
+    {
+        var known = await KnownMetricsAsync(from, to, cancellationToken);
+        var names = known
+            .SelectMany(i => PromNames.PromNamesFor(i.MetricName, i.Unit, i.Type))
+            // The bare histogram name is an alias of _bucket; a pattern should list the metric once.
+            .Where(n => !(n.Kind == PromMetricKind.HistogramBucket && !n.PromName.EndsWith("_bucket", StringComparison.Ordinal)))
+            .Select(n => n.PromName)
+            .Distinct(StringComparer.Ordinal)
+            .Where(n => selector.NameMatchers.All(m => Matches(m, n)))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        if (names.Count > MaxExpandedMetrics)
+        {
+            warnings.Add($"the __name__ pattern matched {names.Count} metrics; only the first {MaxExpandedMetrics} (alphabetical) are included. Narrow the pattern.");
+            names = names.Take(MaxExpandedMetrics).ToList();
+        }
+
+        var labelMatchers = selector.Matchers.Where(m => m.Name != "__name__").ToList();
+        return names.Select(n => selector with { MetricName = n, Matchers = labelMatchers }).ToList();
+    }
 
     /// <summary>How far back a pinned (<c>@</c>) evaluation looks for its newest sample; the instant-query lookback (<c>PrometheusEndpoints.InstantLookback</c>).</summary>
     private static readonly long PinLookbackMs = (long)TimeSpan.FromMinutes(5).TotalMilliseconds;
@@ -313,7 +427,8 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
     private static long OffsetMs(TimeSpan offset, Context ctx) =>
         (long)Math.Round(offset.TotalMilliseconds / ctx.StepMs) * ctx.StepMs;
 
-    private async Task<List<PromSeries>> EvalSelectorAsync(PromSelector selector, Context ctx, CancellationToken cancellationToken)
+    private async Task<List<PromSeries>> EvalSelectorAsync(
+        PromSelector selector, Context ctx, CancellationToken cancellationToken, MetricGaugeAggregate? aggregate = null)
     {
         var shift = OffsetMs(selector.Offset, ctx);
         var from = DateTimeOffset.FromUnixTimeMilliseconds(ctx.StartMs - shift);
@@ -334,7 +449,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             });
         }
 
-        var raw = await FetchAsync(selector, metric, from, to, ctx.StepSeconds, metric.Type, false, false, ctx.Warnings, cancellationToken);
+        var raw = await FetchAsync(selector, metric, from, to, ctx.StepSeconds, metric.Type, false, false, ctx.Warnings, cancellationToken, aggregate);
         return raw.Select(r =>
         {
             var series = new PromSeries(r.Labels);
@@ -434,6 +549,9 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                     // Each bucket holds its own sum, count, change or reset total, so the window's is their total.
                     "sum_over_time" or "count_over_time" or "delta" or "changes" or "resets" => window.Sum(),
                     "deriv" or "predict_linear" => Regress(fn, window, times, Math.Min(t + ctx.StepMs, ctx.EndMs)),
+                    // The newest bucket holds the newest point's step from its predecessor.
+                    "idelta" => window[^1],
+                    "holt_winters" => PromWindowMath.HoltWinters(window, fn.Parameter!.Value, fn.Parameter2!.Value),
                     _ => window[^1],
                 };
 
@@ -462,6 +580,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         "delta" => MetricGaugeAggregate.Delta,
         "changes" => MetricGaugeAggregate.Changes,
         "resets" => MetricGaugeAggregate.Resets,
+        "idelta" => MetricGaugeAggregate.LastDelta,
         _ => null,
     };
 
@@ -555,6 +674,8 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                     "changes" => PromWindowMath.Changes(window),
                     "resets" => PromWindowMath.Resets(window),
                     "deriv" or "predict_linear" => Regress(fn.Name, fn.Parameter, window, points.Select(x => x.TimestampMs).ToList(), windowEnd),
+                    "idelta" => window.Count >= 2 ? window[^1] - window[^2] : null,
+                    "holt_winters" => PromWindowMath.HoltWinters(window, fn.Parameter!.Value, fn.Parameter2!.Value),
                     _ => window[^1],
                 };
 
@@ -573,14 +694,18 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         return result;
     }
 
-    private async Task<List<PromSeries>> EvalHistogramQuantileAsync(PromHistogramQuantile hq, Context ctx, CancellationToken cancellationToken)
+    /// <summary>
+    /// <c>histogram_quantile</c> and <c>histogram_fraction</c> share one shape: the buckets of
+    /// <c>rate(m[r])</c>, optionally summed, folded over the window and reduced to one number by <paramref name="reduce"/>.
+    /// </summary>
+    private async Task<List<PromSeries>> EvalHistogramAsync(
+        string function, PromExpr argument, Func<SortedDictionary<(double Lower, double Upper), double>, double?> reduce, Context ctx, CancellationToken cancellationToken)
     {
-        // Accepted shapes: histogram_quantile(q, rate(m[r])) and
-        // histogram_quantile(q, sum [by|without (...)] (rate(m[r]))). Anything richer is rejected, not approximated.
+        // Accepted shapes: f(rate(m[r])) and f(sum [by|without (...)] (rate(m[r]))). Anything richer is rejected, not approximated.
         PromRangeFunction fn;
         IReadOnlyList<string> groupLabels = [];
         var without = true;
-        switch (hq.Inner)
+        switch (argument)
         {
             case PromRangeFunction direct:
                 fn = direct;
@@ -592,12 +717,12 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                 break;
             default:
                 throw new PromQlException(
-                    "histogram_quantile's argument must be rate()/increase() of a histogram, optionally wrapped in sum [by|without (...)].");
+                    $"{function}'s argument must be rate()/increase() of a histogram, optionally wrapped in sum [by|without (...)].");
         }
 
         if (fn.Name is not ("rate" or "increase"))
         {
-            throw new PromQlException($"histogram_quantile does not accept {fn.Name}(); use rate() or increase().");
+            throw new PromQlException($"{function} does not accept {fn.Name}(); use rate() or increase().");
         }
 
         var range = fn.Selector.Range!.Value;
@@ -612,7 +737,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
 
         if (metric.Kind != PromMetricKind.HistogramBucket)
         {
-            throw new PromQlException($"histogram_quantile needs a histogram metric; '{metric.PromName}' is not one.");
+            throw new PromQlException($"{function} needs a histogram metric; '{metric.PromName}' is not one.");
         }
 
         var raw = await FetchAsync(fn.Selector, metric, from, to, ctx.StepSeconds, metric.Type, false, includeBuckets: true, ctx.Warnings, cancellationToken);
@@ -673,7 +798,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                     }
                 }
 
-                if (Quantile(hq.Quantile, window) is { } value)
+                if (reduce(window) is { } value)
                 {
                     series.Samples.Add(new PromSample(t, value));
                 }
@@ -937,7 +1062,8 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
 
     private async Task<PromMetric?> ResolveAsync(PromSelector selector, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
-        var name = selector.EffectiveMetricName ?? throw new PromQlException("vector selector must name a metric.");
+        var name = selector.EffectiveMetricName
+            ?? throw new PromQlException("this function needs a single metric name; a __name__ pattern works on plain selectors, range functions such as rate(), and timestamp().");
         return PromNames.Resolve(name, await KnownMetricsAsync(from, to, cancellationToken));
     }
 
@@ -992,6 +1118,17 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         if (exemplars is null)
         {
             return [];
+        }
+
+        if (selector.IsMultiMetric)
+        {
+            var all = new List<PromExemplar>();
+            foreach (var one in await ExpandAsync(selector, from, to, [], cancellationToken))
+            {
+                all.AddRange(await ExemplarsAsync(one, from, to, limit, cancellationToken));
+            }
+
+            return all;
         }
 
         var metric = await ResolveAsync(selector, from, to, cancellationToken);
