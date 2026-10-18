@@ -77,6 +77,49 @@ internal sealed record PromBinary(string Op, bool ReturnBool, PromExpr Left, Pro
 
 internal sealed record PromHistogramQuantile(double Quantile, PromExpr Inner) : PromExpr;
 
+/// <summary>Every vector selector in an expression, for endpoints that work on selectors rather than evaluated values (exemplars).</summary>
+internal static class PromSelectors
+{
+    public static List<PromSelector> Collect(PromExpr expr)
+    {
+        var result = new List<PromSelector>();
+        Walk(expr, result);
+        return result;
+    }
+
+    private static void Walk(PromExpr expr, List<PromSelector> into)
+    {
+        switch (expr)
+        {
+            case PromSelector selector:
+                into.Add(selector);
+                break;
+            case PromRangeFunction fn:
+                into.Add(fn.Selector);
+                break;
+            case PromAggregation agg:
+                Walk(agg.Inner, into);
+                break;
+            case PromFunction fn:
+                Walk(fn.Argument, into);
+                break;
+            case PromLabelFunction lf:
+                Walk(lf.Inner, into);
+                break;
+            case PromAbsent absent:
+                Walk(absent.Inner, into);
+                break;
+            case PromHistogramQuantile hq:
+                Walk(hq.Inner, into);
+                break;
+            case PromBinary binary:
+                Walk(binary.Left, into);
+                Walk(binary.Right, into);
+                break;
+        }
+    }
+}
+
 /// <summary>
 /// Hand-written recursive-descent parser for the PromQL subset Flare serves (ADR-0109, extended by
 /// ADR-0239): vector selectors with <c>= != =~ !~</c> matchers and an <c>offset</c>, range functions

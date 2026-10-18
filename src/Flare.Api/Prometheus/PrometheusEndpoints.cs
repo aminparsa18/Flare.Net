@@ -7,7 +7,7 @@ namespace Flare.Api.Prometheus;
 /// <summary>
 /// A read-only subset of the Prometheus HTTP API (ADR-0109) under <c>/api/v1</c>, so Grafana,
 /// <c>promtool</c> and <c>prometheus-adapter</c> can use Flare as a data source: <c>query</c>,
-/// <c>query_range</c>, <c>series</c>, <c>labels</c>, <c>label/&lt;name&gt;/values</c> and
+/// <c>query_range</c>, <c>query_exemplars</c> (ADR-0241), <c>series</c>, <c>labels</c>, <c>label/&lt;name&gt;/values</c> and
 /// <c>status/buildinfo</c>. GET and form-encoded POST both work, as Prometheus clients expect.
 /// Authentication is the normal Flare pipeline - a personal access token as <c>Authorization: Bearer
 /// flr_pat_...</c> (Grafana: "Custom HTTP headers" or bearer auth).
@@ -29,13 +29,14 @@ public static class PrometheusEndpoints
 
     public static IEndpointRouteBuilder MapPrometheusEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        foreach (var route in new[] { "/api/v1/query", "/api/v1/query_range", "/api/v1/series", "/api/v1/labels" })
+        foreach (var route in new[] { "/api/v1/query", "/api/v1/query_range", "/api/v1/series", "/api/v1/labels", "/api/v1/query_exemplars" })
         {
             var handler = route switch
             {
                 "/api/v1/query" => (Delegate)HandleQueryAsync,
                 "/api/v1/query_range" => HandleQueryRangeAsync,
                 "/api/v1/series" => HandleSeriesAsync,
+                "/api/v1/query_exemplars" => HandleQueryExemplarsAsync,
                 _ => HandleLabelsAsync,
             };
             endpoints.MapMethods(route, ["GET", "POST"], handler);
@@ -112,6 +113,57 @@ public static class PrometheusEndpoints
                 w.WriteEndArray();
             }, result.Warnings);
         });
+
+    /// <summary>Total exemplars one <c>query_exemplars</c> call returns, across every selector in the query.</summary>
+    private const int MaxExemplars = 1000;
+
+    private static async Task<IResult> HandleQueryExemplarsAsync(HttpContext http, PromEvaluator evaluator, TimeProvider time, CancellationToken ct) =>
+        await GuardAsync(async () =>
+        {
+            var p = await ReadParametersAsync(http, ct);
+            var expr = PromQlParser.Parse(p.Single("query") ?? throw new PromQlException("parameter 'query' is required."));
+            var (from, to) = MetadataWindow(p, time);
+
+            var found = new List<PromExemplar>();
+            foreach (var selector in PromSelectors.Collect(expr))
+            {
+                found.AddRange(await evaluator.ExemplarsAsync(selector, from, to, MaxExemplars, ct));
+            }
+
+            var warnings = new List<string>();
+            if (found.Count > MaxExemplars)
+            {
+                found = [.. found.OrderByDescending(e => e.TimestampMs).Take(MaxExemplars)];
+                warnings.Add($"more than {MaxExemplars} exemplars matched; only the newest {MaxExemplars} are returned. Narrow the selector or the time range.");
+            }
+
+            return Success(w =>
+            {
+                w.WriteStartArray("data");
+                foreach (var group in found.GroupBy(e => GroupKey(e.SeriesLabels)))
+                {
+                    w.WriteStartObject();
+                    WriteLabels(w, "seriesLabels", group.First().SeriesLabels);
+                    w.WriteStartArray("exemplars");
+                    foreach (var e in group.OrderBy(e => e.TimestampMs))
+                    {
+                        w.WriteStartObject();
+                        WriteLabels(w, "labels", e.Labels);
+                        w.WriteString("value", FormatSample(e.Value));
+                        w.WritePropertyName("timestamp");
+                        w.WriteRawValue((e.TimestampMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture));
+                        w.WriteEndObject();
+                    }
+
+                    w.WriteEndArray();
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+            }, warnings, dataIsProperty: true);
+        });
+
+    private static string GroupKey(Dictionary<string, string> labels) => PromBinaryOperations.GroupKey(labels);
 
     private static async Task<IResult> HandleSeriesAsync(HttpContext http, PromEvaluator evaluator, TimeProvider time, CancellationToken ct) =>
         await GuardAsync(async () =>

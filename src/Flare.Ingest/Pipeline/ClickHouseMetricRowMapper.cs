@@ -84,6 +84,68 @@ public static class ClickHouseMetricRowMapper
         "IngestedAt",
     ];
 
+    /// <summary>Columns of <c>metric_exemplars</c> (migration 0086), in DDL order. <c>_retention_days</c> is left to its column DEFAULT.</summary>
+    public static readonly IReadOnlyList<string> ExemplarColumns =
+    [
+        "MetricName",
+        "PointType",
+        "ServiceName",
+        "ResourceAttributes",
+        "DataPointAttributes",
+        "Time",
+        "Value",
+        "TraceId",
+        "SpanId",
+        "FilteredAttributes",
+    ];
+
+    /// <summary>One <c>metric_exemplars</c> row per exemplar carried by <paramref name="points"/> (ADR-0241).</summary>
+    public static IReadOnlyList<object[]> ToExemplarRows(IEnumerable<MetricPointRecord> points)
+    {
+        var rows = new List<object[]>();
+        foreach (var point in points)
+        {
+            var exemplars = point switch
+            {
+                GaugePointRecord p => p.Exemplars,
+                SumPointRecord p => p.Exemplars,
+                HistogramPointRecord p => p.Exemplars,
+                ExponentialHistogramPointRecord p => p.Exemplars,
+                _ => null,
+            };
+            if (exemplars is null)
+            {
+                continue;
+            }
+
+            var pointType = point switch
+            {
+                GaugePointRecord => "gauge",
+                SumPointRecord => "sum",
+                HistogramPointRecord => "histogram",
+                _ => "exponential_histogram",
+            };
+            foreach (var e in exemplars)
+            {
+                rows.Add(
+                [
+                    point.MetricName,
+                    pointType,
+                    point.ServiceName ?? string.Empty,
+                    new Dictionary<string, string>(point.ResourceAttributes),
+                    new Dictionary<string, string>(point.DataPointAttributes),
+                    e.Time.UtcDateTime,
+                    e.Value,
+                    e.TraceId,
+                    e.SpanId ?? string.Empty,
+                    new Dictionary<string, string>(e.FilteredAttributes),
+                ]);
+            }
+        }
+
+        return rows;
+    }
+
     public static object[] ToRow(GaugePointRecord point) => [.. CommonValues(point), point.Value, point.IngestedAt.UtcDateTime];
 
     public static object[] ToRow(SumPointRecord point) =>

@@ -253,7 +253,9 @@ builder.Services.AddSingleton<IMetricQueryService>(sp => new CachingMetricQueryS
     sp.GetRequiredService<IOptions<QueryCacheOptions>>(),
     sp.GetRequiredService<TimeProvider>()));
 // Prometheus-compatible query API subset (ADR-0109) - a PromQL translator over IMetricQueryService.
-builder.Services.AddSingleton(sp => new Flare.Api.Prometheus.PromEvaluator(sp.GetRequiredService<IMetricQueryService>()));
+builder.Services.AddSingleton<IMetricExemplarService, MetricExemplarService>();
+builder.Services.AddSingleton(sp => new Flare.Api.Prometheus.PromEvaluator(
+    sp.GetRequiredService<IMetricQueryService>(), sp.GetRequiredService<IMetricExemplarService>()));
 // Loki-compatible log query API subset (ADR-0236) - a LogQL translator straight over the logs table.
 builder.Services.AddSingleton<LokiQueryService>();
 // ServiceMetricsOptions - the ADR-0030 rollback valve for the pre-aggregated

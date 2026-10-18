@@ -40,6 +40,113 @@ public class OtlpMetricsMapperTests
     }
 
     [Fact]
+    public void Map_KeepsOnlyExemplarsThatCarryATraceId()
+    {
+        var traceId = Google.Protobuf.ByteString.CopyFrom(Convert.FromHexString("0af7651916cd43dd8448eb211c80319c"));
+        var spanId = Google.Protobuf.ByteString.CopyFrom(Convert.FromHexString("b7ad6b7169203331"));
+        var metric = new Metric
+        {
+            Name = "http.server.request.duration",
+            Histogram = new Histogram
+            {
+                DataPoints =
+                {
+                    new HistogramDataPoint
+                    {
+                        TimeUnixNano = 1_700_000_000_000_000_000UL,
+                        Exemplars =
+                        {
+                            new Exemplar
+                            {
+                                AsDouble = 1.5,
+                                TimeUnixNano = 1_700_000_001_000_000_000UL,
+                                TraceId = traceId,
+                                SpanId = spanId,
+                                FilteredAttributes = { new KeyValue { Key = "user", Value = new AnyValue { StringValue = "u1" } } },
+                            },
+                            new Exemplar { AsInt = 7, TimeUnixNano = 1_700_000_002_000_000_000UL },
+                        },
+                    },
+                },
+            },
+        };
+
+        var point = Assert.IsType<HistogramPointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
+
+        var exemplar = Assert.Single(point.Exemplars!);
+        Assert.Equal("0af7651916cd43dd8448eb211c80319c", exemplar.TraceId);
+        Assert.Equal("b7ad6b7169203331", exemplar.SpanId);
+        Assert.Equal(1.5, exemplar.Value);
+        Assert.Equal("u1", exemplar.FilteredAttributes["user"]);
+    }
+
+    [Fact]
+    public void Map_LeavesExemplarsNull_WhenAPointHasNone()
+    {
+        var metric = new Metric { Name = "g", Gauge = new Gauge { DataPoints = { new NumberDataPoint { AsInt = 1, TimeUnixNano = 1_700_000_000_000_000_000UL } } } };
+
+        var point = Assert.IsType<GaugePointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
+
+        Assert.Null(point.Exemplars);
+    }
+
+    [Fact]
+    public void MemoryPack_RoundTripsExemplars_ThroughThePolymorphicBase()
+    {
+        MetricPointRecord point = new HistogramPointRecord
+        {
+            MetricName = "h",
+            ResourceAttributes = new Dictionary<string, string>(),
+            ScopeAttributes = new Dictionary<string, string>(),
+            DataPointAttributes = new Dictionary<string, string>(),
+            Time = TestIngestedAt,
+            IngestedAt = TestIngestedAt,
+            AggregationTemporality = 1,
+            Count = 1,
+            BucketCounts = [1],
+            ExplicitBounds = [],
+            Exemplars = [new MetricExemplar { Time = TestIngestedAt, Value = 4, TraceId = "ab", FilteredAttributes = new Dictionary<string, string> { ["k"] = "v" } }],
+        };
+
+        var back = Assert.IsType<HistogramPointRecord>(MemoryPack.MemoryPackSerializer.Deserialize<MetricPointRecord>(MemoryPack.MemoryPackSerializer.Serialize(point)));
+
+        var exemplar = Assert.Single(back.Exemplars!);
+        Assert.Equal("ab", exemplar.TraceId);
+        Assert.Equal("v", exemplar.FilteredAttributes["k"]);
+    }
+
+    [Fact]
+    public void ToExemplarRows_EmitsOneRowPerExemplar_WithThePointsIdentity()
+    {
+        var point = new SumPointRecord
+        {
+            MetricName = "orders",
+            ServiceName = "shop",
+            ResourceAttributes = new Dictionary<string, string>(),
+            ScopeAttributes = new Dictionary<string, string>(),
+            DataPointAttributes = new Dictionary<string, string> { ["route"] = "/a" },
+            Time = TestIngestedAt,
+            IngestedAt = TestIngestedAt,
+            Value = 1,
+            AggregationTemporality = 1,
+            IsMonotonic = true,
+            Exemplars =
+            [
+                new MetricExemplar { Time = TestIngestedAt, Value = 2, TraceId = "aa", SpanId = "bb", FilteredAttributes = new Dictionary<string, string>() },
+                new MetricExemplar { Time = TestIngestedAt, Value = 3, TraceId = "cc", FilteredAttributes = new Dictionary<string, string>() },
+            ],
+        };
+
+        var rows = Flare.Ingest.Pipeline.ClickHouseMetricRowMapper.ToExemplarRows([point]);
+
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, r => Assert.Equal(Flare.Ingest.Pipeline.ClickHouseMetricRowMapper.ExemplarColumns.Count, r.Length));
+        Assert.Equal(["orders", "sum", "shop"], rows[0].Take(3));
+        Assert.Equal("cc", rows[1][7]);
+        Assert.Equal(string.Empty, rows[1][8]);
+    }
+
+    [Fact]
     public void Map_MapsGaugeDataPoints_WithDoubleValue()
     {
         var metric = new Metric

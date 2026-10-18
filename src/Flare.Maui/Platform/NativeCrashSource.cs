@@ -107,8 +107,9 @@ internal sealed class MetricKitCrashes : NSObject, IMXMetricManagerSubscriber
             if (!(OperatingSystem.IsIOSVersionAtLeast(14) || OperatingSystem.IsMacCatalystVersionAtLeast(14))) return;
             _instance = new MetricKitCrashes();
             MXMetricManager.SharedManager.Add(_instance);
+            Console.WriteLine("[Flare.Maui] MetricKit subscriber registered");
         }
-        catch { }
+        catch (Exception e) { Console.WriteLine($"[Flare.Maui] MetricKit subscribe failed: {e}"); }
     }
 
     [Export("didReceiveDiagnosticPayloads:")]
@@ -116,6 +117,7 @@ internal sealed class MetricKitCrashes : NSObject, IMXMetricManagerSubscriber
     {
         try
         {
+            Console.WriteLine($"[Flare.Maui] MetricKit diagnostic payloads: {payloads.Length}");
             var crashes = new List<NativeCrash>();
             foreach (var payload in payloads)
             {
@@ -129,9 +131,10 @@ internal sealed class MetricKitCrashes : NSObject, IMXMetricManagerSubscriber
                     crashes.Add(new NativeCrash("NativeCrash", reason, end, detail, StackOf(crash), begin));
                 }
             }
+            Console.WriteLine($"[Flare.Maui] MetricKit crash diagnostics: {crashes.Count}");
             FlareMaui.ReportNativeCrashes(crashes);
         }
-        catch { }
+        catch (Exception e) { Console.WriteLine($"[Flare.Maui] MetricKit payload handling failed: {e}"); }
     }
 
     [Export("didReceiveMetricPayloads:")]

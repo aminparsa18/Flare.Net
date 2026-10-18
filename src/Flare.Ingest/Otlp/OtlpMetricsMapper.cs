@@ -81,6 +81,7 @@ public static class OtlpMetricsMapper
                                     Time = FromUnixNano(dp.TimeUnixNano),
                                     Value = NumberValue(dp),
                                     IngestedAt = ingestedAt,
+                                    Exemplars = MapExemplars(dp.Exemplars),
                                 });
                             }
                             break;
@@ -109,6 +110,7 @@ public static class OtlpMetricsMapper
                                     AggregationTemporality = (int)metric.Sum.AggregationTemporality,
                                     IsMonotonic = metric.Sum.IsMonotonic,
                                     IngestedAt = ingestedAt,
+                                    Exemplars = MapExemplars(dp.Exemplars),
                                 });
                             }
                             break;
@@ -139,6 +141,7 @@ public static class OtlpMetricsMapper
                                     BucketCounts = [.. dp.BucketCounts],
                                     ExplicitBounds = [.. dp.ExplicitBounds],
                                     IngestedAt = ingestedAt,
+                                    Exemplars = MapExemplars(dp.Exemplars),
                                 });
                             }
                             break;
@@ -176,6 +179,7 @@ public static class OtlpMetricsMapper
                                     Min = dp.HasMin ? dp.Min : null,
                                     Max = dp.HasMax ? dp.Max : null,
                                     IngestedAt = ingestedAt,
+                                    Exemplars = MapExemplars(dp.Exemplars),
                                 });
                             }
                             break;
@@ -202,6 +206,46 @@ public static class OtlpMetricsMapper
     /// </summary>
     private static bool IsNoRecordedValue(uint flags) =>
         (flags & (uint)DataPointFlags.NoRecordedValueMask) != 0;
+
+    /// <summary>Per-point cap: an SDK keeps a handful (about one per bucket), so more than this is a misbehaving sender.</summary>
+    private const int MaxExemplarsPerPoint = 50;
+
+    /// <summary>
+    /// Keeps the exemplars that link to a trace (a trace id is the whole point of one) and returns
+    /// <see langword="null"/> when none do, so ordinary points carry nothing extra through Redis.
+    /// </summary>
+    private static List<MetricExemplar>? MapExemplars(Google.Protobuf.Collections.RepeatedField<Exemplar> exemplars)
+    {
+        if (exemplars.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new List<MetricExemplar>();
+        foreach (var e in exemplars)
+        {
+            if (e.TraceId.IsEmpty || result.Count >= MaxExemplarsPerPoint)
+            {
+                continue;
+            }
+
+            result.Add(new MetricExemplar
+            {
+                Time = FromUnixNano(e.TimeUnixNano),
+                Value = e.ValueCase switch
+                {
+                    Exemplar.ValueOneofCase.AsDouble => e.AsDouble,
+                    Exemplar.ValueOneofCase.AsInt => e.AsInt,
+                    _ => 0d,
+                },
+                TraceId = Convert.ToHexStringLower(e.TraceId.Span),
+                SpanId = e.SpanId.IsEmpty ? null : Convert.ToHexStringLower(e.SpanId.Span),
+                FilteredAttributes = OtlpAnyValue.Flatten(e.FilteredAttributes),
+            });
+        }
+
+        return result.Count == 0 ? null : result;
+    }
 
     private static double NumberValue(NumberDataPoint dp) => dp.ValueCase switch
     {

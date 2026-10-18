@@ -90,17 +90,20 @@ folders are where "what happened and why" actually lives.
   ([ADR-0155](../adr/0155-otlp-forwarding.md)), a read-only Prometheus API a Grafana data source can query
   ([ADR-0109](../adr/0109-prometheus-query-api.md), extended with operators between series, `offset`, `topk` and more
   functions in [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), then `absent`,
-  `label_replace` and `label_join` in [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md)), a read-only Tempo-compatible trace API
+  `label_replace` and `label_join` in [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md), and
+  exemplars in [ADR-0241](../adr/0241-metric-exemplars.md)), a read-only Tempo-compatible trace API
   ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)) and a read-only Loki-compatible log API
   ([ADR-0236](../adr/0236-loki-compatible-log-api.md), extended with `logfmt`, `line_format`, `unwrap`, live tail and
   Logs Drilldown in [ADR-0237](../adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md), then
   `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
-  - Prometheus exemplars, so a latency chart links to a sample trace. The metric tables hold none today, so ingest has to
-    keep them first. The query language gaps are closed in [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)
-    and [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md);
-    `@`, subqueries and `min`/`max_over_time` (which needs per-bucket min and max stored) remain.
+  - Show exemplars on the dashboard's own metric charts (a dot per exemplar linking to the trace). Ingest and
+    the Prometheus `query_exemplars` endpoint exist ([ADR-0241](../adr/0241-metric-exemplars.md)); exemplars from the
+    Prometheus scrape path (OpenMetrics `# {trace_id=...}` comments) are not captured yet.
+  - PromQL still missing: `@`, subqueries and `min`/`max_over_time` (needs per-bucket min and max stored). See
+    [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md) and
+    [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md).
   - Deep links both ways: an "Open in Grafana" action on a TraceId from a configurable URL template, and Grafana data
     links that open the trace or session in Flare.
   - A Grafana Cloud preset for forwarding targets (region, instance id and token instead of a hand-built URL and Basic
