@@ -81,6 +81,8 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 Chaque résultat est une série avec ses `exemplars`, chacun portant `trace_id` (et `span_id`), une valeur et un horodatage. Jusqu'à 1000 sont renvoyés, les plus récents d'abord. Seuls les points ingérés après la mise à jour portent des exemplars, et uniquement via OTLP.
 
+La page Metrics de Flare et les panneaux Metrics des tableaux de bord les affichent aussi : sur un graphique d'histogramme, chaque exemplar est un anneau à sa valeur observée, et un clic ouvre sa trace sur le span qui l'a enregistré. Un exemplar au-dessus de l'échelle du graphique se place sur le bord supérieur ; survolez-le pour voir sa vraie valeur. Le tableau de bord en affiche jusqu'à 100, les plus récents de la fenêtre.
+
 ## Différences avec Prometheus
 
 - **Les erreurs d'appariement sont réelles.** `a / b` échoue avec « found duplicate series for the match group » si un jeu de labels correspond à deux séries d'un côté. Agrégez d'abord, restreignez avec `on(...)`/`ignoring(...)`, ou activez `group_left`/`group_right`, exactement comme dans Prometheus.

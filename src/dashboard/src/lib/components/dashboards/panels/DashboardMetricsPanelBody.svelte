@@ -212,6 +212,7 @@
 		{legendFormat}
 		{stacking}
 		releaseMarkers
+		exemplars
 		onPointClick={openAroundPoint}
 	/>
 {/if}

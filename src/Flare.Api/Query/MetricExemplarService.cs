@@ -29,6 +29,9 @@ public sealed record MetricExemplarRow(
     string? SpanId,
     IReadOnlyDictionary<string, string> FilteredAttributes);
 
+/// <summary>Body of <c>POST /api/metrics/exemplars</c> (ADR-0242), the dashboard chart's read of the same rows.</summary>
+public sealed record MetricExemplarsResponse(IReadOnlyList<MetricExemplarRow> Exemplars);
+
 public interface IMetricExemplarService
 {
     Task<IReadOnlyList<MetricExemplarRow>> GetAsync(MetricExemplarsRequest request, CancellationToken cancellationToken);

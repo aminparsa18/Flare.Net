@@ -3701,6 +3701,8 @@
 	"releases_commitColumn": "提交",
 	"releases_newErrorsColumn": "新增错误",
 	"releaseMarker_title": "已部署 {service} {version} · {time}",
+	"metricChart_exemplarTitle": "示例 {value} · {time} · 追踪 {trace}。点击打开该追踪",
+	"metricChart_exemplarAriaLabel": "打开示例追踪 {trace}",
 	"releases_regressionsColumn": "回归",
 	"releases_regressionsHeading": "此版本中的回归（先前已解决，现已复现）",
 	"releases_resolvedOn": "解决于 {date}",

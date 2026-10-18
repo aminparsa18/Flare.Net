@@ -341,3 +341,41 @@ export async function queryMetric(request: MetricQueryRequest, signal?: AbortSig
 	const body = GeneratedMetricQueryResponse.deserialize(await res.arrayBuffer());
 	return { series: (body?.series ?? []).map((s) => toMetricSeries(s!)), treatedAsCounter: body?.treatedAsCounter ?? false };
 }
+
+// ---- POST /api/metrics/exemplars (MetricExemplarsRequest / MetricExemplarsResponse, ADR-0242) -
+//
+// JSON, not MemoryPack: a small list read once per chart load, and the server side has no
+// MemoryPack mirror for it (same posture as error-issues-api.ts).
+
+export interface MetricExemplarsRequest {
+	metricName: string;
+	type: MetricPointType;
+	filter?: MetricFilter;
+	/** Newest first; the server clamps it to 1000 and defaults to 100. */
+	limit?: number;
+}
+
+/** One sample measurement with the trace that was active when it was recorded. */
+export interface MetricExemplar {
+	serviceName: string;
+	dataPointAttributes: Record<string, string>;
+	/** ISO timestamp. */
+	time: string;
+	value: number;
+	traceId: string;
+	spanId: string | null;
+	filteredAttributes: Record<string, string>;
+}
+
+export async function getMetricExemplars(request: MetricExemplarsRequest, signal?: AbortSignal): Promise<MetricExemplar[]> {
+	const res = await apiFetch(`${API_BASE_URL}/api/metrics/exemplars`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: JSON.stringify(request),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/metrics/exemplars failed: ${res.status} ${res.statusText}`);
+	}
+	return ((await res.json()) as { exemplars: MetricExemplar[] }).exemplars;
+}

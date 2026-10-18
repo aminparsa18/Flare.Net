@@ -98,9 +98,9 @@ folders are where "what happened and why" actually lives.
   `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
-  - Show exemplars on the dashboard's own metric charts (a dot per exemplar linking to the trace). Ingest and
-    the Prometheus `query_exemplars` endpoint exist ([ADR-0241](../adr/0241-metric-exemplars.md)); exemplars from the
-    Prometheus scrape path (OpenMetrics `# {trace_id=...}` comments) are not captured yet.
+  - Capture exemplars from the Prometheus scrape path (OpenMetrics `# {trace_id=...}` comments); only OTLP carries
+    them today ([ADR-0241](../adr/0241-metric-exemplars.md)). Exemplar dots on counter charts and on the formula
+    chart are left too ([ADR-0242](../adr/0242-dashboard-exemplar-dots.md)).
   - PromQL still missing: `@`, subqueries and `min`/`max_over_time` (needs per-bucket min and max stored). See
     [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md) and
     [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md).

@@ -3701,6 +3701,8 @@
 	"releases_commitColumn": "Commit",
 	"releases_newErrorsColumn": "New errors",
 	"releaseMarker_title": "Deployed {service} {version} · {time}",
+	"metricChart_exemplarTitle": "Exemplar {value} · {time} · trace {trace}. Click to open the trace",
+	"metricChart_exemplarAriaLabel": "Open exemplar trace {trace}",
 	"releases_regressionsColumn": "Regressions",
 	"releases_regressionsHeading": "Regressed in this version (resolved earlier, back now)",
 	"releases_resolvedOn": "Resolved {date}",

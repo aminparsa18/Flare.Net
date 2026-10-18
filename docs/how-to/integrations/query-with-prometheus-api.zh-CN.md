@@ -81,6 +81,8 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 每个结果是一条带有 `exemplars` 的序列，每个 exemplar 含 `trace_id`（以及 `span_id`）、值和时间戳。最多返回 1000 个，最新的在前。只有升级后摄取的数据点才带 exemplar，且仅限 OTLP。
 
+Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们：在直方图图表上，每个 exemplar 是其观测值处的一个圆环，点击即可在记录它的 span 上打开其追踪。高于图表范围的 exemplar 会停在上边缘，悬停可查看真实值。仪表板最多显示时间窗口内最新的 100 个。
+
 ## 与 Prometheus 的差异
 
 - **匹配错误是真实的。** 如果一侧有两个序列匹配同一组标签，`a / b` 会报 “found duplicate series for the match group”。请先聚合，用 `on(...)`/`ignoring(...)` 缩小范围，或像 Prometheus 一样显式使用 `group_left`/`group_right`。
