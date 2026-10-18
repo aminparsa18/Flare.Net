@@ -78,6 +78,32 @@ Endpoints: `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label
 
 Not supported: `rate`/`increase`/`irate` over a subquery, the native-histogram functions (`histogram_count`, `histogram_sum`, `histogram_avg`; use a histogram's `_count` and `_sum` series), recording rules, and writing data.
 
+## Release health
+
+Flare serves the release health of mobile apps (see [Monitor a MAUI app](../../tutorials/monitor-a-maui-app.md)) as four built-in
+metrics, so a Grafana panel or alert rule can use crash-free rates through the same data source. They are labelled
+`service_name` and `service_version` and listed by `label/__name__/values`.
+
+| Metric | Type | Meaning |
+|---|---|---|
+| `flare_release_sessions_total` | counter | Sessions that started |
+| `flare_release_crashed_sessions_total` | counter | Sessions that ended in a fatal unhandled exception |
+| `flare_release_users` | gauge | Distinct users with a session that started in the step |
+| `flare_release_crashed_users` | gauge | Distinct users with a crashed session that started in the step |
+
+Crash-free sessions per version over the last 24 hours, for a panel or an alert rule below `0.99`:
+
+```promql
+1 - sum by (service_version) (increase(flare_release_crashed_sessions_total[24h]))
+  / sum by (service_version) (increase(flare_release_sessions_total[24h]))
+```
+
+Add `{service_name="shop-app"}` to scope it to one app. To keep a version with three launches from paging anyone, add
+`and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`. Users are counted per step, so chart
+crash-free users with a range query whose step is the period you want (`1 - flare_release_crashed_users /
+flare_release_users` at a one-day step); an instant query has a one-minute step. Users appear only when the app sets
+`user.id`. The `flare.release.` name prefix is reserved for these metrics.
+
 ## Exemplars
 
 A histogram or counter point recorded inside a trace carries an **exemplar**: a sample value with the trace and
@@ -143,4 +169,4 @@ of the newest in the window; stacked areas and comparison overlays draw none.
 - **`labels` and label values without `match[]`** sample the ten metrics with the most series. Pass
   `match[]` for a complete answer.
 
-Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
+Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md), [ADR-0250](../../../docs-internal/adr/0250-release-health-prometheus-metrics.md).

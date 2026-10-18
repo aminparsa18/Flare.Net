@@ -12,6 +12,10 @@ public interface IAppSessionQueryService
 
     Task<ReleaseHealthTrendResponse> GetReleaseHealthTrendAsync(ReleaseHealthTrendRequest request, CancellationToken cancellationToken);
 
+    /// <summary>Release health per bucket, service and version over [from, to), for the Prometheus API (ADR-0250). <paramref name="truncated"/> is true when the row cap cut it.</summary>
+    Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetReleaseHealthSeriesAsync(
+        DateTimeOffset from, DateTimeOffset to, int bucketSeconds, string? service, CancellationToken cancellationToken);
+
     Task<AppPerformanceResponse> GetPerformanceAsync(AppPerformanceRequest request, CancellationToken cancellationToken);
 
     Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken);
@@ -130,6 +134,37 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
         }
 
         return new ReleaseHealthTrendResponse { WindowMinutes = windowMinutes, BucketMinutes = bucketMinutes, Points = points };
+    }
+
+    public async Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetReleaseHealthSeriesAsync(
+        DateTimeOffset from, DateTimeOffset to, int bucketSeconds, string? service, CancellationToken cancellationToken)
+    {
+        var built = AppSessionQueryBuilder.BuildReleaseHealthSeries(from, to, bucketSeconds, service);
+
+        var points = new List<ReleaseHealthSeriesPoint>();
+        var truncated = false;
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken);
+        while (reader.Read())
+        {
+            if (points.Count >= AppSessionQueryBuilder.MaxSeriesRows)
+            {
+                truncated = true;
+                break;
+            }
+
+            points.Add(new ReleaseHealthSeriesPoint
+            {
+                BucketUnixMs = reader.GetFieldValue<long>(0),
+                ServiceName = reader.GetString(1),
+                Version = reader.GetString(2),
+                Sessions = reader.GetFieldValue<ulong>(3),
+                CrashedSessions = reader.GetFieldValue<ulong>(4),
+                Users = reader.GetFieldValue<ulong>(5),
+                CrashedUsers = reader.GetFieldValue<ulong>(6),
+            });
+        }
+
+        return (points, truncated);
     }
 
     public async Task<AppPerformanceResponse> GetPerformanceAsync(AppPerformanceRequest request, CancellationToken cancellationToken)

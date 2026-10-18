@@ -72,6 +72,34 @@ Points d'accès : `query`, `query_range`, `query_exemplars`, `series`, `labels`,
 
 Non pris en charge : `rate`/`increase`/`irate` sur une sous-requête, les fonctions d'histogrammes natifs (`histogram_count`, `histogram_sum`, `histogram_avg` ; utilisez les séries `_count` et `_sum` d'un histogramme), règles d'enregistrement et écriture de données.
 
+## Release health
+
+Flare expose la release health des applications mobiles (voir [Superviser une application MAUI](../../tutorials/monitor-a-maui-app.md)) sous
+forme de quatre métriques intégrées, ce qui permet à un panneau ou à une règle d'alerte Grafana d'utiliser les taux de
+sessions sans crash via la même source de données. Elles portent les labels `service_name` et `service_version` et
+apparaissent dans `label/__name__/values`.
+
+| Métrique | Type | Signification |
+|---|---|---|
+| `flare_release_sessions_total` | counter | Sessions démarrées |
+| `flare_release_crashed_sessions_total` | counter | Sessions terminées par une exception fatale non gérée |
+| `flare_release_users` | gauge | Utilisateurs distincts ayant une session démarrée dans le pas |
+| `flare_release_crashed_users` | gauge | Utilisateurs distincts ayant une session en crash démarrée dans le pas |
+
+Sessions sans crash par version sur les dernières 24 heures, pour un panneau ou une règle d'alerte sous `0.99` :
+
+```promql
+1 - sum by (service_version) (increase(flare_release_crashed_sessions_total[24h]))
+  / sum by (service_version) (increase(flare_release_sessions_total[24h]))
+```
+
+Ajoutez `{service_name="shop-app"}` pour cibler une seule application. Pour qu'une version avec trois lancements ne
+déclenche aucune alerte, ajoutez `and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`. Les
+utilisateurs sont comptés par pas : tracez les utilisateurs sans crash avec une requête de plage dont le pas est la
+période voulue (`1 - flare_release_crashed_users / flare_release_users` avec un pas d'un jour) ; une requête instantanée a
+un pas d'une minute. Les utilisateurs n'apparaissent que si l'application définit `user.id`. Le préfixe de nom
+`flare.release.` est réservé à ces métriques.
+
 ## Exemplars
 
 Un point d'histogramme ou de compteur enregistré dans une trace porte un **exemplar** : une valeur échantillon avec la trace et le span qui l'ont produite. Flare conserve ceux qui ont un identifiant de trace et les sert via `query_exemplars`, pour que Grafana les dessine sur un graphique de latence et ouvre la requête lente.
@@ -109,4 +137,4 @@ La page Metrics de Flare et les panneaux Metrics des tableaux de bord les affich
 - **Les requêtes instantanées** regardent les cinq dernières minutes.
 - **`labels` et les valeurs de label sans `match[]`** échantillonnent les dix métriques ayant le plus de séries. Passez `match[]` pour une réponse complète.
 
-Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
+Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md), [ADR-0250](../../../docs-internal/adr/0250-release-health-prometheus-metrics.md).

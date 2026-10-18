@@ -231,6 +231,31 @@ public sealed record ReleaseHealthResponse
 }
 
 /// <summary>
+/// One epoch-aligned bucket of one version's release health, for the Prometheus API's <c>flare_release_*</c> metrics
+/// (see docs-internal/adr/0250-release-health-prometheus-metrics.md). Internal plumbing, not an HTTP body.
+/// </summary>
+public sealed record ReleaseHealthSeriesPoint
+{
+    /// <summary>Bucket start, Unix epoch milliseconds (a multiple of the bucket width).</summary>
+    public required long BucketUnixMs { get; init; }
+
+    public required string ServiceName { get; init; }
+
+    /// <summary><c>service.version</c>, or empty when the app reports none.</summary>
+    public required string Version { get; init; }
+
+    /// <summary>Sessions whose first span fell in the bucket.</summary>
+    public required ulong Sessions { get; init; }
+
+    public required ulong CrashedSessions { get; init; }
+
+    /// <summary>Distinct <c>user.id</c> values in those sessions; 0 when the app sets none.</summary>
+    public required ulong Users { get; init; }
+
+    public required ulong CrashedUsers { get; init; }
+}
+
+/// <summary>
 /// Request for <c>POST /api/app-sessions/release-health/trend</c>: crashed and total sessions per version per time
 /// bucket, so the crash-free rate can be charted over time. See docs-internal/adr/0189-release-health-trends.md.
 /// </summary>

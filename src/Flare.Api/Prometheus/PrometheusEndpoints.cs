@@ -227,7 +227,7 @@ public static class PrometheusEndpoints
             }
             else if (name == "service_name" && matches.Count == 0)
             {
-                values.UnionWith((await evaluator.KnownMetricsAsync(from, to, ct)).Select(i => i.ServiceName));
+                values.UnionWith((await evaluator.KnownMetricsAsync(from, to, ct)).Select(i => i.ServiceName).Where(n => n.Length > 0));
             }
             else
             {
