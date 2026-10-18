@@ -102,6 +102,13 @@ public abstract partial record MetricPointRecord
 public sealed partial record GaugePointRecord : MetricPointRecord
 {
     public required double Value { get; init; }
+
+    /// <summary>
+    /// Exemplars the SDK attached to this point (ADR-0241). Declared last on each concrete type, not on the
+    /// shared base, on purpose: MemoryPack writes base members before derived ones, so adding a base member
+    /// would shift every derived field and break entries already buffered in Redis by an older Ingest.
+    /// </summary>
+    public IReadOnlyList<MetricExemplar>? Exemplars { get; init; }
 }
 
 /// <summary>An OTLP Sum data point - a running total, either a monotonic counter or an up/down counter.</summary>
@@ -114,6 +121,13 @@ public sealed partial record SumPointRecord : MetricPointRecord
     public required int AggregationTemporality { get; init; }
 
     public required bool IsMonotonic { get; init; }
+
+    /// <summary>
+    /// Exemplars the SDK attached to this point (ADR-0241). Declared last on each concrete type, not on the
+    /// shared base, on purpose: MemoryPack writes base members before derived ones, so adding a base member
+    /// would shift every derived field and break entries already buffered in Redis by an older Ingest.
+    /// </summary>
+    public IReadOnlyList<MetricExemplar>? Exemplars { get; init; }
 }
 
 /// <summary>An OTLP Histogram data point - bucketed distribution of a population of values.</summary>
@@ -137,6 +151,13 @@ public sealed partial record HistogramPointRecord : MetricPointRecord
 
     /// <summary>Strictly increasing bucket upper bounds.</summary>
     public required IReadOnlyList<double> ExplicitBounds { get; init; }
+
+    /// <summary>
+    /// Exemplars the SDK attached to this point (ADR-0241). Declared last on each concrete type, not on the
+    /// shared base, on purpose: MemoryPack writes base members before derived ones, so adding a base member
+    /// would shift every derived field and break entries already buffered in Redis by an older Ingest.
+    /// </summary>
+    public IReadOnlyList<MetricExemplar>? Exemplars { get; init; }
 }
 
 /// <summary>
@@ -179,4 +200,31 @@ public sealed partial record ExponentialHistogramPointRecord : MetricPointRecord
 
     /// <summary>Optional per the OTLP spec; stored as NULL when absent.</summary>
     public double? Max { get; init; }
+
+    /// <summary>
+    /// Exemplars the SDK attached to this point (ADR-0241). Declared last on each concrete type, not on the
+    /// shared base, on purpose: MemoryPack writes base members before derived ones, so adding a base member
+    /// would shift every derived field and break entries already buffered in Redis by an older Ingest.
+    /// </summary>
+    public IReadOnlyList<MetricExemplar>? Exemplars { get; init; }
+}
+
+/// <summary>
+/// An OTLP exemplar: one sample measurement recorded alongside a metric point, with the trace and span active
+/// when it was taken. Only exemplars that carry a trace id are kept (ADR-0241).
+/// </summary>
+[MemoryPackable]
+public sealed partial record MetricExemplar
+{
+    public required DateTimeOffset Time { get; init; }
+
+    public required double Value { get; init; }
+
+    /// <summary>Lowercase hex, the same form <c>spans.TraceId</c> uses.</summary>
+    public required string TraceId { get; init; }
+
+    public string? SpanId { get; init; }
+
+    /// <summary>Attributes the SDK dropped from the point's own attribute set.</summary>
+    public required IReadOnlyDictionary<string, string> FilteredAttributes { get; init; }
 }

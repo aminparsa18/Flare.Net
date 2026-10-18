@@ -19,6 +19,7 @@ public sealed class ClickHouseMetricWriter(IClickHouseClient client) : IClickHou
     private const string SumTableName = "metrics_sum";
     private const string HistogramTableName = "metrics_histogram";
     private const string ExponentialHistogramTableName = "metrics_exponential_histogram";
+    private const string ExemplarTableName = "metric_exemplars";
 
     public async Task WriteBatchAsync(
         IReadOnlyList<GaugePointRecord> gauges,
@@ -45,6 +46,15 @@ public sealed class ClickHouseMetricWriter(IClickHouseClient client) : IClickHou
         if (exponentialHistograms.Count > 0)
         {
             await client.InsertBinaryAsync(ExponentialHistogramTableName, ClickHouseMetricRowMapper.ExponentialHistogramColumns, ClickHouseMetricRowMapper.ToRows(exponentialHistograms), cancellationToken: cancellationToken);
+        }
+
+        // Exemplars go last: a retry after a failure here re-inserts the points above (at-least-once, like
+        // every other write in this batch) and re-attempts the exemplars (ADR-0241).
+        var exemplarRows = ClickHouseMetricRowMapper.ToExemplarRows(
+            gauges.Cast<MetricPointRecord>().Concat(sums).Concat(histograms).Concat(exponentialHistograms));
+        if (exemplarRows.Count > 0)
+        {
+            await client.InsertBinaryAsync(ExemplarTableName, ClickHouseMetricRowMapper.ExemplarColumns, exemplarRows, cancellationToken: cancellationToken);
         }
     }
 }

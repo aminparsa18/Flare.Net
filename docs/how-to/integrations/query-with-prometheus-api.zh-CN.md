@@ -61,9 +61,25 @@ Flare 会把 OTel 名称映射为 Prometheus 约定：
 | `absent` | `absent(up{job="api"})` |
 | `label_replace`, `label_join` | `label_replace(x, "host", "$1", "instance", "(.*):\\d+")` |
 
-端点：`query`、`query_range`、`series`、`labels`、`label/<name>/values`、`status/buildinfo`。
+端点：`query`、`query_range`、`query_exemplars`、`series`、`labels`、`label/<name>/values`、`status/buildinfo`。
 
-不支持：`@`、子查询、`delta`、`predict_linear`、`min_over_time` 和 `max_over_time`（Flare 把 gauge 存为每个 bucket 一个平均值，这两者会给出错误结果）、exemplar、记录规则以及写入数据。
+不支持：`@`、子查询、`delta`、`predict_linear`、`min_over_time` 和 `max_over_time`（Flare 把 gauge 存为每个 bucket 一个平均值，这两者会给出错误结果）、记录规则以及写入数据。
+
+## Exemplar
+
+在 trace 内记录的直方图或计数器数据点会携带 **exemplar**：一个样本值，以及产生它的 trace 和 span。Flare 会保存带有 trace id 的 exemplar，并通过 `query_exemplars` 提供，Grafana 因此可以把它们画在延迟图上并打开对应的慢请求。
+
+1. 在 Prometheus 数据源中启用 **Exemplars** 并添加内部链接：**Label name** 填 `trace_id`，**Data source** 选择指向 Flare [兼容 Tempo 的 API](query-with-tempo-api.zh-CN.md) 的 Tempo 数据源。
+2. 查询一个直方图，例如 `histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))`，图上就会出现这些点。
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'query=http_server_request_duration_seconds_bucket{service_name="api"}' \
+  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
+  $FLARE/api/v1/query_exemplars
+```
+
+每个结果是一条带有 `exemplars` 的序列，每个 exemplar 含 `trace_id`（以及 `span_id`）、值和时间戳。最多返回 1000 个，最新的在前。只有升级后摄取的数据点才带 exemplar，且仅限 OTLP。
 
 ## 与 Prometheus 的差异
 
@@ -76,4 +92,4 @@ Flare 会把 OTel 名称映射为 Prometheus 约定：
 - **即时查询** 查看最近五分钟。
 - **不带 `match[]` 的 `labels` 与标签值** 会从序列最多的十个指标中采样。传入 `match[]` 可得到完整结果。
 
-设计说明：[ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md)、[ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)。
+设计说明：[ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md)、[ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)、[ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md)。

@@ -16,6 +16,9 @@ internal sealed class PromSeries(Dictionary<string, string> labels)
 internal sealed record PromEvalResult(List<PromSeries> Series, bool IsScalar, List<string> Warnings);
 
 /// <summary>A series as fetched from <see cref="IMetricQueryService"/>, already carrying Prometheus-style labels.</summary>
+/// <summary>An exemplar and the series it belongs to; <see cref="Labels"/> carry <c>trace_id</c> (and <c>span_id</c> when known).</summary>
+internal sealed record PromExemplar(Dictionary<string, string> SeriesLabels, Dictionary<string, string> Labels, double Value, long TimestampMs);
+
 internal sealed record PromRawSeries(Dictionary<string, string> Labels, IReadOnlyList<MetricSeriesPoint> Points);
 
 /// <summary>
@@ -40,7 +43,7 @@ internal sealed record PromRawSeries(Dictionary<string, string> Labels, IReadOnl
 /// cap adds a warning instead of a silent partial answer.
 /// </para>
 /// </remarks>
-internal sealed class PromEvaluator(IMetricQueryService metrics)
+internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplarService? exemplars = null)
 {
     /// <summary>The metric query service's own series cap (<c>MetricSeriesQueryBuilder.MaxTopN</c>).</summary>
     public const int MaxSeries = 200;
@@ -610,20 +613,14 @@ internal sealed class PromEvaluator(IMetricQueryService metrics)
         return PromNames.Resolve(name, await KnownMetricsAsync(from, to, cancellationToken));
     }
 
-    private async Task<List<PromRawSeries>> FetchAsync(
-        PromSelector selector,
-        PromMetric metric,
-        DateTimeOffset from,
-        DateTimeOffset to,
-        int bucketSeconds,
-        MetricPointType type,
-        bool treatAsCounter,
-        bool includeBuckets,
-        List<string> warnings,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Equality matchers pushed down to the query so a series cap applies to the matching set: <c>service_name</c>
+    /// becomes a service filter and any other label is mapped back to its original attribute key. Every matcher
+    /// (pushed or not) is re-checked on the labels afterwards, which is what makes <c>!=</c>, <c>=~</c> and <c>!~</c> work.
+    /// </summary>
+    private async Task<(List<string> Services, List<MetricAttributeFilter> Attributes)> PushDownAsync(
+        PromSelector selector, PromMetric metric, MetricPointType type, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
-        // Equality matchers are pushed down so the series cap applies to the matching set. Every
-        // matcher (pushed or not) is re-checked below, which is what makes !=, =~ and !~ work.
         var matchers = selector.LabelMatchers.ToList();
         var services = matchers
             .Where(m => m is { Name: "service_name", Op: PromMatchOp.Equal, Value.Length: > 0 })
@@ -652,6 +649,97 @@ internal sealed class PromEvaluator(IMetricQueryService metrics)
                 }
             }
         }
+
+        return (services, attributeFilters);
+    }
+
+    /// <summary>
+    /// Exemplars for one selector (ADR-0241): the trace-linked samples the SDK attached to the metric's points,
+    /// labelled like the series they belong to. Empty for a metric Flare does not know or one that cannot carry
+    /// exemplars (a histogram's <c>_sum</c> and <c>_count</c>), and when no exemplar store is configured.
+    /// </summary>
+    public async Task<IReadOnlyList<PromExemplar>> ExemplarsAsync(
+        PromSelector selector, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)
+    {
+        if (exemplars is null)
+        {
+            return [];
+        }
+
+        var metric = await ResolveAsync(selector, from, to, cancellationToken);
+        if (metric is null or { Kind: PromMetricKind.HistogramSum or PromMetricKind.HistogramCount })
+        {
+            return [];
+        }
+
+        var (services, attributeFilters) = await PushDownAsync(selector, metric, metric.Type, from, to, cancellationToken);
+        var rows = await exemplars.GetAsync(
+            new MetricExemplarsRequest
+            {
+                MetricName = metric.OtelName,
+                Type = metric.Type,
+                Filter = new MetricFilter
+                {
+                    From = from,
+                    To = to,
+                    Services = services.Count > 0 ? services : null,
+                    Attributes = attributeFilters.Count > 0 ? attributeFilters : null,
+                },
+                Limit = limit,
+            },
+            cancellationToken);
+
+        var matchers = selector.LabelMatchers.ToList();
+        var result = new List<PromExemplar>(rows.Count);
+        foreach (var row in rows)
+        {
+            var labels = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["__name__"] = metric.PromName,
+                ["service_name"] = row.ServiceName,
+            };
+            foreach (var (key, value) in row.DataPointAttributes)
+            {
+                labels[PromNames.LabelName(key)] = value;
+            }
+
+            if (!matchers.All(m => Matches(m, labels.GetValueOrDefault(m.Name, ""))))
+            {
+                continue;
+            }
+
+            var exemplarLabels = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (key, value) in row.FilteredAttributes)
+            {
+                exemplarLabels[PromNames.LabelName(key)] = value;
+            }
+
+            exemplarLabels["trace_id"] = row.TraceId;
+            if (!string.IsNullOrEmpty(row.SpanId))
+            {
+                exemplarLabels["span_id"] = row.SpanId;
+            }
+
+            result.Add(new PromExemplar(labels, exemplarLabels, row.Value, row.Time.ToUnixTimeMilliseconds()));
+        }
+
+        return result;
+    }
+
+    private async Task<List<PromRawSeries>> FetchAsync(
+        PromSelector selector,
+        PromMetric metric,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int bucketSeconds,
+        MetricPointType type,
+        bool treatAsCounter,
+        bool includeBuckets,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        var matchers = selector.LabelMatchers.ToList();
+        var (services, attributeFilters) = await PushDownAsync(selector, metric, type, from, to, cancellationToken);
 
         var response = await metrics.QueryAsync(
             new MetricQueryRequest

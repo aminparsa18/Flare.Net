@@ -67,11 +67,32 @@ Find the exact names with `GET /api/v1/label/__name__/values`.
 | `absent` | `absent(up{job="api"})` |
 | `label_replace`, `label_join` | `label_replace(x, "host", "$1", "instance", "(.*):\\d+")` |
 
-Endpoints: `query`, `query_range`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
+Endpoints: `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
 Not supported: `@`, subqueries, `delta`, `predict_linear`, `min_over_time` and
-`max_over_time` (Flare stores a gauge as one average per bucket, so they would be wrong), exemplars, recording rules,
+`max_over_time` (Flare stores a gauge as one average per bucket, so they would be wrong), recording rules,
 and writing data.
+
+## Exemplars
+
+A histogram or counter point recorded inside a trace carries an **exemplar**: a sample value with the trace and
+span that produced it. Flare keeps the ones that have a trace id and serves them from `query_exemplars`, so Grafana
+can draw them on a latency chart and open the slow request.
+
+1. In the Prometheus data source, enable **Exemplars** and add an internal link: **Label name** `trace_id`, **Data
+   source** a Tempo data source pointing at Flare's [Tempo-compatible API](query-with-tempo-api.md).
+2. Query a histogram, for example `histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))`.
+   The dots appear on the chart.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'query=http_server_request_duration_seconds_bucket{service_name="api"}' \
+  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
+  $FLARE/api/v1/query_exemplars
+```
+
+Each result is a series with its `exemplars`, each carrying `trace_id` (and `span_id`), a value and a timestamp. Up to
+1000 are returned, newest first. Only points ingested after upgrading carry exemplars, and only over OTLP.
 
 ## Things that differ from Prometheus
 
@@ -94,4 +115,4 @@ and writing data.
 - **`labels` and label values without `match[]`** sample the ten metrics with the most series. Pass
   `match[]` for a complete answer.
 
-Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md).
+Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).

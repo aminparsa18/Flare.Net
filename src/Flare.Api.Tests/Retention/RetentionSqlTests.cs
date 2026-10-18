@@ -149,7 +149,8 @@ public class RetentionSqlTests
     {
         var metrics = RetentionSignal.Find("metrics");
         Assert.NotNull(metrics);
-        Assert.Equal(4, metrics.Tables.Count);
+        Assert.Equal(5, metrics.Tables.Count);
+        Assert.Contains("metric_exemplars", metrics.Tables);
         Assert.Equal(RetentionSignal.Find("METRICS"), metrics);
     }
 }

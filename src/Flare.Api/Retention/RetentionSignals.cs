@@ -17,7 +17,7 @@ public sealed record RetentionSignal(string Name, string TimeColumn, IReadOnlyLi
     [
         new(Logs, "Timestamp", ["logs"]),
         new(Traces, "StartTime", ["spans", "app_screenshots", "app_feedback"]),
-        new(Metrics, "Time", ["metrics_gauge", "metrics_sum", "metrics_histogram", "metrics_exponential_histogram"]),
+        new(Metrics, "Time", ["metrics_gauge", "metrics_sum", "metrics_histogram", "metrics_exponential_histogram", "metric_exemplars"]),
         new(Profiles, "Timestamp", ["profile_samples"]),
     ];
 

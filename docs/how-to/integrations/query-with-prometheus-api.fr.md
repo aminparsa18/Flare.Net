@@ -61,9 +61,25 @@ Trouvez les noms exacts avec `GET /api/v1/label/__name__/values`.
 | `absent` | `absent(up{job="api"})` |
 | `label_replace`, `label_join` | `label_replace(x, "host", "$1", "instance", "(.*):\\d+")` |
 
-Points d'accès : `query`, `query_range`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
+Points d'accès : `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Non pris en charge : `@`, sous-requêtes, `delta`, `predict_linear`, `min_over_time` et `max_over_time` (Flare stocke une jauge comme une moyenne par bucket, elles seraient fausses), exemplars, règles d'enregistrement et écriture de données.
+Non pris en charge : `@`, sous-requêtes, `delta`, `predict_linear`, `min_over_time` et `max_over_time` (Flare stocke une jauge comme une moyenne par bucket, elles seraient fausses), règles d'enregistrement et écriture de données.
+
+## Exemplars
+
+Un point d'histogramme ou de compteur enregistré dans une trace porte un **exemplar** : une valeur échantillon avec la trace et le span qui l'ont produite. Flare conserve ceux qui ont un identifiant de trace et les sert via `query_exemplars`, pour que Grafana les dessine sur un graphique de latence et ouvre la requête lente.
+
+1. Dans la source de données Prometheus, activez **Exemplars** et ajoutez un lien interne : **Label name** `trace_id`, **Data source** une source Tempo pointant vers l'[API compatible Tempo](query-with-tempo-api.fr.md) de Flare.
+2. Interrogez un histogramme, par exemple `histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))`. Les points apparaissent sur le graphique.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'query=http_server_request_duration_seconds_bucket{service_name="api"}' \
+  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
+  $FLARE/api/v1/query_exemplars
+```
+
+Chaque résultat est une série avec ses `exemplars`, chacun portant `trace_id` (et `span_id`), une valeur et un horodatage. Jusqu'à 1000 sont renvoyés, les plus récents d'abord. Seuls les points ingérés après la mise à jour portent des exemplars, et uniquement via OTLP.
 
 ## Différences avec Prometheus
 
@@ -76,4 +92,4 @@ Non pris en charge : `@`, sous-requêtes, `delta`, `predict_linear`, `min_over_t
 - **Les requêtes instantanées** regardent les cinq dernières minutes.
 - **`labels` et les valeurs de label sans `match[]`** échantillonnent les dix métriques ayant le plus de séries. Passez `match[]` pour une réponse complète.
 
-Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md).
+Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).

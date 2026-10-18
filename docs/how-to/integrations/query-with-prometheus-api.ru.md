@@ -61,9 +61,25 @@ Flare переводит имена OTel в соглашения Prometheus:
 | `absent` | `absent(up{job="api"})` |
 | `label_replace`, `label_join` | `label_replace(x, "host", "$1", "instance", "(.*):\\d+")` |
 
-Эндпоинты: `query`, `query_range`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
+Эндпоинты: `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Не поддерживается: `@`, подзапросы, `delta`, `predict_linear`, `min_over_time` и `max_over_time` (Flare хранит gauge как одно среднее на бакет, поэтому они были бы неверны), exemplars, правила записи и запись данных.
+Не поддерживается: `@`, подзапросы, `delta`, `predict_linear`, `min_over_time` и `max_over_time` (Flare хранит gauge как одно среднее на бакет, поэтому они были бы неверны), правила записи и запись данных.
+
+## Exemplars
+
+Точка гистограммы или счётчика, записанная внутри трейса, несёт **exemplar**: пример значения с трейсом и спаном, которые его породили. Flare сохраняет те, у которых есть идентификатор трейса, и отдаёт их через `query_exemplars`, чтобы Grafana рисовала их на графике задержки и открывала медленный запрос.
+
+1. В источнике данных Prometheus включите **Exemplars** и добавьте внутреннюю ссылку: **Label name** `trace_id`, **Data source** — источник Tempo, указывающий на [Tempo-совместимый API](query-with-tempo-api.ru.md) Flare.
+2. Запросите гистограмму, например `histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))`. Точки появятся на графике.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'query=http_server_request_duration_seconds_bucket{service_name="api"}' \
+  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
+  $FLARE/api/v1/query_exemplars
+```
+
+Каждый результат — серия со своими `exemplars`, у каждого есть `trace_id` (и `span_id`), значение и метка времени. Возвращается до 1000 штук, сначала новые. Exemplars несут только точки, принятые после обновления, и только по OTLP.
 
 ## Отличия от Prometheus
 
@@ -76,4 +92,4 @@ Flare переводит имена OTel в соглашения Prometheus:
 - **Мгновенные запросы** смотрят на последние пять минут.
 - **`labels` и значения меток без `match[]`** берут выборку из десяти метрик с наибольшим числом рядов. Передайте `match[]`, чтобы получить полный ответ.
 
-Заметки о дизайне: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md).
+Заметки о дизайне: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).

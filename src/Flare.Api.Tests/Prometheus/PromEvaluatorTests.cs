@@ -674,6 +674,62 @@ public class PromEvaluatorTests
         Assert.Equal(3, Assert.Single(result.Series).Samples.Count);
     }
 
+    private sealed class StubExemplars(params MetricExemplarRow[] rows) : IMetricExemplarService
+    {
+        public MetricExemplarsRequest? LastRequest { get; private set; }
+
+        public Task<IReadOnlyList<MetricExemplarRow>> GetAsync(MetricExemplarsRequest request, CancellationToken cancellationToken)
+        {
+            LastRequest = request;
+            return Task.FromResult<IReadOnlyList<MetricExemplarRow>>(rows);
+        }
+    }
+
+    private static MetricExemplarRow ExemplarRow(string route, string traceId) =>
+        new("api", new Dictionary<string, string> { ["http.route"] = route }, T0, 1.5, traceId, "span1", new Dictionary<string, string> { ["user.id"] = "u" });
+
+    [Fact]
+    public async Task Exemplars_AreLabelledLikeTheirSeries_AndFilteredByMatchers()
+    {
+        var names = new StubMetrics(
+            [new MetricNameInfo { MetricName = "http.server.request.duration", ServiceName = "api", Type = MetricPointType.Histogram, Unit = "s", SeriesCount = 2 }],
+            [],
+            ["http.route"]);
+        var store = new StubExemplars(ExemplarRow("/a", "t1"), ExemplarRow("/b", "t2"));
+
+        var found = await new PromEvaluator(names, store).ExemplarsAsync(
+            (PromSelector)PromQlParser.Parse("http_server_request_duration_seconds_bucket{http_route=~\"/a\"}"), T0, T0.AddMinutes(5), 100, default);
+
+        var exemplar = Assert.Single(found);
+        Assert.Equal("t1", exemplar.Labels["trace_id"]);
+        Assert.Equal("span1", exemplar.Labels["span_id"]);
+        Assert.Equal("u", exemplar.Labels["user_id"]);
+        Assert.Equal("http_server_request_duration_seconds_bucket", exemplar.SeriesLabels["__name__"]);
+        Assert.Equal("/a", exemplar.SeriesLabels["http_route"]);
+        Assert.Equal(MetricPointType.Histogram, store.LastRequest!.Type);
+        Assert.Equal("http.server.request.duration", store.LastRequest.MetricName);
+    }
+
+    [Fact]
+    public async Task Exemplars_AreEmpty_ForHistogramSumAndCount_AndWithoutAStore()
+    {
+        var names = new StubMetrics(
+            [new MetricNameInfo { MetricName = "lat", ServiceName = "api", Type = MetricPointType.Histogram, SeriesCount = 1 }], []);
+        var withStore = new PromEvaluator(names, new StubExemplars(ExemplarRow("/a", "t1")));
+
+        Assert.Empty(await withStore.ExemplarsAsync((PromSelector)PromQlParser.Parse("lat_sum"), T0, T0.AddMinutes(1), 10, default));
+        Assert.Empty(await new PromEvaluator(names).ExemplarsAsync((PromSelector)PromQlParser.Parse("lat_bucket"), T0, T0.AddMinutes(1), 10, default));
+    }
+
+    [Fact]
+    public void SelectorCollector_FindsSelectorsInsideRangeFunctionsAggregationsAndOperators()
+    {
+        var selectors = PromSelectors.Collect(PromQlParser.Parse(
+            "histogram_quantile(0.9, sum by (le) (rate(a_bucket[5m]))) / on() label_replace(b, \"x\", \"y\", \"z\", \".*\")"));
+
+        Assert.Equal(["a_bucket", "b"], selectors.Select(s => s.MetricName));
+    }
+
     private sealed class StubMetrics(
         IReadOnlyList<MetricNameInfo> names,
         IReadOnlyList<MetricSeries> series,

@@ -45,6 +45,7 @@ public static class ErasureSql
         new("metrics_sum", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"], SessionMap: "DataPointAttributes"),
         new("metrics_histogram", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"], SessionMap: "DataPointAttributes"),
         new("metrics_exponential_histogram", ["ResourceAttributes", "ScopeAttributes", "DataPointAttributes"], SessionMap: "DataPointAttributes"),
+        new("metric_exemplars", ["ResourceAttributes", "DataPointAttributes", "FilteredAttributes"], SessionMap: "DataPointAttributes"),
         new("profile_samples", ["ResourceAttributes", "SampleAttributes"]),
         new("app_screenshots", [], UsesSessions: true),
         new("app_feedback", [], UsesSessions: true, UserIdColumn: "UserId", EmailColumn: "Email"),
