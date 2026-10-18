@@ -173,6 +173,24 @@ datasources:
 
 Все вкладки приложения загружаются без ошибки запроса. Drilldown также отправляет один запрос с атрибутом `undefined` (ошибка приложения); Flare отклоняет его, как и Tempo, и приложение продолжает работать. Вкладка Exceptions показывает исключения спанов, о которых спрашивает приложение, — в виде корневых спанов это спаны корня. См. [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md) и [ADR-0227](../../../docs-internal/adr/0227-traceql-select-union-descendant-and-nested-sets.md).
 
+## Ссылки между Grafana и Flare
+
+**Из Flare в Grafana.** Задайте для контейнера дашборда `PUBLIC_GRAFANA_TRACE_https://grafana.example.com/explore?left=%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22{traceId}%22%7D%5D%7D` — URL Grafana с местом подстановки `{traceId}`,
+и на каждой странице трассировки появится кнопка **Открыть в Grafana**. Для Explore по источнику данных Tempo значение — это URL
+Explore с закодированным запросом:
+
+```bash
+PUBLIC_GRAFANA_TRACE_URL='URL'
+```
+
+Замените `tempo` на uid вашего источника данных. Идентификатор кодируется перед подстановкой, а используется только значение с
+`http(s)` и `{traceId}`; иначе кнопка скрыта. Значение читается при запуске дашборда, пересборка не нужна.
+
+**Из Grafana во Flare.** Трассировка открывается по адресу `/traces/<traceId>`, сессия — по `/sessions/<sessionId>`, так что Flare для
+ссылки данных ничего не требуется. Для поля с идентификатором трассировки в панели Tempo или любого столбца таблицы с ним добавьте
+ссылку данных `https://flare.example.com/traces/${__value.raw}`. Если дашборд размещён под `FLARE_BASE_PATH`, добавьте этот путь
+перед `/traces`. Чтобы открыть конкретный спан, добавьте `?span=<spanId>`.
+
 ## Чем это отличается от Tempo
 
 - **Регулярные выражения привязаны к границам значения**, как в Tempo: `=~ "api-.*"` должно совпасть со всем значением.

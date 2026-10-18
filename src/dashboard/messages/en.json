@@ -542,6 +542,7 @@
 	"tracesExport_scopeVisibleHint": "Exactly the traces currently loaded in the list.",
 	"tracesExport_columnsLabel": "Columns",
 	"tracesExport_truncatedAlert": "Export limited to the first {count} matching rows. Narrow the time range or filters to export the rest.",
+	"tracePage_openInGrafana": "Open in Grafana",
 	"tracePage_downloadJson": "Download JSON",
 	"tracePage_downloadJsonPartial": "Download JSON (only the {count} spans loaded so far)",
 	"tracePage_backToTraces": "Back to traces",

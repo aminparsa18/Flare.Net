@@ -16,6 +16,8 @@
 	import { cn } from '#lib/utils.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import DownloadIcon from '@lucide/svelte/icons/download';
+	import { grafanaTraceUrl } from '#lib/grafana-links.ts';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { downloadBlob, traceJsonFilename, traceToJson } from '#lib/traces/export.ts';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -24,6 +26,8 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import * as m from '#lib/paraglide/messages.js';
+
+	const grafanaUrl = $derived(grafanaTraceUrl(page.params.traceId!));
 
 	const detail = traceDetailContext.set(new TraceDetailState());
 
@@ -161,6 +165,12 @@
 			>
 				<DownloadIcon />
 			</Button>
+			{#if grafanaUrl}
+				<Button variant="outline" size="sm" href={grafanaUrl} target="_blank" rel="noopener noreferrer">
+					<ExternalLinkIcon data-icon="inline-start" />
+					{m.tracePage_openInGrafana()}
+				</Button>
+			{/if}
 		{/if}
 	</div>
 

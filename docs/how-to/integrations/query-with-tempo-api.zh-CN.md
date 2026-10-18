@@ -173,6 +173,22 @@ datasources:
 
 应用的每个标签页都能加载，没有查询错误。Drilldown 还会发送一个属性名为 `undefined` 的查询（应用自身的缺陷）；Flare 像 Tempo 一样拒绝它，应用会继续运行。Exceptions 标签页显示应用所询问的 span 的异常，在根 span 视图中就是根 span 的异常。参见 [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md) 和 [ADR-0227](../../../docs-internal/adr/0227-traceql-select-union-descendant-and-nested-sets.md)。
 
+## 在 Grafana 与 Flare 之间跳转
+
+**从 Flare 到 Grafana。** 在仪表板容器上把 `PUBLIC_GRAFANA_TRACE_https://grafana.example.com/explore?left=%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22{traceId}%22%7D%5D%7D` 设为带 `{traceId}` 占位符的 Grafana URL,每个追踪页面就会出现
+**在 Grafana 中打开** 按钮。要打开 Tempo 数据源的 Explore 视图,取值是查询已做 URL 编码的 Explore 地址:
+
+```bash
+PUBLIC_GRAFANA_TRACE_URL='URL'
+```
+
+把 `tempo` 换成你的数据源 uid。追踪 id 会先做 URL 编码再替换占位符;只有包含 `{traceId}` 的 `http(s)` 值才会被使用,否则按钮不显示。
+该值在仪表板启动时读取,无需重新构建。
+
+**从 Grafana 到 Flare。** 追踪在仪表板的 `/traces/<traceId>` 打开,会话在 `/sessions/<sessionId>` 打开,所以数据链接不需要 Flare 额外做任何事。
+在 Tempo 面板的追踪 id 字段,或任何包含它的表格列上,添加数据链接 `https://flare.example.com/traces/${__value.raw}`。
+如果仪表板托管在 `FLARE_BASE_PATH` 子路径下,请把该子路径加在前面。要跳到某个 span,加上 `?span=<spanId>`。
+
 ## 与 Tempo 的差异
 
 - **正则表达式是锚定的**，与 Tempo 一致：`=~ "api-.*"` 必须匹配整个值。

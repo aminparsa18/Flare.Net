@@ -225,6 +225,24 @@ spans the app asks about, which in the root-spans view are the root spans'. See
 [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md) and
 [ADR-0227](../../../docs-internal/adr/0227-traceql-select-union-descendant-and-nested-sets.md).
 
+## Link between Grafana and Flare
+
+**From Flare to Grafana.** Set `PUBLIC_GRAFANA_TRACE_https://grafana.example.com/explore?left=%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22{traceId}%22%7D%5D%7D` on the dashboard container to a Grafana URL with a `{traceId}` placeholder,
+and every trace page gets an **Open in Grafana** button. For an Explore view of your Tempo data source, the value is the Explore URL
+with the query URL-encoded:
+
+```bash
+PUBLIC_GRAFANA_TRACE_URL='URL'
+```
+
+Replace `tempo` with the uid of your data source. The id is URL-encoded before it replaces the placeholder, and only an `http(s)` value
+with a `{traceId}` placeholder is used; anything else hides the button. The value is read when the dashboard starts, so no rebuild is needed.
+
+**From Grafana to Flare.** A trace opens at `/traces/<traceId>` and a session at `/sessions/<sessionId>` on the dashboard, so a data link
+needs nothing from Flare. On the trace id field of a Tempo panel, or any table column that holds one, add a data link with the URL
+`https://flare.example.com/traces/${__value.raw}`. Put the dashboard's sub-path in front when it is hosted under `FLARE_BASE_PATH`.
+To jump to one span, add `?span=<spanId>`.
+
 ## Things that differ from Tempo
 
 - **Regular expressions are anchored**, as in Tempo: `=~ "api-.*"` must match the whole value.
