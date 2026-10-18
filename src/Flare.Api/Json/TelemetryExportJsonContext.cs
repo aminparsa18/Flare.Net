@@ -10,6 +10,8 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(ForwardingTarget))]
 [JsonSerializable(typeof(ForwardingTargetRequest))]
 [JsonSerializable(typeof(ForwardingTargetListResponse))]
+[JsonSerializable(typeof(ForwardingTestRequest))]
+[JsonSerializable(typeof(ForwardingTestResult))]
 [JsonSerializable(typeof(ForwardingStatusResponse))]
 [JsonSerializable(typeof(ArchiveSettings))]
 [JsonSerializable(typeof(ArchiveSettingsRequest))]

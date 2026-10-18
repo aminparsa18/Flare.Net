@@ -17,6 +17,22 @@ The table shows each target's live status, refreshed every few seconds: requests
 **sent** and **failed** counts, and the last error. Targets defined in configuration appear below the saved
 ones, marked *From configuration*; they are read-only here.
 
+## Send to Grafana Cloud
+
+When you create a target, choose **Grafana Cloud** under **Destination** and fill in three values from your stack's OpenTelemetry tile:
+
+- **Region**: the gateway region, such as `prod-us-central-0`. Pasting the whole endpoint URL also works.
+- **Instance ID**: the stack's numeric ID.
+- **Access policy token**: needs the `logs:write`, `traces:write` and `metrics:write` scopes.
+
+Flare builds the endpoint (`https://otlp-gateway-<region>.grafana.net/otlp`) and the `Authorization: Basic` header for you. What it saves is an ordinary target, so editing it later shows the plain endpoint and a hidden header.
+
+## Test the connection
+
+**Test connection** in the target dialog sends an empty OTLP logs export to `<endpoint>/v1/logs` with the headers you entered, without saving anything and without storing any data at the destination. It reports the HTTP status, or a reason for failure such as rejected credentials (401/403), a wrong path (404) or an unreachable host. When you test a saved target, hidden header values are used as stored.
+
+The test runs from **Flare.Api**, while delivery runs from Flare.Ingest. For a private destination, set `Outbound__Allow` (see below) on Flare.Api as well as Flare.Ingest.
+
 ## Or configure a target in files
 
 Targets can also be configuration on **Flare.Ingest** (appsettings or environment variables), which suits

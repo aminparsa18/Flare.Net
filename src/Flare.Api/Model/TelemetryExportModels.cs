@@ -96,6 +96,45 @@ public sealed partial record ForwardingTargetRequest
     }
 }
 
+/// <summary>
+/// Asks Flare.Api to probe a forwarding destination with what the form currently holds. <see cref="Id"/> names the saved
+/// target whose masked header values <see cref="Headers"/> may still carry, so a test never needs the real secret in the browser.
+/// </summary>
+[MemoryPackable]
+public sealed partial record ForwardingTestRequest
+{
+    public Guid? Id { get; init; }
+
+    public required string Endpoint { get; init; }
+
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    /// <summary>An error message, or null when valid.</summary>
+    public string? Validate()
+    {
+        if (!Uri.TryCreate(Endpoint?.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            return "Endpoint must be an absolute http(s) URL.";
+        }
+
+        return Headers is not null && Headers.Keys.Any(string.IsNullOrWhiteSpace) ? "Header names must not be blank." : null;
+    }
+}
+
+[MemoryPackable]
+public sealed partial record ForwardingTestResult
+{
+    public required bool Success { get; init; }
+
+    /// <summary>The destination's HTTP status, or 0 when no response arrived (DNS, TLS, refused by the outbound guard, timeout).</summary>
+    public required int StatusCode { get; init; }
+
+    /// <summary>The URL probed (<c>{endpoint}/v1/logs</c>).</summary>
+    public required string Url { get; init; }
+
+    public string Error { get; init; } = "";
+}
+
 /// <summary>Live state of one forwarding target, written by Flare.Ingest into Redis; managed and configuration-defined targets alike.</summary>
 [MemoryPackable]
 public sealed partial record ForwardingTargetStatus
