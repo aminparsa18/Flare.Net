@@ -47,8 +47,12 @@ internal sealed record PromSelector(string? MetricName, IReadOnlyList<PromMatche
     public IEnumerable<PromMatcher> LabelMatchers => Matchers.Where(m => m.Name != "__name__");
 }
 
-/// <summary><c>rate</c>/<c>increase</c>/<c>irate</c> (counters) or <c>avg|min|max|sum|count|last_over_time</c> (gauges) over a range selector.</summary>
-internal sealed record PromRangeFunction(string Name, PromSelector Selector) : PromExpr;
+/// <summary>
+/// <c>rate</c>/<c>increase</c>/<c>irate</c> (counters) or <c>avg|min|max|sum|count|last_over_time</c>, <c>delta</c>,
+/// <c>changes</c>, <c>resets</c>, <c>deriv</c> and <c>predict_linear</c> (gauges) over a range selector.
+/// <see cref="Parameter"/> is <c>predict_linear</c>'s seconds ahead.
+/// </summary>
+internal sealed record PromRangeFunction(string Name, PromSelector Selector, double? Parameter = null) : PromExpr;
 
 /// <summary>
 /// A subquery <c>expr[range:resolution]</c>: <see cref="Inner"/> evaluated every <see cref="Resolution"/> (the query
@@ -56,14 +60,35 @@ internal sealed record PromRangeFunction(string Name, PromSelector Selector) : P
 /// </summary>
 internal sealed record PromSubquery(PromExpr Inner, TimeSpan Range, TimeSpan? Resolution, TimeSpan Offset, PromAt? At) : PromExpr;
 
-/// <summary><c>avg|min|max|sum|count|last_over_time</c> over a <see cref="PromSubquery"/>.</summary>
-internal sealed record PromSubqueryFunction(string Name, PromSubquery Subquery) : PromExpr;
+/// <summary>A gauge range function (<c>avg|min|max|sum|count|last_over_time</c>, <c>delta</c>, <c>changes</c>, <c>resets</c>, <c>deriv</c>, <c>predict_linear</c>) over a <see cref="PromSubquery"/>.</summary>
+internal sealed record PromSubqueryFunction(string Name, PromSubquery Subquery, double? Parameter = null) : PromExpr;
+
+/// <summary><c>time()</c>: the evaluation time in unix seconds, a scalar that changes at every step.</summary>
+internal sealed record PromTime : PromExpr;
+
+/// <summary><c>scalar(v)</c>: the value of <see cref="Inner"/> at each step where it has exactly one series, NaN where it has none or several.</summary>
+internal sealed record PromScalar(PromExpr Inner) : PromExpr;
+
+/// <summary><c>sort|sort_desc(v)</c> or <c>sort_by_label|sort_by_label_desc(v, label...)</c>: reorders the series, which only shows in an instant query.</summary>
+internal sealed record PromSort(string Name, PromExpr Inner, IReadOnlyList<string> Labels) : PromExpr;
+
+internal static class PromExprs
+{
+    /// <summary>Whether the expression is a scalar: a number, <c>time()</c>, <c>scalar(v)</c>, or arithmetic between scalars.</summary>
+    public static bool IsScalar(PromExpr expr) => expr switch
+    {
+        PromNumber or PromTime or PromScalar => true,
+        PromBinary b => IsScalar(b.Left) && IsScalar(b.Right),
+        _ => false,
+    };
+}
 
 /// <summary>
 /// <c>sum|avg|min|max|count|group|stddev|stdvar [by|without (labels)] (inner)</c>, plus the parameterised
 /// <c>topk|bottomk|quantile [by|without (labels)] (param, inner)</c>; <see cref="Parameter"/> is k or the quantile.
+/// <c>count_values [by|without (labels)] ("label", inner)</c> carries its output label name in <see cref="ValueLabel"/>.
 /// </summary>
-internal sealed record PromAggregation(string Op, bool Without, IReadOnlyList<string> Labels, PromExpr Inner, double? Parameter = null) : PromExpr;
+internal sealed record PromAggregation(string Op, bool Without, IReadOnlyList<string> Labels, PromExpr Inner, double? Parameter = null, string? ValueLabel = null) : PromExpr;
 
 /// <summary>An instant-vector function applied sample by sample: <c>abs</c>, <c>ceil</c>, <c>floor</c>, <c>round</c>, <c>sqrt</c>, <c>exp</c>, <c>ln</c>, <c>log2</c>, <c>log10</c>, <c>sgn</c>, <c>clamp*</c>, and <c>vector(s)</c>.</summary>
 internal sealed record PromFunction(string Name, PromExpr Argument, IReadOnlyList<double> Parameters) : PromExpr;
@@ -124,6 +149,12 @@ internal static class PromSelectors
             case PromSubqueryFunction sf:
                 Walk(sf.Subquery.Inner, into);
                 break;
+            case PromScalar scalar:
+                Walk(scalar.Inner, into);
+                break;
+            case PromSort sort:
+                Walk(sort.Inner, into);
+                break;
             case PromAggregation agg:
                 Walk(agg.Inner, into);
                 break;
@@ -159,12 +190,22 @@ internal static class PromSelectors
 /// </summary>
 internal sealed class PromQlParser
 {
-    private static readonly string[] AggregationOps = ["sum", "avg", "min", "max", "count", "group", "stddev", "stdvar", "topk", "bottomk", "quantile"];
+    private static readonly string[] AggregationOps = ["sum", "avg", "min", "max", "count", "group", "stddev", "stdvar", "topk", "bottomk", "quantile", "count_values"];
     private static readonly string[] ParameterisedAggregations = ["topk", "bottomk", "quantile"];
-    private static readonly string[] RangeFunctions = ["rate", "increase", "irate", "avg_over_time", "last_over_time", "min_over_time", "max_over_time", "sum_over_time", "count_over_time"];
+    private static readonly string[] RangeFunctions =
+    [
+        "rate", "increase", "irate", "avg_over_time", "last_over_time", "min_over_time", "max_over_time", "sum_over_time", "count_over_time",
+        "delta", "changes", "resets", "deriv", "predict_linear",
+    ];
 
     /// <summary>The range functions that read a gauge's samples (and so also accept a subquery) rather than a counter's increases.</summary>
-    internal static readonly string[] OverTimeFunctions = ["avg_over_time", "last_over_time", "min_over_time", "max_over_time", "sum_over_time", "count_over_time"];
+    internal static readonly string[] OverTimeFunctions =
+    [
+        "avg_over_time", "last_over_time", "min_over_time", "max_over_time", "sum_over_time", "count_over_time",
+        "delta", "changes", "resets", "deriv", "predict_linear",
+    ];
+
+    private static readonly string[] SortFunctions = ["sort", "sort_desc", "sort_by_label", "sort_by_label_desc"];
 
     /// <summary>Instant-vector functions and how many number-literal parameters follow the vector (min, max).</summary>
     private static readonly Dictionary<string, (int Min, int Max)> InstantFunctions = new()
@@ -388,7 +429,7 @@ internal sealed class PromQlParser
     {
         RequireInstant(left);
         RequireInstant(right);
-        if (left is PromNumber l && right is PromNumber r)
+        if (PromExprs.IsScalar(left) && PromExprs.IsScalar(right))
         {
             if (PromBinary.IsSetOperator(op))
             {
@@ -400,10 +441,13 @@ internal sealed class PromQlParser
                 throw new PromQlException("comparisons between scalars must use the bool modifier.");
             }
 
-            return new PromNumber(PromBinaryOperations.Compute(op, l.Value, r.Value, returnBool).Value);
+            // Constants fold here; anything with time() or scalar() in it is evaluated per step.
+            return left is PromNumber l && right is PromNumber r
+                ? new PromNumber(PromBinaryOperations.Compute(op, l.Value, r.Value, returnBool).Value)
+                : new PromBinary(op, returnBool, left, right, matching);
         }
 
-        if (PromBinary.IsSetOperator(op) && (left is PromNumber || right is PromNumber))
+        if (PromBinary.IsSetOperator(op) && (PromExprs.IsScalar(left) || PromExprs.IsScalar(right)))
         {
             throw new PromQlException($"set operator '{op}' not allowed in binary scalar expression.");
         }
@@ -623,22 +667,54 @@ internal sealed class PromQlParser
             return ParseAggregation(lower);
         }
 
-        if (RangeFunctions.Contains(lower))
+        // A metric may share a function's name (`changes`, `time`); only a call is a function.
+        if (RangeFunctions.Contains(lower) && NextNonSpace() == '(')
         {
             Expect('(');
             var arg = ParseBinary(0);
+            double? parameter = null;
+            if (lower == "predict_linear")
+            {
+                Expect(',');
+                parameter = ParseBinary(0) is PromNumber ahead
+                    ? ahead.Value
+                    : throw new PromQlException("predict_linear's second argument (seconds ahead) must be a number.");
+            }
+
             Expect(')');
             if (arg is PromSubquery subquery)
             {
                 return OverTimeFunctions.Contains(lower)
-                    ? new PromSubqueryFunction(lower, subquery)
+                    ? new PromSubqueryFunction(lower, subquery, parameter)
                     : throw new PromQlException(
-                        $"{lower}() over a subquery is not supported; apply rate() to the metric selector inside it, and use avg_over_time, min_over_time, max_over_time, sum_over_time, count_over_time or last_over_time over the subquery.");
+                        $"{lower}() over a subquery is not supported; apply rate() to the metric selector inside it, and use avg_over_time, min_over_time, max_over_time, sum_over_time, count_over_time, last_over_time, delta, changes, resets, deriv or predict_linear over the subquery.");
             }
 
             return arg is PromSelector { Range: not null } selector
-                ? new PromRangeFunction(lower, selector)
+                ? new PromRangeFunction(lower, selector, parameter)
                 : throw new PromQlException($"{lower}() requires a range selector, e.g. {lower}(metric[5m]).");
+        }
+
+        if (lower == "time" && NextNonSpace() == '(')
+        {
+            Expect('(');
+            Expect(')');
+            return new PromTime();
+        }
+
+        if (lower == "scalar" && NextNonSpace() == '(')
+        {
+            Expect('(');
+            var inner = ParseBinary(0);
+            Expect(')');
+            return PromExprs.IsScalar(inner)
+                ? throw new PromQlException("scalar() expects an instant vector, got a scalar.")
+                : new PromScalar(RequireInstant(inner));
+        }
+
+        if (SortFunctions.Contains(lower) && NextNonSpace() == '(')
+        {
+            return ParseSort(lower);
         }
 
         if (lower == "histogram_quantile")
@@ -686,19 +762,20 @@ internal sealed class PromQlParser
         if (lower == "vector")
         {
             Expect('(');
-            var scalar = ParseBinary(0) as PromNumber
-                ?? throw new PromQlException("vector()'s argument must be a number literal.");
+            var scalar = ParseBinary(0);
             Expect(')');
-            return new PromFunction("vector", scalar, []);
+            return PromExprs.IsScalar(scalar)
+                ? new PromFunction("vector", scalar, [])
+                : throw new PromQlException("vector()'s argument must be a scalar: a number, time(), scalar(v) or arithmetic on them.");
         }
 
         if (InstantFunctions.TryGetValue(lower, out var arity))
         {
             Expect('(');
             var inner = RequireInstant(ParseBinary(0));
-            if (inner is PromNumber)
+            if (PromExprs.IsScalar(inner))
             {
-                throw new PromQlException($"{lower}() expects an instant vector, got a scalar; wrap the number in vector().");
+                throw new PromQlException($"{lower}() expects an instant vector, got a scalar; wrap it in vector().");
             }
 
             var parameters = new List<double>();
@@ -722,11 +799,46 @@ internal sealed class PromQlParser
         if (Peek() == '(')
         {
             throw new PromQlException(
-                $"function '{ident}' is not supported (supported: rate, increase, irate, avg_over_time, last_over_time, min_over_time, max_over_time, sum_over_time, count_over_time, histogram_quantile, "
-                + "sum, avg, min, max, count, group, stddev, stdvar, topk, bottomk, quantile, vector, abs, ceil, floor, round, sqrt, exp, ln, log2, log10, sgn, clamp, clamp_min, clamp_max, absent, label_replace, label_join).");
+                $"function '{ident}' is not supported (supported: rate, increase, irate, avg_over_time, last_over_time, min_over_time, max_over_time, sum_over_time, count_over_time, delta, changes, resets, deriv, predict_linear, histogram_quantile, "
+                + "sum, avg, min, max, count, group, stddev, stdvar, topk, bottomk, quantile, count_values, time, scalar, sort, sort_desc, sort_by_label, sort_by_label_desc, vector, abs, ceil, floor, round, sqrt, exp, ln, log2, log10, sgn, clamp, clamp_min, clamp_max, absent, label_replace, label_join).");
         }
 
         return ParseSelectorTail(ident);
+    }
+
+    private static bool IsValidLabelName(string name) =>
+        name.Length > 0 && IsIdentStart(name[0]) && name[0] != ':' && name.All(c => char.IsLetterOrDigit(c) || c == '_');
+
+    // sort(v), sort_desc(v), sort_by_label(v, "a", "b"), sort_by_label_desc(v, "a", "b").
+    private PromSort ParseSort(string name)
+    {
+        Expect('(');
+        var inner = ParseBinary(0);
+        if (PromExprs.IsScalar(inner))
+        {
+            throw new PromQlException($"{name}() expects an instant vector, got a scalar; wrap it in vector().");
+        }
+
+        var labels = new List<string>();
+        var byLabel = name.StartsWith("sort_by_label", StringComparison.Ordinal);
+        while (TryConsume(','))
+        {
+            if (!byLabel)
+            {
+                throw new PromQlException($"{name}() takes 1 argument.");
+            }
+
+            SkipWhitespace();
+            labels.Add(ParseString());
+        }
+
+        Expect(')');
+        if (byLabel && labels.Count == 0)
+        {
+            throw new PromQlException($"{name}() takes a vector and at least one label name: {name}(v, \"label\").");
+        }
+
+        return new PromSort(name, RequireInstant(inner), labels);
     }
 
     private char NextNonSpace()
@@ -743,7 +855,19 @@ internal sealed class PromQlParser
         var grouped = TryParseGrouping(ref without, labels);
         Expect('(');
         double? parameter = null;
-        if (ParameterisedAggregations.Contains(op))
+        string? valueLabel = null;
+        if (op == "count_values")
+        {
+            SkipWhitespace();
+            valueLabel = ParseString();
+            if (!IsValidLabelName(valueLabel))
+            {
+                throw new PromQlException($"invalid label name \"{valueLabel}\" for count_values.");
+            }
+
+            Expect(',');
+        }
+        else if (ParameterisedAggregations.Contains(op))
         {
             parameter = ParseBinary(0) is PromNumber p
                 ? p.Value
@@ -752,13 +876,18 @@ internal sealed class PromQlParser
         }
 
         var inner = RequireInstant(ParseBinary(0));
+        if (PromExprs.IsScalar(inner))
+        {
+            throw new PromQlException($"{op}() expects an instant vector, got a scalar; wrap it in vector().");
+        }
+
         Expect(')');
         if (!grouped)
         {
             TryParseGrouping(ref without, labels);
         }
 
-        return new PromAggregation(op, without, labels, inner, parameter);
+        return new PromAggregation(op, without, labels, inner, parameter, valueLabel);
     }
 
     private bool TryParseGrouping(ref bool without, List<string> labels)

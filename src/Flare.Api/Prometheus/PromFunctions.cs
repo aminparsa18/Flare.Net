@@ -32,6 +32,81 @@ internal static class PromFunctions
         return result;
     }
 
+    /// <summary>
+    /// <c>sort</c>/<c>sort_desc</c> order series by their newest value (NaN last), <c>sort_by_label</c> by label
+    /// values in natural order. Only an instant query shows the order; a range query's series are unordered in Prometheus too.
+    /// </summary>
+    public static List<PromSeries> Sort(PromSort sort, List<PromSeries> input)
+    {
+        var descending = sort.Name.EndsWith("_desc", StringComparison.Ordinal);
+        if (sort.Name.StartsWith("sort_by_label", StringComparison.Ordinal))
+        {
+            var comparer = Comparer<PromSeries>.Create((a, b) =>
+            {
+                foreach (var label in sort.Labels)
+                {
+                    var c = NaturalCompare(a.Labels.GetValueOrDefault(label, ""), b.Labels.GetValueOrDefault(label, ""));
+                    if (c != 0)
+                    {
+                        return descending ? -c : c;
+                    }
+                }
+
+                return 0;
+            });
+            return [.. input.OrderBy(s => s, comparer)];
+        }
+
+        double Newest(PromSeries s) => s.Samples.Count == 0 ? double.NaN : s.Samples[^1].Value;
+        var withValue = input.Where(s => !double.IsNaN(Newest(s)));
+        var ordered = descending ? withValue.OrderByDescending(Newest) : withValue.OrderBy(Newest);
+        return [.. ordered, .. input.Where(s => double.IsNaN(Newest(s)))];
+    }
+
+    /// <summary>Orders "node2" before "node10": digit runs compare as numbers, everything else ordinally.</summary>
+    private static int NaturalCompare(string a, string b)
+    {
+        int i = 0, j = 0;
+        while (i < a.Length && j < b.Length)
+        {
+            if (char.IsDigit(a[i]) && char.IsDigit(b[j]))
+            {
+                var si = i;
+                var sj = j;
+                while (i < a.Length && char.IsDigit(a[i]))
+                {
+                    i++;
+                }
+
+                while (j < b.Length && char.IsDigit(b[j]))
+                {
+                    j++;
+                }
+
+                var da = a[si..i].TrimStart('0');
+                var db = b[sj..j].TrimStart('0');
+                var byLength = da.Length.CompareTo(db.Length);
+                var c = byLength != 0 ? byLength : string.CompareOrdinal(da, db);
+                if (c != 0)
+                {
+                    return c;
+                }
+
+                continue;
+            }
+
+            if (a[i] != b[j])
+            {
+                return a[i].CompareTo(b[j]);
+            }
+
+            i++;
+            j++;
+        }
+
+        return (a.Length - i).CompareTo(b.Length - j);
+    }
+
     private static PromSeries With(this PromSeries series, IEnumerable<PromSample> samples)
     {
         series.Samples.AddRange(samples);

@@ -49,10 +49,14 @@ Flare переводит имена OTel в соглашения Prometheus:
 | `offset` для селектора или диапазона | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
 | `rate`, `increase`, `irate` | `rate(requests_total[5m])` |
 | `avg_over_time`, `min_over_time`, `max_over_time`, `sum_over_time`, `count_over_time`, `last_over_time` (gauge) | `max_over_time(queue_depth[10m])` |
+| `delta`, `changes`, `resets`, `deriv`, `predict_linear` (gauge) | `predict_linear(free_bytes[6h], 4 * 3600)`, `resets(uptime_seconds[1d])` |
+| `time()`, `scalar(v)` и арифметика над ними; `vector(time())` | `time() - process_start_time_seconds` |
 | `@` для селектора, диапазона или подзапроса | `requests_total @ 1700000000`, `queue_depth / queue_depth @ start()` |
-| Подзапросы внутри функции `*_over_time` | `max_over_time(rate(requests_total[5m])[1h:1m])` |
+| Подзапросы внутри функции `*_over_time`, `delta`, `changes`, `resets`, `deriv` или `predict_linear` | `max_over_time(rate(requests_total[5m])[1h:1m])` |
 | `sum`, `avg`, `min`, `max`, `count`, `group`, `stddev`, `stdvar` с `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
 | `topk`, `bottomk`, `quantile` с `by`/`without` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
+| `count_values` с `by`/`without` | `count_values("version", build_info)` |
+| `sort`, `sort_desc`, `sort_by_label`, `sort_by_label_desc` | `sort_desc(sum by (host) (rate(cpu_seconds_total[5m])))` |
 | `histogram_quantile` над `rate`/`increase`, при необходимости внутри `sum by (...)` | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
 | `_sum` и `_count` гистограммы под `rate`/`increase` | `rate(d_seconds_count[1m])` |
 | Арифметика `+ - * / % ^` между рядами и числами | `100 * sum(rate(errors_total[5m])) / sum(rate(requests_total[5m]))` |
@@ -65,7 +69,7 @@ Flare переводит имена OTel в соглашения Prometheus:
 
 Эндпоинты: `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Не поддерживается: `rate`/`increase`/`irate` над подзапросом, `delta`, `predict_linear`, правила записи и запись данных.
+Не поддерживается: `rate`/`increase`/`irate` над подзапросом, `idelta`, `holt_winters`, `timestamp()`, правила записи и запись данных.
 
 ## Exemplars
 
@@ -90,6 +94,9 @@ curl -H "Authorization: Bearer $TOKEN" \
 - **Ошибки сопоставления настоящие.** `a / b` завершается ошибкой «found duplicate series for the match group», если набор меток совпадает с двумя рядами с одной стороны. Сначала агрегируйте, сузьте через `on(...)`/`ignoring(...)` или явно разрешите `group_left`/`group_right`, как и в Prometheus.
 - **`offset` округляется до целого числа шагов.** `offset 90s` при шаге 60 с читается как 120 с, чтобы сдвинутый ряд остался на тех же отметках времени, что и остальной запрос.
 - **`irate` и `avg_over_time` работают по бакетам.** `irate` — прирост последнего бакета в секунду, а `avg_over_time` усредняет средние значения бакетов. `min_over_time`, `max_over_time`, `sum_over_time` и `count_over_time` сворачивают исходные точки каждого бакета, поэтому точны с точностью до шага.
+- **`delta`, `changes` и `resets` сравнивают каждую точку с предыдущей.** Сравнение относится к окну, в котором находится более поздняя точка, поэтому окно включает шаг от значения непосредственно перед ним. `delta(x[5m])` — значение в конце окна минус значение прямо перед его началом; Prometheus вместо этого экстраполирует «последнее минус первое» и считает только пары, обе точки которых внутри окна. Функции применяются к gauge (счётчик, собранный без метаданных о типе, — это gauge).
+- **`deriv` и `predict_linear` аппроксимируют средние значения бакетов.** Прямая проходит через среднее каждого бакета, помещённое в его середину, поэтому берите окно из нескольких шагов. `predict_linear` читает прямую в конце последнего бакета.
+- **`time()` — отметка времени шага**, а в мгновенном запросе — точное время запроса. **`sort` и `sort_desc`** заметны только в мгновенном запросе, как и в Prometheus.
 - **`@` фиксирует время вычисления.** `x @ 1700000000` вычисляется один раз, как мгновенный запрос в этот момент (последнее значение в пятиминутном окне), и повторяется на каждом шаге. В мгновенном запросе `start()` и `end()` оба означают время запроса.
 - **Подзапросы** `expr[1h:1m]` вычисляют внутреннее выражение каждую `1m` (шаг запроса, если разрешение не указано) и сворачивают значения из `(t - 1h, t]`. Вокруг них нужна функция `*_over_time`.
 - **Для счётчиков нужен `rate()` или `increase()`.** Flare хранит приращения за интервал, поэтому «голый» счётчик вроде `requests_total` отклоняется с подсказкой про `rate()`. Gauge под `rate()` читается как счётчик - так приходят метрики Prometheus `*_total` без типа.
@@ -98,4 +105,4 @@ curl -H "Authorization: Bearer $TOKEN" \
 - **Мгновенные запросы** смотрят на последние пять минут.
 - **`labels` и значения меток без `match[]`** берут выборку из десяти метрик с наибольшим числом рядов. Передайте `match[]`, чтобы получить полный ответ.
 
-Заметки о дизайне: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
+Заметки о дизайне: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).

@@ -49,10 +49,14 @@ Flare 会把 OTel 名称映射为 Prometheus 约定：
 | 选择器或范围上的 `offset` | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
 | `rate`、`increase`、`irate` | `rate(requests_total[5m])` |
 | `avg_over_time`、`min_over_time`、`max_over_time`、`sum_over_time`、`count_over_time`、`last_over_time`（gauge） | `max_over_time(queue_depth[10m])` |
+| `delta`、`changes`、`resets`、`deriv`、`predict_linear`（gauge） | `predict_linear(free_bytes[6h], 4 * 3600)`, `resets(uptime_seconds[1d])` |
+| `time()`、`scalar(v)` 及其算术运算；`vector(time())` | `time() - process_start_time_seconds` |
 | 选择器、范围或子查询上的 `@` | `requests_total @ 1700000000`, `queue_depth / queue_depth @ start()` |
-| `*_over_time` 函数内的子查询 | `max_over_time(rate(requests_total[5m])[1h:1m])` |
+| `*_over_time`、`delta`、`changes`、`resets`、`deriv` 或 `predict_linear` 函数内的子查询 | `max_over_time(rate(requests_total[5m])[1h:1m])` |
 | 带 `by`/`without` 的 `sum`、`avg`、`min`、`max`、`count`、`group`、`stddev`、`stdvar` | `sum by (route) (rate(requests_total[5m]))` |
 | 带 `by`/`without` 的 `topk`、`bottomk`、`quantile` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
+| 带 `by`/`without` 的 `count_values` | `count_values("version", build_info)` |
+| `sort`、`sort_desc`、`sort_by_label`、`sort_by_label_desc` | `sort_desc(sum by (host) (rate(cpu_seconds_total[5m])))` |
 | 作用于 `rate`/`increase` 的 `histogram_quantile`，可嵌套在 `sum by (...)` 内 | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
 | `rate`/`increase` 下直方图的 `_sum` 和 `_count` | `rate(d_seconds_count[1m])` |
 | 序列与数字之间的算术 `+ - * / % ^` | `100 * sum(rate(errors_total[5m])) / sum(rate(requests_total[5m]))` |
@@ -65,7 +69,7 @@ Flare 会把 OTel 名称映射为 Prometheus 约定：
 
 端点：`query`、`query_range`、`query_exemplars`、`series`、`labels`、`label/<name>/values`、`status/buildinfo`。
 
-不支持：对子查询使用 `rate`/`increase`/`irate`、`delta`、`predict_linear`、记录规则以及写入数据。
+不支持：对子查询使用 `rate`/`increase`/`irate`、`idelta`、`holt_winters`、`timestamp()`、记录规则以及写入数据。
 
 ## Exemplar
 
@@ -90,6 +94,9 @@ Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们�
 - **匹配错误是真实的。** 如果一侧有两个序列匹配同一组标签，`a / b` 会报 “found duplicate series for the match group”。请先聚合，用 `on(...)`/`ignoring(...)` 缩小范围，或像 Prometheus 一样显式使用 `group_left`/`group_right`。
 - **`offset` 会取整为整数个步长。** 步长为 60 秒时 `offset 90s` 按 120 秒处理，使偏移后的序列与查询中其他序列保持相同的时间戳。
 - **`irate` 和 `avg_over_time` 基于 bucket 计算。** `irate` 是最新 bucket 的每秒增量，`avg_over_time` 是各 bucket 平均值的平均。`min_over_time`、`max_over_time`、`sum_over_time` 和 `count_over_time` 对每个 bucket 的原始点进行归约，因此精确到步长。
+- **`delta`、`changes` 和 `resets` 把每个点与前一个点比较。** 比较算在包含较晚那个点的窗口里，因此窗口包含从它之前最后一个样本过来的那一步。`delta(x[5m])` 是窗口末尾的值减去窗口开始前一刻的值；Prometheus 则对“最后一个减第一个”做外推，并且只统计两个点都在窗口内的配对。它们适用于 gauge（未带类型元数据抓取的计数器就是 gauge）。
+- **`deriv` 和 `predict_linear` 拟合 bucket 平均值。** 直线穿过每个 bucket 的平均值（置于 bucket 中点），所以请使用包含多个步长的窗口。`predict_linear` 在最新 bucket 的末尾读取这条直线。
+- **`time()` 是步长的时间戳**，在即时查询中则是准确的查询时间。**`sort` 和 `sort_desc`** 只在即时查询中可见，与 Prometheus 一致。
 - **`@` 固定求值时间。** `x @ 1700000000` 只计算一次，相当于在该时间的即时查询（取五分钟回溯窗口内最新的样本），并在每个步长重复。即时查询中 `start()` 和 `end()` 都表示查询时间。
 - **子查询** `expr[1h:1m]` 每 `1m`（省略分辨率时为查询步长）计算一次内部表达式，并归约 `(t - 1h, t]` 内的样本。它们外面必须有 `*_over_time` 函数。
 - **计数器必须使用 `rate()` 或 `increase()`。** Flare 存储的是每个区间的增量，因此像 `requests_total` 这样的裸计数器会被拒绝，并提示改用 `rate()`。在 `rate()` 下使用的 gauge 会被当作计数器读取，没有类型信息的 Prometheus `*_total` 指标正是以这种方式到达的。
@@ -98,4 +105,4 @@ Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们�
 - **即时查询** 查看最近五分钟。
 - **不带 `match[]` 的 `labels` 与标签值** 会从序列最多的十个指标中采样。传入 `match[]` 可得到完整结果。
 
-设计说明：[ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md)、[ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)、[ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md)、[ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md)。
+设计说明：[ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md)、[ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)、[ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md)、[ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md)、[ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md)。

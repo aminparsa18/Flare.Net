@@ -55,10 +55,14 @@ Find the exact names with `GET /api/v1/label/__name__/values`.
 | `offset` on a selector or range | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
 | `rate`, `increase`, `irate` | `rate(requests_total[5m])` |
 | `avg_over_time`, `min_over_time`, `max_over_time`, `sum_over_time`, `count_over_time`, `last_over_time` (gauges) | `max_over_time(queue_depth[10m])` |
+| `delta`, `changes`, `resets`, `deriv`, `predict_linear` (gauges) | `predict_linear(free_bytes[6h], 4 * 3600)`, `resets(uptime_seconds[1d])` |
+| `time()`, `scalar(v)`, and arithmetic on them; `vector(time())` | `time() - process_start_time_seconds` |
 | `@` on a selector, range or subquery | `requests_total @ 1700000000`, `queue_depth / queue_depth @ start()` |
-| Subqueries inside an `*_over_time` function | `max_over_time(rate(requests_total[5m])[1h:1m])` |
+| Subqueries inside an `*_over_time` function, `delta`, `changes`, `resets`, `deriv` or `predict_linear` | `max_over_time(rate(requests_total[5m])[1h:1m])` |
 | `sum`, `avg`, `min`, `max`, `count`, `group`, `stddev`, `stdvar` with `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
 | `topk`, `bottomk`, `quantile` with `by`/`without` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
+| `count_values` with `by`/`without` | `count_values("version", build_info)` |
+| `sort`, `sort_desc`, `sort_by_label`, `sort_by_label_desc` | `sort_desc(sum by (host) (rate(cpu_seconds_total[5m])))` |
 | `histogram_quantile` over `rate`/`increase`, optionally inside `sum by (...)` | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
 | `_sum` and `_count` of a histogram under `rate`/`increase` | `rate(d_seconds_count[1m])` |
 | Arithmetic `+ - * / % ^` between series and numbers | `100 * sum(rate(errors_total[5m])) / sum(rate(requests_total[5m]))` |
@@ -71,7 +75,7 @@ Find the exact names with `GET /api/v1/label/__name__/values`.
 
 Endpoints: `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Not supported: `rate`/`increase`/`irate` over a subquery, `delta`, `predict_linear`, recording rules, and writing data.
+Not supported: `rate`/`increase`/`irate` over a subquery, `idelta`, `holt_winters`, `timestamp()`, recording rules, and writing data.
 
 ## Exemplars
 
@@ -111,6 +115,14 @@ of the newest in the window; stacked areas and comparison overlays draw none.
 - **`irate` and `avg_over_time` work on buckets.** `irate` is the newest bucket's increase per second, and
   `avg_over_time` averages bucket averages. `min_over_time`, `max_over_time`, `sum_over_time` and `count_over_time`
   reduce the raw points of each bucket, so they are exact down to the step.
+- **`delta`, `changes` and `resets` compare each point with the one before it.** The comparison counts in the window that
+  holds the later point, so a window includes the step in from the sample just before it. `delta(x[5m])` is the value at
+  the window's end minus the value just before its start; Prometheus extrapolates last-minus-first instead, and counts
+  only pairs that are both inside the window. They apply to gauges (a counter scraped without type metadata is one).
+- **`deriv` and `predict_linear` fit the bucket averages.** The line goes through each bucket's average at the middle of
+  the bucket, so use a window of several steps. `predict_linear` reads the line at the end of the newest bucket.
+- **`time()` is the step's timestamp**, or the exact query time in an instant query. **`sort` and `sort_desc`** only
+  show in an instant query, as in Prometheus.
 - **`@` pins the evaluation time.** `x @ 1700000000` is evaluated once, like an instant query at that time (newest sample within the five-minute lookback), and repeated at
   every step. In an instant query `start()` and `end()` both mean the query time.
 - **Subqueries** `expr[1h:1m]` evaluate the inner expression every `1m` (the query step when the resolution is
@@ -127,4 +139,4 @@ of the newest in the window; stacked areas and comparison overlays draw none.
 - **`labels` and label values without `match[]`** sample the ten metrics with the most series. Pass
   `match[]` for a complete answer.
 
-Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
+Design notes: [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).

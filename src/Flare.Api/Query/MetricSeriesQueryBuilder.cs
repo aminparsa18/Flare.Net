@@ -297,6 +297,11 @@ public static class MetricSeriesQueryBuilder
     /// average unless <see cref="Model.MetricQueryRequest.GaugeAggregate"/> asks for another reduction of the raw points.
     /// </summary>
     private static string BuildGaugeSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr, MetricGaugeAggregate? aggregate) =>
+        aggregate is MetricGaugeAggregate.Delta or MetricGaugeAggregate.Changes or MetricGaugeAggregate.Resets
+            ? BuildGaugeStepSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr, aggregate.Value)
+            : BuildGaugeFlatSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr, aggregate);
+
+    private static string BuildGaugeFlatSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr, MetricGaugeAggregate? aggregate) =>
         "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
         $"ServiceName, {seriesKeyExpr}, {seriesAttributesExpr}, " +
         $"{GaugeValueExpr(aggregate)} AS Value\n" +
@@ -305,6 +310,36 @@ public static class MetricSeriesQueryBuilder
         $"  AND (ServiceName, {rawSeriesKeyExpr}) GLOBAL IN (\n{topSeriesSql}\n  )\n" +
         "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
         "ORDER BY ServiceName, SeriesKey, BucketStart";
+
+    /// <summary>
+    /// Gauge <c>delta</c>/<c>changes</c>/<c>resets</c> (ADR-0246): each point is compared with the series' previous
+    /// point (a window function, like <see cref="BuildSumSql"/>), and the comparison is attributed to the bucket
+    /// holding the later point. The first point the query reads has no predecessor and counts for nothing. Summing a
+    /// run of buckets therefore gives the change across the window, including the step in from the sample before it.
+    /// </summary>
+    private static string BuildGaugeStepSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr, MetricGaugeAggregate aggregate)
+    {
+        var stepExpr = aggregate switch
+        {
+            MetricGaugeAggregate.Delta => "sumIf(Value - PrevValue, SeriesRowNum > 1)",
+            MetricGaugeAggregate.Changes => "toFloat64(countIf(SeriesRowNum > 1 AND Value != PrevValue AND NOT (isNaN(Value) AND isNaN(PrevValue))))",
+            _ => "toFloat64(countIf(SeriesRowNum > 1 AND Value < PrevValue))",
+        };
+
+        return "WITH ranked AS (\n" +
+            $"  SELECT ServiceName, DataPointAttributes, {seriesKeyExpr}, " +
+            "toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, Value,\n" +
+            "    row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum,\n" +
+            "    lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS PrevValue\n" +
+            $"  FROM {table}\n" +
+            $"  WHERE {whereSql}\n" +
+            $"    AND (ServiceName, {rawSeriesKeyExpr}) GLOBAL IN (\n{topSeriesSql}\n    )\n" +
+            ")\n" +
+            $"SELECT BucketStart, ServiceName, SeriesKey, {seriesAttributesExpr}, {stepExpr} AS Value\n" +
+            "FROM ranked\n" +
+            "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
+            "ORDER BY ServiceName, SeriesKey, BucketStart";
+    }
 
     // count() is UInt64; the reader takes the value as a double.
     private static string GaugeValueExpr(MetricGaugeAggregate? aggregate) => aggregate switch

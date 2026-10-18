@@ -93,7 +93,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             (evaluationTime ?? start).ToUnixTimeMilliseconds(),
             (evaluationTime ?? end).ToUnixTimeMilliseconds());
         var series = await EvalAsync(expr, ctx, cancellationToken);
-        return new PromEvalResult(series, expr is PromNumber, ctx.Warnings);
+        return new PromEvalResult(series, PromExprs.IsScalar(expr), ctx.Warnings);
     }
 
     /// <summary>Series matching a selector in a window - backs <c>/api/v1/series</c>, <c>/labels</c> and <c>/label/&lt;name&gt;/values</c>.</summary>
@@ -138,6 +138,15 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
 
             case PromSubqueryFunction fn:
                 return await EvalSubqueryFunctionAsync(fn, ctx, cancellationToken);
+
+            case PromTime:
+                return [TimeSeries(ctx)];
+
+            case PromScalar scalar:
+                return [Scalar(await EvalAsync(scalar.Inner, ctx, cancellationToken), ctx)];
+
+            case PromSort sort:
+                return PromFunctions.Sort(sort, await EvalAsync(sort.Inner, ctx, cancellationToken));
 
             case PromAggregation agg:
                 return Aggregate(agg, await EvalAsync(agg.Inner, ctx, cancellationToken));
@@ -217,6 +226,41 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         return series.Samples.Count == 0 ? [] : [series];
     }
 
+    /// <summary>
+    /// <c>time()</c>: each step's timestamp in seconds. A step is stamped with its bucket start, but an instant
+    /// query (or a range query whose start equals its end) is asked about one moment, so its last step reads that moment.
+    /// </summary>
+    private static PromSeries TimeSeries(Context ctx)
+    {
+        var series = new PromSeries([]);
+        var timestamps = ctx.Timestamps().ToList();
+        var exactEnd = ctx.QueryStartMs == ctx.QueryEndMs && ctx.EndMs == ctx.QueryEndMs;
+        for (var i = 0; i < timestamps.Count; i++)
+        {
+            var ms = exactEnd && i == timestamps.Count - 1 ? ctx.QueryEndMs : timestamps[i];
+            series.Samples.Add(new PromSample(timestamps[i], ms / 1000.0));
+        }
+
+        return series;
+    }
+
+    /// <summary><c>scalar(v)</c>: v's value at each step where it has exactly one series, NaN otherwise.</summary>
+    private static PromSeries Scalar(List<PromSeries> vector, Context ctx)
+    {
+        var byTimestamp = new Dictionary<long, (int Count, double Value)>();
+        foreach (var sample in vector.SelectMany(s => s.Samples))
+        {
+            byTimestamp[sample.TimestampMs] = byTimestamp.TryGetValue(sample.TimestampMs, out var seen)
+                ? (seen.Count + 1, sample.Value)
+                : (1, sample.Value);
+        }
+
+        var series = new PromSeries([]);
+        series.Samples.AddRange(ctx.Timestamps().Select(t =>
+            new PromSample(t, byTimestamp.TryGetValue(t, out var at) && at.Count == 1 ? at.Value : double.NaN)));
+        return series;
+    }
+
     private static PromSeries ScalarSeries(PromNumber number, Context ctx)
     {
         var series = new PromSeries([]);
@@ -226,6 +270,25 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
 
     private async Task<List<PromSeries>> EvalBinaryAsync(PromBinary b, Context ctx, CancellationToken cancellationToken)
     {
+        // Scalar op scalar where one side moves with time (time(), scalar(v)): constants were folded at parse time.
+        if (PromExprs.IsScalar(b.Left) && PromExprs.IsScalar(b.Right))
+        {
+            return PromBinaryOperations.ApplyScalars(
+                b, await EvalAsync(b.Left, ctx, cancellationToken), await EvalAsync(b.Right, ctx, cancellationToken));
+        }
+
+        if (b.Left is not PromNumber && PromExprs.IsScalar(b.Left))
+        {
+            return PromBinaryOperations.ApplyScalar(
+                b, await EvalAsync(b.Right, ctx, cancellationToken), await EvalAsync(b.Left, ctx, cancellationToken), scalarOnLeft: true);
+        }
+
+        if (b.Right is not PromNumber && PromExprs.IsScalar(b.Right))
+        {
+            return PromBinaryOperations.ApplyScalar(
+                b, await EvalAsync(b.Left, ctx, cancellationToken), await EvalAsync(b.Right, ctx, cancellationToken), scalarOnLeft: false);
+        }
+
         // Scalars are handled as constants, not as series, so `x * 100` costs one metric query.
         if (b.Left is PromNumber leftScalar)
         {
@@ -335,15 +398,22 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
 
             var series = new PromSeries(WithoutName(r.Labels));
             var window = new List<double>(buckets);
+            var regression = fn.Name is "deriv" or "predict_linear";
+            var times = new List<long>(regression ? buckets : 0);
             foreach (var t in ctx.Timestamps())
             {
                 // Oldest bucket first, so the last element is the newest.
                 window.Clear();
+                times.Clear();
                 for (var i = buckets - 1; i >= 0; i--)
                 {
                     if (values.TryGetValue(t - i * ctx.StepMs, out var v))
                     {
                         window.Add(v);
+                        if (regression)
+                        {
+                            times.Add(BucketCenterMs(t - i * ctx.StepMs, ctx));
+                        }
                     }
                 }
 
@@ -352,7 +422,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                     continue;
                 }
 
-                series.Samples.Add(new PromSample(t, fn.Name switch
+                double? value = fn.Name switch
                 {
                     "rate" => window.Sum() / windowSeconds,
                     "increase" => window.Sum() / windowSeconds * range.TotalSeconds,
@@ -361,10 +431,16 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                     "avg_over_time" => window.Average(),
                     "min_over_time" => window.Min(),
                     "max_over_time" => window.Max(),
-                    // Each bucket holds its own sum or count, so the window's is their total.
-                    "sum_over_time" or "count_over_time" => window.Sum(),
+                    // Each bucket holds its own sum, count, change or reset total, so the window's is their total.
+                    "sum_over_time" or "count_over_time" or "delta" or "changes" or "resets" => window.Sum(),
+                    "deriv" or "predict_linear" => Regress(fn, window, times, Math.Min(t + ctx.StepMs, ctx.EndMs)),
                     _ => window[^1],
-                }));
+                };
+
+                if (value is { } v2)
+                {
+                    series.Samples.Add(new PromSample(t, v2));
+                }
             }
 
             if (series.Samples.Count > 0)
@@ -383,8 +459,36 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         "max_over_time" => MetricGaugeAggregate.Max,
         "sum_over_time" => MetricGaugeAggregate.Sum,
         "count_over_time" => MetricGaugeAggregate.Count,
+        "delta" => MetricGaugeAggregate.Delta,
+        "changes" => MetricGaugeAggregate.Changes,
+        "resets" => MetricGaugeAggregate.Resets,
         _ => null,
     };
+
+    /// <summary>
+    /// Where a bucket's average sits on the time axis for a regression: its middle, or - for the newest bucket,
+    /// which holds data only up to the query's end - the middle of what it holds.
+    /// </summary>
+    private static long BucketCenterMs(long bucketStartMs, Context ctx) =>
+        bucketStartMs + ctx.StepMs > ctx.EndMs ? (bucketStartMs + Math.Max(ctx.EndMs, bucketStartMs)) / 2 : bucketStartMs + ctx.StepMs / 2;
+
+    /// <summary>
+    /// <c>deriv</c> (the slope, per second) and <c>predict_linear</c> (the line's value <c>Parameter</c> seconds after
+    /// <paramref name="evaluatedAtMs"/>) over the points; null with fewer than two.
+    /// </summary>
+    private static double? Regress(PromRangeFunction fn, List<double> values, List<long> timesMs, long evaluatedAtMs) =>
+        Regress(fn.Name, fn.Parameter, values, timesMs, evaluatedAtMs);
+
+    private static double? Regress(string name, double? ahead, List<double> values, List<long> timesMs, long evaluatedAtMs)
+    {
+        var xs = timesMs.Select(t => (t - evaluatedAtMs) / 1000.0).ToList();
+        if (PromWindowMath.Fit(xs, values) is not { } fit)
+        {
+            return null;
+        }
+
+        return name == "deriv" ? fit.Slope : fit.Intercept + fit.Slope * (ahead ?? 0);
+    }
 
     /// <summary>
     /// <c>*_over_time(expr[range:resolution])</c>. The inner expression is evaluated over its own grid
@@ -437,16 +541,27 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                     continue;
                 }
 
-                var window = samples.GetRange(lo, hi - lo).Select(x => x.Value).ToList();
-                series.Samples.Add(new PromSample(t, fn.Name switch
+                var points = samples.GetRange(lo, hi - lo);
+                var window = points.Select(x => x.Value).ToList();
+                double? value = fn.Name switch
                 {
                     "avg_over_time" => window.Average(),
                     "min_over_time" => window.Min(),
                     "max_over_time" => window.Max(),
                     "sum_over_time" => window.Sum(),
                     "count_over_time" => window.Count,
+                    // Like Prometheus, delta needs two samples and is last minus first (no extrapolation to the window edges).
+                    "delta" => window.Count >= 2 ? window[^1] - window[0] : null,
+                    "changes" => PromWindowMath.Changes(window),
+                    "resets" => PromWindowMath.Resets(window),
+                    "deriv" or "predict_linear" => Regress(fn.Name, fn.Parameter, window, points.Select(x => x.TimestampMs).ToList(), windowEnd),
                     _ => window[^1],
-                }));
+                };
+
+                if (value is { } v)
+                {
+                    series.Samples.Add(new PromSample(t, v));
+                }
             }
 
             if (series.Samples.Count > 0)
@@ -618,6 +733,11 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             return TopK(agg, input);
         }
 
+        if (agg.Op == "count_values")
+        {
+            return CountValues(agg, input);
+        }
+
         var groups = new Dictionary<string, (Dictionary<string, string> Labels, SortedDictionary<long, List<double>> Values)>();
         foreach (var s in input)
         {
@@ -662,6 +782,60 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             }
 
             result.Add(series);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// <c>count_values("label", v)</c>: at every timestamp, within each group, one series per distinct value
+    /// holding how many input series have it, with the value written into <c>label</c>.
+    /// </summary>
+    private static List<PromSeries> CountValues(PromAggregation agg, List<PromSeries> input)
+    {
+        var label = agg.ValueLabel ?? throw new PromQlException("count_values needs a label name.");
+        var groups = new Dictionary<string, (Dictionary<string, string> Labels, SortedDictionary<long, Dictionary<string, int>> Counts)>();
+        foreach (var s in input)
+        {
+            var labels = GroupLabels(s.Labels, agg.Labels, agg.Without);
+            var key = GroupKey(labels);
+            if (!groups.TryGetValue(key, out var group))
+            {
+                group = (labels, []);
+                groups[key] = group;
+            }
+
+            foreach (var sample in s.Samples)
+            {
+                if (!group.Counts.TryGetValue(sample.TimestampMs, out var counts))
+                {
+                    counts = [];
+                    group.Counts[sample.TimestampMs] = counts;
+                }
+
+                var text = PrometheusEndpoints.FormatSample(sample.Value);
+                counts[text] = counts.GetValueOrDefault(text) + 1;
+            }
+        }
+
+        var result = new List<PromSeries>();
+        foreach (var (labels, byTimestamp) in groups.Values)
+        {
+            var bySeries = new Dictionary<string, PromSeries>();
+            foreach (var (ts, counts) in byTimestamp)
+            {
+                foreach (var (text, count) in counts)
+                {
+                    if (!bySeries.TryGetValue(text, out var series))
+                    {
+                        series = new PromSeries(new Dictionary<string, string>(labels) { [label] = text });
+                        bySeries[text] = series;
+                        result.Add(series);
+                    }
+
+                    series.Samples.Add(new PromSample(ts, count));
+                }
+            }
         }
 
         return result;
