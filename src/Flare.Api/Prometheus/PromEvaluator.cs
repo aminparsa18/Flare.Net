@@ -53,7 +53,9 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
 
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(250);
 
-    private sealed record Context(long StartMs, long EndMs, long StepMs, List<string> Warnings)
+    /// <param name="QueryStartMs">What <c>@ start()</c> means: the start of the query range, not of a window being evaluated inside it.</param>
+    /// <param name="QueryEndMs">What <c>@ end()</c> means.</param>
+    private sealed record Context(long StartMs, long EndMs, long StepMs, List<string> Warnings, long QueryStartMs, long QueryEndMs)
     {
         public int StepSeconds => (int)(StepMs / 1000);
 
@@ -66,8 +68,9 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         }
     }
 
+    /// <param name="evaluationTime">Set for an instant query, whose window reaches back for a lookback: <c>@ start()</c> and <c>@ end()</c> then both mean this time rather than the window's edges.</param>
     public async Task<PromEvalResult> EvaluateAsync(
-        PromExpr expr, DateTimeOffset start, DateTimeOffset end, TimeSpan step, CancellationToken cancellationToken)
+        PromExpr expr, DateTimeOffset start, DateTimeOffset end, TimeSpan step, CancellationToken cancellationToken, DateTimeOffset? evaluationTime = null)
     {
         // Whole seconds only: the metric query service buckets with an INTERVAL n SECOND.
         var stepSeconds = Math.Max(1, (long)Math.Round(step.TotalSeconds));
@@ -82,7 +85,13 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                 $"exceeded maximum resolution of {MaxPoints} points per timeseries. Try decreasing the query resolution (?step=XX).");
         }
 
-        var ctx = new Context(start.ToUnixTimeMilliseconds(), end.ToUnixTimeMilliseconds(), stepSeconds * 1000, []);
+        var ctx = new Context(
+            start.ToUnixTimeMilliseconds(),
+            end.ToUnixTimeMilliseconds(),
+            stepSeconds * 1000,
+            [],
+            (evaluationTime ?? start).ToUnixTimeMilliseconds(),
+            (evaluationTime ?? end).ToUnixTimeMilliseconds());
         var series = await EvalAsync(expr, ctx, cancellationToken);
         return new PromEvalResult(series, expr is PromNumber, ctx.Warnings);
     }
@@ -112,11 +121,23 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             case PromNumber number:
                 return [ScalarSeries(number, ctx)];
 
+            case PromSelector { At: { } at } selector:
+                return await PinnedAsync(at, ctx, c => EvalSelectorAsync(selector, c, cancellationToken));
+
             case PromSelector selector:
                 return await EvalSelectorAsync(selector, ctx, cancellationToken);
 
+            case PromRangeFunction { Selector.At: { } at } fn:
+                return await PinnedAsync(at, ctx, c => EvalRangeFunctionAsync(fn, c, cancellationToken));
+
             case PromRangeFunction fn:
                 return await EvalRangeFunctionAsync(fn, ctx, cancellationToken);
+
+            case PromSubqueryFunction { Subquery.At: { } at } fn:
+                return await PinnedAsync(at, ctx, c => EvalSubqueryFunctionAsync(fn, c, cancellationToken));
+
+            case PromSubqueryFunction fn:
+                return await EvalSubqueryFunctionAsync(fn, ctx, cancellationToken);
 
             case PromAggregation agg:
                 return Aggregate(agg, await EvalAsync(agg.Inner, ctx, cancellationToken));
@@ -133,12 +154,59 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             case PromBinary binary:
                 return await EvalBinaryAsync(binary, ctx, cancellationToken);
 
+            case PromHistogramQuantile hq when HistogramAt(hq) is { } at:
+                return await PinnedAsync(at, ctx, c => EvalHistogramQuantileAsync(hq, c, cancellationToken));
+
             case PromHistogramQuantile hq:
                 return await EvalHistogramQuantileAsync(hq, ctx, cancellationToken);
 
             default:
                 throw new PromQlException("unsupported expression.");
         }
+    }
+
+    private static PromAt? HistogramAt(PromHistogramQuantile hq) => hq.Inner switch
+    {
+        PromRangeFunction fn => fn.Selector.At,
+        PromAggregation { Inner: PromRangeFunction fn } => fn.Selector.At,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The <c>@</c> modifier: evaluate once at the pinned time (floored to a step bucket, like every timestamp
+    /// here) and repeat that sample at every step of the real query. Offsets inside still count back from the pinned time.
+    /// </summary>
+    private static async Task<List<PromSeries>> PinnedAsync(PromAt at, Context ctx, Func<Context, Task<List<PromSeries>>> evaluate)
+    {
+        var atMs = at.Kind switch
+        {
+            PromAtKind.Start => ctx.QueryStartMs,
+            PromAtKind.End => ctx.QueryEndMs,
+            _ => at.TimestampMs,
+        };
+        var t = Math.DivRem(atMs, ctx.StepMs, out var remainder) * ctx.StepMs;
+        if (remainder < 0)
+        {
+            t -= ctx.StepMs;
+        }
+
+        var pinned = await evaluate(ctx with { StartMs = t, EndMs = t });
+        var timestamps = ctx.Timestamps().ToList();
+        var result = new List<PromSeries>(pinned.Count);
+        foreach (var s in pinned)
+        {
+            if (s.Samples.Count == 0)
+            {
+                continue;
+            }
+
+            var value = s.Samples[^1].Value;
+            var series = new PromSeries(s.Labels);
+            series.Samples.AddRange(timestamps.Select(ts => new PromSample(ts, value)));
+            result.Add(series);
+        }
+
+        return result;
     }
 
     // 1 at every step the inner vector has no sample, as Prometheus does; a never-resolved metric is absent everywhere.
@@ -180,12 +248,12 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
     /// multiple of it keeps an offset series on the same timestamps as the rest of the query; an offset
     /// that is not a multiple is rounded to the nearest step.
     /// </summary>
-    private static long OffsetMs(PromSelector selector, Context ctx) =>
-        (long)Math.Round(selector.Offset.TotalMilliseconds / ctx.StepMs) * ctx.StepMs;
+    private static long OffsetMs(TimeSpan offset, Context ctx) =>
+        (long)Math.Round(offset.TotalMilliseconds / ctx.StepMs) * ctx.StepMs;
 
     private async Task<List<PromSeries>> EvalSelectorAsync(PromSelector selector, Context ctx, CancellationToken cancellationToken)
     {
-        var shift = OffsetMs(selector, ctx);
+        var shift = OffsetMs(selector.Offset, ctx);
         var from = DateTimeOffset.FromUnixTimeMilliseconds(ctx.StartMs - shift);
         var to = DateTimeOffset.FromUnixTimeMilliseconds(ctx.EndMs - shift).AddMilliseconds(1);
         var metric = await ResolveAsync(selector, from, to, cancellationToken);
@@ -218,7 +286,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
     private async Task<List<PromSeries>> EvalRangeFunctionAsync(PromRangeFunction fn, Context ctx, CancellationToken cancellationToken)
     {
         var range = fn.Selector.Range!.Value;
-        var shift = OffsetMs(fn.Selector, ctx);
+        var shift = OffsetMs(fn.Selector.Offset, ctx);
         var from = DateTimeOffset.FromUnixTimeMilliseconds(ctx.StartMs - shift) - range;
         var to = DateTimeOffset.FromUnixTimeMilliseconds(ctx.EndMs - shift).AddMilliseconds(1);
         var metric = await ResolveAsync(fn.Selector, from, to, cancellationToken);
@@ -232,8 +300,8 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             throw new PromQlException($"{fn.Name}({metric.PromName}[...]) is only supported inside histogram_quantile; use {metric.PromName[..^"_bucket".Length]}_count or _sum for a plain rate.");
         }
 
-        // avg_over_time / last_over_time read gauge samples; the counter functions read increases.
-        var overTime = fn.Name is "avg_over_time" or "last_over_time";
+        // The *_over_time functions read gauge samples; the counter functions read increases.
+        var overTime = PromQlParser.OverTimeFunctions.Contains(fn.Name);
         if (overTime && metric.Kind != PromMetricKind.Gauge)
         {
             throw new PromQlException($"{fn.Name}() applies to gauges; '{metric.PromName}' is not one. Use rate() or increase() for counters and histograms.");
@@ -243,7 +311,8 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         // type metadata arrives as a Gauge) - the same reading ADR-0066's "treat as counter" gives it.
         var treatAsCounter = metric.Kind == PromMetricKind.Gauge && !overTime;
         var type = metric.Kind == PromMetricKind.Counter ? MetricPointType.Sum : metric.Type;
-        var raw = await FetchAsync(fn.Selector, metric, from, to, ctx.StepSeconds, type, treatAsCounter, false, ctx.Warnings, cancellationToken);
+        var raw = await FetchAsync(
+            fn.Selector, metric, from, to, ctx.StepSeconds, type, treatAsCounter, false, ctx.Warnings, cancellationToken, GaugeAggregateFor(fn.Name));
 
         var buckets = WindowBuckets(range, ctx);
         var windowSeconds = buckets * ctx.StepSeconds;
@@ -291,6 +360,92 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                     // The newest bucket's increase per second: the bucketed analogue of the last two raw samples.
                     "irate" => window[^1] / ctx.StepSeconds,
                     "avg_over_time" => window.Average(),
+                    "min_over_time" => window.Min(),
+                    "max_over_time" => window.Max(),
+                    // Each bucket holds its own sum or count, so the window's is their total.
+                    "sum_over_time" or "count_over_time" => window.Sum(),
+                    _ => window[^1],
+                }));
+            }
+
+            if (series.Samples.Count > 0)
+            {
+                result.Add(series);
+            }
+        }
+
+        return result;
+    }
+
+    // Gauge buckets are reduced in SQL from the raw points, so a window of min/max/sum/count buckets is exact (ADR-0245).
+    private static MetricGaugeAggregate? GaugeAggregateFor(string function) => function switch
+    {
+        "min_over_time" => MetricGaugeAggregate.Min,
+        "max_over_time" => MetricGaugeAggregate.Max,
+        "sum_over_time" => MetricGaugeAggregate.Sum,
+        "count_over_time" => MetricGaugeAggregate.Count,
+        _ => null,
+    };
+
+    /// <summary>
+    /// <c>*_over_time(expr[range:resolution])</c>. The inner expression is evaluated over its own grid
+    /// (<c>resolution</c>, the query step when omitted) covering the window of every outer step, then each outer
+    /// step reduces the inner samples in <c>(t - range, t]</c>. Inner samples are bucket starts like everywhere
+    /// else, so a window can include the bucket that starts at its own end. An empty window has no sample.
+    /// </summary>
+    private async Task<List<PromSeries>> EvalSubqueryFunctionAsync(PromSubqueryFunction fn, Context ctx, CancellationToken cancellationToken)
+    {
+        var sq = fn.Subquery;
+        var resolutionMs = sq.Resolution is { } r
+            ? Math.Max(1, (long)Math.Round(r.TotalSeconds)) * 1000
+            : ctx.StepMs;
+        var rangeMs = (long)sq.Range.TotalMilliseconds;
+        var shift = OffsetMs(sq.Offset, ctx);
+
+        var innerStart = ctx.StartMs - shift - rangeMs;
+        var innerEnd = ctx.EndMs - shift;
+        if ((innerEnd - innerStart) / resolutionMs > MaxPoints)
+        {
+            throw new PromQlException(
+                $"exceeded maximum resolution of {MaxPoints} points per timeseries in a subquery. Try a larger subquery resolution, e.g. [1h:5m].");
+        }
+
+        var inner = await EvalAsync(sq.Inner, ctx with { StartMs = innerStart, EndMs = innerEnd, StepMs = resolutionMs }, cancellationToken);
+
+        var result = new List<PromSeries>();
+        foreach (var s in inner)
+        {
+            var samples = s.Samples.OrderBy(x => x.TimestampMs).ToList();
+            var series = new PromSeries(WithoutName(s.Labels));
+            var lo = 0;
+            var hi = 0;
+            foreach (var t in ctx.Timestamps())
+            {
+                // The window (t - shift - range, t - shift]; both edges only ever move forward with t.
+                var windowEnd = t - shift;
+                while (hi < samples.Count && samples[hi].TimestampMs <= windowEnd)
+                {
+                    hi++;
+                }
+
+                while (lo < hi && samples[lo].TimestampMs <= windowEnd - rangeMs)
+                {
+                    lo++;
+                }
+
+                if (lo == hi)
+                {
+                    continue;
+                }
+
+                var window = samples.GetRange(lo, hi - lo).Select(x => x.Value).ToList();
+                series.Samples.Add(new PromSample(t, fn.Name switch
+                {
+                    "avg_over_time" => window.Average(),
+                    "min_over_time" => window.Min(),
+                    "max_over_time" => window.Max(),
+                    "sum_over_time" => window.Sum(),
+                    "count_over_time" => window.Count,
                     _ => window[^1],
                 }));
             }
@@ -332,7 +487,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         }
 
         var range = fn.Selector.Range!.Value;
-        var shift = OffsetMs(fn.Selector, ctx);
+        var shift = OffsetMs(fn.Selector.Offset, ctx);
         var from = DateTimeOffset.FromUnixTimeMilliseconds(ctx.StartMs - shift) - range;
         var to = DateTimeOffset.FromUnixTimeMilliseconds(ctx.EndMs - shift).AddMilliseconds(1);
         var metric = await ResolveAsync(fn.Selector, from, to, cancellationToken);
@@ -736,7 +891,8 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         bool treatAsCounter,
         bool includeBuckets,
         List<string> warnings,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        MetricGaugeAggregate? gaugeAggregate = null)
     {
         var matchers = selector.LabelMatchers.ToList();
         var (services, attributeFilters) = await PushDownAsync(selector, metric, type, from, to, cancellationToken);
@@ -757,6 +913,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                 TopN = MaxSeries,
                 TreatAsCounter = treatAsCounter ? true : null,
                 IncludeBuckets = includeBuckets ? true : null,
+                GaugeAggregate = gaugeAggregate,
             },
             cancellationToken);
 

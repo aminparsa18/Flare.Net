@@ -286,22 +286,35 @@ public static class MetricSeriesQueryBuilder
             MetricPointType.Sum => BuildSumSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr, hasTemporality: !gaugeAsCounter),
             MetricPointType.Histogram => BuildHistogramSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
             MetricPointType.ExponentialHistogram => BuildExponentialHistogramSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
-            _ => BuildGaugeSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
+            _ => BuildGaugeSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr, request.GaugeAggregate),
         };
 
         return new MetricSeriesSql(sql, filterSql.Parameters, shape);
     }
 
-    /// <summary>Gauge: one flat <c>GROUP BY</c> - a level needs no per-row differencing.</summary>
-    private static string BuildGaugeSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr) =>
+    /// <summary>
+    /// Gauge: one flat <c>GROUP BY</c> - a level needs no per-row differencing. The bucket value is the
+    /// average unless <see cref="Model.MetricQueryRequest.GaugeAggregate"/> asks for another reduction of the raw points.
+    /// </summary>
+    private static string BuildGaugeSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr, MetricGaugeAggregate? aggregate) =>
         "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
         $"ServiceName, {seriesKeyExpr}, {seriesAttributesExpr}, " +
-        "avg(Value) AS Value\n" +
+        $"{GaugeValueExpr(aggregate)} AS Value\n" +
         $"FROM {table}\n" +
         $"WHERE {whereSql}\n" +
         $"  AND (ServiceName, {rawSeriesKeyExpr}) GLOBAL IN (\n{topSeriesSql}\n  )\n" +
         "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
         "ORDER BY ServiceName, SeriesKey, BucketStart";
+
+    // count() is UInt64; the reader takes the value as a double.
+    private static string GaugeValueExpr(MetricGaugeAggregate? aggregate) => aggregate switch
+    {
+        MetricGaugeAggregate.Min => "min(Value)",
+        MetricGaugeAggregate.Max => "max(Value)",
+        MetricGaugeAggregate.Sum => "sum(Value)",
+        MetricGaugeAggregate.Count => "toFloat64(count())",
+        _ => "avg(Value)",
+    };
 
     /// <summary>
     /// Explicit-bucket Histogram: per-row temporality-aware contributions

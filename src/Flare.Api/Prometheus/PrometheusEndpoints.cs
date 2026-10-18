@@ -54,7 +54,7 @@ public static class PrometheusEndpoints
             var expr = PromQlParser.Parse(p.Single("query") ?? throw new PromQlException("parameter 'query' is required."));
             var at = p.Single("time") is { } t ? ParseTime(t, "time") : time.GetUtcNow();
 
-            var result = await evaluator.EvaluateAsync(expr, at - InstantLookback, at, InstantStep, ct);
+            var result = await evaluator.EvaluateAsync(expr, at - InstantLookback, at, InstantStep, ct, evaluationTime: at);
             return Success(w =>
             {
                 if (result.IsScalar)

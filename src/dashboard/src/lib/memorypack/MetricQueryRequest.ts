@@ -11,6 +11,7 @@
 // directly the same way MetricFilter.ts reuses the generated `MetricAttributeFilter`.
 // `treatAsCounter` was appended the same way for ADR-0066 (null = the metric's admin setting).
 // `includeBuckets` was appended the same way for ADR-0085's heatmap (null/false = omit per-bucket counts).
+// `gaugeAggregate` was appended the same way for ADR-0245 (PromQL min/max/sum/count_over_time; null = average). The dashboard never sets it.
 
 import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
 import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';
@@ -29,6 +30,7 @@ export class MetricQueryRequest {
 	postProcessFunctions: (MetricPostProcessFunction | null)[] | null;
 	treatAsCounter: boolean | null;
 	includeBuckets: boolean | null;
+	gaugeAggregate: number | null;
 
 	constructor() {
 		this.metricName = null;
@@ -42,6 +44,7 @@ export class MetricQueryRequest {
 		this.postProcessFunctions = null;
 		this.treatAsCounter = null;
 		this.includeBuckets = null;
+		this.gaugeAggregate = null;
 	}
 
 	static serialize(value: MetricQueryRequest | null): Uint8Array {
@@ -56,7 +59,7 @@ export class MetricQueryRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(11);
+		writer.writeObjectHeader(12);
 		writer.writeString(value.metricName);
 		writer.writeInt32(value.type);
 		MetricFilter.serializeCore(writer, value.filter);
@@ -68,6 +71,7 @@ export class MetricQueryRequest {
 		writer.writeArray(value.postProcessFunctions, (writer, x) => MetricPostProcessFunction.serializeCore(writer, x));
 		writer.writeNullableBoolean(value.treatAsCounter);
 		writer.writeNullableBoolean(value.includeBuckets);
+		writer.writeNullableInt32(value.gaugeAggregate);
 	}
 
 	static deserialize(buffer: ArrayBuffer): MetricQueryRequest | null {
@@ -81,7 +85,7 @@ export class MetricQueryRequest {
 		}
 
 		const value = new MetricQueryRequest();
-		if (count == 11) {
+		if (count == 12) {
 			value.metricName = reader.readString();
 			value.type = reader.readInt32();
 			value.filter = MetricFilter.deserializeCore(reader);
@@ -93,7 +97,8 @@ export class MetricQueryRequest {
 			value.postProcessFunctions = reader.readArray((reader) => MetricPostProcessFunction.deserializeCore(reader));
 			value.treatAsCounter = reader.readNullableBoolean();
 			value.includeBuckets = reader.readNullableBoolean();
-		} else if (count > 11) {
+			value.gaugeAggregate = reader.readNullableInt32();
+		} else if (count > 12) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -119,6 +124,8 @@ export class MetricQueryRequest {
 			if (count == 10) return value;
 			value.includeBuckets = reader.readNullableBoolean();
 			if (count == 11) return value;
+			value.gaugeAggregate = reader.readNullableInt32();
+			if (count == 12) return value;
 		}
 		return value;
 	}

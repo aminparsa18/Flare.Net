@@ -253,6 +253,27 @@ public sealed partial record MetricQueryRequest
     /// Appended last, same MemoryPack versioning convention as <see cref="HavingOperator"/>.
     /// </summary>
     public bool? IncludeBuckets { get; init; }
+
+    /// <summary>
+    /// Gauge only: reduce each bucket's raw points with this aggregate instead of the average, so a
+    /// PromQL <c>min_over_time</c>/<c>max_over_time</c>/<c>sum_over_time</c>/<c>count_over_time</c> sees the
+    /// real extreme, total or sample count rather than an average of averages (ADR-0245). Null = average.
+    /// Ignored for other point types and for a Gauge charted as a counter. Appended last, same MemoryPack
+    /// versioning convention as <see cref="HavingOperator"/>.
+    /// </summary>
+    public MetricGaugeAggregate? GaugeAggregate { get; init; }
+}
+
+/// <summary>
+/// How a Gauge bucket is reduced when it is not the default average (<see cref="MetricQueryRequest.GaugeAggregate"/>).
+/// MemoryPack encodes this as its numeric ordinal, so existing members must keep their ordinals.
+/// </summary>
+public enum MetricGaugeAggregate
+{
+    Min,
+    Max,
+    Sum,
+    Count,
 }
 
 /// <summary>

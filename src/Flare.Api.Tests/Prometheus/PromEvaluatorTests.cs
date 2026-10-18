@@ -604,6 +604,149 @@ public class PromEvaluatorTests
         Assert.False(stub.LastQuery!.TreatAsCounter ?? false);
     }
 
+    [Theory]
+    [InlineData("min_over_time", MetricGaugeAggregate.Min, 2.0)]
+    [InlineData("max_over_time", MetricGaugeAggregate.Max, 9.0)]
+    [InlineData("sum_over_time", MetricGaugeAggregate.Sum, 15.0)]
+    [InlineData("count_over_time", MetricGaugeAggregate.Count, 15.0)]
+    public async Task MinMaxSumCountOverTime_AskTheQueryForTheRealAggregate_AndCombineBuckets(string function, MetricGaugeAggregate aggregate, double expected)
+    {
+        // Each bucket value is already the per-bucket min/max/sum/count the SQL produced; the window folds them.
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 2), Point(1, 4), Point(2, 9)] }]);
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse($"{function}(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(aggregate, stub.LastQuery!.GaugeAggregate);
+        Assert.Equal(expected, Assert.Single(Assert.Single(result.Series).Samples).Value);
+    }
+
+    [Fact]
+    public async Task AvgOverTime_DoesNotAskForAnAggregate()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 2)] }]);
+
+        await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("avg_over_time(temp[3m])"), T0, T0, TimeSpan.FromMinutes(1), default);
+
+        Assert.Null(stub.LastQuery!.GaugeAggregate);
+    }
+
+    [Fact]
+    public async Task AtModifier_RepeatsThePinnedValueAtEveryStep()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(1, 7)] }]);
+        var at = T0.AddMinutes(1).ToUnixTimeSeconds();
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse($"temp @ {at}"), T0, T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+
+        var series = Assert.Single(result.Series);
+        Assert.Equal([7.0, 7.0, 7.0, 7.0], series.Samples.Select(s => s.Value));
+        Assert.Equal(
+            Enumerable.Range(0, 4).Select(m => T0.AddMinutes(m).ToUnixTimeMilliseconds()),
+            series.Samples.Select(s => s.TimestampMs));
+        // One fetch of a single bucket, not the whole range.
+        Assert.Equal(T0.AddMinutes(1), stub.LastQuery!.Filter.From);
+    }
+
+    [Fact]
+    public async Task AtEnd_InAnInstantQuery_MeansTheEvaluationTime_NotTheLookbackWindowsEnd()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(5, 3)] }]);
+
+        await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("temp @ start()"), T0, T0.AddMinutes(5), TimeSpan.FromMinutes(1), default, evaluationTime: T0.AddMinutes(5));
+
+        Assert.Equal(T0.AddMinutes(5), stub.LastQuery!.Filter.From);
+    }
+
+    [Fact]
+    public async Task AtModifier_WithOffset_CountsBackFromThePinnedTime()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(3, 1)] }]);
+
+        await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse($"temp @ {T0.AddMinutes(5).ToUnixTimeSeconds()} offset 2m"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(T0.AddMinutes(3), stub.LastQuery!.Filter.From);
+    }
+
+    [Fact]
+    public async Task Subquery_MaxOverTimeOfARate_TakesTheWindowsLargestStep()
+    {
+        // Increases of 60, 180, 60 per minute => 1, 3, 1 per second; the 3-minute window max at minute 2 is 3.
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "jobs", ServiceName = "api", Type = MetricPointType.Sum, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 60), Point(1, 180), Point(2, 60)] }]);
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("max_over_time(rate(jobs_total[1m])[3m:1m])"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        var series = Assert.Single(result.Series);
+        Assert.DoesNotContain("__name__", series.Labels.Keys);
+        // Window (t-3m, t] over inner samples at minutes 0..2: max so far at each step.
+        Assert.Equal([1.0, 3.0, 3.0], series.Samples.Select(s => s.Value));
+        // The inner grid reaches back one range before the first step.
+        Assert.Equal(T0.AddMinutes(-3 - 1), stub.LastQuery!.Filter.From);
+    }
+
+    [Fact]
+    public async Task Subquery_CountAndAvg_ReduceTheInnerSamples()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 2), Point(1, 4), Point(2, 9)] }]);
+        var evaluator = new PromEvaluator(stub);
+
+        var count = await evaluator.EvaluateAsync(
+            PromQlParser.Parse("count_over_time(temp[2m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+        var avg = await evaluator.EvaluateAsync(
+            PromQlParser.Parse("avg_over_time((temp * 2)[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        // (t-2m, t] holds the samples at minutes 1 and 2; (t-3m, t] holds all three, doubled.
+        Assert.Equal(2.0, Assert.Single(count.Series).Samples[0].Value);
+        Assert.Equal(10.0, Assert.Single(avg.Series).Samples[0].Value);
+    }
+
+    [Fact]
+    public async Task Subquery_WithOffset_ShiftsTheWindowBackAndRestampsToTheStep()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 5), Point(1, 6)] }]);
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("max_over_time(temp[2m:1m] offset 2m)"), T0.AddMinutes(3), T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+
+        var sample = Assert.Single(Assert.Single(result.Series).Samples);
+        Assert.Equal(T0.AddMinutes(3).ToUnixTimeMilliseconds(), sample.TimestampMs);
+        // (T0-1m, T0+1m] at the shifted time T0+1m: samples at T0 and T0+1m.
+        Assert.Equal(6.0, sample.Value);
+    }
+
+    [Fact]
+    public async Task Subquery_TooManyInnerPoints_IsRejected()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }], []);
+
+        var ex = await Assert.ThrowsAsync<PromQlException>(() => new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("max_over_time(temp[30d:1s])"), T0, T0, TimeSpan.FromMinutes(1), default));
+
+        Assert.Contains("subquery", ex.Message);
+    }
+
     [Fact]
     public async Task AvgOverTime_OnACounter_IsRejectedWithGuidance()
     {
