@@ -90,7 +90,7 @@ Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们�
 - **匹配错误是真实的。** 如果一侧有两个序列匹配同一组标签，`a / b` 会报 “found duplicate series for the match group”。请先聚合，用 `on(...)`/`ignoring(...)` 缩小范围，或像 Prometheus 一样显式使用 `group_left`/`group_right`。
 - **`offset` 会取整为整数个步长。** 步长为 60 秒时 `offset 90s` 按 120 秒处理，使偏移后的序列与查询中其他序列保持相同的时间戳。
 - **`irate` 和 `avg_over_time` 基于 bucket 计算。** `irate` 是最新 bucket 的每秒增量，`avg_over_time` 是各 bucket 平均值的平均。`min_over_time`、`max_over_time`、`sum_over_time` 和 `count_over_time` 对每个 bucket 的原始点进行归约，因此精确到步长。
-- **`@` 固定求值时间。** `x @ 1700000000` 只在该时间（向下取整到步长）读取一次，并在每个步长重复。即时查询中 `start()` 和 `end()` 都表示查询时间。
+- **`@` 固定求值时间。** `x @ 1700000000` 只计算一次，相当于在该时间的即时查询（取五分钟回溯窗口内最新的样本），并在每个步长重复。即时查询中 `start()` 和 `end()` 都表示查询时间。
 - **子查询** `expr[1h:1m]` 每 `1m`（省略分辨率时为查询步长）计算一次内部表达式，并归约 `(t - 1h, t]` 内的样本。它们外面必须有 `*_over_time` 函数。
 - **计数器必须使用 `rate()` 或 `increase()`。** Flare 存储的是每个区间的增量，因此像 `requests_total` 这样的裸计数器会被拒绝，并提示改用 `rate()`。在 `rate()` 下使用的 gauge 会被当作计数器读取，没有类型信息的 Prometheus `*_total` 指标正是以这种方式到达的。
 - **时间戳是桶的起点。** 样本落在步长的整数倍上，而不是 `start + k*step`。`[5m]` 窗口在 `round(5m / 步长)` 个桶上滑动，至少一个。

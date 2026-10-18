@@ -111,7 +111,7 @@ of the newest in the window; stacked areas and comparison overlays draw none.
 - **`irate` and `avg_over_time` work on buckets.** `irate` is the newest bucket's increase per second, and
   `avg_over_time` averages bucket averages. `min_over_time`, `max_over_time`, `sum_over_time` and `count_over_time`
   reduce the raw points of each bucket, so they are exact down to the step.
-- **`@` pins the evaluation time.** `x @ 1700000000` is read once, at that time rounded down to a step, and repeated at
+- **`@` pins the evaluation time.** `x @ 1700000000` is evaluated once, like an instant query at that time (newest sample within the five-minute lookback), and repeated at
   every step. In an instant query `start()` and `end()` both mean the query time.
 - **Subqueries** `expr[1h:1m]` evaluate the inner expression every `1m` (the query step when the resolution is
   left out) and reduce the samples in `(t - 1h, t]`. They need an `*_over_time` function around them.
