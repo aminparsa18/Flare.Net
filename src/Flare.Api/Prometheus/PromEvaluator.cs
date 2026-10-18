@@ -172,9 +172,13 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
         _ => null,
     };
 
+    /// <summary>How far back a pinned (<c>@</c>) evaluation looks for its newest sample; the instant-query lookback (<c>PrometheusEndpoints.InstantLookback</c>).</summary>
+    private static readonly long PinLookbackMs = (long)TimeSpan.FromMinutes(5).TotalMilliseconds;
+
     /// <summary>
-    /// The <c>@</c> modifier: evaluate once at the pinned time (floored to a step bucket, like every timestamp
-    /// here) and repeat that sample at every step of the real query. Offsets inside still count back from the pinned time.
+    /// The <c>@</c> modifier: evaluate as an instant query at the pinned time (the newest sample at or before it,
+    /// within the five-minute lookback an instant query uses) and repeat that sample at every step of the real
+    /// query. Offsets inside still count back from the pinned time.
     /// </summary>
     private static async Task<List<PromSeries>> PinnedAsync(PromAt at, Context ctx, Func<Context, Task<List<PromSeries>>> evaluate)
     {
@@ -184,13 +188,8 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
             PromAtKind.End => ctx.QueryEndMs,
             _ => at.TimestampMs,
         };
-        var t = Math.DivRem(atMs, ctx.StepMs, out var remainder) * ctx.StepMs;
-        if (remainder < 0)
-        {
-            t -= ctx.StepMs;
-        }
 
-        var pinned = await evaluate(ctx with { StartMs = t, EndMs = t });
+        var pinned = await evaluate(ctx with { StartMs = atMs - Math.Max(PinLookbackMs, ctx.StepMs), EndMs = atMs });
         var timestamps = ctx.Timestamps().ToList();
         var result = new List<PromSeries>(pinned.Count);
         foreach (var s in pinned)
@@ -200,7 +199,7 @@ internal sealed class PromEvaluator(IMetricQueryService metrics, IMetricExemplar
                 continue;
             }
 
-            var value = s.Samples[^1].Value;
+            var value = s.Samples.MaxBy(x => x.TimestampMs)!.Value;
             var series = new PromSeries(s.Labels);
             series.Samples.AddRange(timestamps.Select(ts => new PromSample(ts, value)));
             result.Add(series);

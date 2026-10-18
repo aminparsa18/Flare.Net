@@ -641,19 +641,20 @@ public class PromEvaluatorTests
     {
         var stub = new StubMetrics(
             [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
-            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(1, 7)] }]);
-        var at = T0.AddMinutes(1).ToUnixTimeSeconds();
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 3), Point(1, 7)] }]);
+        var at = T0.AddMinutes(1).AddSeconds(30);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse($"temp @ {at}"), T0, T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse($"temp @ {at.ToUnixTimeSeconds()}"), T0, T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
 
         var series = Assert.Single(result.Series);
         Assert.Equal([7.0, 7.0, 7.0, 7.0], series.Samples.Select(s => s.Value));
         Assert.Equal(
             Enumerable.Range(0, 4).Select(m => T0.AddMinutes(m).ToUnixTimeMilliseconds()),
             series.Samples.Select(s => s.TimestampMs));
-        // One fetch of a single bucket, not the whole range.
-        Assert.Equal(T0.AddMinutes(1), stub.LastQuery!.Filter.From);
+        // One instant-style fetch at the pinned time (newest sample within the five-minute lookback), not the whole range.
+        Assert.Equal(at.AddMinutes(-5), stub.LastQuery!.Filter.From);
+        Assert.Equal(at.AddMilliseconds(1), stub.LastQuery.Filter.To);
     }
 
     [Fact]
@@ -666,7 +667,9 @@ public class PromEvaluatorTests
         await new PromEvaluator(stub).EvaluateAsync(
             PromQlParser.Parse("temp @ start()"), T0, T0.AddMinutes(5), TimeSpan.FromMinutes(1), default, evaluationTime: T0.AddMinutes(5));
 
-        Assert.Equal(T0.AddMinutes(5), stub.LastQuery!.Filter.From);
+        // start() is the evaluation time, so the lookback ends at T0+5m; the window's own start (T0) would end it at T0.
+        Assert.Equal(T0, stub.LastQuery!.Filter.From);
+        Assert.Equal(T0.AddMinutes(5).AddMilliseconds(1), stub.LastQuery.Filter.To);
     }
 
     [Fact]
@@ -679,7 +682,7 @@ public class PromEvaluatorTests
         await new PromEvaluator(stub).EvaluateAsync(
             PromQlParser.Parse($"temp @ {T0.AddMinutes(5).ToUnixTimeSeconds()} offset 2m"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
 
-        Assert.Equal(T0.AddMinutes(3), stub.LastQuery!.Filter.From);
+        Assert.Equal(T0.AddMinutes(3).AddMilliseconds(1), stub.LastQuery!.Filter.To);
     }
 
     [Fact]

@@ -22,8 +22,9 @@ ingest change. `@` and subqueries were rejected only because nothing implemented
   ADR-0239 objection no longer applies. The top-N series ranking still uses the average. `avg_over_time` and
   `last_over_time` are unchanged. The dashboard never sets the field.
 - **`@`** on a selector, range selector or subquery: `x @ 1700000000`, `x @ start()`, `x @ end()`, combined with
-  `offset` in either order. The expression is evaluated once at the pinned time (floored to a step bucket) and that
-  sample is repeated at every step. `offset` counts back from the pinned time, as in Prometheus. In an instant query
+  `offset` in either order. The expression is evaluated once, as an instant query at the pinned time (the newest
+  sample at or before it, within the five-minute lookback instant queries use), and that sample is repeated at every
+  step. `offset` counts back from the pinned time, as in Prometheus. In an instant query
   `start()` and `end()` both mean the evaluation time, not the edges of the five-minute lookback window the endpoint
   evaluates over. Negative and fractional timestamps parse.
 - **Subqueries `expr[range:resolution]`** as the argument of `avg|min|max|sum|count|last_over_time`, with optional
