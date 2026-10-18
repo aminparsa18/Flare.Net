@@ -35,6 +35,9 @@
 	import { fractionInBuckets, loadReleases, placeMarkers } from '#lib/releases/markers.ts';
 	import type { Release } from '#lib/releases-api.ts';
 	import ReleaseMarkers from '#lib/components/releases/ReleaseMarkers.svelte';
+	import { exemplarTracePath, loadExemplars, placeExemplars } from '#lib/metrics/exemplars.ts';
+	import type { MetricExemplar } from '#lib/metrics-api.ts';
+	import { withBase } from '#lib/paths.ts';
 
 	const explorer = metricsExplorerContext.get();
 
@@ -83,6 +86,7 @@
 		stacking = 'none',
 		title = '',
 		releaseMarkers = false,
+		exemplars = false,
 		onPointClick
 	}: {
 		allowZoom?: boolean;
@@ -101,6 +105,8 @@
 		title?: string;
 		/** Draw deploy markers (ADR-0182) for the filtered services. */
 		releaseMarkers?: boolean;
+		/** Histograms only: draw a dot per exemplar (ADR-0242) linking to the trace it was recorded in. */
+		exemplars?: boolean;
 		onPointClick?: (time: number) => void;
 	} = $props();
 
@@ -804,6 +810,24 @@
 	});
 	const markers = $derived(releaseMarkers ? placeMarkers(releases, (t) => fractionInBuckets(t, bucketTimes)) : []);
 
+	// Exemplar dots (ADR-0242): the sampled observations behind a histogram's percentile lines, each
+	// linking to its trace. Histograms only - see loadExemplars. Fetched for the window the chart was
+	// actually queried over (queryRangeFrom/To), so a dot never lands outside the plotted buckets.
+	let exemplarList = $state<MetricExemplar[]>([]);
+	$effect(() => {
+		const metric = explorer.selected;
+		const from = explorer.queryRangeFrom;
+		const to = explorer.queryRangeTo;
+		exemplarList = [];
+		if (!exemplars || !metric || !isHistogramType(metric.type) || !from || !to) return;
+		const controller = new AbortController();
+		void loadExemplars(metric, { from, to, services: [metric.serviceName] }, controller.signal).then((list) => {
+			if (!controller.signal.aborted) exemplarList = list;
+		});
+		return () => controller.abort();
+	});
+	const exemplarDots = $derived(isHistogram && !stackActive ? placeExemplars(exemplarList, bucketTimes, (explorer.intervalSeconds ?? 0) * 1000) : []);
+
 	function xFor(time: number): number {
 		const count = bucketTimes.length;
 		if (count <= 1) return CHART_WIDTH / 2;
@@ -1280,6 +1304,32 @@
 											{/each}
 										{/each}
 										{/if}
+
+										{#each exemplarDots as dot, i (i)}
+											<!-- Exemplar: a hollow ring at the observation's own value (clamped to the plot, the
+											     title still carries the true value) linking to its trace. Pointer events stop here so
+											     opening a trace is not also a drag-to-zoom or a panel click. -->
+											{#if !logActive || dot.exemplar.value > 0}
+												<a
+													href={withBase(exemplarTracePath(dot.exemplar))}
+													aria-label={m.metricChart_exemplarAriaLabel({ trace: dot.exemplar.traceId })}
+													onpointerdown={(e) => e.stopPropagation()}
+													onpointerup={(e) => e.stopPropagation()}
+													class="cursor-pointer"
+												>
+													<circle
+														cx={dot.fraction * CHART_WIDTH}
+														cy={yFor(Math.min(maxValue, Math.max(minValue, dot.exemplar.value)))}
+														r="4"
+														style="fill: var(--background); stroke: var(--foreground);"
+														stroke-width="1.5"
+														vector-effect="non-scaling-stroke"
+													>
+														<title>{m.metricChart_exemplarTitle({ value: formatValue(dot.exemplar.value), time: formatBucketTime(dot.time), trace: dot.exemplar.traceId.slice(0, 8) })}</title>
+													</circle>
+												</a>
+											{/if}
+										{/each}
 
 										{#if isDragging && allowZoom}
 											<!-- Drag-to-zoom selection overlay - same visual as VolumeChart's own, width

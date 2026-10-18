@@ -3701,6 +3701,8 @@
 	"releases_commitColumn": "Коммит",
 	"releases_newErrorsColumn": "Новые ошибки",
 	"releaseMarker_title": "Развёрнуто {service} {version} · {time}",
+	"metricChart_exemplarTitle": "Экземпляр {value} · {time} · трассировка {trace}. Нажмите, чтобы открыть трассировку",
+	"metricChart_exemplarAriaLabel": "Открыть трассировку экземпляра {trace}",
 	"releases_regressionsColumn": "Регрессии",
 	"releases_regressionsHeading": "Регрессии в этой версии (были решены, вернулись)",
 	"releases_resolvedOn": "Решено {date}",

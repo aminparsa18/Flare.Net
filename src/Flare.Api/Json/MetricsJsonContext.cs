@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Flare.Api.Model;
+using Flare.Api.Query;
 
 namespace Flare.Api.Json;
 
@@ -21,6 +22,8 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(MetricAttributeKeysResponse))]
 [JsonSerializable(typeof(MetricQueryRequest))]
 [JsonSerializable(typeof(MetricQueryResponse))]
+[JsonSerializable(typeof(MetricExemplarsRequest))]
+[JsonSerializable(typeof(MetricExemplarsResponse))]
 [JsonSerializable(typeof(MetricCatalogRequest))]
 [JsonSerializable(typeof(MetricCatalogResponse))]
 [JsonSerializable(typeof(MetricCatalogDetailRequest))]

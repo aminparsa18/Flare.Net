@@ -6,7 +6,7 @@ using Flare.Identity.MetricMetadata;
 
 namespace Flare.Api.Endpoints;
 
-/// <summary>The Query API: <c>POST /api/metrics/names</c> (discovery), <c>POST /api/metrics/attribute-keys</c> ("Group by" key discovery), and <c>POST /api/metrics/query</c> (time-bucketed series).</summary>
+/// <summary>The Query API: <c>POST /api/metrics/names</c> (discovery), <c>POST /api/metrics/attribute-keys</c> ("Group by" key discovery), <c>POST /api/metrics/query</c> (time-bucketed series), and <c>POST /api/metrics/exemplars</c> (trace-linked sample points).</summary>
 /// <remarks>
 /// POST + JSON body for both, same rationale as <see cref="LogsEndpoints"/>/
 /// <see cref="SpanEndpoints"/>'s search routes - filters are structured (time range,
@@ -22,7 +22,37 @@ public static class MetricsEndpoints
         endpoints.MapPost("/api/metrics/names", HandleNamesAsync);
         endpoints.MapPost("/api/metrics/attribute-keys", HandleAttributeKeysAsync);
         endpoints.MapPost("/api/metrics/query", HandleQueryAsync);
+        endpoints.MapPost("/api/metrics/exemplars", HandleExemplarsAsync);
         return endpoints;
+    }
+
+    /// <summary>
+    /// The exemplars (ADR-0241) recorded on one metric in the filter's window, newest first - what the
+    /// dashboard chart draws as dots linking to the trace (ADR-0242). JSON only: the rows are a small
+    /// list read once per chart load, so there is no MemoryPack mirror to keep in step.
+    /// </summary>
+    private static async Task<IResult> HandleExemplarsAsync(
+        HttpContext http,
+        IMetricExemplarService exemplarService,
+        CancellationToken cancellationToken)
+    {
+        MetricExemplarsRequest? request;
+        try
+        {
+            request = await http.Request.ReadFromJsonAsync(MetricsJsonContext.Default.MetricExemplarsRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.MetricName))
+        {
+            return Results.Problem("metricName is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var rows = await exemplarService.GetAsync(request, cancellationToken);
+        return Results.Json(new MetricExemplarsResponse(rows), MetricsJsonContext.Default.MetricExemplarsResponse);
     }
 
     private static async Task<IResult> HandleNamesAsync(

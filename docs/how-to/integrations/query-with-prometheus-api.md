@@ -94,6 +94,10 @@ curl -H "Authorization: Bearer $TOKEN" \
 Each result is a series with its `exemplars`, each carrying `trace_id` (and `span_id`), a value and a timestamp. Up to
 1000 are returned, newest first. Only points ingested after upgrading carry exemplars, and only over OTLP.
 
+Flare's own Metrics page and dashboard Metrics panels draw them too: on a histogram chart each exemplar is a ring at its
+observed value, and clicking it opens its trace on the span that recorded it. An exemplar above the chart's range sits on
+the top edge; hover for its true value. The dashboard shows up to 100 of the newest in the window.
+
 ## Things that differ from Prometheus
 
 - **Matching errors are real.** `a / b` fails with "found duplicate series for the match group" if a label set
