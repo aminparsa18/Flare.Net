@@ -98,10 +98,6 @@ folders are where "what happened and why" actually lives.
   `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
-  - PromQL still missing: `idelta`, `holt_winters`, `timestamp()`, the `histogram_*` functions other than
-    `histogram_quantile`, and `__name__` regex selection. `rate`/`increase` over a subquery stays rejected on purpose.
-    See [ADR-0245](../adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md) and
-    [ADR-0246](../adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md).
   - Deep links both ways: an "Open in Grafana" action on a TraceId from a configurable URL template, and Grafana data
     links that open the trace or session in Flare.
   - A Grafana Cloud preset for forwarding targets (region, instance id and token instead of a hand-built URL and Basic

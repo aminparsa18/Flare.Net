@@ -46,18 +46,19 @@ Flare 会把 OTel 名称映射为 Prometheus 约定：
 | 语法 | 示例 |
 |---|---|
 | 使用 `=`、`!=`、`=~`、`!~` 的选择器 | `up{service_name="api", code!="200"}` |
+| 针对 `__name__` 的指标名称模式 | `{__name__=~"http_server_.*"}`, `rate({__name__=~"jobs_.*_total"}[5m])` |
 | 选择器或范围上的 `offset` | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
 | `rate`、`increase`、`irate` | `rate(requests_total[5m])` |
 | `avg_over_time`、`min_over_time`、`max_over_time`、`sum_over_time`、`count_over_time`、`last_over_time`（gauge） | `max_over_time(queue_depth[10m])` |
-| `delta`、`changes`、`resets`、`deriv`、`predict_linear`（gauge） | `predict_linear(free_bytes[6h], 4 * 3600)`, `resets(uptime_seconds[1d])` |
-| `time()`、`scalar(v)` 及其算术运算；`vector(time())` | `time() - process_start_time_seconds` |
+| `delta`、`idelta`、`changes`、`resets`、`deriv`、`predict_linear`、`holt_winters`（gauge） | `predict_linear(free_bytes[6h], 4 * 3600)`, `resets(uptime_seconds[1d])` |
+| `time()`、`timestamp(v)`、`scalar(v)` 及其算术运算；`vector(time())` | `time() - timestamp(heartbeat)` |
 | 选择器、范围或子查询上的 `@` | `requests_total @ 1700000000`, `queue_depth / queue_depth @ start()` |
-| `*_over_time`、`delta`、`changes`、`resets`、`deriv` 或 `predict_linear` 函数内的子查询 | `max_over_time(rate(requests_total[5m])[1h:1m])` |
+| `*_over_time`、`delta`、`idelta`、`changes`、`resets`、`deriv`、`predict_linear` 或 `holt_winters` 函数内的子查询 | `max_over_time(rate(requests_total[5m])[1h:1m])` |
 | 带 `by`/`without` 的 `sum`、`avg`、`min`、`max`、`count`、`group`、`stddev`、`stdvar` | `sum by (route) (rate(requests_total[5m]))` |
 | 带 `by`/`without` 的 `topk`、`bottomk`、`quantile` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
 | 带 `by`/`without` 的 `count_values` | `count_values("version", build_info)` |
 | `sort`、`sort_desc`、`sort_by_label`、`sort_by_label_desc` | `sort_desc(sum by (host) (rate(cpu_seconds_total[5m])))` |
-| 作用于 `rate`/`increase` 的 `histogram_quantile`，可嵌套在 `sum by (...)` 内 | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
+| 作用于 `rate`/`increase` 的 `histogram_quantile` 和 `histogram_fraction`，可嵌套在 `sum by (...)` 内 | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))`, `histogram_fraction(0, 0.3, sum by (le) (rate(d_bucket[5m])))` |
 | `rate`/`increase` 下直方图的 `_sum` 和 `_count` | `rate(d_seconds_count[1m])` |
 | 序列与数字之间的算术 `+ - * / % ^` | `100 * sum(rate(errors_total[5m])) / sum(rate(requests_total[5m]))` |
 | 比较 `== != > < >= <=`，默认过滤，或用 `bool` 返回 1/0 | `queue_depth > 100`, `up > bool 0` |
@@ -69,7 +70,7 @@ Flare 会把 OTel 名称映射为 Prometheus 约定：
 
 端点：`query`、`query_range`、`query_exemplars`、`series`、`labels`、`label/<name>/values`、`status/buildinfo`。
 
-不支持：对子查询使用 `rate`/`increase`/`irate`、`idelta`、`holt_winters`、`timestamp()`、记录规则以及写入数据。
+不支持：对子查询使用 `rate`/`increase`/`irate`、原生直方图函数（`histogram_count`、`histogram_sum`、`histogram_avg`；请使用直方图的 `_count` 和 `_sum` 序列）、记录规则以及写入数据。
 
 ## Exemplar
 
@@ -96,6 +97,9 @@ Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们�
 - **`irate` 和 `avg_over_time` 基于 bucket 计算。** `irate` 是最新 bucket 的每秒增量，`avg_over_time` 是各 bucket 平均值的平均。`min_over_time`、`max_over_time`、`sum_over_time` 和 `count_over_time` 对每个 bucket 的原始点进行归约，因此精确到步长。
 - **`delta`、`changes` 和 `resets` 把每个点与前一个点比较。** 比较算在包含较晚那个点的窗口里，因此窗口包含从它之前最后一个样本过来的那一步。`delta(x[5m])` 是窗口末尾的值减去窗口开始前一刻的值；Prometheus 则对“最后一个减第一个”做外推，并且只统计两个点都在窗口内的配对。它们适用于 gauge（未带类型元数据抓取的计数器就是 gauge）。
 - **`deriv` 和 `predict_linear` 拟合 bucket 平均值。** 直线穿过每个 bucket 的平均值（置于 bucket 中点），所以请使用包含多个步长的窗口。`predict_linear` 在最新 bucket 的末尾读取这条直线。
+- **`idelta` 是最新的点减去它前面的点**，即使前一个点早于窗口。**`holt_winters`**（也可写作 `double_exponential_smoothing`）对 bucket 平均值做平滑，因此需要两个 bucket。
+- **`timestamp(x)` 是每个样本背后最新点的时间**，所以 `time() - timestamp(x)` 就是指标的真实年龄。
+- **`__name__` 模式** 会对每个匹配的指标各计算一次，最多 50 个（按字母顺序），并把序列合并。表达式读不了的指标（例如 `rate()` 之外的计数器）会被跳过并给出警告。`histogram_quantile` 和 `histogram_fraction` 只接受一个名称。
 - **`time()` 是步长的时间戳**，在即时查询中则是准确的查询时间。**`sort` 和 `sort_desc`** 只在即时查询中可见，与 Prometheus 一致。
 - **`@` 固定求值时间。** `x @ 1700000000` 只计算一次，相当于在该时间的即时查询（取五分钟回溯窗口内最新的样本），并在每个步长重复。即时查询中 `start()` 和 `end()` 都表示查询时间。
 - **子查询** `expr[1h:1m]` 每 `1m`（省略分辨率时为查询步长）计算一次内部表达式，并归约 `(t - 1h, t]` 内的样本。它们外面必须有 `*_over_time` 函数。
@@ -105,4 +109,4 @@ Flare 自带的 Metrics 页面和仪表板的 Metrics 面板也会绘制它们�
 - **即时查询** 查看最近五分钟。
 - **不带 `match[]` 的 `labels` 与标签值** 会从序列最多的十个指标中采样。传入 `match[]` 可得到完整结果。
 
-设计说明：[ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md)、[ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)、[ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md)、[ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md)、[ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md)。
+设计说明：[ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md)、[ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md)、[ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md)、[ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md)、[ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md)、[ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md)。

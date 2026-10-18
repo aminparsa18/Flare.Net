@@ -107,7 +107,7 @@ internal static class PromFunctions
         return (a.Length - i).CompareTo(b.Length - j);
     }
 
-    private static PromSeries With(this PromSeries series, IEnumerable<PromSample> samples)
+    internal static PromSeries With(this PromSeries series, IEnumerable<PromSample> samples)
     {
         series.Samples.AddRange(samples);
         return series;

@@ -63,6 +63,26 @@ public class MetricSeriesQueryBuilderTests
     }
 
     [Fact]
+    public void Build_Gauge_LastDelta_TakesTheNewestPointsStep()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, GaugeAggregate = MetricGaugeAggregate.LastDelta }, Now);
+
+        Assert.Contains("argMaxIf(Value - PrevValue, Time, SeriesRowNum > 1) AS Value", result.Sql);
+        Assert.Contains("lagInFrame(Value)", result.Sql);
+    }
+
+    [Fact]
+    public void Build_Gauge_LastTime_IsTheNewestPointsTimeInSeconds()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, GaugeAggregate = MetricGaugeAggregate.LastTime }, Now);
+
+        Assert.Contains("toFloat64(max(toUnixTimestamp64Milli(Time))) / 1000 AS Value", result.Sql);
+        Assert.DoesNotContain("lagInFrame", result.Sql);
+    }
+
+    [Fact]
     public void Build_ExponentialHistogram_GroupsByScale_AndOrdersScaleLast()
     {
         var result = MetricSeriesQueryBuilder.Build(

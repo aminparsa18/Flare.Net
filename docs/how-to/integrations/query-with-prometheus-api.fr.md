@@ -46,18 +46,19 @@ Trouvez les noms exacts avec `GET /api/v1/label/__name__/values`.
 | Construction | Exemple |
 |---|---|
 | Sélecteurs, avec `=`, `!=`, `=~`, `!~` | `up{service_name="api", code!="200"}` |
+| Motifs de noms de métriques sur `__name__` | `{__name__=~"http_server_.*"}`, `rate({__name__=~"jobs_.*_total"}[5m])` |
 | `offset` sur un sélecteur ou une plage | `requests_total offset 1w`, `rate(requests_total[5m] offset 1d)` |
 | `rate`, `increase`, `irate` | `rate(requests_total[5m])` |
 | `avg_over_time`, `min_over_time`, `max_over_time`, `sum_over_time`, `count_over_time`, `last_over_time` (jauges) | `max_over_time(queue_depth[10m])` |
-| `delta`, `changes`, `resets`, `deriv`, `predict_linear` (jauges) | `predict_linear(free_bytes[6h], 4 * 3600)`, `resets(uptime_seconds[1d])` |
-| `time()`, `scalar(v)` et l'arithmétique sur ceux-ci ; `vector(time())` | `time() - process_start_time_seconds` |
+| `delta`, `idelta`, `changes`, `resets`, `deriv`, `predict_linear`, `holt_winters` (jauges) | `predict_linear(free_bytes[6h], 4 * 3600)`, `resets(uptime_seconds[1d])` |
+| `time()`, `timestamp(v)`, `scalar(v)` et l'arithmétique sur ceux-ci ; `vector(time())` | `time() - timestamp(heartbeat)` |
 | `@` sur un sélecteur, une plage ou une sous-requête | `requests_total @ 1700000000`, `queue_depth / queue_depth @ start()` |
-| Sous-requêtes dans une fonction `*_over_time`, `delta`, `changes`, `resets`, `deriv` ou `predict_linear` | `max_over_time(rate(requests_total[5m])[1h:1m])` |
+| Sous-requêtes dans une fonction `*_over_time`, `delta`, `idelta`, `changes`, `resets`, `deriv`, `predict_linear` ou `holt_winters` | `max_over_time(rate(requests_total[5m])[1h:1m])` |
 | `sum`, `avg`, `min`, `max`, `count`, `group`, `stddev`, `stdvar` avec `by`/`without` | `sum by (route) (rate(requests_total[5m]))` |
 | `topk`, `bottomk`, `quantile` avec `by`/`without` | `topk(5, sum by (host) (rate(cpu_seconds_total[5m])))` |
 | `count_values` avec `by`/`without` | `count_values("version", build_info)` |
 | `sort`, `sort_desc`, `sort_by_label`, `sort_by_label_desc` | `sort_desc(sum by (host) (rate(cpu_seconds_total[5m])))` |
-| `histogram_quantile` sur `rate`/`increase`, éventuellement dans `sum by (...)` | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))` |
+| `histogram_quantile` et `histogram_fraction` sur `rate`/`increase`, éventuellement dans `sum by (...)` | `histogram_quantile(0.99, sum by (le, route) (rate(d_bucket[5m])))`, `histogram_fraction(0, 0.3, sum by (le) (rate(d_bucket[5m])))` |
 | `_sum` et `_count` d'un histogramme sous `rate`/`increase` | `rate(d_seconds_count[1m])` |
 | Arithmétique `+ - * / % ^` entre séries et nombres | `100 * sum(rate(errors_total[5m])) / sum(rate(requests_total[5m]))` |
 | Comparaisons `== != > < >= <=`, avec filtrage, ou `bool` pour 1/0 | `queue_depth > 100`, `up > bool 0` |
@@ -69,7 +70,7 @@ Trouvez les noms exacts avec `GET /api/v1/label/__name__/values`.
 
 Points d'accès : `query`, `query_range`, `query_exemplars`, `series`, `labels`, `label/<name>/values`, `status/buildinfo`.
 
-Non pris en charge : `rate`/`increase`/`irate` sur une sous-requête, `idelta`, `holt_winters`, `timestamp()`, règles d'enregistrement et écriture de données.
+Non pris en charge : `rate`/`increase`/`irate` sur une sous-requête, les fonctions d'histogrammes natifs (`histogram_count`, `histogram_sum`, `histogram_avg` ; utilisez les séries `_count` et `_sum` d'un histogramme), règles d'enregistrement et écriture de données.
 
 ## Exemplars
 
@@ -96,6 +97,9 @@ La page Metrics de Flare et les panneaux Metrics des tableaux de bord les affich
 - **`irate` et `avg_over_time` travaillent sur des buckets.** `irate` est l'incrément du bucket le plus récent par seconde, et `avg_over_time` fait la moyenne des moyennes de buckets. `min_over_time`, `max_over_time`, `sum_over_time` et `count_over_time` réduisent les points bruts de chaque bucket, elles sont donc exactes à l'échelle du pas.
 - **`delta`, `changes` et `resets` comparent chaque point au précédent.** La comparaison compte dans la fenêtre qui contient le point le plus récent, donc une fenêtre inclut le pas depuis l'échantillon juste avant elle. `delta(x[5m])` est la valeur à la fin de la fenêtre moins la valeur juste avant son début ; Prometheus extrapole plutôt dernier-moins-premier et ne compte que les paires entièrement dans la fenêtre. Elles s'appliquent aux jauges (un compteur scrapé sans métadonnées de type en est une).
 - **`deriv` et `predict_linear` ajustent les moyennes des buckets.** La droite passe par la moyenne de chaque bucket, placée au milieu du bucket ; utilisez donc une fenêtre de plusieurs pas. `predict_linear` lit la droite à la fin du bucket le plus récent.
+- **`idelta` est le point le plus récent moins celui qui le précède**, même si ce dernier est plus ancien que la fenêtre. **`holt_winters`** (aussi `double_exponential_smoothing`) lisse les moyennes des buckets ; il faut donc deux buckets.
+- **`timestamp(x)` est l'heure du point le plus récent** derrière chaque échantillon, ce qui fait de `time() - timestamp(x)` l'âge réel d'une métrique.
+- **Un motif `__name__`** est évalué pour chaque métrique correspondante, jusqu'à 50 (ordre alphabétique), et les séries sont réunies. Une métrique que l'expression ne peut pas lire, comme un compteur hors de `rate()`, est ignorée avec un avertissement. `histogram_quantile` et `histogram_fraction` exigent un seul nom.
 - **`time()` est l'horodatage du pas**, ou l'instant exact de la requête dans une requête instantanée. **`sort` et `sort_desc`** ne se voient que dans une requête instantanée, comme dans Prometheus.
 - **`@` fige l'instant d'évaluation.** `x @ 1700000000` est évalué une fois, comme une requête instantanée à cet instant (échantillon le plus récent dans la fenêtre de cinq minutes), puis répété à chaque pas. Dans une requête instantanée, `start()` et `end()` désignent tous deux l'instant de la requête.
 - **Les sous-requêtes** `expr[1h:1m]` évaluent l'expression interne toutes les `1m` (le pas de la requête si la résolution est omise) et réduisent les échantillons de `(t - 1h, t]`. Elles doivent être entourées d'une fonction `*_over_time`.
@@ -105,4 +109,4 @@ La page Metrics de Flare et les panneaux Metrics des tableaux de bord les affich
 - **Les requêtes instantanées** regardent les cinq dernières minutes.
 - **`labels` et les valeurs de label sans `match[]`** échantillonnent les dix métriques ayant le plus de séries. Passez `match[]` pour une réponse complète.
 
-Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
+Notes de conception : [ADR-0109](../../../docs-internal/adr/0109-prometheus-query-api.md), [ADR-0239](../../../docs-internal/adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), [ADR-0245](../../../docs-internal/adr/0245-prometheus-api-at-modifier-subqueries-min-max-over-time.md), [ADR-0246](../../../docs-internal/adr/0246-prometheus-api-time-scalar-delta-changes-resets-deriv-sort-count-values.md), [ADR-0247](../../../docs-internal/adr/0247-prometheus-api-idelta-holt-winters-timestamp-histogram-fraction-name-patterns.md), [ADR-0241](../../../docs-internal/adr/0241-metric-exemplars.md).
