@@ -43,7 +43,36 @@ internal static class PromBinaryOperations
     /// <summary>The metric name is dropped by arithmetic and by <c>bool</c> comparisons; a filtering comparison and the set operators keep it.</summary>
     private static bool DropsName(PromBinary b) => !PromBinary.IsSetOperator(b.Op) && (!PromBinary.IsComparison(b.Op) || b.ReturnBool);
 
-    public static List<PromSeries> ApplyScalar(PromBinary b, List<PromSeries> vector, double scalar, bool scalarOnLeft)
+    public static List<PromSeries> ApplyScalar(PromBinary b, List<PromSeries> vector, double scalar, bool scalarOnLeft) =>
+        ApplyScalar(b, vector, _ => scalar, scalarOnLeft);
+
+    /// <summary>A vector against a scalar that changes per step (<c>time()</c>, <c>scalar(v)</c>): a sample with no scalar at its timestamp is dropped.</summary>
+    public static List<PromSeries> ApplyScalar(PromBinary b, List<PromSeries> vector, List<PromSeries> scalar, bool scalarOnLeft)
+    {
+        var at = ScalarAt(scalar);
+        return ApplyScalar(b, vector, t => at.TryGetValue(t, out var v) ? v : null, scalarOnLeft);
+    }
+
+    /// <summary>Arithmetic or a <c>bool</c> comparison between two scalars, at every timestamp both have.</summary>
+    public static List<PromSeries> ApplyScalars(PromBinary b, List<PromSeries> left, List<PromSeries> right)
+    {
+        var rightAt = ScalarAt(right);
+        var series = new PromSeries([]);
+        foreach (var sample in left.SelectMany(s => s.Samples))
+        {
+            if (rightAt.TryGetValue(sample.TimestampMs, out var r))
+            {
+                series.Samples.Add(new PromSample(sample.TimestampMs, Compute(b.Op, sample.Value, r, b.ReturnBool).Value));
+            }
+        }
+
+        return [series];
+    }
+
+    private static Dictionary<long, double> ScalarAt(List<PromSeries> scalar) =>
+        scalar.SelectMany(s => s.Samples).ToDictionary(x => x.TimestampMs, x => x.Value);
+
+    private static List<PromSeries> ApplyScalar(PromBinary b, List<PromSeries> vector, Func<long, double?> scalarAt, bool scalarOnLeft)
     {
         var dropName = DropsName(b);
         var result = new List<PromSeries>(vector.Count);
@@ -52,6 +81,11 @@ internal static class PromBinaryOperations
             var series = new PromSeries(dropName ? WithoutName(s.Labels) : new Dictionary<string, string>(s.Labels));
             foreach (var sample in s.Samples)
             {
+                if (scalarAt(sample.TimestampMs) is not { } scalar)
+                {
+                    continue;
+                }
+
                 var (l, r) = scalarOnLeft ? (scalar, sample.Value) : (sample.Value, scalar);
                 var (value, keep) = Compute(b.Op, l, r, b.ReturnBool);
                 if (!keep)

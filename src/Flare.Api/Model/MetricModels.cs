@@ -257,7 +257,8 @@ public sealed partial record MetricQueryRequest
     /// <summary>
     /// Gauge only: reduce each bucket's raw points with this aggregate instead of the average, so a
     /// PromQL <c>min_over_time</c>/<c>max_over_time</c>/<c>sum_over_time</c>/<c>count_over_time</c> sees the
-    /// real extreme, total or sample count rather than an average of averages (ADR-0245). Null = average.
+    /// real extreme, total or sample count rather than an average of averages (ADR-0245), and <c>delta</c>/<c>changes</c>/<c>resets</c>
+    /// see the real step between consecutive points (ADR-0246). Null = average.
     /// Ignored for other point types and for a Gauge charted as a counter. Appended last, same MemoryPack
     /// versioning convention as <see cref="HavingOperator"/>.
     /// </summary>
@@ -274,6 +275,15 @@ public enum MetricGaugeAggregate
     Max,
     Sum,
     Count,
+
+    /// <summary>The change in value across the bucket: each point minus the series' previous point, summed, so the first point of a bucket counts its step from the last point of the bucket before (ADR-0246).</summary>
+    Delta,
+
+    /// <summary>How many points differ from the series' previous point, attributed to the bucket holding the later one (ADR-0246).</summary>
+    Changes,
+
+    /// <summary>How many points are lower than the series' previous point, attributed to the bucket holding the later one (ADR-0246).</summary>
+    Resets,
 }
 
 /// <summary>

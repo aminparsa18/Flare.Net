@@ -11,7 +11,7 @@
 // directly the same way MetricFilter.ts reuses the generated `MetricAttributeFilter`.
 // `treatAsCounter` was appended the same way for ADR-0066 (null = the metric's admin setting).
 // `includeBuckets` was appended the same way for ADR-0085's heatmap (null/false = omit per-bucket counts).
-// `gaugeAggregate` was appended the same way for ADR-0245 (PromQL min/max/sum/count_over_time; null = average). The dashboard never sets it.
+// `gaugeAggregate` was appended the same way for ADR-0245 (PromQL min/max/sum/count_over_time, delta/changes/resets; null = average; new members only add enum ordinals). The dashboard never sets it.
 
 import { MemoryPackWriter } from '#lib/generated/memorypack/MemoryPackWriter.ts';
 import { MemoryPackReader } from '#lib/generated/memorypack/MemoryPackReader.ts';

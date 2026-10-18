@@ -876,6 +876,234 @@ public class PromEvaluatorTests
         Assert.Equal(["a_bucket", "b"], selectors.Select(s => s.MetricName));
     }
 
+    private static StubMetrics GaugeStub(params MetricSeriesPoint[] points) =>
+        new(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }],
+            [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = points }]);
+
+    [Fact]
+    public async Task Time_IsEachStepsTimestamp_AndExactForAnInstantQuery()
+    {
+        var evaluator = new PromEvaluator(GaugeStub());
+        var range = await evaluator.EvaluateAsync(PromQlParser.Parse("time()"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        Assert.True(range.IsScalar);
+        Assert.Equal(
+            Enumerable.Range(0, 3).Select(m => (double)T0.AddMinutes(m).ToUnixTimeSeconds()),
+            Assert.Single(range.Series).Samples.Select(s => s.Value));
+
+        // 90s into a minute: the last step is stamped with its bucket start, but the instant is the evaluation time.
+        var at = T0.AddSeconds(90);
+        var instant = await evaluator.EvaluateAsync(PromQlParser.Parse("time()"), at.AddMinutes(-5), at, TimeSpan.FromMinutes(1), default, evaluationTime: at);
+        Assert.Equal(at.ToUnixTimeSeconds(), Assert.Single(instant.Series).Samples[^1].Value);
+    }
+
+    [Fact]
+    public async Task TimeArithmetic_IsAScalarEvaluatedPerStep()
+    {
+        var evaluator = new PromEvaluator(GaugeStub());
+
+        var result = await evaluator.EvaluateAsync(PromQlParser.Parse("time() - 60"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+
+        Assert.True(result.IsScalar);
+        Assert.Equal([T0.ToUnixTimeSeconds() - 60.0, T0.ToUnixTimeSeconds()], Assert.Single(result.Series).Samples.Select(s => s.Value));
+    }
+
+    [Fact]
+    public async Task VectorOfTime_IsASeriesWithNoLabels()
+    {
+        var result = await new PromEvaluator(GaugeStub()).EvaluateAsync(
+            PromQlParser.Parse("vector(time())"), T0, T0, TimeSpan.FromMinutes(1), default);
+
+        var series = Assert.Single(result.Series);
+        Assert.Empty(series.Labels);
+        Assert.False(result.IsScalar);
+        Assert.Equal(T0.ToUnixTimeSeconds(), series.Samples[0].Value);
+    }
+
+    [Fact]
+    public async Task VectorTimesTime_PairsEachStepWithItsOwnTimestamp()
+    {
+        // Uptime: time() minus a "started at" gauge, the usual use of time().
+        var started = (double)T0.AddMinutes(-10).ToUnixTimeSeconds();
+        var stub = GaugeStub(Point(0, started), Point(1, started));
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("time() - temp"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal([600.0, 660.0], Assert.Single(result.Series).Samples.Select(s => s.Value));
+    }
+
+    [Fact]
+    public async Task Scalar_IsTheOnlySeriesValue_AndNaNWhenThereAreSeveralOrNone()
+    {
+        var stub = new StubMetrics(
+            [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 2 }],
+            [
+                new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string> { ["host"] = "a" }, Points = [Point(0, 3), Point(1, 5)] },
+                new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string> { ["host"] = "b" }, Points = [Point(1, 7)] },
+            ]);
+        var evaluator = new PromEvaluator(stub);
+
+        var result = await evaluator.EvaluateAsync(PromQlParser.Parse("scalar(temp)"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        // Minute 0: one series. Minute 1: two. Minute 2: none.
+        var values = Assert.Single(result.Series).Samples.Select(s => s.Value).ToList();
+        Assert.True(result.IsScalar);
+        Assert.Equal(3, values[0]);
+        Assert.True(double.IsNaN(values[1]));
+        Assert.True(double.IsNaN(values[2]));
+    }
+
+    [Theory]
+    [InlineData("delta", MetricGaugeAggregate.Delta)]
+    [InlineData("changes", MetricGaugeAggregate.Changes)]
+    [InlineData("resets", MetricGaugeAggregate.Resets)]
+    public async Task DeltaChangesResets_AskTheQueryForTheStepAggregate_AndSumTheBuckets(string function, MetricGaugeAggregate aggregate)
+    {
+        // Each bucket value is already the SQL's per-bucket total; the window adds them.
+        var stub = GaugeStub(Point(0, 3), Point(1, -2), Point(2, 5));
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse($"{function}(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(aggregate, stub.LastQuery!.GaugeAggregate);
+        Assert.Equal(6.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
+    }
+
+    [Fact]
+    public async Task Deriv_IsTheSlopePerSecond_OverTheBucketAveragesAtTheirMiddles()
+    {
+        // 10, 20, 30 at 30s, 90s, 150s: +10 per minute.
+        var stub = GaugeStub(Point(0, 10), Point(1, 20), Point(2, 30));
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("deriv(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+
+        Assert.Null(stub.LastQuery!.GaugeAggregate);
+        Assert.Equal(10.0 / 60, Assert.Single(result.Series).Samples[0].Value, 9);
+    }
+
+    [Fact]
+    public async Task PredictLinear_ExtendsTheFittedLineFromTheEndOfTheNewestBucket()
+    {
+        var stub = GaugeStub(Point(0, 10), Point(1, 20), Point(2, 30));
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse("predict_linear(temp[3m], 600)"), T0.AddMinutes(2), T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+
+        // The line is 10 + (x - 30s) / 6 and is read at T0+3m (180s) plus 600s: 35 + 100.
+        Assert.Equal(135.0, Assert.Single(result.Series).Samples[0].Value, 9);
+    }
+
+    [Fact]
+    public async Task Deriv_WithASingleBucket_HasNoSample()
+    {
+        var result = await new PromEvaluator(GaugeStub(Point(0, 10))).EvaluateAsync(
+            PromQlParser.Parse("deriv(temp[1m])"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+
+        Assert.Empty(result.Series);
+    }
+
+    [Theory]
+    [InlineData("delta(temp[3m:1m])", 9.0)]
+    [InlineData("changes(temp[3m:1m])", 2.0)]
+    [InlineData("resets(temp[3m:1m])", 0.0)]
+    public async Task DeltaChangesResets_OverASubquery_UseTheInnerSamples(string query, double expected)
+    {
+        var stub = GaugeStub(Point(0, 1), Point(1, 4), Point(2, 10));
+
+        var result = await new PromEvaluator(stub).EvaluateAsync(
+            PromQlParser.Parse(query), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        Assert.Equal(expected, Assert.Single(Assert.Single(result.Series).Samples).Value);
+    }
+
+    [Fact]
+    public async Task DerivAndPredictLinear_OverASubquery_FitTheInnerSamples()
+    {
+        var stub = GaugeStub(Point(0, 0), Point(1, 60), Point(2, 120));
+        var evaluator = new PromEvaluator(stub);
+
+        var deriv = await evaluator.EvaluateAsync(PromQlParser.Parse("deriv(temp[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+        var predicted = await evaluator.EvaluateAsync(PromQlParser.Parse("predict_linear(temp[3m:1m], 60)"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+
+        // 60 per minute, so 1 per second; the line reaches 120 at the window's end, 180 a minute later.
+        Assert.Equal(1.0, Assert.Single(Assert.Single(deriv.Series).Samples).Value, 9);
+        Assert.Equal(180.0, Assert.Single(Assert.Single(predicted.Series).Samples).Value, 9);
+    }
+
+    [Fact]
+    public void Sort_OrdersByTheNewestValue_WithNaNLast()
+    {
+        var input = new List<PromSeries>
+        {
+            Series("h=a", (0, 5)),
+            Series("h=b", (0, double.NaN)),
+            Series("h=c", (0, 1)),
+            Series("h=d", (0, 3)),
+        };
+
+        var ascending = PromFunctions.Sort((PromSort)PromQlParser.Parse("sort(x)"), input);
+        var descending = PromFunctions.Sort((PromSort)PromQlParser.Parse("sort_desc(x)"), input);
+
+        Assert.Equal(["c", "d", "a", "b"], ascending.Select(s => s.Labels["h"]));
+        Assert.Equal(["a", "d", "c", "b"], descending.Select(s => s.Labels["h"]));
+    }
+
+    [Fact]
+    public void SortByLabel_UsesNaturalOrder_AndTheLaterLabelsBreakTies()
+    {
+        var input = new List<PromSeries>
+        {
+            Series("node=node10,az=b", (0, 1)),
+            Series("node=node2,az=b", (0, 1)),
+            Series("node=node2,az=a", (0, 1)),
+        };
+
+        var ascending = PromFunctions.Sort((PromSort)PromQlParser.Parse("""sort_by_label(x, "node", "az")"""), input);
+        var descending = PromFunctions.Sort((PromSort)PromQlParser.Parse("""sort_by_label_desc(x, "node")"""), input);
+
+        Assert.Equal(["node2/a", "node2/b", "node10/b"], ascending.Select(s => $"{s.Labels["node"]}/{s.Labels["az"]}"));
+        Assert.Equal("node10", descending[0].Labels["node"]);
+    }
+
+    [Fact]
+    public void CountValues_CountsSeriesPerDistinctValue_AtEveryTimestamp()
+    {
+        var input = new List<PromSeries>
+        {
+            Series("host=a", (0, 3), (60000, 3)),
+            Series("host=b", (0, 3), (60000, 4)),
+            Series("host=c", (0, 4)),
+        };
+
+        var result = PromEvaluator.Aggregate((PromAggregation)PromQlParser.Parse("""count_values("version", x)"""), input);
+
+        var three = Assert.Single(result, s => s.Labels["version"] == "3");
+        var four = Assert.Single(result, s => s.Labels["version"] == "4");
+        Assert.Empty(three.Labels.Keys.Where(k => k == "host"));
+        Assert.Equal([(0L, 2.0), (60000L, 1.0)], three.Samples.Select(s => (s.TimestampMs, s.Value)));
+        Assert.Equal([(0L, 1.0), (60000L, 1.0)], four.Samples.Select(s => (s.TimestampMs, s.Value)));
+    }
+
+    [Fact]
+    public void CountValues_WithBy_KeepsTheGroupLabels()
+    {
+        var input = new List<PromSeries>
+        {
+            Series("job=x,host=a", (0, 1)),
+            Series("job=x,host=b", (0, 1)),
+            Series("job=y,host=c", (0, 1)),
+        };
+
+        var result = PromEvaluator.Aggregate((PromAggregation)PromQlParser.Parse("""count_values by (job) ("v", x)"""), input);
+
+        Assert.Equal(2.0, Assert.Single(result, s => s.Labels["job"] == "x").Samples[0].Value);
+        Assert.Equal(1.0, Assert.Single(result, s => s.Labels["job"] == "y").Samples[0].Value);
+        Assert.All(result, s => Assert.Equal("1", s.Labels["v"]));
+    }
+
     private sealed class StubMetrics(
         IReadOnlyList<MetricNameInfo> names,
         IReadOnlyList<MetricSeries> series,

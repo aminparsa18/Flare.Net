@@ -63,7 +63,7 @@ public class PromQlParserTests
     }
 
     [Theory]
-    [InlineData("predict_linear(x[5m], 60)", "not supported")]
+    [InlineData("holt_winters(x[5m], 0.5, 0.5)", "not supported")]
     [InlineData("x offset -5m", "negative offset")]
     [InlineData("a and 1", "scalar expression")]
     [InlineData("1 > 2", "bool")]
@@ -332,4 +332,124 @@ public class PromQlParserTests
     [InlineData("2d", 172800)]
     public void ParseDuration_Units(string text, int seconds) =>
         Assert.Equal(TimeSpan.FromSeconds(seconds), PromQlParser.ParseDuration(text));
+
+    [Fact]
+    public void Parse_Time_IsAScalar()
+    {
+        Assert.IsType<PromTime>(PromQlParser.Parse("time()"));
+        Assert.True(PromExprs.IsScalar(PromQlParser.Parse("time() - 60")));
+        Assert.True(PromExprs.IsScalar(PromQlParser.Parse("scalar(sum(x)) * 2")));
+        Assert.False(PromExprs.IsScalar(PromQlParser.Parse("x * 2")));
+    }
+
+    [Fact]
+    public void Parse_TimeInArithmetic_IsNotFolded_ButConstantsStillAre()
+    {
+        Assert.IsType<PromBinary>(PromQlParser.Parse("time() - 60"));
+        Assert.Equal(7, Assert.IsType<PromNumber>(PromQlParser.Parse("3 + 4")).Value);
+    }
+
+    [Fact]
+    public void Parse_VectorOfAScalarExpression()
+    {
+        var fn = Assert.IsType<PromFunction>(PromQlParser.Parse("vector(time() - 5)"));
+
+        Assert.Equal("vector", fn.Name);
+        Assert.IsType<PromBinary>(fn.Argument);
+    }
+
+    [Theory]
+    [InlineData("sum(time())")]
+    [InlineData("abs(time())")]
+    [InlineData("scalar(time())")]
+    [InlineData("sort(time())")]
+    [InlineData("time() > 5")]
+    [InlineData("x and time()")]
+    public void Parse_ScalarWhereAVectorIsExpected_IsRejected(string query) =>
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse(query));
+
+    [Fact]
+    public void Parse_Scalar()
+    {
+        var expr = Assert.IsType<PromScalar>(PromQlParser.Parse("scalar(sum(x))"));
+
+        Assert.IsType<PromAggregation>(expr.Inner);
+    }
+
+    [Theory]
+    [InlineData("delta")]
+    [InlineData("changes")]
+    [InlineData("resets")]
+    [InlineData("deriv")]
+    public void Parse_GaugeRangeFunctions(string function)
+    {
+        var fn = Assert.IsType<PromRangeFunction>(PromQlParser.Parse($"{function}(temp[5m])"));
+
+        Assert.Equal(function, fn.Name);
+        Assert.Null(fn.Parameter);
+        Assert.IsType<PromSubqueryFunction>(PromQlParser.Parse($"{function}(temp[1h:1m])"));
+    }
+
+    [Fact]
+    public void Parse_PredictLinear_TakesSecondsAhead()
+    {
+        var fn = Assert.IsType<PromRangeFunction>(PromQlParser.Parse("predict_linear(temp[1h], 4 * 3600)"));
+
+        Assert.Equal(14400, fn.Parameter);
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse("predict_linear(temp[1h])"));
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse("predict_linear(temp[1h], x)"));
+    }
+
+    [Fact]
+    public void Parse_RateOverASubquery_StaysRejected() =>
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse("rate(x[1h:1m])"));
+
+    [Theory]
+    [InlineData("changes")]
+    [InlineData("time")]
+    [InlineData("scalar")]
+    [InlineData("sort")]
+    [InlineData("deriv")]
+    public void Parse_AMetricMayShareAFunctionsName(string name)
+    {
+        var selector = Assert.IsType<PromSelector>(PromQlParser.Parse($"{name}{{job=\"a\"}}"));
+
+        Assert.Equal(name, selector.MetricName);
+        Assert.Equal(name, Assert.IsType<PromSelector>(PromQlParser.Parse(name)).MetricName);
+    }
+
+    [Theory]
+    [InlineData("sort(x)", "sort", 0)]
+    [InlineData("sort_desc(x)", "sort_desc", 0)]
+    [InlineData("""sort_by_label(x, "a", "b")""", "sort_by_label", 2)]
+    [InlineData("""sort_by_label_desc(x, "a")""", "sort_by_label_desc", 1)]
+    public void Parse_Sort(string query, string name, int labels)
+    {
+        var sort = Assert.IsType<PromSort>(PromQlParser.Parse(query));
+
+        Assert.Equal(name, sort.Name);
+        Assert.Equal(labels, sort.Labels.Count);
+    }
+
+    [Theory]
+    [InlineData("sort(x, \"a\")")]
+    [InlineData("sort_by_label(x)")]
+    public void Parse_SortArgumentErrors(string query) =>
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse(query));
+
+    [Fact]
+    public void Parse_CountValues()
+    {
+        var plain = Assert.IsType<PromAggregation>(PromQlParser.Parse("""count_values("version", build_info)"""));
+        var grouped = Assert.IsType<PromAggregation>(PromQlParser.Parse("""count_values by (job) ("version", build_info)"""));
+
+        Assert.Equal("version", plain.ValueLabel);
+        Assert.Equal(["job"], grouped.Labels);
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse("count_values(1, x)"));
+        Assert.Throws<PromQlException>(() => PromQlParser.Parse("""count_values("bad-label", x)"""));
+    }
+
+    [Fact]
+    public void SelectorCollector_FindsSelectorsInsideScalarAndSort() =>
+        Assert.Equal(["a", "b"], PromSelectors.Collect(PromQlParser.Parse("sort(a) * scalar(b)")).Select(s => s.MetricName));
 }

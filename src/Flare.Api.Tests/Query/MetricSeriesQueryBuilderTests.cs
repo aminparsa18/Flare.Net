@@ -45,6 +45,23 @@ public class MetricSeriesQueryBuilderTests
         Assert.Contains("avg(Value) AS RankValue", result.Sql);
     }
 
+    [Theory]
+    [InlineData(MetricGaugeAggregate.Delta, "sumIf(Value - PrevValue, SeriesRowNum > 1) AS Value")]
+    [InlineData(MetricGaugeAggregate.Changes, "countIf(SeriesRowNum > 1 AND Value != PrevValue AND NOT (isNaN(Value) AND isNaN(PrevValue))))")]
+    [InlineData(MetricGaugeAggregate.Resets, "countIf(SeriesRowNum > 1 AND Value < PrevValue)")]
+    public void Build_Gauge_StepAggregates_CompareEachPointWithTheSeriesPreviousOne(MetricGaugeAggregate aggregate, string expected)
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, GaugeAggregate = aggregate }, Now);
+
+        Assert.Contains(expected, result.Sql);
+        Assert.Contains("lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS PrevValue", result.Sql);
+        Assert.Contains("FROM metrics_gauge", result.Sql);
+        Assert.Contains("GROUP BY BucketStart, ServiceName, SeriesKey", result.Sql);
+        Assert.Contains("avg(Value) AS RankValue", result.Sql);
+        Assert.Equal(MetricPointType.Gauge, result.Type);
+    }
+
     [Fact]
     public void Build_ExponentialHistogram_GroupsByScale_AndOrdersScaleLast()
     {
