@@ -195,6 +195,9 @@ builder.Services.Configure<AuditOptions>(builder.Configuration.GetSection(AuditO
 builder.Services.AddSingleton<AuditReadThrottle>();
 builder.Services.AddHostedService<AuditRetentionService>();
 builder.Services.AddHttpClient("audit-webhook");
+// Same SSRF guard and no-redirect rule as delivery (Flare.Ingest's "OtlpForwarding" client): the probe carries the target's credentials.
+builder.Services.AddHttpClient(Flare.Api.Export.ForwardingConnectionTester.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10))
+    .AddOutboundGuard(allowAutoRedirect: false);
 builder.Services.AddSingleton<IReadOnlyList<IAuditSink>>(sp =>
 {
     var forwarding = sp.GetRequiredService<IOptions<AuditOptions>>().Value.Forwarding;

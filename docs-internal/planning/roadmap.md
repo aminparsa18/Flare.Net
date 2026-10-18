@@ -87,7 +87,8 @@ folders are where "what happened and why" actually lives.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested
     rollback.
 - **Grafana interoperability.** Today there is OTLP forwarding to a Grafana endpoint
-  ([ADR-0155](../adr/0155-otlp-forwarding.md)), a read-only Prometheus API a Grafana data source can query
+  ([ADR-0155](../adr/0155-otlp-forwarding.md), with a Grafana Cloud preset and a test-connection button in
+  [ADR-0249](../adr/0249-grafana-cloud-forwarding-preset-and-test-connection.md)), a read-only Prometheus API a Grafana data source can query
   ([ADR-0109](../adr/0109-prometheus-query-api.md), extended with operators between series, `offset`, `topk` and more
   functions in [ADR-0239](../adr/0239-prometheus-api-binary-operators-offset-topk-functions.md), then `absent`,
   `label_replace` and `label_join` in [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md), and
@@ -98,8 +99,6 @@ folders are where "what happened and why" actually lives.
   `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
-  - A Grafana Cloud preset for forwarding targets (region, instance id and token instead of a hand-built URL and Basic
-    auth header) and a test-connection button.
   - Expose release health (crash-free sessions and users per version) as Prometheus metrics, for Grafana panels and alerts.
   - Flare alerts and app releases as Grafana annotations.
   - Export a Flare dashboard as Grafana JSON (import of a Grafana export already exists, structure only).

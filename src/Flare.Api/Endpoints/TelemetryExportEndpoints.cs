@@ -20,6 +20,7 @@ public static class TelemetryExportEndpoints
         endpoints.MapPost("/api/forwarding/targets", HandleCreateAsync);
         endpoints.MapPut("/api/forwarding/targets/{id:guid}", HandleUpdateAsync);
         endpoints.MapDelete("/api/forwarding/targets/{id:guid}", HandleDeleteAsync);
+        endpoints.MapPost("/api/forwarding/test", HandleTestAsync);
         endpoints.MapGet("/api/forwarding/status", HandleForwardingStatusAsync);
         endpoints.MapGet("/api/archive/settings", HandleGetArchiveAsync);
         endpoints.MapPut("/api/archive/settings", HandleSaveArchiveAsync);
@@ -81,6 +82,26 @@ public static class TelemetryExportEndpoints
         AuditContext.SetChange(http, TelemetryExportJsonContext.Default.ForwardingTarget,
             before is null ? null : TelemetryExportMasking.Redact(before), TelemetryExportMasking.Redact(target));
         return ApiSerialization.Write(http, TelemetryExportMasking.Redact(target), TelemetryExportJsonContext.Default.ForwardingTarget);
+    }
+
+    /// <summary>
+    /// Probes the destination the form holds without saving it. Masked header values are resolved against the saved target
+    /// (<c>id</c>), the same keep-the-stored-secret rule an update uses, so the browser never needs the real credential.
+    /// </summary>
+    private static async Task<IResult> HandleTestAsync(HttpContext http, ITelemetryExportQueryService exports, IHttpClientFactory httpClients, CancellationToken cancellationToken)
+    {
+        var (request, error) = await ReadAsync(http, TelemetryExportJsonContext.Default.ForwardingTestRequest, r => r.Validate(), cancellationToken);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var stored = request!.Id is { } id ? await exports.GetForwardingAsync(id, cancellationToken) : null;
+        var headers = (request.Headers ?? new Dictionary<string, string>())
+            .ToDictionary(h => h.Key, h => TelemetryExportMasking.Restore(h.Value, stored is not null && stored.Headers.TryGetValue(h.Key, out var old) ? old : "") ?? "");
+
+        var result = await ForwardingConnectionTester.TestAsync(httpClients.CreateClient(ForwardingConnectionTester.HttpClientName), request.Endpoint, headers, cancellationToken);
+        return ApiSerialization.Write(http, result, TelemetryExportJsonContext.Default.ForwardingTestResult);
     }
 
     private static async Task<IResult> HandleDeleteAsync(Guid id, ITelemetryExportQueryService exports, CancellationToken cancellationToken) =>

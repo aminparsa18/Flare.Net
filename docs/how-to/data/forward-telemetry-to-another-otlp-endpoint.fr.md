@@ -10,6 +10,22 @@ Les valeurs d'en-tête sont masquées une fois enregistrées. En modifiant une c
 
 Le tableau affiche l'état en direct de chaque cible, actualisé toutes les quelques secondes : requêtes **en attente** dans sa file, compteurs **envoyées** et **en échec**, et dernière erreur. Les cibles définies en configuration apparaissent sous les cibles enregistrées, marquées *Depuis la configuration* ; elles sont en lecture seule ici.
 
+## Envoyer vers Grafana Cloud
+
+En créant une cible, choisissez **Grafana Cloud** sous **Destination** et renseignez trois valeurs de la tuile OpenTelemetry de votre stack :
+
+- **Région** : la région de la passerelle, par exemple `prod-us-central-0`. Coller l'URL complète de l'endpoint fonctionne aussi.
+- **ID d'instance** : l'identifiant numérique de la stack.
+- **Jeton de politique d'accès** : nécessite les portées `logs:write`, `traces:write` et `metrics:write`.
+
+Flare construit l'endpoint (`https://otlp-gateway-<région>.grafana.net/otlp`) et l'en-tête `Authorization: Basic` à votre place. Ce qui est enregistré est une cible ordinaire : en la modifiant plus tard, vous verrez l'endpoint tel quel et un en-tête masqué.
+
+## Tester la connexion
+
+**Tester la connexion**, dans la boîte de dialogue de la cible, envoie un export de logs OTLP vide à `<endpoint>/v1/logs` avec les en-têtes saisis, sans rien enregistrer et sans stocker de données chez le destinataire. Le résultat indique le statut HTTP, ou la cause de l'échec : identifiants refusés (401/403), mauvais chemin (404) ou hôte injoignable. Pour une cible enregistrée, les valeurs d'en-tête masquées sont utilisées telles qu'elles sont stockées.
+
+Le test s'exécute depuis **Flare.Api**, alors que l'envoi réel passe par Flare.Ingest. Pour une destination privée, définissez `Outbound__Allow` (voir plus bas) sur Flare.Api comme sur Flare.Ingest.
+
 ## Ou configurer une cible dans des fichiers
 
 Les cibles peuvent aussi être définies dans la configuration de **Flare.Ingest** (appsettings ou variables d'environnement), ce qui convient à l'infrastructure as code. Les cibles enregistrées fonctionnent en plus de celles-ci. Avec des variables d'environnement, qui correspondent à `Forwarding:Targets:<index>:<réglage>` :

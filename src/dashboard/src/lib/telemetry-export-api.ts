@@ -35,6 +35,14 @@ export interface ForwardingTargetRequest {
 	gzip: boolean;
 }
 
+export interface ForwardingTestResult {
+	success: boolean;
+	/** The destination's HTTP status, or 0 when no response arrived. */
+	statusCode: number;
+	url: string;
+	error: string;
+}
+
 export interface ForwardingTargetStatus {
 	key: string;
 	name: string;
@@ -111,6 +119,20 @@ export async function saveForwardingTarget(id: string | null, request: Forwardin
 	});
 	if (!res.ok) throw await failure(res, 'Saving the forwarding target');
 	return (await res.json()) as ForwardingTarget;
+}
+
+/**
+ * Probes a destination with what the form holds, without saving it. `id` names the saved target whose masked
+ * header values `headers` may still carry; the server swaps them for the stored secrets.
+ */
+export async function testForwardingTarget(request: { id: string | null; endpoint: string; headers: Record<string, string> }): Promise<ForwardingTestResult> {
+	const res = await apiFetch(`${API_BASE_URL}/api/forwarding/test`, {
+		method: 'POST',
+		headers: JSON_HEADERS,
+		body: JSON.stringify({ id: request.id ?? undefined, endpoint: request.endpoint, headers: request.headers })
+	});
+	if (!res.ok) throw await failure(res, 'Testing the forwarding target');
+	return (await res.json()) as ForwardingTestResult;
 }
 
 export async function deleteForwardingTarget(id: string): Promise<void> {
