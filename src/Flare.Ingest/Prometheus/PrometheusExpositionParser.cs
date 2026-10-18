@@ -17,8 +17,16 @@ public enum PrometheusMetricType
 /// <param name="Name">The full sample name as written on the wire - for a histogram this includes the <c>_bucket</c>/<c>_sum</c>/<c>_count</c> suffix, not the base metric name.</param>
 /// <param name="Labels">This sample's label set, including <c>le</c>/<c>quantile</c> where present - <see cref="PrometheusMetricsMapper"/> strips those out where they're structural rather than a real data-point attribute.</param>
 /// <param name="TimestampMillis">Milliseconds since the Unix epoch, when the line carried an explicit timestamp; otherwise the caller (the scrape worker) supplies the scrape time.</param>
+/// <param name="Exemplar">The OpenMetrics exemplar written after the value (<c># {trace_id="..."} 0.4 1700000000.1</c>), when the line had one that parsed.</param>
 public sealed record PrometheusSample(
     string Name,
+    IReadOnlyDictionary<string, string> Labels,
+    double Value,
+    long? TimestampMillis,
+    PrometheusExemplar? Exemplar = null);
+
+/// <summary>An OpenMetrics exemplar: a sample measurement with its own label set (conventionally <c>trace_id</c>/<c>span_id</c>) and optional timestamp.</summary>
+public sealed record PrometheusExemplar(
     IReadOnlyDictionary<string, string> Labels,
     double Value,
     long? TimestampMillis);
@@ -38,9 +46,11 @@ public sealed record PrometheusParseResult(
 /// <summary>
 /// Parses the Prometheus text exposition format (version 0.0.4 - the classic
 /// <c>&#35; HELP</c>/<c>&#35; TYPE</c>/<c>name{labels} value [timestamp]</c> shape every Prometheus
-/// client library and exporter emits by default). OpenMetrics-only features - exemplars,
-/// the <c>&#35; EOF</c> terminator, UTF-8 quoted metric names, native histograms - are
-/// deliberately out of scope, same "v1 doesn't cover X" precedent
+/// client library and exporter emits by default), plus the parts of OpenMetrics 1.0 a scrape of an
+/// exemplar-emitting exporter needs (<paramref name="openMetrics"/> on <see cref="Parse"/>): exemplars,
+/// second-resolution float timestamps, <c>_total</c> counter samples declared under their base name, and
+/// the <c>_created</c> series. UTF-8 quoted metric names, native histograms and the other
+/// OpenMetrics-only types stay out of scope, same "v1 doesn't cover X" precedent
 /// <see cref="Otlp.OtlpMetricsMapper"/> already set for Summary.
 /// </summary>
 /// <remarks>
@@ -53,7 +63,9 @@ public sealed record PrometheusParseResult(
 /// </remarks>
 public static class PrometheusExpositionParser
 {
-    public static PrometheusParseResult Parse(string text)
+    /// <param name="text">The response body.</param>
+    /// <param name="openMetrics">True when the response was <c>application/openmetrics-text</c>: timestamps are then float seconds, and counters are declared under their base name while the samples carry <c>_total</c>.</param>
+    public static PrometheusParseResult Parse(string text, bool openMetrics = false)
     {
         var samples = new List<PrometheusSample>();
         var types = new Dictionary<string, PrometheusMetricType>(StringComparer.Ordinal);
@@ -69,12 +81,19 @@ public static class PrometheusExpositionParser
 
             if (line[0] == '#')
             {
-                TryParseDirective(line, types, help);
+                TryParseDirective(line, openMetrics, types, help);
                 continue;
             }
 
-            if (TryParseSample(line, out var sample))
+            if (TryParseSample(line, openMetrics, out var sample))
             {
+                // OpenMetrics' _created series (the counter/histogram/summary start time) is metadata, not a
+                // metric: stored as a gauge it would be a second, meaningless series per family.
+                if (openMetrics && IsCreatedSeries(sample.Name, types))
+                {
+                    continue;
+                }
+
                 samples.Add(sample);
             }
         }
@@ -82,8 +101,17 @@ public static class PrometheusExpositionParser
         return new PrometheusParseResult(samples, types, help);
     }
 
+    private static bool IsCreatedSeries(string name, Dictionary<string, PrometheusMetricType> types)
+    {
+        const string suffix = "_created";
+        return name.EndsWith(suffix, StringComparison.Ordinal)
+            && types.TryGetValue(name[..^suffix.Length], out var type)
+            && type is PrometheusMetricType.Counter or PrometheusMetricType.Histogram or PrometheusMetricType.Summary;
+    }
+
     private static void TryParseDirective(
         string line,
+        bool openMetrics,
         Dictionary<string, PrometheusMetricType> types,
         Dictionary<string, string> help)
     {
@@ -111,9 +139,22 @@ public static class PrometheusExpositionParser
         {
             case "TYPE" when TryParseType(value.Trim(), out var type):
                 types[name] = type;
+                // OpenMetrics declares a counter under its base name ("# TYPE http_requests counter") but
+                // writes the sample as http_requests_total, the name a classic scrape (and every existing
+                // series and alert) uses - register that name so the mapper finds the type.
+                if (openMetrics && type == PrometheusMetricType.Counter && !name.EndsWith("_total", StringComparison.Ordinal))
+                {
+                    types[name + "_total"] = type;
+                }
+
                 break;
             case "HELP":
                 help[name] = UnescapeHelpText(value);
+                if (openMetrics && !name.EndsWith("_total", StringComparison.Ordinal))
+                {
+                    help.TryAdd(name + "_total", help[name]);
+                }
+
                 break;
         }
     }
@@ -132,7 +173,7 @@ public static class PrometheusExpositionParser
         return true;
     }
 
-    private static bool TryParseSample(string line, out PrometheusSample sample)
+    private static bool TryParseSample(string line, bool openMetrics, out PrometheusSample sample)
     {
         sample = null!;
 
@@ -165,6 +206,17 @@ public static class PrometheusExpositionParser
         }
 
         var remainder = line[pos..].Trim();
+
+        // Everything after the first '#' is the exemplar. The labels (the only place a '#' could be quoted
+        // text) are already consumed, so this cannot cut a label value.
+        PrometheusExemplar? exemplar = null;
+        var hash = remainder.IndexOf('#');
+        if (hash >= 0)
+        {
+            exemplar = TryParseExemplar(remainder[(hash + 1)..], openMetrics);
+            remainder = remainder[..hash].Trim();
+        }
+
         if (remainder.Length == 0)
         {
             return false;
@@ -184,7 +236,7 @@ public static class PrometheusExpositionParser
         long? timestamp = null;
         if (parts.Length == 2)
         {
-            if (!long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ts))
+            if (!TryParseTimestamp(parts[1], openMetrics, out var ts))
             {
                 return false;
             }
@@ -192,7 +244,63 @@ public static class PrometheusExpositionParser
             timestamp = ts;
         }
 
-        sample = new PrometheusSample(name, labels, value, timestamp);
+        sample = new PrometheusSample(name, labels, value, timestamp, exemplar);
+        return true;
+    }
+
+    /// <summary>
+    /// <c>{label="v",...} value [timestamp]</c>. A malformed exemplar is dropped, not the sample it rides on:
+    /// the sample is the data, the exemplar is a link.
+    /// </summary>
+    private static PrometheusExemplar? TryParseExemplar(string text, bool openMetrics)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length == 0 || trimmed[0] != '{')
+        {
+            return null;
+        }
+
+        var pos = 0;
+        if (!TryParseLabels(trimmed, ref pos, out var labels))
+        {
+            return null;
+        }
+
+        var parts = trimmed[pos..].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length is 0 or > 2 || !TryParseValue(parts[0], out var value) || !double.IsFinite(value))
+        {
+            return null;
+        }
+
+        long? timestamp = null;
+        if (parts.Length == 2)
+        {
+            if (!TryParseTimestamp(parts[1], openMetrics, out var ts))
+            {
+                return null;
+            }
+
+            timestamp = ts;
+        }
+
+        return new PrometheusExemplar(labels, value, timestamp);
+    }
+
+    /// <summary>Classic text: integer milliseconds. OpenMetrics: float seconds (<c>1700000000.123</c>).</summary>
+    private static bool TryParseTimestamp(string token, bool openMetrics, out long millis)
+    {
+        if (!openMetrics)
+        {
+            return long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out millis);
+        }
+
+        millis = 0;
+        if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) || !double.IsFinite(seconds))
+        {
+            return false;
+        }
+
+        millis = (long)Math.Round(seconds * 1000d);
         return true;
     }
 

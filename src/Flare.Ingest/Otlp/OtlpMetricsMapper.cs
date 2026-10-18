@@ -208,7 +208,7 @@ public static class OtlpMetricsMapper
         (flags & (uint)DataPointFlags.NoRecordedValueMask) != 0;
 
     /// <summary>Per-point cap: an SDK keeps a handful (about one per bucket), so more than this is a misbehaving sender.</summary>
-    private const int MaxExemplarsPerPoint = 50;
+    internal const int MaxExemplarsPerPoint = 50;
 
     /// <summary>
     /// Keeps the exemplars that link to a trace (a trace id is the whole point of one) and returns

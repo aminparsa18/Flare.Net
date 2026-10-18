@@ -92,11 +92,14 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 Each result is a series with its `exemplars`, each carrying `trace_id` (and `span_id`), a value and a timestamp. Up to
-1000 are returned, newest first. Only points ingested after upgrading carry exemplars, and only over OTLP.
+1000 are returned, newest first. Only points ingested after upgrading carry exemplars. They arrive over OTLP, or from a Prometheus scrape target with
+`Exemplars` turned on (it asks the target for OpenMetrics and keeps the exemplars that carry a 32-hex-digit `trace_id`).
 
-Flare's own Metrics page and dashboard Metrics panels draw them too: on a histogram chart each exemplar is a ring at its
-observed value, and clicking it opens its trace on the span that recorded it. An exemplar above the chart's range sits on
-the top edge; hover for its true value. The dashboard shows up to 100 of the newest in the window.
+Flare's own Metrics page and dashboard Metrics panels draw them too: each exemplar is a ring that opens its trace on the span
+that recorded it when clicked. On a histogram chart the ring sits at the observed value (one above the chart's range sits on
+the top edge; hover for its true value). On a counter, gauge or formula chart it rides the line of the series it was
+recorded on, at the bucket that contains it, since an increment has no height on a rate axis. The dashboard shows up to 100
+of the newest in the window; stacked areas and comparison overlays draw none.
 
 ## Things that differ from Prometheus
 

@@ -1614,7 +1614,7 @@
 	"dataSourceCatalog_prometheusStep2Heading": "Или через переменные окружения docker-compose",
 	"dataSourceCatalog_prometheusStep2Body": "Та же структура, без файла для монтирования - стандартная привязка ключей конфигурации .NET через двойное подчёркивание достигает той же структуры массива/объекта. «ingest» - это имя сервиса из собственного docker-compose.yml Flare; сама цель должна быть доступна из сети этого контейнера.",
 	"dataSourceCatalog_prometheusStep3Heading": "Защищённая конечная точка или дополнительные метки?",
-	"dataSourceCatalog_prometheusStep3Body": "Заголовки отправляются с каждым запросом сбора (например, токен-носитель). Метки объединяются с атрибутами ресурса каждой точки, применяются после вычисленных service.name/service.instance.id и могут их переопределить.",
+	"dataSourceCatalog_prometheusStep3Body": "Заголовки отправляются с каждым запросом сбора (например, токен-носитель). Метки объединяются с атрибутами ресурса каждой точки, применяются после вычисленных service.name/service.instance.id и могут их переопределить. Exemplars запрашивает у цели формат OpenMetrics и сохраняет exemplars с trace_id, чтобы графики метрик вели к трассировке.",
 	"dataSourceCatalog_prometheusStep4Heading": "Проверьте, что всё работает",
 	"dataSourceCatalog_prometheusStep4Body": "Дайте один интервал сбора, затем найдите имена метрик цели на странице «Метрики» или следите за строкой «Сбор Prometheus» в таблице приёмников на странице «Приём данных» для реальных подсчётов запросов.",
 	"dataSourceCatalog_kafkaTitle": "Kafka",

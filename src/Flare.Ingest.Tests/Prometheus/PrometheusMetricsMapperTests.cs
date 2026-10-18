@@ -133,4 +133,66 @@ public class PrometheusMetricsMapperTests
         Assert.Empty(result.Points);
         Assert.Equal(["latency"], result.UnsupportedMetricNames);
     }
+
+    private const string TraceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+
+    [Fact]
+    public void Map_Histogram_CollectsBucketExemplarsOntoThePoint()
+    {
+        var text = "# TYPE latency histogram\n" +
+                   $"latency_bucket{{le=\"0.5\"}} 4 # {{trace_id=\"{TraceId}\",span_id=\"00F067AA0BA902B7\",region=\"eu\"}} 0.43 1700000000.25\n" +
+                   "latency_bucket{le=\"+Inf\"} 6 # {note=\"no trace here\"} 9\n" +
+                   "latency_sum 3.1\nlatency_count 6\n";
+
+        var result = PrometheusMetricsMapper.Map(PrometheusExpositionParser.Parse(text, openMetrics: true), Target(), ScrapeTime);
+
+        var point = Assert.IsType<HistogramPointRecord>(Assert.Single(result.Points));
+        var exemplar = Assert.Single(point.Exemplars!);
+        Assert.Equal(0.43d, exemplar.Value);
+        Assert.Equal(TraceId, exemplar.TraceId);
+        Assert.Equal("00f067aa0ba902b7", exemplar.SpanId);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_250L), exemplar.Time);
+        Assert.Equal("eu", exemplar.FilteredAttributes["region"]);
+        Assert.False(exemplar.FilteredAttributes.ContainsKey("trace_id"));
+    }
+
+    [Fact]
+    public void Map_Counter_CarriesExemplar_AndNameStaysTheClassicTotalName()
+    {
+        var text = "# TYPE http_requests counter\n" +
+                   $"http_requests_total{{code=\"500\"}} 12 # {{trace_id=\"{TraceId}\"}} 1\n" +
+                   "http_requests_created{code=\"500\"} 1700000000\n# EOF\n";
+
+        var result = PrometheusMetricsMapper.Map(PrometheusExpositionParser.Parse(text, openMetrics: true), Target(), ScrapeTime);
+
+        var point = Assert.IsType<SumPointRecord>(Assert.Single(result.Points));
+        Assert.Equal("http_requests_total", point.MetricName);
+        var exemplar = Assert.Single(point.Exemplars!);
+        Assert.Equal(TraceId, exemplar.TraceId);
+        Assert.Null(exemplar.SpanId);
+        Assert.Equal(ScrapeTime, exemplar.Time); // no timestamp of its own, no sample timestamp: the scrape time
+    }
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("zzf92f3577b34da6a3ce929d0e0e4736")]
+    public void Map_DropsExemplarWhoseTraceIdIsNotThirtyTwoHexDigits(string traceId)
+    {
+        var text = $"# TYPE hits counter\nhits_total 1 # {{trace_id=\"{traceId}\"}} 1\n";
+
+        var result = PrometheusMetricsMapper.Map(PrometheusExpositionParser.Parse(text, openMetrics: true), Target(), ScrapeTime);
+
+        Assert.Null(Assert.IsType<SumPointRecord>(Assert.Single(result.Points)).Exemplars);
+    }
+
+    [Fact]
+    public void Map_CapsExemplarsPerPoint()
+    {
+        var lines = Enumerable.Range(1, 60).Select(i => $"lat_bucket{{le=\"{i}\"}} {i} # {{trace_id=\"{TraceId}\"}} {i}");
+        var text = "# TYPE lat histogram\n" + string.Join('\n', lines) + "\nlat_bucket{le=\"+Inf\"} 60\nlat_count 60\nlat_sum 1\n";
+
+        var result = PrometheusMetricsMapper.Map(PrometheusExpositionParser.Parse(text, openMetrics: true), Target(), ScrapeTime);
+
+        Assert.Equal(50, Assert.IsType<HistogramPointRecord>(Assert.Single(result.Points)).Exemplars!.Count);
+    }
 }

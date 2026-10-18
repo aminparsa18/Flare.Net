@@ -32,6 +32,10 @@
 	import { fractionInBuckets, loadReleases, placeMarkers } from '#lib/releases/markers.ts';
 	import type { Release } from '#lib/releases-api.ts';
 	import ReleaseMarkers from '#lib/components/releases/ReleaseMarkers.svelte';
+	import { collectRefs, parseFormula } from '#lib/metrics/formula.ts';
+	import { exemplarHref, exemplarOnSeries, loadExemplars, placeExemplars, yOnLine, type ExemplarMark } from '#lib/metrics/exemplars.ts';
+	import type { MetricExemplar } from '#lib/metrics-api.ts';
+	import ExemplarDots from './ExemplarDots.svelte';
 
 	// yAxisMin/yAxisMax: same soft Y-axis floor/ceiling MetricChart.svelte's own props of
 	// the same name apply (DashboardPanel.yAxisMin/yAxisMax) - only ever set from a
@@ -49,7 +53,8 @@
 		legendFormat,
 		stacking = 'none',
 		title = '',
-		releaseMarkers = false
+		releaseMarkers = false,
+		exemplars = false
 	}: {
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
@@ -66,6 +71,8 @@
 		title?: string;
 		/** Draw deploy markers (ADR-0182) for the filtered services. */
 		releaseMarkers?: boolean;
+		/** Draw a dot per exemplar (ADR-0244) of the metrics the formula reads, on the line of the series it was recorded on. */
+		exemplars?: boolean;
 	} = $props();
 
 	const explorer = metricsExplorerContext.get();
@@ -139,6 +146,54 @@
 		return () => controller.abort();
 	});
 	const markers = $derived(releaseMarkers ? placeMarkers(releases, (t) => fractionInBuckets(t, bucketTimes)) : []);
+
+	// Exemplar dots (ADR-0244): the exemplars of every metric the formula references, each on the line of the
+	// series it was recorded on (a formula's value is on no axis an exemplar's own value could be read against).
+	// The source list is keyed by identity so editing a row's group-by or loading its attribute keys does not refetch.
+	const exemplarSources = $derived.by(() => {
+		const parsed = parseFormula(explorer.formulaExpression);
+		if (!parsed.ok) return [];
+		const refs = collectRefs(parsed.node);
+		const sources = explorer.formulaQueries.filter((q) => refs.has(q.letter) && q.metric).map((q) => q.metric!);
+		return [...new Map(sources.map((m) => [`${m.metricName}|${m.type}|${m.serviceName}`, m])).values()];
+	});
+	const exemplarSourcesKey = $derived(exemplarSources.map((m) => `${m.metricName}|${m.type}|${m.serviceName}`).join('\n'));
+	let exemplarList = $state<MetricExemplar[]>([]);
+	$effect(() => {
+		const from = explorer.formulaRangeFrom;
+		const to = explorer.formulaRangeTo;
+		void exemplarSourcesKey;
+		exemplarList = [];
+		if (!exemplars || !from || !to || exemplarSources.length === 0) return;
+		const controller = new AbortController();
+		const sources = exemplarSources;
+		void Promise.all(sources.map((metric) => loadExemplars(metric, { from, to, services: [metric.serviceName] }, controller.signal))).then((lists) => {
+			if (!controller.signal.aborted) exemplarList = lists.flat();
+		});
+		return () => controller.abort();
+	});
+	const exemplarMarks = $derived.by((): ExemplarMark[] => {
+		if (stackActive) return [];
+		const marks: ExemplarMark[] = [];
+		for (const dot of placeExemplars(exemplarList, bucketTimes, (explorer.formulaIntervalSeconds ?? 0) * 1000)) {
+			const index = explorer.formulaSeries.findIndex((s) => exemplarOnSeries(dot.exemplar, s));
+			const x = dot.fraction * CHART_WIDTH;
+			const y = index >= 0 ? yOnLine(plotted(lines[index].points).map((p) => ({ x: xFor(p.time), y: yFor(p.raw) })), x) : null;
+			if (y === null) continue;
+			marks.push({
+				x,
+				y,
+				href: exemplarHref(dot.exemplar),
+				title: m.metricChart_exemplarTitle({
+					value: formatAutoScaled(dot.exemplar.value, null),
+					time: formatBucketTime(dot.time),
+					trace: dot.exemplar.traceId.slice(0, 8)
+				}),
+				label: dot.exemplar.traceId.slice(0, 8)
+			});
+		}
+		return marks;
+	});
 
 	function xFor(time: number): number {
 		const count = bucketTimes.length;
@@ -315,6 +370,8 @@
 										{/each}
 									{/each}
 									{/if}
+
+									<ExemplarDots marks={exemplarMarks} />
 								</svg>
 							{/snippet}
 						</Tooltip.Trigger>

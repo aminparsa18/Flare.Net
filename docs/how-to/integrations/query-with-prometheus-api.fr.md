@@ -79,9 +79,9 @@ curl -H "Authorization: Bearer $TOKEN" \
   $FLARE/api/v1/query_exemplars
 ```
 
-Chaque résultat est une série avec ses `exemplars`, chacun portant `trace_id` (et `span_id`), une valeur et un horodatage. Jusqu'à 1000 sont renvoyés, les plus récents d'abord. Seuls les points ingérés après la mise à jour portent des exemplars, et uniquement via OTLP.
+Chaque résultat est une série avec ses `exemplars`, chacun portant `trace_id` (et `span_id`), une valeur et un horodatage. Jusqu'à 1000 sont renvoyés, les plus récents d'abord. Seuls les points ingérés après la mise à jour portent des exemplars. Ils arrivent via OTLP, ou depuis une cible de scrape Prometheus avec `Exemplars` activé (Flare demande alors OpenMetrics à la cible et conserve les exemplars dotés d'un `trace_id` de 32 chiffres hexadécimaux).
 
-La page Metrics de Flare et les panneaux Metrics des tableaux de bord les affichent aussi : sur un graphique d'histogramme, chaque exemplar est un anneau à sa valeur observée, et un clic ouvre sa trace sur le span qui l'a enregistré. Un exemplar au-dessus de l'échelle du graphique se place sur le bord supérieur ; survolez-le pour voir sa vraie valeur. Le tableau de bord en affiche jusqu'à 100, les plus récents de la fenêtre.
+La page Metrics de Flare et les panneaux Metrics des tableaux de bord les affichent aussi : chaque exemplar est un anneau qui, au clic, ouvre sa trace sur le span qui l'a enregistré. Sur un graphique d'histogramme, l'anneau se place à la valeur observée (un exemplar au-dessus de l'échelle se place sur le bord supérieur ; survolez-le pour voir sa vraie valeur). Sur un graphique de compteur, de jauge ou de formule, il suit la courbe de la série où il a été enregistré, dans le bucket qui le contient, car un incrément n'a pas de hauteur sur un axe de débit. Le tableau de bord en affiche jusqu'à 100, les plus récents de la fenêtre ; les aires empilées et les superpositions de comparaison n'en affichent aucun.
 
 ## Différences avec Prometheus
 

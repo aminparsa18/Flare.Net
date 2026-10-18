@@ -123,4 +123,75 @@ public class PrometheusExpositionParserTests
             result.Samples.Where(s => s.Name.EndsWith("_bucket", StringComparison.Ordinal)),
             s => Assert.True(s.Labels.ContainsKey("le")));
     }
+
+    private const string TraceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+
+    [Fact]
+    public void Parse_KeepsSampleAndExemplar_WhenLineHasExemplarSuffix()
+    {
+        var text = "# TYPE latency histogram\n" +
+                   $"latency_bucket{{le=\"0.5\"}} 7 # {{trace_id=\"{TraceId}\",span_id=\"00f067aa0ba902b7\",region=\"eu\"}} 0.43 1700000000.25\n";
+
+        var sample = Assert.Single(PrometheusExpositionParser.Parse(text, openMetrics: true).Samples);
+
+        Assert.Equal(7d, sample.Value);
+        var exemplar = Assert.IsType<PrometheusExemplar>(sample.Exemplar);
+        Assert.Equal(0.43d, exemplar.Value);
+        Assert.Equal(1_700_000_000_250L, exemplar.TimestampMillis);
+        Assert.Equal(TraceId, exemplar.Labels["trace_id"]);
+        Assert.Equal("eu", exemplar.Labels["region"]);
+    }
+
+    [Fact]
+    public void Parse_KeepsSampleWithoutExemplar_WhenExemplarIsMalformed()
+    {
+        var sample = Assert.Single(PrometheusExpositionParser.Parse("hits_total 3 # {trace_id=\"abc} oops\n", openMetrics: true).Samples);
+
+        Assert.Equal(3d, sample.Value);
+        Assert.Null(sample.Exemplar);
+    }
+
+    [Fact]
+    public void Parse_ExemplarWithoutTimestamp_HasNullTimestamp()
+    {
+        var sample = Assert.Single(PrometheusExpositionParser.Parse($"hits_total 3 # {{trace_id=\"{TraceId}\"}} 1\n", openMetrics: true).Samples);
+
+        Assert.Null(sample.Exemplar!.TimestampMillis);
+    }
+
+    [Fact]
+    public void Parse_OpenMetrics_ReadsSecondsTimestampAsMillis()
+    {
+        var sample = Assert.Single(PrometheusExpositionParser.Parse("temperature 21.5 1700000000.5\n", openMetrics: true).Samples);
+
+        Assert.Equal(1_700_000_000_500L, sample.TimestampMillis);
+    }
+
+    [Fact]
+    public void Parse_Classic_StillReadsMillisTimestamp()
+    {
+        var sample = Assert.Single(PrometheusExpositionParser.Parse("temperature 21.5 1700000000500\n").Samples);
+
+        Assert.Equal(1_700_000_000_500L, sample.TimestampMillis);
+    }
+
+    [Fact]
+    public void Parse_OpenMetrics_RegistersCounterTypeUnderTotalName()
+    {
+        var result = PrometheusExpositionParser.Parse("# TYPE http_requests counter\n# HELP http_requests Requests.\nhttp_requests_total 5\n# EOF\n", openMetrics: true);
+
+        Assert.Equal(PrometheusMetricType.Counter, result.Types["http_requests_total"]);
+        Assert.Equal("Requests.", result.HelpText["http_requests_total"]);
+    }
+
+    [Fact]
+    public void Parse_OpenMetrics_DropsCreatedSeriesOfTypedFamilies_ButNotAGaugeNamedCreated()
+    {
+        var text = "# TYPE http_requests counter\nhttp_requests_total 5\nhttp_requests_created 1700000000\n" +
+                   "# TYPE job_created gauge\njob_created 12\n";
+
+        var names = PrometheusExpositionParser.Parse(text, openMetrics: true).Samples.Select(s => s.Name).ToList();
+
+        Assert.Equal(["http_requests_total", "job_created"], names);
+    }
 }
