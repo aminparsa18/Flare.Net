@@ -174,6 +174,24 @@ L'application **Traces Drilldown** (Drilldown > Traces dans Grafana 12 et suivan
 
 Tous les onglets de l'application se chargent sans erreur de requête. Drilldown envoie aussi une requête avec un attribut nommé `undefined` (un défaut de l'application) ; Flare la rejette, comme Tempo, et l'application continue. L'onglet Exceptions montre les exceptions des spans sur lesquels l'application interroge, qui sont ceux de la racine dans la vue des spans racines. Voir [ADR-0226](../../../docs-internal/adr/0226-traces-drilldown-compatibility-and-compare.md) et [ADR-0227](../../../docs-internal/adr/0227-traceql-select-union-descendant-and-nested-sets.md).
 
+## Liens entre Grafana et Flare
+
+**De Flare vers Grafana.** Définissez `PUBLIC_GRAFANA_TRACE_https://grafana.example.com/explore?left=%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22{traceId}%22%7D%5D%7D` sur le conteneur du tableau de bord avec une URL Grafana contenant
+un emplacement `{traceId}` : chaque page de trace affiche alors un bouton **Ouvrir dans Grafana**. Pour une vue Explore de votre source
+de données Tempo, la valeur est l'URL d'Explore avec la requête encodée :
+
+```bash
+PUBLIC_GRAFANA_TRACE_URL='URL'
+```
+
+Remplacez `tempo` par l'uid de votre source de données. L'identifiant est encodé avant de remplacer l'emplacement, et seule une valeur
+`http(s)` contenant `{traceId}` est utilisée ; sinon le bouton est masqué. La valeur est lue au démarrage du tableau de bord, sans reconstruction.
+
+**De Grafana vers Flare.** Une trace s'ouvre sur `/traces/<traceId>` et une session sur `/sessions/<sessionId>`, donc un lien de données
+n'a besoin de rien de Flare. Sur le champ d'identifiant de trace d'un panneau Tempo, ou toute colonne de tableau qui en contient un,
+ajoutez le lien de données `https://flare.example.com/traces/${__value.raw}`. Ajoutez le sous-chemin devant si le tableau de bord est
+hébergé sous `FLARE_BASE_PATH`. Pour ouvrir un span précis, ajoutez `?span=<spanId>`.
+
 ## Différences avec Tempo
 
 - **Les expressions régulières sont ancrées**, comme dans Tempo : `=~ "api-.*"` doit correspondre à toute la valeur.

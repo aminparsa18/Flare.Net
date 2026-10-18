@@ -98,8 +98,6 @@ folders are where "what happened and why" actually lives.
   `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
-  - Deep links both ways: an "Open in Grafana" action on a TraceId from a configurable URL template, and Grafana data
-    links that open the trace or session in Flare.
   - A Grafana Cloud preset for forwarding targets (region, instance id and token instead of a hand-built URL and Basic
     auth header) and a test-connection button.
   - Expose release health (crash-free sessions and users per version) as Prometheus metrics, for Grafana panels and alerts.

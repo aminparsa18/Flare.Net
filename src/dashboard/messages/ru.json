@@ -542,6 +542,7 @@
 	"tracesExport_scopeVisibleHint": "Только трейсы, загруженные в список сейчас.",
 	"tracesExport_columnsLabel": "Столбцы",
 	"tracesExport_truncatedAlert": "Экспорт ограничен первыми {count} подходящими строками. Сузьте период или фильтры, чтобы экспортировать остальное.",
+	"tracePage_openInGrafana": "Открыть в Grafana",
 	"tracePage_downloadJson": "Скачать JSON",
 	"tracePage_downloadJsonPartial": "Скачать JSON (только загруженные {count} спанов)",
 	"tracePage_backToTraces": "Назад к трассировкам",

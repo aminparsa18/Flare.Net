@@ -10,6 +10,8 @@ export const variables = defineEnvVars({
 	PUBLIC_API_URL: { public: true, schema: optional },
 	// Where this server reaches Flare.Api when that differs from what the browser uses (status-page domain lookups).
 	API_INTERNAL_URL: { schema: optional },
+	// "Open in Grafana" on a trace: an http(s) URL with a {traceId} placeholder (ADR-0248). Unset hides the button.
+	PUBLIC_GRAFANA_TRACE_URL: { public: true, schema: optional },
 	// Baseline security headers (ADR-0200); see src/lib/server/security-headers.ts.
 	FLARE_SECURITY_HEADERS: { schema: optional },
 	FLARE_CSP: { schema: optional },
