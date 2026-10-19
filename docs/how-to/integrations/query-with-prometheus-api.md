@@ -108,6 +108,34 @@ instant query and a panel at any step both read a full day. The plain `flare_rel
 gauges scan a day of spans before the queried range, so a long range at a short step is the expensive case. Users appear
 only when the app sets `user.id`. The `flare.release.` name prefix is reserved for these metrics.
 
+## Annotations
+
+Two more built-in metrics let Grafana mark alerts and deploys on any panel through an annotation query. Both are `1` where
+the event is and absent elsewhere, and are listed by `label/__name__/values`.
+
+| Metric | Labels | Meaning |
+|---|---|---|
+| `flare_alert_firing` | `alertname`, `rule_id` | `1` for every step an alert rule is firing, from its fire until it recovers |
+| `flare_release_deployed` | `service_name`, `service_version`, `commit`, `url` | `1` at the step a [marked release](../investigate/track-releases.md) was deployed |
+
+In a dashboard's **Settings > Annotations**, add an annotation query on the Flare data source:
+
+| Field | Alerts | Deploys |
+|---|---|---|
+| Expression | `flare_alert_firing` | `flare_release_deployed{service_name="shop-app"}` |
+| Min step | `1m` | `1m` |
+| Title | `{{alertname}}` | `Deploy {{service_version}}` |
+| Text | `Alert firing` | `{{commit}} {{url}}` |
+| Tags | `alertname` | `service_name` |
+
+An alert shows as a region from its fire to its recovery, one per incident (a re-fire during the cooldown is the same
+incident); a rule that is still firing runs up to now. Fires that a maintenance window suppressed are not shown, because
+nobody was notified. A rule's alerts follow its project: a project member sees only the rules of their own projects and the
+instance-wide ones, and releases follow the service scope the other queries apply. Deploys come from the releases you
+mark (`flare releases mark` or `PUT /api/releases`), not from a new version appearing in telemetry. The `flare.alert.`
+name prefix and `flare.release.deployed` are reserved. A query fails when it would return more than 50,000 points; raise the
+step or shorten the range.
+
 ## Exemplars
 
 A histogram or counter point recorded inside a trace carries an **exemplar**: a sample value with the trace and

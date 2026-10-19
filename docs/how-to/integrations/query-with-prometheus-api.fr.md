@@ -105,6 +105,36 @@ gauges `_24h` parcourent une journée de spans avant la plage demandée : une lo
 Les utilisateurs n'apparaissent que si l'application définit `user.id`. Le préfixe de nom `flare.release.` est réservé à
 ces métriques.
 
+## Annotations
+
+Deux autres métriques intégrées permettent à Grafana de marquer les alertes et les déploiements sur n'importe quel panneau
+via une requête d'annotation. Les deux valent `1` là où l'événement a lieu et sont absentes ailleurs ; `label/__name__/values`
+les liste.
+
+| Métrique | Labels | Signification |
+|---|---|---|
+| `flare_alert_firing` | `alertname`, `rule_id` | `1` à chaque pas où une règle d'alerte est en alerte, de son déclenchement à son rétablissement |
+| `flare_release_deployed` | `service_name`, `service_version`, `commit`, `url` | `1` au pas où une [release marquée](../investigate/track-releases.md) a été déployée |
+
+Dans **Settings > Annotations** d'un tableau de bord, ajoutez une requête d'annotation sur la source de données Flare :
+
+| Champ | Alertes | Déploiements |
+|---|---|---|
+| Expression | `flare_alert_firing` | `flare_release_deployed{service_name="shop-app"}` |
+| Min step | `1m` | `1m` |
+| Title | `{{alertname}}` | `Deploy {{service_version}}` |
+| Text | `Alert firing` | `{{commit}} {{url}}` |
+| Tags | `alertname` | `service_name` |
+
+Une alerte apparaît comme une région de son déclenchement à son rétablissement, une par incident (un nouveau déclenchement
+pendant le délai de refroidissement reste le même incident) ; une règle encore en alerte va jusqu'à maintenant. Les
+déclenchements supprimés par une fenêtre de maintenance ne sont pas affichés, puisque personne n'a été notifié. Les alertes
+d'une règle suivent son projet : un membre de projet ne voit que les règles de ses projets et celles de toute l'instance, et
+les releases suivent le périmètre de services appliqué aux autres requêtes. Les déploiements viennent des releases que vous
+marquez (`flare releases mark` ou `PUT /api/releases`), pas de l'apparition d'une nouvelle version dans la télémétrie. Le
+préfixe de nom `flare.alert.` et `flare.release.deployed` sont réservés. Une requête échoue si elle renvoie plus de
+50 000 points ; augmentez le pas ou réduisez la plage.
+
 ## Exemplars
 
 Un point d'histogramme ou de compteur enregistré dans une trace porte un **exemplar** : une valeur échantillon avec la trace et le span qui l'ont produite. Flare conserve ceux qui ont un identifiant de trace et les sert via `query_exemplars`, pour que Grafana les dessine sur un graphique de latence et ouvre la requête lente.

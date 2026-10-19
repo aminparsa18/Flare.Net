@@ -94,14 +94,14 @@ folders are where "what happened and why" actually lives.
   `label_replace` and `label_join` in [ADR-0240](../adr/0240-prometheus-api-absent-label-replace-label-join.md),
   exemplars in [ADR-0241](../adr/0241-metric-exemplars.md), and release health as `flare_release_*` metrics in
   [ADR-0250](../adr/0250-release-health-prometheus-metrics.md), with trailing-24h users gauges in
-  [ADR-0251](../adr/0251-rolling-window-release-users-gauges.md)), a read-only Tempo-compatible trace API
+  [ADR-0251](../adr/0251-rolling-window-release-users-gauges.md), and alerts and releases as annotation metrics in
+  [ADR-0252](../adr/0252-alert-and-release-annotation-metrics.md)), a read-only Tempo-compatible trace API
   ([ADR-0217](../adr/0217-tempo-compatible-trace-api.md)) and a read-only Loki-compatible log API
   ([ADR-0236](../adr/0236-loki-compatible-log-api.md), extended with `logfmt`, `line_format`, `unwrap`, live tail and
   Logs Drilldown in [ADR-0237](../adr/0237-loki-api-logfmt-line-format-unwrap-tail-and-drilldown.md), then
   `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
-  - Flare alerts and app releases as Grafana annotations.
   - Export a Flare dashboard as Grafana JSON (import of a Grafana export already exists, structure only).
   - A Grafana data source plugin for what the standard APIs cannot express: sessions, errors, release health.
   - A how-to for sending Flare data to Grafana (Grafana Cloud and self-hosted through Alloy or a collector), verified
