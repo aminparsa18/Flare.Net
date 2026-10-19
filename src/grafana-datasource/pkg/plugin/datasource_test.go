@@ -114,6 +114,7 @@ func TestQueryDataEveryKind(t *testing.T) {
 		{kindIssues, "/api/errors/issues", 1, 1},
 		{kindReleaseHealth, "/api/app-sessions/release-health", 1, 1},
 		{kindReleaseHealthTrend, "/api/app-sessions/release-health/trend", 1, 1},
+		{kindReleaseHealthValue, "/api/app-sessions/release-health", 1, 1},
 		{kindReleases, "/api/releases", 1, 2}, // the 2025 deploy is outside the range
 		{kindAppStarts, "/api/app-sessions/performance", 1, 1},
 		{kindScreenPerformance, "/api/app-sessions/performance", 1, 1},
@@ -139,6 +140,27 @@ func TestSessionsSortedNewestFirst(t *testing.T) {
 	resp := runQuery(t, ds, map[string]any{"kind": "sessions"})
 	if got := fieldNamed(t, resp.Frames[0], "sessionId").At(0); got != "new" {
 		t.Fatalf("first session %v", got)
+	}
+}
+
+func TestReleaseHealthValueQuery(t *testing.T) {
+	f := &fakeFlare{bodies: cannedBodies}
+	ds := newTestDatasource(t, f)
+
+	resp := runQuery(t, ds, map[string]any{"kind": "releaseHealthValue", "valueMetric": "crashFreeUsers", "service": "app,web"})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if f.count("/api/app-sessions/release-health") != 2 || len(resp.Frames) != 2 {
+		t.Fatalf("calls %d, frames %d", f.count("/api/app-sessions/release-health"), len(resp.Frames))
+	}
+	if resp.Frames[1].Fields[0].Labels["service"] != "web" || resp.Frames[0].Fields[0].Name != "Crash-free users" {
+		t.Fatalf("labels %v name %q", resp.Frames[1].Fields[0].Labels, resp.Frames[0].Fields[0].Name)
+	}
+
+	resp = runQuery(t, ds, map[string]any{"kind": "releaseHealthValue", "minSessions": 11})
+	if len(resp.Frames) != 0 {
+		t.Fatalf("the only version has 10 sessions, got %d frames", len(resp.Frames))
 	}
 }
 

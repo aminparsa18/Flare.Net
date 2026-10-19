@@ -3,7 +3,7 @@ import { QueryEditorProps } from '@grafana/data';
 import { ComboboxOption, Combobox, InlineField, InlineFieldRow, InlineSwitch, Input } from '@grafana/ui';
 
 import { DataSource } from '../datasource';
-import { FlareDataSourceOptions, FlareQuery, QueryKind, TrendMetric } from '../types';
+import { FlareDataSourceOptions, FlareQuery, QueryKind, TrendMetric, ValueMetric } from '../types';
 
 type Props = QueryEditorProps<DataSource, FlareQuery, FlareDataSourceOptions>;
 
@@ -26,6 +26,11 @@ const KINDS: Array<ComboboxOption<QueryKind>> = [
     label: 'Release health trend',
     description: 'Crash-free sessions per version over time',
   },
+  {
+    value: 'releaseHealthValue',
+    label: 'Release health value',
+    description: 'One number per version over the range; alertable without a Reduce step',
+  },
   { value: 'releases', label: 'Releases', description: 'Marked deploys; also usable as annotations' },
   { value: 'appStarts', label: 'App starts', description: 'Cold and warm start durations per app version' },
   {
@@ -41,11 +46,22 @@ const TREND_METRICS: Array<ComboboxOption<TrendMetric>> = [
   { value: 'crashedSessions', label: 'Crashed sessions' },
 ];
 
+const VALUE_METRICS: Array<ComboboxOption<ValueMetric>> = [
+  { value: 'crashFreeSessions', label: 'Crash-free sessions %' },
+  { value: 'crashFreeUsers', label: 'Crash-free users %' },
+  { value: 'sessions', label: 'Sessions' },
+  { value: 'crashedSessions', label: 'Crashed sessions' },
+  { value: 'erroredSessions', label: 'Errored sessions' },
+  { value: 'users', label: 'Users' },
+  { value: 'crashedUsers', label: 'Crashed users' },
+];
+
 const SERVICE_KINDS: QueryKind[] = [
   'sessions',
   'errors',
   'releaseHealth',
   'releaseHealthTrend',
+  'releaseHealthValue',
   'releases',
   'appStarts',
   'screenPerformance',
@@ -60,7 +76,7 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
   };
   const text = (key: 'service' | 'version' | 'sessionId') => (event: ChangeEvent<HTMLInputElement>) =>
     onChange({ ...query, [key]: event.target.value });
-  const number = (key: 'topN' | 'bucketMinutes') => (event: ChangeEvent<HTMLInputElement>) =>
+  const number = (key: 'topN' | 'bucketMinutes' | 'minSessions') => (event: ChangeEvent<HTMLInputElement>) =>
     onChange({ ...query, [key]: event.target.value ? Number(event.target.value) : undefined });
 
   return (
@@ -164,6 +180,34 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
               value={query.bucketMinutes ?? ''}
               placeholder="auto"
               onChange={number('bucketMinutes')}
+              onBlur={onRunQuery}
+            />
+          </InlineField>
+        </InlineFieldRow>
+      )}
+
+      {kind === 'releaseHealthValue' && (
+        <InlineFieldRow>
+          <InlineField label="Value" labelWidth={14}>
+            <Combobox
+              width={30}
+              options={VALUE_METRICS}
+              value={query.valueMetric ?? 'crashFreeSessions'}
+              onChange={(v) => update({ valueMetric: v.value })}
+            />
+          </InlineField>
+          <InlineField
+            label="Min sessions"
+            labelWidth={16}
+            tooltip="Leave out versions with fewer sessions than this, so a release with a handful of sessions does not fire a rule."
+          >
+            <Input
+              width={12}
+              type="number"
+              min={0}
+              value={query.minSessions ?? ''}
+              placeholder="none"
+              onChange={number('minSessions')}
               onBlur={onRunQuery}
             />
           </InlineField>

@@ -133,6 +133,60 @@ func TestReleaseHealthTrendFrames(t *testing.T) {
 	}
 }
 
+func TestReleaseHealthValueFrames(t *testing.T) {
+	resp := releaseHealthResponse{Versions: []releaseHealthVersion{
+		{Version: "2.0", Sessions: 10, CrashedSessions: 1, ErroredSessions: 2, Users: 4, CrashedUsers: 1},
+		{Version: "1.0", Sessions: 0},
+		{Version: "3.0", Sessions: 2, CrashedSessions: 2},
+	}}
+	frames := releaseHealthValueFrames("A", []serviceResponse[releaseHealthResponse]{{Service: "app", Response: resp}}, "crashFreeSessions", 0, false)
+	if len(frames) != 3 {
+		t.Fatalf("one frame per version, got %d", len(frames))
+	}
+	if frames[0].Fields[0].Labels["version"] != "1.0" || frames[2].Fields[0].Labels["version"] != "3.0" {
+		t.Fatal("versions must be sorted")
+	}
+	if len(frames[1].Fields) != 1 || frames[1].Meta.Type != data.FrameTypeNumericMulti {
+		t.Fatalf("a rule takes it without Reduce only as one numeric field of type numeric-multi, got %d fields, %q", len(frames[1].Fields), frames[1].Meta.Type)
+	}
+	if frames[1].Meta.TypeVersion.IsZero() {
+		t.Fatal("Grafana only reads the frame as a number from dataplane version 0.1; at 0.0 it is a legacy table and the rule errors")
+	}
+	if got := floatAt(t, frames[1].Fields[0], 0); got == nil || *got != 90 {
+		t.Fatalf("crash-free sessions %v", got)
+	}
+	if floatAt(t, frames[0].Fields[0], 0) != nil {
+		t.Fatal("no sessions is no value, not 100%")
+	}
+	if got := floatAt(t, frames[2].Fields[0], 0); got == nil || *got != 0 {
+		t.Fatalf("all crashed %v", got)
+	}
+	if f := frames[1].Fields[0]; f.Labels["service"] != "app" || f.Config.DisplayNameFromDS != "app 2.0" || f.Config.Unit != "percent" {
+		t.Fatalf("labels %v display %q unit %q", f.Labels, f.Config.DisplayNameFromDS, f.Config.Unit)
+	}
+
+	want := map[string]float64{"crashFreeUsers": 75, "sessions": 10, "crashedSessions": 1, "erroredSessions": 2, "users": 4, "crashedUsers": 1}
+	for metric, expected := range want {
+		out := releaseHealthValueFrames("A", []serviceResponse[releaseHealthResponse]{{Response: resp}}, metric, 0, false)
+		if got := floatAt(t, out[1].Fields[0], 0); got == nil || *got != expected {
+			t.Fatalf("%s: %v, want %v", metric, got, expected)
+		}
+		if _, has := out[1].Fields[0].Labels["service"]; has {
+			t.Fatal("no service label without a service")
+		}
+	}
+	if counts := releaseHealthValueFrames("A", []serviceResponse[releaseHealthResponse]{{Response: resp}}, "sessions", 0, false); counts[1].Fields[0].Config.Unit != "" {
+		t.Fatal("a count has no unit")
+	}
+
+	if floor := releaseHealthValueFrames("A", []serviceResponse[releaseHealthResponse]{{Response: resp}}, "crashFreeSessions", 5, false); len(floor) != 1 || floor[0].Fields[0].Labels["version"] != "2.0" {
+		t.Fatalf("minSessions leaves out thin versions, got %d frames", len(floor))
+	}
+	if unknown := releaseHealthValueFrames("A", []serviceResponse[releaseHealthResponse]{{Response: resp}}, "bogus", 0, true); unknown[1].Fields[0].Name != "Crash-free sessions" || unknown[1].Meta.Notices == nil {
+		t.Fatal("an unknown metric falls back to crash-free sessions, and a clamped range carries its notice")
+	}
+}
+
 func TestReleasesFrame(t *testing.T) {
 	n := int64(3)
 	f := releasesFrame("A", []release{{Service: "app", Version: "2.0", Notes: "fix", DeployedAt: "2026-10-18T20:00:00Z", NewErrorCount: &n}})

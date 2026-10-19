@@ -44,6 +44,7 @@ Copiez `dist/` dans le répertoire des plugins de Grafana sous le nom `apardev-f
 | **Error issues** | L'état de suivi des groupes d'erreurs : statut (ouvert, résolu, ignoré, régressé), responsable, version de la régression et lien du ticket | Aucune |
 | **Release health** | Une ligne par version de l'application : sessions, sessions plantées et en erreur, utilisateurs, et taux de sessions et d'utilisateurs sans plantage | Service |
 | **Release health trend** | Une série par version dans le temps | Service, série (% de sessions sans plantage, sessions ou sessions plantées), largeur de bucket |
+| **Release health value** | Un nombre par version sur la plage de temps : % de sessions ou d'utilisateurs sans plantage, ou un compteur ; conçu pour les règles d'alerte | Service, valeur, minimum de sessions |
 | **Releases** | Les déploiements que vous avez marqués, avec commit, URL, notes et nombres de nouvelles erreurs et de régressions | Service |
 | **App starts** | Durée des démarrages à froid et à chaud (spans `app.start`) : nombre, p50 et p95 par version | Service, version |
 | **Screen performance** | Par écran : chargements, p50 et p95 de chargement (spans `screen.load`), et part des images lentes et figées (spans `screen.frames`) | Service, version |
@@ -64,17 +65,18 @@ Le plugin embarque un tableau de bord **Flare app health** : sessions sans plant
 
 ## Alerter sur les sessions sans plantage
 
-**Release health trend** renvoie une série temporelle numérique par version de l'application (et par service si vous en nommez plusieurs) : une règle d'alerte Grafana peut donc l'utiliser. Créez une règle avec ces requêtes :
+**Release health value** renvoie un nombre par version de l'application (et par service si vous en nommez plusieurs) sur la plage de temps de la requête : une règle d'alerte Grafana peut donc le comparer directement. Créez une règle avec ces requêtes :
 
-1. **A** : la source de données Flare, requête **Release health trend**, votre service, série **Crash-free sessions %**.
-2. **B** : une expression **Reduce** sur A, fonction **Last**, mode **Drop non-numeric**.
-3. **C** : une expression **Threshold** sur B, **Is below** `99`.
+1. **A** : la source de données Flare, requête **Release health value**, votre service, valeur **Crash-free sessions %**. Réglez la plage de temps de la requête sur la fenêtre à juger, par exemple la dernière heure (Flare répond de 5 minutes à 7 jours). Renseignez **Min sessions** (par exemple `50`) pour qu'une version avec quelques sessions seulement ne déclenche pas la règle.
+2. **B** : une expression **Threshold** sur A, **Is below** `99`.
 
-Grafana évalue une instance d'alerte par version, avec le label `version` (et `service`) : une mauvaise version alerte donc seule. Les requêtes tabulaires (sessions, erreurs, santé des versions, performance de l'application) ne peuvent pas servir d'alerte, car les expressions de Grafana exigent des séries temporelles ; pour celles-ci, utilisez les [règles d'alerte](../../tutorials/first-alert.fr.md) de Flare.
+Il n'y a pas d'étape Reduce : la valeur est déjà un nombre unique. Grafana évalue une instance d'alerte par version, avec le label `version` (et `service`) : une mauvaise version alerte donc seule. La valeur peut aussi être le % d'utilisateurs sans plantage, les sessions, les sessions plantées, les sessions avec erreur, les utilisateurs ou les utilisateurs touchés par un plantage. Une version écartée par **Min sessions** ne produit aucune instance, et une plage sans aucune session donne « No data », géré par le réglage « no data » de la règle.
+
+Pour alerter sur l'évolution des sessions sans plantage dans la fenêtre, utilisez **Release health trend**, qui renvoie une série temporelle : ajoutez une expression **Reduce** dessus (fonction **Last**, mode **Drop non-numeric**) et placez le **Threshold** sur celle-ci. Les requêtes tabulaires (sessions, erreurs, santé des versions, performance de l'application) ne peuvent pas servir d'alerte, car les expressions de Grafana exigent des nombres ou des séries temporelles ; pour celles-ci, utilisez les [règles d'alerte](../../tutorials/first-alert.fr.md) de Flare.
 
 ## Limites
 
-- **Une règle d'alerte exige une série temporelle.** Seule la requête **Release health trend** en renvoie une ; les requêtes tabulaires s'affichent dans les tableaux de bord, les tableaux de bord publics et les rapports, mais pas dans les conditions d'alerte.
+- **Une règle d'alerte exige un nombre ou une série temporelle.** Seules **Release health value** (un nombre) et **Release health trend** (une série temporelle) en renvoient ; les requêtes tabulaires s'affichent dans les tableaux de bord, les tableaux de bord publics et les rapports, mais pas dans les conditions d'alerte.
 - **7 jours au plus par requête.** Une plage plus large est réduite à ses 7 derniers jours et le panneau le signale.
 - **500 sessions au plus par requête**, les plus récentes. Réduisez le service, la version ou la plage quand le panneau avertit que la liste a été tronquée.
 - **Une timeline de session exige que la session soit dans la plage de temps.** La requête parcourt la plage du tableau de bord pour les spans de cette session ; placez donc la plage au moment où la session s'est déroulée (la requête Sessions la liste).

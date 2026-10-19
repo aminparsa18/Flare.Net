@@ -296,6 +296,83 @@ func trendValues(points []releaseHealthTrendPoint, metric string) []*float64 {
 	})
 }
 
+var valueLabel = map[string]string{
+	valueCrashFreeSessions: "Crash-free sessions",
+	valueCrashFreeUsers:    "Crash-free users",
+	valueSessions:          "Sessions",
+	valueCrashedSessions:   "Crashed sessions",
+	valueErroredSessions:   "Errored sessions",
+	valueUsers:             "Users",
+	valueCrashedUsers:      "Crashed users",
+}
+
+// versionValue is the number a release health value query reports for one version; nil when there was nothing to
+// measure (a crash-free rate over zero sessions or users).
+func versionValue(v releaseHealthVersion, metric string) *float64 {
+	count := func(n uint64) *float64 { return uptr(float64(n)) }
+	switch metric {
+	case valueCrashFreeUsers:
+		return crashFree(v.Users, v.CrashedUsers)
+	case valueSessions:
+		return count(v.Sessions)
+	case valueCrashedSessions:
+		return count(v.CrashedSessions)
+	case valueErroredSessions:
+		return count(v.ErroredSessions)
+	case valueUsers:
+		return count(v.Users)
+	case valueCrashedUsers:
+		return count(v.CrashedUsers)
+	default:
+		return crashFree(v.Sessions, v.CrashedSessions)
+	}
+}
+
+// releaseHealthValueFrames is one number per version (and per service when several were asked for) over the whole
+// window: a numeric-multi frame without a time field, which Grafana alert rules and server-side expressions take as a
+// number directly, so a rule needs no Reduce step. Versions with fewer than minSessions sessions are left out, so a
+// release a handful of sessions old cannot fire a rule on a rate that means nothing yet.
+func releaseHealthValueFrames(refID string, responses []serviceResponse[releaseHealthResponse], metric string, minSessions int, clamped bool) data.Frames {
+	if _, ok := valueLabel[metric]; !ok {
+		metric = valueCrashFreeSessions
+	}
+	frames := data.Frames{}
+	for _, r := range responses {
+		versions := append([]releaseHealthVersion(nil), r.Response.Versions...)
+		sort.Slice(versions, func(i, j int) bool { return versions[i].Version < versions[j].Version })
+
+		for _, v := range versions {
+			if v.Sessions < uint64(max(minSessions, 0)) {
+				continue
+			}
+			labels := data.Labels{"version": orNone(v.Version)}
+			display := orNone(v.Version)
+			if r.Service != "" {
+				labels["service"] = r.Service
+				display = r.Service + " " + display
+			}
+
+			value := data.NewField(valueLabel[metric], labels, []*float64{versionValue(v, metric)})
+			value.Config = &data.FieldConfig{DisplayNameFromDS: display}
+			if metric == valueCrashFreeSessions || metric == valueCrashFreeUsers {
+				value.Config.Unit = "percent"
+				value.Config.Decimals = uptr(uint16(2))
+				value.Config.Min = uptr(data.ConfFloat64(0))
+				value.Config.Max = uptr(data.ConfFloat64(100))
+			} else {
+				value.Config.Decimals = uptr(uint16(0))
+			}
+
+			frame := data.NewFrame("", value)
+			frame.RefID = refID
+			// Without a dataplane version (above 0.0) Grafana reads a frame with no time field as a legacy table, not a number.
+			frame.Meta = &data.FrameMeta{Type: data.FrameTypeNumericMulti, TypeVersion: data.FrameTypeVersion{0, 1}}
+			frames = append(frames, withNotices(frame, notice(clamped, clampedNotice)))
+		}
+	}
+	return frames
+}
+
 // releasesFrame is deploys as a time-keyed table. Used as an annotation query it needs only its time, title and text
 // fields mapped in Grafana's annotation settings.
 func releasesFrame(refID string, rows []release) *data.Frame {
