@@ -44,6 +44,7 @@ go run github.com/magefile/mage -v build:linux
 | **Error issues** | 错误分组的处理状态:状态(打开、已解决、已忽略、已回归)、负责人、回归版本和工单链接 | 无 |
 | **Release health** | 每个应用版本一行:会话、崩溃和出错的会话、用户,以及无崩溃会话率和无崩溃用户率 | 服务 |
 | **Release health trend** | 每个版本一条随时间变化的序列 | 服务、序列(无崩溃会话 %、会话或崩溃会话)、时间桶宽度 |
+| **Release health value** | 时间范围内每个版本一个数值:无崩溃会话或用户 %,或某个计数;专为告警规则设计 | 服务、数值、最少会话数 |
 | **Releases** | 你标记过的部署,含 commit、URL、说明以及新增错误数和回归数 | 服务 |
 | **App starts** | 冷启动和热启动耗时(`app.start` span):每个版本的启动次数、p50 和 p95 | 服务、版本 |
 | **Screen performance** | 按屏幕:加载次数、加载 p50 和 p95(`screen.load` span),以及慢帧和冻结帧的占比(`screen.frames` span) | 服务、版本 |
@@ -64,17 +65,18 @@ go run github.com/magefile/mage -v build:linux
 
 ## 对无崩溃会话率告警
 
-**Release health trend** 为每个应用版本(指定多个服务时还按服务)返回一条数值时间序列,所以 Grafana 告警规则可以使用它。按下面的查询创建规则:
+**Release health value** 为每个应用版本(指定多个服务时还按服务)返回查询时间范围内的一个数值,所以 Grafana 告警规则可以直接拿它比较。按下面的查询创建规则:
 
-1. **A**:Flare 数据源,查询 **Release health trend**,你的服务,序列 **Crash-free sessions %**。
-2. **B**:对 A 的 **Reduce** 表达式,函数 **Last**,模式 **Drop non-numeric**。
-3. **C**:对 B 的 **Threshold** 表达式,**Is below** `99`。
+1. **A**:Flare 数据源,查询 **Release health value**,你的服务,数值 **Crash-free sessions %**。把查询的时间范围设为要评估的窗口,例如最近一小时(Flare 支持 5 分钟到 7 天)。设置 **Min sessions**(例如 `50`),避免只有几个会话的版本触发规则。
+2. **B**:对 A 的 **Threshold** 表达式,**Is below** `99`。
 
-Grafana 为每个版本评估一个告警实例,带 `version`(以及 `service`)标签,所以有问题的版本会单独告警。表格类查询(会话、错误、版本健康度、应用性能)不能用于告警,因为 Grafana 的表达式需要时间序列;对这些请使用 Flare 自己的[告警规则](../../tutorials/first-alert.zh-CN.md)。
+不需要 Reduce 步骤:这个值本来就是单个数字。Grafana 为每个版本评估一个告警实例,带 `version`(以及 `service`)标签,所以有问题的版本会单独告警。数值也可以选无崩溃用户 %、会话、崩溃会话、出错会话、用户或崩溃用户。被 **Min sessions** 排除的版本不会产生实例,而整个范围内没有任何会话则是 “No data”,由规则的无数据设置处理。
+
+如果要对窗口内无崩溃会话的变化告警,请使用返回时间序列的 **Release health trend**:在它上面加一个 **Reduce** 表达式(函数 **Last**,模式 **Drop non-numeric**),再把 **Threshold** 放在其上。表格类查询(会话、错误、版本健康度、应用性能)不能用于告警,因为 Grafana 的表达式需要数字或时间序列;对这些请使用 Flare 自己的[告警规则](../../tutorials/first-alert.zh-CN.md)。
 
 ## 限制
 
-- **告警规则需要时间序列。** 只有 **Release health trend** 查询返回时间序列;表格类查询可用于仪表板、公开仪表板和报告,但不能用于告警条件。
+- **告警规则需要数字或时间序列。** 只有 **Release health value**(数字)和 **Release health trend**(时间序列)查询会返回;表格类查询可用于仪表板、公开仪表板和报告,但不能用于告警条件。
 - **每次查询最多 7 天。** 更宽的时间范围会被截为最近 7 天,面板会提示。
 - **每次查询最多 500 个会话**,取最近的。面板提示列表被截断时,请缩小服务、版本或时间范围。
 - **会话时间线要求该会话落在时间范围内。** 查询会在仪表盘的时间范围内查找该会话的 span,所以请把时间范围移到会话发生的时段(Sessions 查询会列出它)。

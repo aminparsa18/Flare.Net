@@ -49,6 +49,7 @@ Copy `dist/` into Grafana's plugin directory as `apardev-flare-datasource` and s
 | **Error issues** | Triage state of the error groups: status (open, resolved, ignored, regressed), assignee, regressed version and issue link | None |
 | **Release health** | One row per app version: sessions, crashed and errored sessions, users, and the crash-free session and user rates | Service |
 | **Release health trend** | One series per version over time | Service, series (crash-free sessions %, sessions or crashed sessions), bucket width |
+| **Release health value** | One number per version over the time range: crash-free sessions or users %, or a count; made for alert rules | Service, value, minimum sessions |
 | **Releases** | The deploys you marked, with commit, URL, notes and new-error and regression counts | Service |
 | **App starts** | Cold and warm start duration (`app.start` spans): starts, p50 and p95 per version | Service, version |
 | **Screen performance** | Per screen: loads, load p50 and p95 (`screen.load` spans), and the share of slow and frozen frames (`screen.frames` spans) | Service, version |
@@ -78,17 +79,18 @@ the top. The panels are ordinary Grafana panels on the queries above, so edit or
 
 ## Alert on crash-free sessions
 
-**Release health trend** returns one numeric time series per app version (and per service when you name several), so a Grafana alert rule can use it. Create a rule with these queries:
+**Release health value** returns one number per app version (and per service when you name several) over the query's time range, so a Grafana alert rule can compare it directly. Create a rule with these queries:
 
-1. **A**: the Flare data source, query **Release health trend**, your service, series **Crash-free sessions %**.
-2. **B**: a **Reduce** expression on A, function **Last**, mode **Drop non-numeric**.
-3. **C**: a **Threshold** expression on B, **Is below** `99`.
+1. **A**: the Flare data source, query **Release health value**, your service, value **Crash-free sessions %**. Set the query's time range to the window to judge, for example the last hour (Flare answers 5 minutes to 7 days). Set **Min sessions** (for example `50`) so a release with a handful of sessions cannot fire the rule.
+2. **B**: a **Threshold** expression on A, **Is below** `99`.
 
-Grafana evaluates one alert instance per version, labelled `version` (and `service`), so a bad release alerts on its own. The table queries (sessions, errors, release health, app performance) cannot be alerted on, because Grafana's expressions need time series; for those, use Flare's own [alert rules](../../tutorials/first-alert.md).
+There is no Reduce step: the value is already a single number. Grafana evaluates one alert instance per version, labelled `version` (and `service`), so a bad release alerts on its own. The value can also be crash-free users %, sessions, crashed sessions, errored sessions, users or crashed users. A version left out by **Min sessions** produces no instance, and a range with no sessions at all is "No data", handled by the rule's no-data setting.
+
+To alert on how crash-free sessions moved inside the window instead, use **Release health trend**, which returns a time series: add a **Reduce** expression on it (function **Last**, mode **Drop non-numeric**) and put the **Threshold** on that. The table queries (sessions, errors, release health, app performance) cannot be alerted on, because Grafana's expressions need numbers or time series; for those, use Flare's own [alert rules](../../tutorials/first-alert.md).
 
 ## Limits
 
-- **Alert rules need a time series.** Only the **Release health trend** query returns one; the table queries show in dashboards, public dashboards and reports but not in alert conditions.
+- **Alert rules need a number or a time series.** Only **Release health value** (a number) and **Release health trend** (a time series) return one; the table queries show in dashboards, public dashboards and reports but not in alert conditions.
 - **At most 7 days per query.** A wider time range is cut to its last 7 days and the panel says so.
 - **At most 500 sessions per query**, the most recent ones. Narrow the service, version or time range when the panel warns
   that the list was cut.

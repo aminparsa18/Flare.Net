@@ -14,6 +14,7 @@ const (
 	kindIssues             = "issues"
 	kindReleaseHealth      = "releaseHealth"
 	kindReleaseHealthTrend = "releaseHealthTrend"
+	kindReleaseHealthValue = "releaseHealthValue"
 	kindReleases           = "releases"
 	kindAppStarts          = "appStarts"
 	kindScreenPerformance  = "screenPerformance"
@@ -23,6 +24,17 @@ const (
 	trendCrashFreeSessions = "crashFreeSessions"
 	trendSessions          = "sessions"
 	trendCrashedSessions   = "crashedSessions"
+)
+
+// The numbers a release health value query can report for each version.
+const (
+	valueCrashFreeSessions = "crashFreeSessions"
+	valueCrashFreeUsers    = "crashFreeUsers"
+	valueSessions          = "sessions"
+	valueCrashedSessions   = "crashedSessions"
+	valueErroredSessions   = "erroredSessions"
+	valueUsers             = "users"
+	valueCrashedUsers      = "crashedUsers"
 )
 
 // flareQuery is the query model the frontend editor saves (field names match src/types.ts).
@@ -35,6 +47,8 @@ type flareQuery struct {
 	TopN          int    `json:"topN"`
 	TrendMetric   string `json:"trendMetric"`
 	BucketMinutes int    `json:"bucketMinutes"`
+	ValueMetric   string `json:"valueMetric"`
+	MinSessions   int    `json:"minSessions"`
 }
 
 func parseQuery(raw json.RawMessage) (flareQuery, error) {

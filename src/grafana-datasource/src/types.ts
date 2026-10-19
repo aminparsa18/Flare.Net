@@ -9,11 +9,21 @@ export type QueryKind =
   | 'issues'
   | 'releaseHealth'
   | 'releaseHealthTrend'
+  | 'releaseHealthValue'
   | 'releases'
   | 'appStarts'
   | 'screenPerformance';
 
 export type TrendMetric = 'crashFreeSessions' | 'sessions' | 'crashedSessions';
+
+export type ValueMetric =
+  | 'crashFreeSessions'
+  | 'crashFreeUsers'
+  | 'sessions'
+  | 'crashedSessions'
+  | 'erroredSessions'
+  | 'users'
+  | 'crashedUsers';
 
 export interface FlareQuery extends DataQuery {
   kind: QueryKind;
@@ -31,6 +41,10 @@ export interface FlareQuery extends DataQuery {
   trendMetric?: TrendMetric;
   /** Release health trend: bucket width in minutes; empty picks one from the dashboard interval. */
   bucketMinutes?: number;
+  /** Release health value: the one number reported for each version over the range. */
+  valueMetric?: ValueMetric;
+  /** Release health value: leave out versions with fewer sessions than this, so a brand new release cannot fire a rule. */
+  minSessions?: number;
 }
 
 export const DEFAULT_QUERY: Partial<FlareQuery> = {

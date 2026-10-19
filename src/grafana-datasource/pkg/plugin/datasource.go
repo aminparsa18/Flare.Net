@@ -182,6 +182,16 @@ func (d *Datasource) run(ctx context.Context, refID string, q flareQuery, window
 		}
 		return releaseHealthTrendFrames(refID, labelled(responses), q.TrendMetric, resolved.Clamped), nil
 
+	case kindReleaseHealthValue:
+		responses, err := fanOut(services, func(service string) (releaseHealthResponse, error) {
+			var r releaseHealthResponse
+			return r, d.client.post(ctx, "/api/app-sessions/release-health", newWindowRequest(resolved, service), &r)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return releaseHealthValueFrames(refID, labelled(responses), q.ValueMetric, q.MinSessions, resolved.Clamped), nil
+
 	case kindReleases:
 		responses, err := fanOut(services, func(service string) (releaseListResponse, error) {
 			var r releaseListResponse

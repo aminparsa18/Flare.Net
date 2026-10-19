@@ -103,11 +103,12 @@ folders are where "what happened and why" actually lives.
   `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
-  - Grafana data source plugin follow-ups ([ADR-0254](../adr/0254-grafana-data-source-plugin.md),
-    [ADR-0255](../adr/0255-grafana-plugin-session-timeline-performance-dashboard.md) and
-    [ADR-0256](../adr/0256-grafana-plugin-go-backend.md) ship it with a Go backend, a bundled dashboard and a tag-driven
-    release workflow): Grafana catalog submission (needs an account, a signing token and review), and an alertable scalar
-    query shape so a rule on release health can skip the Reduce step.
+  - Grafana data source plugin follow-up ([ADR-0254](../adr/0254-grafana-data-source-plugin.md),
+    [ADR-0255](../adr/0255-grafana-plugin-session-timeline-performance-dashboard.md),
+    [ADR-0256](../adr/0256-grafana-plugin-go-backend.md) and
+    [ADR-0257](../adr/0257-grafana-plugin-release-health-value.md) ship it with a Go backend, a bundled dashboard, a
+    tag-driven release workflow and an alertable release health value): Grafana catalog submission (needs an account, a
+    signing token and review).
   - A how-to for sending Flare data to Grafana (Grafana Cloud and self-hosted through Alloy or a collector), verified
     against a real instance first.
 - **Privacy, compliance and security hardening.** None of these exist today (the audit log, login throttling, ingest-time

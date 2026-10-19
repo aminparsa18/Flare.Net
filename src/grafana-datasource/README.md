@@ -9,7 +9,8 @@ sees the token.
 User guide: [docs/how-to/integrations/query-with-grafana-plugin.md](../../docs/how-to/integrations/query-with-grafana-plugin.md).
 Design: [ADR-0254](../../docs-internal/adr/0254-grafana-data-source-plugin.md),
 [ADR-0255](../../docs-internal/adr/0255-grafana-plugin-session-timeline-performance-dashboard.md),
-[ADR-0256](../../docs-internal/adr/0256-grafana-plugin-go-backend.md).
+[ADR-0256](../../docs-internal/adr/0256-grafana-plugin-go-backend.md),
+[ADR-0257](../../docs-internal/adr/0257-grafana-plugin-release-health-value.md).
 
 ## Layout
 
@@ -72,5 +73,5 @@ Go tests (`go test ./pkg/...`) cover the request builders, every frame builder, 
 variables resource against a fake Flare.Api (`httptest`) for every query kind. The editors and `datasource.ts` are not
 unit-tested; they are covered by running the plugin in Grafana against a live Flare stack: every kind through `/api/ds/query`,
 the bundled dashboard imported through `/api/dashboards/import`, variables, the release annotation, the connection test, and
-a Grafana alert rule on **Release health trend** (Reduce `Last`, Threshold below 99) that fires one instance per version. The
+a Grafana alert rule on **Release health trend** (Reduce `Last`, Threshold below 99) and one on **Release health value** (a Threshold straight on the query, no Reduce) that each fire one instance per version. The
 Grafana image version above is the one that was used.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- New **Release health value** query: one number per version (and service) over the time range, as crash-free sessions or
+  users %, or a count, with an optional minimum session count. It is a number, not a time series, so an alert rule puts a
+  Threshold straight on it and needs no Reduce step.
+
 ## 0.3.0
 
 - The queries now run in a Go backend inside the Grafana server, so they work in alert rules, public dashboards and
