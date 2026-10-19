@@ -109,6 +109,7 @@
 - [用 Grafana 或 Prometheus API 查询 Flare](how-to/integrations/query-with-prometheus-api.zh-CN.md)
 - [如何用 Tempo API 在 Grafana 中读取 Flare 的追踪](how-to/integrations/query-with-tempo-api.zh-CN.md)
 - [如何用 Loki API 在 Grafana 中读取 Flare 的日志](how-to/integrations/query-with-loki-api.zh-CN.md)
+- [如何在 Grafana 中绘制 Flare 的会话、错误和发布健康度](how-to/integrations/query-with-grafana-plugin.zh-CN.md)
 
 **参考**
 -[CLI commands](reference/cli-commands.zh-CN.md)

@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: Flare
+    type: apardev-flare-datasource
+    access: proxy
+    isDefault: false
+    orgId: 1
+    editable: true
+    jsonData:
+      # Docker Desktop: the host's Flare.Api. Use http://flare-api:8080 on the Flare compose network.
+      url: http://host.docker.internal:8080
+      dashboardUrl: http://localhost:7777
+    secureJsonData:
+      token: ''

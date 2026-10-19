@@ -111,6 +111,7 @@ the full rule set on what goes where.
 - [Query Flare with Grafana or the Prometheus API](how-to/integrations/query-with-prometheus-api.md)
 - [Read Flare traces from Grafana with the Tempo API](how-to/integrations/query-with-tempo-api.md)
 - [Read Flare logs from Grafana with the Loki API](how-to/integrations/query-with-loki-api.md)
+- [Chart Flare sessions, errors and release health in Grafana](how-to/integrations/query-with-grafana-plugin.md)
 
 **Reference**
 - [CLI commands](reference/cli-commands.md)
