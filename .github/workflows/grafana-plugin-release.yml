@@ -1,0 +1,113 @@
+# Packages the Grafana data source plugin (src/grafana-datasource: frontend and a Go backend built for every platform)
+# and attaches it to a GitHub release.
+# Push a tag `grafana-plugin-v<version>` (matching package.json and a `## <version>` CHANGELOG heading) to run it.
+#
+# Signing is optional: with the GRAFANA_ACCESS_POLICY_TOKEN secret set the zip is signed, without it the zip is
+# unsigned (what the Grafana catalog submission takes, and what a self-hoster allows with
+# GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS). A private signature is only valid for the Grafana root URLs it names:
+# set the GRAFANA_PLUGIN_ROOT_URLS repository variable (comma separated) to sign for them.
+
+name: Grafana plugin release
+
+on:
+  push:
+    tags:
+      - 'grafana-plugin-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/grafana-datasource
+    env:
+      PLUGIN_ID: apardev-flare-datasource
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag against package.json and the changelog
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#grafana-plugin-v}"
+          package="$(node -p "require('./package.json').version")"
+          if [ "$version" != "$package" ]; then
+            echo "::error::Tag version $version does not match package.json version $package"
+            exit 1
+          fi
+          if ! grep -qx "## $version" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## $version' heading"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: src/grafana-datasource/.nvmrc
+          cache: npm
+          cache-dependency-path: src/grafana-datasource/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: src/grafana-datasource/go.mod
+          cache-dependency-path: src/grafana-datasource/go.sum
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:ci
+      - run: go vet ./pkg/...
+      - run: go test -race ./pkg/...
+      - run: npm run build
+
+      # The frontend build empties dist/, so the backend binaries (one per OS and architecture Grafana runs on) go in after it.
+      - name: Build the backend for every platform
+        run: |
+          go run github.com/magefile/mage -v
+          ls -l dist/gpx_flare_*
+
+      - name: Sign the plugin
+        id: sign
+        env:
+          GRAFANA_ACCESS_POLICY_TOKEN: ${{ secrets.GRAFANA_ACCESS_POLICY_TOKEN }}
+          ROOT_URLS: ${{ vars.GRAFANA_PLUGIN_ROOT_URLS }}
+        run: |
+          if [ -z "$GRAFANA_ACCESS_POLICY_TOKEN" ]; then
+            echo "No GRAFANA_ACCESS_POLICY_TOKEN secret: packaging an unsigned plugin."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$ROOT_URLS" ]; then
+            npm run sign -- --rootUrls "$ROOT_URLS"
+          else
+            npm run sign
+          fi
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Package
+        id: package
+        run: |
+          name="$PLUGIN_ID-${{ steps.version.outputs.version }}.zip"
+          mkdir -p ../../release-out
+          rm -rf "$RUNNER_TEMP/zip" && mkdir "$RUNNER_TEMP/zip"
+          cp -a dist "$RUNNER_TEMP/zip/$PLUGIN_ID"
+          (cd "$RUNNER_TEMP/zip" && zip -qr "$GITHUB_WORKSPACE/release-out/$name" "$PLUGIN_ID")
+          (cd ../../release-out && md5sum "$name" > "$name.md5" && sha1sum "$name" > "$name.sha1")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Release notes from the changelog
+        run: |
+          awk -v v="## ${{ steps.version.outputs.version }}" '$0 == v {found=1; next} /^## / && found {exit} found' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if [ "${{ steps.sign.outputs.signed }}" != "true" ]; then
+            printf '\nThis build is unsigned: allow it with `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=%s`.\n' "$PLUGIN_ID" >> "$RUNNER_TEMP/notes.md"
+          fi
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Grafana plugin ${{ steps.version.outputs.version }}" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            release-out/*

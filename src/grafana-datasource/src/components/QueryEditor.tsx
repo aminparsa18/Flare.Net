@@ -9,11 +9,30 @@ type Props = QueryEditorProps<DataSource, FlareQuery, FlareDataSourceOptions>;
 
 const KINDS: Array<ComboboxOption<QueryKind>> = [
   { value: 'sessions', label: 'Sessions', description: 'Client app sessions in the range, one row each' },
+  {
+    value: 'sessionTimeline',
+    label: 'Session timeline',
+    description: "One session's spans in start order: screens, breadcrumbs, errors",
+  },
   { value: 'errors', label: 'Errors', description: 'Exception groups ranked by occurrences' },
-  { value: 'issues', label: 'Error issues', description: 'Triage state of the error groups: status, assignee, regressions' },
+  {
+    value: 'issues',
+    label: 'Error issues',
+    description: 'Triage state of the error groups: status, assignee, regressions',
+  },
   { value: 'releaseHealth', label: 'Release health', description: 'Crash-free sessions and users per app version' },
-  { value: 'releaseHealthTrend', label: 'Release health trend', description: 'Crash-free sessions per version over time' },
+  {
+    value: 'releaseHealthTrend',
+    label: 'Release health trend',
+    description: 'Crash-free sessions per version over time',
+  },
   { value: 'releases', label: 'Releases', description: 'Marked deploys; also usable as annotations' },
+  { value: 'appStarts', label: 'App starts', description: 'Cold and warm start durations per app version' },
+  {
+    value: 'screenPerformance',
+    label: 'Screen performance',
+    description: 'Load time and slow or frozen frames per screen',
+  },
 ];
 
 const TREND_METRICS: Array<ComboboxOption<TrendMetric>> = [
@@ -22,7 +41,16 @@ const TREND_METRICS: Array<ComboboxOption<TrendMetric>> = [
   { value: 'crashedSessions', label: 'Crashed sessions' },
 ];
 
-const SERVICE_KINDS: QueryKind[] = ['sessions', 'errors', 'releaseHealth', 'releaseHealthTrend', 'releases'];
+const SERVICE_KINDS: QueryKind[] = [
+  'sessions',
+  'errors',
+  'releaseHealth',
+  'releaseHealthTrend',
+  'releases',
+  'appStarts',
+  'screenPerformance',
+];
+const VERSION_KINDS: QueryKind[] = ['sessions', 'appStarts', 'screenPerformance'];
 
 export function QueryEditor({ query, onChange, onRunQuery }: Props) {
   const kind = query.kind ?? 'sessions';
@@ -30,7 +58,7 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
     onChange({ ...query, ...patch });
     onRunQuery();
   };
-  const text = (key: 'service' | 'version') => (event: ChangeEvent<HTMLInputElement>) =>
+  const text = (key: 'service' | 'version' | 'sessionId') => (event: ChangeEvent<HTMLInputElement>) =>
     onChange({ ...query, [key]: event.target.value });
   const number = (key: 'topN' | 'bucketMinutes') => (event: ChangeEvent<HTMLInputElement>) =>
     onChange({ ...query, [key]: event.target.value ? Number(event.target.value) : undefined });
@@ -47,26 +75,69 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
             labelWidth={10}
             tooltip="One or more service names, comma separated; a multi-value variable works. Empty means every service."
           >
-            <Input width={30} value={query.service ?? ''} placeholder="all services" onChange={text('service')} onBlur={onRunQuery} />
+            <Input
+              width={30}
+              value={query.service ?? ''}
+              placeholder="all services"
+              onChange={text('service')}
+              onBlur={onRunQuery}
+            />
           </InlineField>
         )}
       </InlineFieldRow>
 
-      {kind === 'sessions' && (
+      {kind === 'sessionTimeline' && (
+        <InlineFieldRow>
+          <InlineField
+            label="Session ID"
+            labelWidth={14}
+            tooltip="The session to list. The dashboard time range must cover it; a variable works."
+          >
+            <Input
+              width={50}
+              value={query.sessionId ?? ''}
+              placeholder="session id"
+              onChange={text('sessionId')}
+              onBlur={onRunQuery}
+            />
+          </InlineField>
+        </InlineFieldRow>
+      )}
+
+      {VERSION_KINDS.includes(kind) && (
         <InlineFieldRow>
           <InlineField label="Version" labelWidth={14}>
-            <Input width={30} value={query.version ?? ''} placeholder="all versions" onChange={text('version')} onBlur={onRunQuery} />
+            <Input
+              width={30}
+              value={query.version ?? ''}
+              placeholder="all versions"
+              onChange={text('version')}
+              onBlur={onRunQuery}
+            />
           </InlineField>
-          <InlineField label="Errors only" labelWidth={14} tooltip="Only sessions with at least one error">
-            <InlineSwitch value={query.errorsOnly === true} onChange={(e) => update({ errorsOnly: e.currentTarget.checked })} />
-          </InlineField>
+          {kind === 'sessions' && (
+            <InlineField label="Errors only" labelWidth={14} tooltip="Only sessions with at least one error">
+              <InlineSwitch
+                value={query.errorsOnly === true}
+                onChange={(e) => update({ errorsOnly: e.currentTarget.checked })}
+              />
+            </InlineField>
+          )}
         </InlineFieldRow>
       )}
 
       {kind === 'errors' && (
         <InlineFieldRow>
           <InlineField label="Top N" labelWidth={14} tooltip="How many exception groups to return">
-            <Input width={12} type="number" min={1} value={query.topN ?? ''} placeholder="default" onChange={number('topN')} onBlur={onRunQuery} />
+            <Input
+              width={12}
+              type="number"
+              min={1}
+              value={query.topN ?? ''}
+              placeholder="default"
+              onChange={number('topN')}
+              onBlur={onRunQuery}
+            />
           </InlineField>
         </InlineFieldRow>
       )}
@@ -81,8 +152,20 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
               onChange={(v) => update({ trendMetric: v.value })}
             />
           </InlineField>
-          <InlineField label="Bucket (min)" labelWidth={16} tooltip="Bucket width in minutes. Empty follows the panel interval.">
-            <Input width={12} type="number" min={1} value={query.bucketMinutes ?? ''} placeholder="auto" onChange={number('bucketMinutes')} onBlur={onRunQuery} />
+          <InlineField
+            label="Bucket (min)"
+            labelWidth={16}
+            tooltip="Bucket width in minutes. Empty follows the panel interval."
+          >
+            <Input
+              width={12}
+              type="number"
+              min={1}
+              value={query.bucketMinutes ?? ''}
+              placeholder="auto"
+              onChange={number('bucketMinutes')}
+              onBlur={onRunQuery}
+            />
           </InlineField>
         </InlineFieldRow>
       )}

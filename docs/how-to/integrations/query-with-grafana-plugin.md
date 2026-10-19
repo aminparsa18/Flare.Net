@@ -6,27 +6,28 @@ query languages: the client app **sessions** behind a crash, the **error groups*
 **release health**, and the **releases** you marked. The Flare data source plugin reads those, so they can sit next to
 your other panels.
 
-It runs in the browser and calls Flare.Api through Grafana's data source proxy, so the **Grafana server** must reach
-Flare, and your token never reaches the browser.
+Its backend runs inside the **Grafana server** and calls Flare.Api with your token, so the Grafana server must reach Flare, the token never reaches the browser, and the queries also work in alert rules, public dashboards and reports.
 
 ## Install the plugin
 
-The plugin is not in the Grafana catalog yet, so install it from the repository. It needs Grafana 13.2 or later.
+The plugin is not in the Grafana catalog yet. It needs Grafana 13.2 or later. It has a backend component, so the install must carry a binary for your platform (Linux, macOS or Windows; x64 or arm64).
+
+**From a release.** Each `grafana-plugin-v*` [GitHub release](https://github.com/aminparsa18/Flare.Net/releases) carries `apardev-flare-datasource-<version>.zip` with the frontend and the backend for every platform. Unzip it into Grafana's plugin directory, allow it to load unsigned, and restart Grafana:
+
+```bash
+unzip apardev-flare-datasource-<version>.zip -d /var/lib/grafana/plugins
+export GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=apardev-flare-datasource
+```
+
+**From the repository.** This needs Node 22 and Go. Build the frontend first (it empties `dist/`), then the backend (`build:linux`, `build:darwin`, `build:windows`, or no target for all of them):
 
 ```bash
 cd src/grafana-datasource
 npm ci && npm run build
+go run github.com/magefile/mage -v build:linux
 ```
 
-Copy the resulting `dist/` folder into Grafana's plugin directory as `apardev-flare-datasource`, allow it to load
-unsigned, and restart Grafana:
-
-```bash
-cp -r dist /var/lib/grafana/plugins/apardev-flare-datasource
-export GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=apardev-flare-datasource
-```
-
-With Docker, mount `dist/` at `/var/lib/grafana/plugins/apardev-flare-datasource` and set the same environment variable.
+Copy `dist/` into Grafana's plugin directory as `apardev-flare-datasource` and set the same environment variable as above. With Docker, mount `dist/` (or the unzipped release) at `/var/lib/grafana/plugins/apardev-flare-datasource`.
 
 ## Connect Grafana
 
@@ -43,11 +44,14 @@ With Docker, mount `dist/` at `/var/lib/grafana/plugins/apardev-flare-datasource
 | Query | Result | Options |
 |---|---|---|
 | **Sessions** | One row per client app session in the time range: start, last seen, ID, service, version, OS, device, spans, traces, errors and screens | Service, version, errors only |
+| **Session timeline** | One session's spans in start order: name, duration, screen, error, exception, breadcrumb and a link to the trace | Session ID |
 | **Errors** | Exception groups ranked by occurrences, with first and last seen, affected services and owner | Service, top N |
 | **Error issues** | Triage state of the error groups: status (open, resolved, ignored, regressed), assignee, regressed version and issue link | None |
 | **Release health** | One row per app version: sessions, crashed and errored sessions, users, and the crash-free session and user rates | Service |
 | **Release health trend** | One series per version over time | Service, series (crash-free sessions %, sessions or crashed sessions), bucket width |
 | **Releases** | The deploys you marked, with commit, URL, notes and new-error and regression counts | Service |
+| **App starts** | Cold and warm start duration (`app.start` spans): starts, p50 and p95 per version | Service, version |
+| **Screen performance** | Per screen: loads, load p50 and p95 (`screen.load` spans), and the share of slow and frozen frames (`screen.frames` spans) | Service, version |
 
 **Service** takes one name or several separated by commas, and a multi-value variable works. Empty means every service.
 Version and release health queries with several services run once per service and add a Service column or label.
@@ -65,15 +69,32 @@ Add an annotation query on the Flare data source with the **Releases** query. Gr
 Prometheus panels, use the `flare_release_*` metrics and annotation metrics described in
 [the Prometheus API how-to](query-with-prometheus-api.md#annotations).
 
+## Import the dashboard
+
+The plugin bundles a **Flare app health** dashboard: crash-free sessions and sessions per version over time, release
+health, app start and screen performance, top errors, sessions with errors and error triage, with your marked releases as
+annotations. Open the data source's **Dashboards** tab and click **Import**, then pick the **Service** variable's services at
+the top. The panels are ordinary Grafana panels on the queries above, so edit or copy them freely.
+
+## Alert on crash-free sessions
+
+**Release health trend** returns one numeric time series per app version (and per service when you name several), so a Grafana alert rule can use it. Create a rule with these queries:
+
+1. **A**: the Flare data source, query **Release health trend**, your service, series **Crash-free sessions %**.
+2. **B**: a **Reduce** expression on A, function **Last**, mode **Drop non-numeric**.
+3. **C**: a **Threshold** expression on B, **Is below** `99`.
+
+Grafana evaluates one alert instance per version, labelled `version` (and `service`), so a bad release alerts on its own. The table queries (sessions, errors, release health, app performance) cannot be alerted on, because Grafana's expressions need time series; for those, use Flare's own [alert rules](../../tutorials/first-alert.md).
+
 ## Limits
 
-- **No alerting, public dashboards or server-side expressions.** The queries run in the browser, so Grafana shows
-  alerting as "Not supported" for this data source. To alert on release health, use the `flare_release_*` metrics through
-  the Prometheus data source, or Flare's own [alert rules](../../tutorials/first-alert.md).
+- **Alert rules need a time series.** Only the **Release health trend** query returns one; the table queries show in dashboards, public dashboards and reports but not in alert conditions.
 - **At most 7 days per query.** A wider time range is cut to its last 7 days and the panel says so.
 - **At most 500 sessions per query**, the most recent ones. Narrow the service, version or time range when the panel warns
   that the list was cut.
+- **A session timeline needs the session inside the time range.** The query scans the dashboard's range for that session's
+  spans, so move the range to when the session ran (the Sessions query lists it).
 - **Release health follows Flare's session definition**: a session is crashed when it has an escaped
   `app.unhandled_exception`, and users are the distinct `user.id` values, the same as Flare's Releases view.
 
-Design notes: [ADR-0254](../../../docs-internal/adr/0254-grafana-data-source-plugin.md).
+Design notes: [ADR-0254](../../../docs-internal/adr/0254-grafana-data-source-plugin.md), [ADR-0255](../../../docs-internal/adr/0255-grafana-plugin-session-timeline-performance-dashboard.md), [ADR-0256](../../../docs-internal/adr/0256-grafana-plugin-go-backend.md).
