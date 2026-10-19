@@ -69,6 +69,27 @@ public class ReleaseHealthMetricQueryServiceTests
     }
 
     [Fact]
+    public async Task RollingUserGauges_AskForADayOfUsers_AndReadAsTheCrashFreeUsersRate()
+    {
+        var (evaluator, sessions) = Build(Point(0, "shop", "2.0", 0, 0, users: 200, crashedUsers: 10));
+
+        var result = await Range(evaluator, "1 - flare_release_crashed_users_24h / flare_release_users_24h", minutes: 0);
+
+        Assert.Equal(0.95, Assert.Single(result.Series).Samples[0].Value, 6);
+        Assert.Equal(86400, sessions.LastWindowSeconds);
+    }
+
+    [Fact]
+    public async Task StepGauges_DoNotUseTheRollingQuery()
+    {
+        var (evaluator, sessions) = Build(Point(0, "shop", "2.0", 10, 0, users: 8));
+
+        await Range(evaluator, "flare_release_users", minutes: 0);
+
+        Assert.Null(sessions.LastWindowSeconds);
+    }
+
+    [Fact]
     public async Task ServiceAndVersionMatchers_ReachTheQuery()
     {
         var (evaluator, sessions) = Build(
@@ -108,14 +129,17 @@ public class ReleaseHealthMetricQueryServiceTests
     }
 
     [Fact]
-    public async Task Names_ListTheFourMetrics_AlongsideTheStoredOnes()
+    public async Task Names_ListTheSixMetrics_AlongsideTheStoredOnes()
     {
         var service = new ReleaseHealthMetricQueryService(new EmptyMetrics(), new FakeSessions([]));
 
         var names = (await service.GetNamesAsync(new MetricNamesRequest(), default)).Metrics;
 
         Assert.Equal(
-            ["flare_release_crashed_sessions_total", "flare_release_crashed_users", "flare_release_sessions_total", "flare_release_users"],
+            [
+                "flare_release_crashed_sessions_total", "flare_release_crashed_users", "flare_release_crashed_users_24h",
+                "flare_release_sessions_total", "flare_release_users", "flare_release_users_24h",
+            ],
             names.SelectMany(n => PromNames.PromNamesFor(n.MetricName, n.Unit, n.Type)).Select(n => n.PromName).Order(StringComparer.Ordinal));
     }
 
@@ -134,6 +158,16 @@ public class ReleaseHealthMetricQueryServiceTests
         public bool Truncated { get; init; }
 
         public string? LastService { get; private set; }
+
+        public int? LastWindowSeconds { get; private set; }
+
+        public Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetRollingReleaseUsersAsync(
+            DateTimeOffset from, DateTimeOffset to, int bucketSeconds, int windowSeconds, string? service, CancellationToken cancellationToken)
+        {
+            LastService = service;
+            LastWindowSeconds = windowSeconds;
+            return Task.FromResult((points, Truncated));
+        }
 
         public Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetReleaseHealthSeriesAsync(
             DateTimeOffset from, DateTimeOffset to, int bucketSeconds, string? service, CancellationToken cancellationToken)

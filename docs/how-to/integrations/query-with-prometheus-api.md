@@ -90,6 +90,8 @@ metrics, so a Grafana panel or alert rule can use crash-free rates through the s
 | `flare_release_crashed_sessions_total` | counter | Sessions that ended in a fatal unhandled exception |
 | `flare_release_users` | gauge | Distinct users with a session that started in the step |
 | `flare_release_crashed_users` | gauge | Distinct users with a crashed session that started in the step |
+| `flare_release_users_24h` | gauge | Distinct users with a session that started in the 24 hours up to the step |
+| `flare_release_crashed_users_24h` | gauge | Distinct users with a crashed session that started in the 24 hours up to the step |
 
 Crash-free sessions per version over the last 24 hours, for a panel or an alert rule below `0.99`:
 
@@ -99,10 +101,12 @@ Crash-free sessions per version over the last 24 hours, for a panel or an alert 
 ```
 
 Add `{service_name="shop-app"}` to scope it to one app. To keep a version with three launches from paging anyone, add
-`and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`. Users are counted per step, so chart
-crash-free users with a range query whose step is the period you want (`1 - flare_release_crashed_users /
-flare_release_users` at a one-day step); an instant query has a one-minute step. Users appear only when the app sets
-`user.id`. The `flare.release.` name prefix is reserved for these metrics.
+`and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`. Crash-free users over the last day
+are `1 - flare_release_crashed_users_24h / flare_release_users_24h`: each step reports the 24 hours up to it, so an
+instant query and a panel at any step both read a full day. The plain `flare_release_users` gauges count per step instead
+(distinct users do not add up across steps), which suits a range query whose step is the period you want. The `_24h`
+gauges scan a day of spans before the queried range, so a long range at a short step is the expensive case. Users appear
+only when the app sets `user.id`. The `flare.release.` name prefix is reserved for these metrics.
 
 ## Exemplars
 

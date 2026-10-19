@@ -84,6 +84,8 @@ Flare 把移动应用的 release health（参见[监控 MAUI 应用](../../tutor
 | `flare_release_crashed_sessions_total` | counter | 以致命未处理异常结束的会话数 |
 | `flare_release_users` | gauge | 在该步长内启动会话的不同用户数 |
 | `flare_release_crashed_users` | gauge | 在该步长内启动了崩溃会话的不同用户数 |
+| `flare_release_users_24h` | gauge | 在截至该步长的 24 小时内启动会话的不同用户数 |
+| `flare_release_crashed_users_24h` | gauge | 在截至该步长的 24 小时内启动了崩溃会话的不同用户数 |
 
 过去 24 小时各版本的无崩溃会话率，可用于面板，或用于低于 `0.99` 时触发的告警规则：
 
@@ -93,8 +95,9 @@ Flare 把移动应用的 release health（参见[监控 MAUI 应用](../../tutor
 ```
 
 加上 `{service_name="shop-app"}` 可限定为单个应用。为避免只有三次启动的版本触发告警，可加上
-`and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`。用户数按步长统计，所以要绘制无崩溃用户率，
-请用步长等于目标周期的范围查询（步长为一天时用 `1 - flare_release_crashed_users / flare_release_users`）；即时查询的步长是一分钟。
+`and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`。过去一天的无崩溃用户率是 `1 - flare_release_crashed_users_24h / flare_release_users_24h`：每个步长报告截至该步长的 24 小时，
+所以即时查询和任意步长的面板读到的都是完整一天。普通的 `flare_release_users` 仪表按步长统计（不同用户数不能跨步长相加），
+适合步长等于目标周期的范围查询。`_24h` 仪表会在查询范围之前多扫描一天的 span，因此长范围加小步长开销最大。
 只有应用设置了 `user.id` 才会出现用户数。名称前缀 `flare.release.` 为这些指标保留。
 
 ## Exemplar

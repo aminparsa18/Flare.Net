@@ -244,7 +244,7 @@ public sealed record ReleaseHealthSeriesPoint
     /// <summary><c>service.version</c>, or empty when the app reports none.</summary>
     public required string Version { get; init; }
 
-    /// <summary>Sessions whose first span fell in the bucket.</summary>
+    /// <summary>Sessions whose first span fell in the bucket; 0 on a rolling-window users row (ADR-0251).</summary>
     public required ulong Sessions { get; init; }
 
     public required ulong CrashedSessions { get; init; }

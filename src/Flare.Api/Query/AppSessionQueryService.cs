@@ -16,6 +16,13 @@ public interface IAppSessionQueryService
     Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetReleaseHealthSeriesAsync(
         DateTimeOffset from, DateTimeOffset to, int bucketSeconds, string? service, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Distinct users per step over the trailing <paramref name="windowSeconds"/>, for the Prometheus API's <c>flare_release_users_24h</c>
+    /// gauges (ADR-0251). Points carry only <c>Users</c> and <c>CrashedUsers</c>; the session counts are 0.
+    /// </summary>
+    Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetRollingReleaseUsersAsync(
+        DateTimeOffset from, DateTimeOffset to, int bucketSeconds, int windowSeconds, string? service, CancellationToken cancellationToken);
+
     Task<AppPerformanceResponse> GetPerformanceAsync(AppPerformanceRequest request, CancellationToken cancellationToken);
 
     Task<AppSessionTimelineResponse> GetTimelineAsync(string sessionId, AppSessionTimelineRequest request, CancellationToken cancellationToken);
@@ -136,11 +143,17 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
         return new ReleaseHealthTrendResponse { WindowMinutes = windowMinutes, BucketMinutes = bucketMinutes, Points = points };
     }
 
-    public async Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetReleaseHealthSeriesAsync(
-        DateTimeOffset from, DateTimeOffset to, int bucketSeconds, string? service, CancellationToken cancellationToken)
-    {
-        var built = AppSessionQueryBuilder.BuildReleaseHealthSeries(from, to, bucketSeconds, service);
+    public Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetReleaseHealthSeriesAsync(
+        DateTimeOffset from, DateTimeOffset to, int bucketSeconds, string? service, CancellationToken cancellationToken) =>
+        ReadSeriesAsync(AppSessionQueryBuilder.BuildReleaseHealthSeries(from, to, bucketSeconds, service), rolling: false, cancellationToken);
 
+    public Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> GetRollingReleaseUsersAsync(
+        DateTimeOffset from, DateTimeOffset to, int bucketSeconds, int windowSeconds, string? service, CancellationToken cancellationToken) =>
+        ReadSeriesAsync(AppSessionQueryBuilder.BuildRollingReleaseUsers(from, to, bucketSeconds, windowSeconds, service), rolling: true, cancellationToken);
+
+    private async Task<(IReadOnlyList<ReleaseHealthSeriesPoint> Points, bool Truncated)> ReadSeriesAsync(
+        AppSessionSql built, bool rolling, CancellationToken cancellationToken)
+    {
         var points = new List<ReleaseHealthSeriesPoint>();
         var truncated = false;
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken);
@@ -152,15 +165,17 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
                 break;
             }
 
+            // The rolling query has no session counts: its columns are BucketUnixMs, ServiceName, Version, Users, CrashedUsers.
+            var users = rolling ? 3 : 5;
             points.Add(new ReleaseHealthSeriesPoint
             {
                 BucketUnixMs = reader.GetFieldValue<long>(0),
                 ServiceName = reader.GetString(1),
                 Version = reader.GetString(2),
-                Sessions = reader.GetFieldValue<ulong>(3),
-                CrashedSessions = reader.GetFieldValue<ulong>(4),
-                Users = reader.GetFieldValue<ulong>(5),
-                CrashedUsers = reader.GetFieldValue<ulong>(6),
+                Sessions = rolling ? 0 : reader.GetFieldValue<ulong>(3),
+                CrashedSessions = rolling ? 0 : reader.GetFieldValue<ulong>(4),
+                Users = reader.GetFieldValue<ulong>(users),
+                CrashedUsers = reader.GetFieldValue<ulong>(users + 1),
             });
         }
 
