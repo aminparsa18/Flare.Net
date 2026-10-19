@@ -100,6 +100,31 @@ Flare 把移动应用的 release health（参见[监控 MAUI 应用](../../tutor
 适合步长等于目标周期的范围查询。`_24h` 仪表会在查询范围之前多扫描一天的 span，因此长范围加小步长开销最大。
 只有应用设置了 `user.id` 才会出现用户数。名称前缀 `flare.release.` 为这些指标保留。
 
+## Annotations
+
+另有两个内置指标，让 Grafana 通过注解查询在任意面板上标出告警和部署。两者在事件发生处为 `1`，其余时间不存在，
+`label/__name__/values` 会列出它们。
+
+| 指标 | 标签 | 含义 |
+|---|---|---|
+| `flare_alert_firing` | `alertname`、`rule_id` | 告警规则处于触发状态的每个步长为 `1`，从触发直到恢复 |
+| `flare_release_deployed` | `service_name`、`service_version`、`commit`、`url` | [已标记的发布](../investigate/track-releases.md)部署所在的步长为 `1` |
+
+在仪表盘的 **Settings > Annotations** 中，针对 Flare 数据源添加一个注解查询：
+
+| 字段 | 告警 | 部署 |
+|---|---|---|
+| Expression | `flare_alert_firing` | `flare_release_deployed{service_name="shop-app"}` |
+| Min step | `1m` | `1m` |
+| Title | `{{alertname}}` | `Deploy {{service_version}}` |
+| Text | `Alert firing` | `{{commit}} {{url}}` |
+| Tags | `alertname` | `service_name` |
+
+一次告警显示为从触发到恢复的一个区间，每次事件一个（冷却期内再次触发属于同一次事件）；仍在触发的规则会延续到当前时间。
+被维护窗口抑制的触发不会显示，因为没有人收到通知。规则的告警遵循其所属项目：项目成员只能看到自己项目的规则和全实例范围的规则，
+发布则遵循其他查询所用的服务范围。部署来自你标记的发布（`flare releases mark` 或 `PUT /api/releases`），而不是遥测中出现的新版本。
+名称前缀 `flare.alert.` 和 `flare.release.deployed` 为保留名。查询若会返回超过 50,000 个点则失败；请增大步长或缩短时间范围。
+
 ## Exemplar
 
 在 trace 内记录的直方图或计数器数据点会携带 **exemplar**：一个样本值，以及产生它的 trace 和 span。Flare 会保存带有 trace id 的 exemplar，并通过 `query_exemplars` 提供，Grafana 因此可以把它们画在延迟图上并打开对应的慢请求。
