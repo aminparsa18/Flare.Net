@@ -15,6 +15,9 @@
 	//
 	// "From template" installs one of the built-in templates (#lib/dashboards/templates.ts).
 	//
+	// "Export as Grafana JSON" (next to Export) rewrites every panel's query as PromQL/LogQL/TraceQL
+	// - see #lib/dashboards/grafana-export.ts and ADR-0253.
+	//
 	// Import accepts either a Flare export or a Grafana dashboard export from the same file
 	// picker - DashboardsState.importDashboard() sniffs which shape it got. See that method
 	// and #lib/dashboards/grafana-import.ts.
@@ -41,6 +44,7 @@
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
+	import FileOutputIcon from '@lucide/svelte/icons/file-output';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as m from '#lib/paraglide/messages.js';
 	import { formatDateTime } from '#lib/time/format.ts';
@@ -99,6 +103,16 @@
 </div>
 
 <DashboardTemplatesDialog bind:open={templatesOpen} />
+
+{#if dashboards.exportError}
+	<Alert variant="destructive" class="mx-4 mt-3">
+		<AlertDescription>{dashboards.exportError}</AlertDescription>
+	</Alert>
+{:else if dashboards.exportNotice}
+	<Alert class="mx-4 mt-3">
+		<AlertDescription>{dashboards.exportNotice}</AlertDescription>
+	</Alert>
+{/if}
 
 {#if dashboards.importError}
 	<Alert variant="destructive" class="mx-4 mt-3">
@@ -204,6 +218,9 @@
 							{/if}
 							<Button variant="ghost" size="icon-sm" title={m.dashboardTable_export()} onclick={() => dashboards.exportDashboard(dashboard)}>
 								<DownloadIcon />
+							</Button>
+							<Button variant="ghost" size="icon-sm" title={m.dashboardTable_exportGrafana()} onclick={() => dashboards.exportGrafanaDashboard(dashboard)}>
+								<FileOutputIcon />
 							</Button>
 							{#if auth.canMutateDashboard(dashboard.ownerUserId)}
 								<Button

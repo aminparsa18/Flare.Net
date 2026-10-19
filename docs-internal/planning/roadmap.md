@@ -102,7 +102,6 @@ folders are where "what happened and why" actually lives.
   `rate_counter`, `absent_over_time`, `logfmt --strict`, unwrap conversion errors and tail dropped entries in
   [ADR-0238](../adr/0238-loki-api-rate-counter-absent-strict-logfmt-unwrap-errors-dropped-entries.md)). Remaining,
   roughly in priority order:
-  - Export a Flare dashboard as Grafana JSON (import of a Grafana export already exists, structure only).
   - A Grafana data source plugin for what the standard APIs cannot express: sessions, errors, release health.
   - A how-to for sending Flare data to Grafana (Grafana Cloud and self-hosted through Alloy or a collector), verified
     against a real instance first.

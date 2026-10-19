@@ -583,6 +583,43 @@ From the **Dashboards** page you can:
 - **Export** a dashboard — downloads its name, description, and panel
   definitions as a JSON file, a readable backup/snapshot you can also use
   to move a dashboard to another Flare instance (see **Import** below).
+- **Export as Grafana JSON** — the second download icon on a dashboard's row
+  writes a dashboard Grafana can import. Unlike the structural Grafana
+  *import* below, this direction carries queries: Flare serves Prometheus,
+  Loki and Tempo compatible APIs, so each panel's saved query is rewritten as
+  the PromQL, LogQL or TraceQL that Grafana then runs against Flare. Grafana's
+  import screen asks you to pick the data sources (only the ones the dashboard
+  uses); set them up first as described for
+  [Prometheus](../integrations/query-with-prometheus-api.md),
+  [Loki](../integrations/query-with-loki-api.md) and
+  [Tempo](../integrations/query-with-tempo-api.md).
+
+  | Flare panel | Becomes in Grafana |
+  |---|---|
+  | Metrics, a gauge | `avg by (service_name) (metric)` |
+  | Metrics, a counter | `sum by (service_name) (increase(metric_total[$__interval]))` |
+  | Metrics, a histogram | p50/p95/p99 lines (just p95 when grouped); the mean for Value, Pie, Table and Bar; a bucket heatmap for Histogram and Heatmap |
+  | Metrics, a formula | one query doing the same arithmetic over the operand queries (`exp`, `log`, `sqrt`, `abs`, `ceil`, `floor`) |
+  | Logs | stacked bars of `count_over_time` by level (or by the grouped attribute), with the panel's services, severities, search text, attribute and JSON-body filters written as LogQL |
+  | Traces | a table from a TraceQL search with the panel's services, statuses, kinds, span names and attribute filters |
+  | Text | a Markdown text panel |
+
+  Layout, titles, descriptions, rows (a collapsed row stays collapsed),
+  repeated panels, the default time range, units, decimals, soft Y-axis
+  bounds, log scale, stacking, thresholds, legend placement and legend format
+  carry over. Dashboard variables become Grafana variables and narrow the
+  same panels they narrow in Flare. The dashboard also gets annotations for
+  Flare's alert incidents and marked deploys (see
+  [Annotations](../integrations/query-with-prometheus-api.md#annotations)).
+
+  Not everything has a Grafana form. Post-processing functions, the
+  previous-period comparison and time-shift overlay, the "having" filter,
+  structural trace queries, "entry spans only" and a few similar settings are
+  left out, and the panel's description in Grafana says which. Two
+  translations are approximations: a Metrics panel without **Group by** is
+  drawn per service rather than per attribute combination, and a severity
+  filter that picks part of a level matches the whole level (Loki's
+  `detected_level`). Importing the file back into Flare is structural again.
 - **Import** a dashboard — pick a JSON file to create a new dashboard from
   it. Two shapes are recognized from the same file picker:
   - A Flare export (previously produced by Export, on this instance or
@@ -653,7 +690,8 @@ always takes priority over it.
 
 - **Grafana import is structural only** — layout and panel type come over,
   queries don't (see "Managing dashboards" above for why). There's no plan
-  to build real query translation; the datasources don't correspond.
+  to build real query translation; the datasources don't correspond. (Export is
+  the other direction and does translate queries — see "Managing dashboards".)
   Grafana rows are flattened too: their panels come over, but not as Flare
   rows. Regroup them after importing (see "Grouping panels into rows").
 - **Visualizations are Metrics-only** — Logs and Traces panels can't switch
