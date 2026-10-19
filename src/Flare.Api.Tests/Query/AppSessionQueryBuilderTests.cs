@@ -95,6 +95,39 @@ public class AppSessionQueryBuilderTests
         Assert.EndsWith($"LIMIT {AppSessionQueryBuilder.MaxSeriesRows + 1}", built.Sql);
     }
 
+    [Fact]
+    public void BuildRollingReleaseUsers_ScansAWindowBeforeFrom_AndExpandsRunsOfStepsClampedToTheRange()
+    {
+        var from = End.AddHours(-1);
+        var built = AppSessionQueryBuilder.BuildRollingReleaseUsers(from, End, 60, 86400, "shop-app");
+
+        // Scans a day before the range; the user's session steps become runs of covered steps (a step covers 1440 - 1 more).
+        Assert.Equal(from.AddHours(-24).UtcDateTime, built.Parameters.OfType<ClickHouse.Driver.ADO.Parameters.ClickHouseDbParameter>().Single(p => p.ParameterName == "from").Value);
+        Assert.Contains("arraySort(groupUniqArray(SessionStep)) AS Steps", built.Sql);
+        Assert.Contains("b - Steps[i - 1] > 86400000", built.Sql);
+        Assert.Contains("b + 86340000", built.Sql);
+        Assert.Contains("HAVING UserId != ''", built.Sql);
+        var first = from.ToUnixTimeMilliseconds() / 60000 * 60000;
+        var last = (End.ToUnixTimeMilliseconds() - 1) / 60000 * 60000;
+        Assert.Contains($"ARRAY JOIN range(greatest(toUInt64(Run.1), {first}), least(toUInt64(Run.2), {last}) + 1, 60000) AS Step", built.Sql);
+        Assert.Contains("GROUP BY Step, Svc, Version", built.Sql);
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.EndsWith($"LIMIT {AppSessionQueryBuilder.MaxSeriesRows + 1}", built.Sql);
+    }
+
+    [Fact]
+    public void BuildRollingReleaseUsers_RoundsTheWindowDownToWholeSteps_AndAtLeastOne()
+    {
+        // 24h in 7h steps is 3 whole steps; a window shorter than a step is one step (it covers only itself).
+        var wide = AppSessionQueryBuilder.BuildRollingReleaseUsers(End.AddDays(-2), End, 7 * 3600, 86400, null);
+        Assert.Contains("> 75600000", wide.Sql);
+        Assert.Contains("b + 50400000", wide.Sql);
+
+        var narrow = AppSessionQueryBuilder.BuildRollingReleaseUsers(End.AddDays(-2), End, 3600, 60, null);
+        Assert.Contains("> 3600000", narrow.Sql);
+        Assert.Contains("b + 0", narrow.Sql);
+    }
+
     [Theory]
     [InlineData(null, 60, 5)]
     [InlineData(null, 1440, 30)]

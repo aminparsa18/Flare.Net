@@ -218,6 +218,74 @@ public static class AppSessionQueryBuilder
         return new AppSessionSql(sql, parameters);
     }
 
+    /// <summary>
+    /// Distinct users over a trailing window, per epoch-aligned step, for the Prometheus API's <c>flare_release_users_24h</c>
+    /// gauges (ADR-0251). A step's value is the users with a session that started in the <paramref name="windowSeconds"/> up to
+    /// and including that step (rounded down to whole steps, at least one). Columns: BucketUnixMs, ServiceName, Version,
+    /// Users, CrashedUsers; oldest step first. Scans <paramref name="windowSeconds"/> before <paramref name="from"/> too.
+    /// </summary>
+    /// <remarks>
+    /// Distinct users do not add up across steps, and a set per step would cost users x window / step. Instead each user's
+    /// session steps are merged into the disjoint runs of steps they are covered in, and a run is expanded into the steps it
+    /// covers (clamped to the requested range) and counted, so the work is the number of (user, step) pairs and memory stays
+    /// at one counter per step, service and version.
+    /// </remarks>
+    public static AppSessionSql BuildRollingReleaseUsers(DateTimeOffset from, DateTimeOffset to, int bucketSeconds, int windowSeconds, string? service)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var bucketMs = checked(bucketSeconds * 1000L);
+        var windowMs = Math.Max(windowSeconds * 1000L / bucketMs, 1) * bucketMs;
+        var first = Math.DivRem(from.ToUnixTimeMilliseconds(), bucketMs, out _) * bucketMs;
+        var last = Math.DivRem(to.ToUnixTimeMilliseconds() - 1, bucketMs, out _) * bucketMs;
+        var where = Where(parameters, from.AddMilliseconds(-windowMs), to, service, version: null);
+
+        // Runs of covered steps over a sorted array of session steps X: a step b covers b .. b + window - bucket, and a run
+        // starts where the gap to the previous step is more than a window (otherwise the coverage is contiguous).
+        static string Runs(string x, long windowMs, long bucketMs, string crashed) =>
+            $"arrayMap((s, e) -> (s, e, {crashed}), " +
+            $"arrayFilter((b, i) -> i = 1 OR b - {x}[i - 1] > {windowMs}, {x}, arrayEnumerate({x})), " +
+            $"arrayMap(b -> b + {windowMs - bucketMs}, arrayFilter((b, i) -> i = length({x}) OR {x}[i + 1] - b > {windowMs}, {x}, arrayEnumerate({x}))))";
+
+        var sql = "SELECT\n" +
+            "    toInt64(Step) AS BucketUnixMs,\n" +
+            "    Svc AS ServiceName,\n" +
+            "    Version,\n" +
+            "    countIf(Run.3 = 0) AS Users,\n" +
+            "    countIf(Run.3 = 1) AS CrashedUsers\n" +
+            "FROM (\n" +
+            "    SELECT\n" +
+            "        Svc,\n" +
+            "        Version,\n" +
+            $"        arrayJoin(arrayConcat({Runs("Steps", windowMs, bucketMs, "0")}, {Runs("CrashedSteps", windowMs, bucketMs, "1")})) AS Run\n" +
+            "    FROM (\n" +
+            "        SELECT\n" +
+            "            Svc,\n" +
+            "            Version,\n" +
+            "            arraySort(groupUniqArray(SessionStep)) AS Steps,\n" +
+            "            arraySort(groupUniqArrayIf(SessionStep, Crashed)) AS CrashedSteps\n" +
+            "        FROM (\n" +
+            "            SELECT\n" +
+            $"                toUInt64(intDiv(toUnixTimestamp64Milli(min(StartTime)), {bucketMs}) * {bucketMs}) AS SessionStep,\n" +
+            "                any(ServiceName) AS Svc,\n" +
+            "                any(ResourceAttributes['service.version']) AS Version,\n" +
+            "                anyIf(if(SpanAttributes['user.id'] != '', SpanAttributes['user.id'], ResourceAttributes['user.id']), " +
+            "SpanAttributes['user.id'] != '' OR ResourceAttributes['user.id'] != '') AS UserId,\n" +
+            "                countIf(Name = 'app.unhandled_exception' AND lower(SpanAttributes['exception.escaped']) = 'true') > 0 AS Crashed\n" +
+            "            FROM spans\n" +
+            $"            WHERE {where}\n" +
+            $"            GROUP BY {SessionId}\n" +
+            "            HAVING UserId != ''\n" +
+            "        )\n" +
+            "        GROUP BY Svc, Version, UserId\n" +
+            "    )\n" +
+            ")\n" +
+            $"ARRAY JOIN range(greatest(toUInt64(Run.1), {first}), least(toUInt64(Run.2), {last}) + 1, {bucketMs}) AS Step\n" +
+            "GROUP BY Step, Svc, Version\n" +
+            "ORDER BY Step, Svc, Version\n" +
+            $"LIMIT {MaxSeriesRows + 1}";
+        return new AppSessionSql(sql, parameters);
+    }
+
     /// <summary>Row cap for each performance table. Neither is expected to reach it: one row per screen, or per version and start type.</summary>
     public const int MaxPerformanceRows = 200;
 

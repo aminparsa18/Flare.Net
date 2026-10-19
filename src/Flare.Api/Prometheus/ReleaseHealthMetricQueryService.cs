@@ -3,8 +3,11 @@ using Flare.Api.Query;
 
 namespace Flare.Api.Prometheus;
 
-/// <summary>One synthetic release-health metric: its OTel name and type, and which count of a bucket it reports.</summary>
-internal sealed record ReleaseHealthMetric(string OtelName, MetricPointType Type, string Description, Func<ReleaseHealthSeriesPoint, double> Value);
+/// <summary>
+/// One synthetic release-health metric: its OTel name and type, and which count of a bucket it reports. A <paramref name="Window"/>
+/// makes it a rolling gauge: each step reports the trailing window ending at that step, not the step alone (ADR-0251).
+/// </summary>
+internal sealed record ReleaseHealthMetric(string OtelName, MetricPointType Type, string Description, Func<ReleaseHealthSeriesPoint, double> Value, TimeSpan? Window = null);
 
 /// <summary>
 /// The <c>flare.release.*</c> metrics the Prometheus API serves on top of the stored ones (ADR-0250). They are derived from
@@ -18,12 +21,16 @@ internal static class ReleaseHealthMetrics
     /// <summary>The one data point attribute: becomes the <c>service_version</c> label.</summary>
     public const string VersionAttribute = "service.version";
 
+    private static readonly TimeSpan RollingDay = TimeSpan.FromHours(24);
+
     public static readonly IReadOnlyList<ReleaseHealthMetric> All =
     [
         new("flare.release.sessions", MetricPointType.Sum, "Sessions that started, per service and app version.", p => p.Sessions),
         new("flare.release.crashed_sessions", MetricPointType.Sum, "Sessions that ended in a fatal unhandled exception, per service and app version.", p => p.CrashedSessions),
         new("flare.release.users", MetricPointType.Gauge, "Distinct users with a session that started in the step, per service and app version.", p => p.Users),
         new("flare.release.crashed_users", MetricPointType.Gauge, "Distinct users with a crashed session that started in the step, per service and app version.", p => p.CrashedUsers),
+        new("flare.release.users_24h", MetricPointType.Gauge, "Distinct users with a session that started in the 24 hours up to each step, per service and app version.", p => p.Users, RollingDay),
+        new("flare.release.crashed_users_24h", MetricPointType.Gauge, "Distinct users with a crashed session that started in the 24 hours up to each step, per service and app version.", p => p.CrashedUsers, RollingDay),
     ];
 
     public static ReleaseHealthMetric? Find(string otelName) =>
@@ -40,6 +47,7 @@ internal static class ReleaseHealthMetrics
 /// Counters hold the sessions that started in each bucket, which is what Flare stores for any counter (a per-interval
 /// increase), so <c>increase(flare_release_sessions_total[1h])</c> needs no special case. A crashed series is emitted for
 /// every bucket that has sessions, with 0 where nothing crashed, so <c>crashed / sessions</c> never loses its numerator.
+/// The <c>_24h</c> user gauges are rolling: a step's value covers the 24 hours up to it, so an instant query sees a day of users.
 /// </remarks>
 internal sealed class ReleaseHealthMetricQueryService(IMetricQueryService inner, IAppSessionQueryService sessions) : IMetricQueryService
 {
@@ -80,8 +88,10 @@ internal sealed class ReleaseHealthMetricQueryService(IMetricQueryService inner,
         var versions = (request.Filter.Attributes ?? []).Where(a => a.Key == ReleaseHealthMetrics.VersionAttribute).Select(a => a.Value).ToList();
         var otherAttribute = (request.Filter.Attributes ?? []).Any(a => a.Key != ReleaseHealthMetrics.VersionAttribute);
 
-        var (points, truncated) = await sessions.GetReleaseHealthSeriesAsync(
-            from, to, request.BucketWidthSeconds, services is { Count: 1 } ? services[0] : null, cancellationToken);
+        var service = services is { Count: 1 } ? services[0] : null;
+        var (points, truncated) = metric.Window is { } window
+            ? await sessions.GetRollingReleaseUsersAsync(from, to, request.BucketWidthSeconds, (int)window.TotalSeconds, service, cancellationToken)
+            : await sessions.GetReleaseHealthSeriesAsync(from, to, request.BucketWidthSeconds, service, cancellationToken);
         if (truncated)
         {
             throw new PromQlException(
@@ -98,7 +108,7 @@ internal sealed class ReleaseHealthMetricQueryService(IMetricQueryService inner,
             .Where(p => services is null || services.Contains(p.ServiceName))
             .Where(p => versions.All(v => v == p.Version))
             .GroupBy(p => (p.ServiceName, p.Version))
-            .Select(g => (Group: g, Total: g.Sum(p => (double)p.Sessions)))
+            .Select(g => (Group: g, Total: g.Sum(p => (double)(metric.Window is null ? p.Sessions : p.Users))))
             .OrderByDescending(g => g.Total)
             .ThenBy(g => g.Group.Key.ServiceName, StringComparer.Ordinal)
             .ThenBy(g => g.Group.Key.Version, StringComparer.Ordinal)

@@ -85,6 +85,8 @@ apparaissent dans `label/__name__/values`.
 | `flare_release_crashed_sessions_total` | counter | Sessions terminées par une exception fatale non gérée |
 | `flare_release_users` | gauge | Utilisateurs distincts ayant une session démarrée dans le pas |
 | `flare_release_crashed_users` | gauge | Utilisateurs distincts ayant une session en crash démarrée dans le pas |
+| `flare_release_users_24h` | gauge | Utilisateurs distincts ayant une session démarrée dans les 24 heures jusqu'au pas |
+| `flare_release_crashed_users_24h` | gauge | Utilisateurs distincts ayant une session en crash démarrée dans les 24 heures jusqu'au pas |
 
 Sessions sans crash par version sur les dernières 24 heures, pour un panneau ou une règle d'alerte sous `0.99` :
 
@@ -95,10 +97,13 @@ Sessions sans crash par version sur les dernières 24 heures, pour un panneau ou
 
 Ajoutez `{service_name="shop-app"}` pour cibler une seule application. Pour qu'une version avec trois lancements ne
 déclenche aucune alerte, ajoutez `and sum by (service_version) (increase(flare_release_sessions_total[24h])) > 50`. Les
-utilisateurs sont comptés par pas : tracez les utilisateurs sans crash avec une requête de plage dont le pas est la
-période voulue (`1 - flare_release_crashed_users / flare_release_users` avec un pas d'un jour) ; une requête instantanée a
-un pas d'une minute. Les utilisateurs n'apparaissent que si l'application définit `user.id`. Le préfixe de nom
-`flare.release.` est réservé à ces métriques.
+utilisateurs sans crash sur la dernière journée sont `1 - flare_release_crashed_users_24h / flare_release_users_24h` :
+chaque pas rapporte les 24 heures qui le précèdent, donc une requête instantanée comme un panneau à n'importe quel pas
+lisent une journée entière. Les gauges `flare_release_users` comptent par pas (les utilisateurs distincts ne
+s'additionnent pas d'un pas à l'autre), ce qui convient à une requête de plage dont le pas est la période voulue. Les
+gauges `_24h` parcourent une journée de spans avant la plage demandée : une longue plage à petit pas est le cas coûteux.
+Les utilisateurs n'apparaissent que si l'application définit `user.id`. Le préfixe de nom `flare.release.` est réservé à
+ces métriques.
 
 ## Exemplars
 
