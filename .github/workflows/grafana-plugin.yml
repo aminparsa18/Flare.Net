@@ -1,4 +1,4 @@
-# Type-checks, lints, tests and builds the Grafana data source plugin (src/grafana-datasource).
+# Type-checks, lints, tests and builds the Grafana data source plugin (src/grafana-datasource), frontend and Go backend.
 # It has its own package.json and is outside Flare.slnx, so ci.yml never touches it.
 
 name: Grafana plugin CI
@@ -32,8 +32,19 @@ jobs:
           node-version-file: src/grafana-datasource/.nvmrc
           cache: npm
           cache-dependency-path: src/grafana-datasource/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: src/grafana-datasource/go.mod
+          cache-dependency-path: src/grafana-datasource/go.sum
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:ci
       - run: npm run build
+      - name: Go format check
+        run: test -z "$(gofmt -l pkg Magefile.go)"
+      - run: go vet ./pkg/...
+      - run: go test -race ./pkg/...
+      # The frontend build empties dist/, so the backend is built after it. Linux covers compilation; the release
+      # workflow builds every platform.
+      - run: go run github.com/magefile/mage -v build:linux

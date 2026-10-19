@@ -4,14 +4,10 @@
   "name": "Flare",
   "id": "apardev-flare-datasource",
   "metrics": true,
-  "backend": false,
-  "routes": [
-    {
-      "path": "flare",
-      "url": "{{ .JsonData.url }}",
-      "headers": [{ "name": "Authorization", "content": "Bearer {{ .SecureJsonData.token }}" }]
-    }
-  ],
+  "backend": true,
+  "executable": "gpx_flare",
+  "alerting": true,
+  "annotations": true,
   "info": {
     "description": "Query Flare sessions, errors, releases and release health: the data the Prometheus, Loki and Tempo compatible APIs cannot express.",
     "author": {
@@ -30,5 +26,12 @@
   "dependencies": {
     "grafanaDependency": ">=13.2.0",
     "plugins": []
-  }
+  },
+  "includes": [
+    {
+      "type": "dashboard",
+      "name": "Flare app health",
+      "path": "dashboards/app-health.json"
+    }
+  ]
 }

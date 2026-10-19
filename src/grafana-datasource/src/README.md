@@ -3,12 +3,16 @@
 Query [Flare](https://github.com/aminparsa18/Flare.Net) from Grafana for what the Prometheus, Loki and Tempo compatible APIs
 cannot express:
 
-- **Sessions**: client app sessions in the time range, one row each, with errors and screens.
+- **Sessions** and **Session timeline**: client app sessions in the time range, one row each, and one session's spans in order.
 - **Errors** and **Error issues**: exception groups ranked by occurrences, and their triage state.
 - **Release health** and **trend**: crash-free sessions and users per app version, as a table or a time series.
+- **App starts** and **Screen performance**: cold and warm start durations, screen load time and slow or frozen frames.
 - **Releases**: the deploys you marked, also usable as dashboard annotations.
 
-Template variables list services and versions. The queries run in the browser and reach Flare through Grafana's data source
-proxy, so the Grafana server needs network access to Flare.Api; the personal access token is stored encrypted by Grafana.
+A **Flare app health** dashboard is bundled: import it from the data source's Dashboards tab.
 
-Alerting is not supported by this data source; use the `flare_release_*` metrics through a Prometheus data source for that.
+Template variables list services and versions. The plugin backend calls Flare.Api from the Grafana server, so that server needs
+network access to Flare.Api; the personal access token is stored encrypted by Grafana and never reaches the browser.
+
+Alert rules, public dashboards and reports work with these queries. For an alert rule use **Release health trend**, the one
+query that returns a time series (add a Reduce and a Threshold expression); the table queries cannot be alert conditions.
