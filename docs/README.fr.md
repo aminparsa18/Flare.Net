@@ -109,6 +109,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Interroger Flare avec Grafana ou l'API Prometheus](how-to/integrations/query-with-prometheus-api.fr.md)
 - [Lire les traces de Flare depuis Grafana avec l'API Tempo](how-to/integrations/query-with-tempo-api.fr.md)
 - [Lire les logs de Flare depuis Grafana avec l'API Loki](how-to/integrations/query-with-loki-api.fr.md)
+- [Tracer les sessions, erreurs et la santé des versions de Flare dans Grafana](how-to/integrations/query-with-grafana-plugin.fr.md)
 
 **Référence**
 - [Commandes CLI](reference/cli-commands.fr.md)

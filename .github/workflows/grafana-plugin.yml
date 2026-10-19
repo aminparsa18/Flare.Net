@@ -1,0 +1,39 @@
+# Type-checks, lints, tests and builds the Grafana data source plugin (src/grafana-datasource).
+# It has its own package.json and is outside Flare.slnx, so ci.yml never touches it.
+
+name: Grafana plugin CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/grafana-datasource/**'
+      - '.github/workflows/grafana-plugin.yml'
+  pull_request:
+    paths:
+      - 'src/grafana-datasource/**'
+      - '.github/workflows/grafana-plugin.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: grafana-plugin-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/grafana-datasource
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: src/grafana-datasource/.nvmrc
+          cache: npm
+          cache-dependency-path: src/grafana-datasource/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:ci
+      - run: npm run build
