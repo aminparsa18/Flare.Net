@@ -44,6 +44,8 @@ import {
 } from '#lib/dashboards-api.ts';
 import { downloadBlob } from '#lib/logs/export.ts';
 import { parseGrafanaDashboard } from './grafana-import';
+import { buildGrafanaDashboard } from './grafana-export';
+import { getMetricNames, type MetricNameInfo } from '#lib/metrics-api.ts';
 import { buildTemplateLayout, type DashboardTemplate } from './templates';
 import { projects, projectIdForRequest } from '#lib/projects/store.svelte.ts';
 import * as m from '#lib/paraglide/messages.js';
@@ -68,6 +70,10 @@ export class DashboardsState {
 	 *  next to (never instead of) importError. Never set by a Flare-export import - that shape
 	 *  round-trips its panels' real queries, so there's nothing to warn about. */
 	importWarning = $state<string | null>(null);
+
+	/** Set by exportGrafanaDashboard(): `exportNotice` is the informational "N panels exported, M partly" line shown after a successful download, `exportError` the failure. Both render next to the import alerts in DashboardTable.svelte. */
+	exportNotice = $state<string | null>(null);
+	exportError = $state<string | null>(null);
 
 	/** Ids the current user has pinned, most recently pinned first (ADR-0089). */
 	pinnedIds = $state.raw<string[]>([]);
@@ -213,6 +219,39 @@ export class DashboardsState {
 		const body = { name: dashboard.name, description: dashboard.description, tags: dashboard.tags, layout: dashboard.layout };
 		const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json;charset=utf-8' });
 		downloadBlob(blob, `flare-dashboard_${slugify(dashboard.name)}.json`);
+	}
+
+	/**
+	 * Downloads `dashboard` as Grafana dashboard JSON (ADR-0253) - the reverse of the Grafana branch
+	 * of importDashboard(), but with queries: each panel is rewritten as PromQL / LogQL / TraceQL
+	 * against Flare's Prometheus, Loki and Tempo compatible APIs. Building a Prometheus metric name
+	 * needs the metric's unit, which a panel's saved query doesn't hold, so the metric catalog is
+	 * fetched first (only when a Metrics panel exists); if that fails the export still happens, with
+	 * unit-less names, and says so.
+	 */
+	async exportGrafanaDashboard(dashboard: DashboardSummary): Promise<void> {
+		this.exportNotice = null;
+		this.exportError = null;
+		let catalog: MetricNameInfo[] = [];
+		let catalogFailed = false;
+		if (dashboard.layout.panels.some((p) => p.panelType === 'Metrics')) {
+			try {
+				const to = new Date();
+				const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+				catalog = (await getMetricNames({ from: from.toISOString(), to: to.toISOString() })).metrics;
+			} catch {
+				catalogFailed = true;
+			}
+		}
+		try {
+			const result = buildGrafanaDashboard(dashboard, catalog);
+			const blob = new Blob([JSON.stringify(result.dashboard, null, 2)], { type: 'application/json;charset=utf-8' });
+			downloadBlob(blob, `flare-dashboard_${slugify(dashboard.name)}.grafana.json`);
+			const summary = m.dashboardTable_exportGrafanaSummary({ count: result.panelCount, partial: result.partialCount });
+			this.exportNotice = catalogFailed ? `${summary} ${m.dashboardTable_exportGrafanaNoUnits()}` : summary;
+		} catch (err) {
+			this.exportError = err instanceof Error ? err.message : String(err);
+		}
 	}
 
 	/**

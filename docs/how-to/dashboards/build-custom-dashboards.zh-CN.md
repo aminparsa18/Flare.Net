@@ -420,6 +420,37 @@ Enter/Tab 选择一个,即可插入对它的引用。保存的标题保留引用
 - **导出**一个仪表板——将其名称、描述和面板定义下载为 JSON 文件,这是一份
   可读的备份/快照,也可以用它把仪表板迁移到另一个 Flare 实例(见下方
   “导入”)。
+- **导出为 Grafana JSON**——仪表板所在行的第二个下载图标会生成一个可由 Grafana
+  导入的仪表板。与下方只涉及结构的 Grafana *导入*不同,这个方向会带上查询:
+  Flare 提供与 Prometheus、Loki 和 Tempo 兼容的 API,因此每个面板保存的查询
+  会被改写为 PromQL、LogQL 或 TraceQL,再由 Grafana 对 Flare 执行。Grafana 的
+  导入界面会让你选择数据源(只包含该仪表板用到的);请先按
+  [Prometheus](../integrations/query-with-prometheus-api.md)、
+  [Loki](../integrations/query-with-loki-api.md) 和
+  [Tempo](../integrations/query-with-tempo-api.md) 的说明配置好。
+
+  | Flare 面板 | 在 Grafana 中变为 |
+  |---|---|
+  | Metrics,gauge | `avg by (service_name) (metric)` |
+  | Metrics,计数器 | `sum by (service_name) (increase(metric_total[$__interval]))` |
+  | Metrics,直方图 | p50/p95/p99 曲线(分组时只有 p95);Value、Pie、Table 和 Bar 使用均值;Histogram 和 Heatmap 使用分桶热力图 |
+  | Metrics,公式 | 对各操作数查询做相同运算的单个查询(`exp`、`log`、`sqrt`、`abs`、`ceil`、`floor`) |
+  | Logs | 按级别(或分组属性)堆叠的 `count_over_time` 柱状图,面板的服务、严重级别、搜索文本、属性过滤和 JSON 正文过滤写成 LogQL |
+  | Traces | 由 TraceQL 搜索得到的表格,带有面板的服务、状态、类型、span 名称和属性过滤 |
+  | Text | Markdown 文本面板 |
+
+  布局、标题、说明、行(折叠的行保持折叠)、重复面板、默认时间范围、单位、
+  小数位数、Y 轴软边界、对数刻度、堆叠、阈值、图例位置和图例格式都会保留。
+  仪表板变量会变成 Grafana 变量,并约束与在 Flare 中相同的面板。仪表板还会
+  获得 Flare 告警事件和已标记部署的注解(见
+  [注解](../integrations/query-with-prometheus-api.md#annotations))。
+
+  并非所有设置都能在 Grafana 中表达。后处理函数、与上一周期的对比和时间偏移
+  叠加、“having”过滤、结构化追踪查询、“仅入口 span”以及少数类似设置会被省略,
+  面板在 Grafana 中的说明会写明省略了什么。有两处转换是近似的:没有 **Group by**
+  的 Metrics 面板按服务绘制,而不是按属性组合;只选中某个级别一部分的严重级别
+  过滤会匹配整个级别(Loki 的 `detected_level`)。把该文件再导入 Flare 时又只
+  涉及结构。
 - **导入**一个仪表板——选择一个 JSON 文件,据此创建一个新仪表板。同一个文件
   选择器可识别两种格式:
   - Flare 导出文件(之前由“导出”生成,可以来自本实例,也可以来自另一个
@@ -482,7 +513,7 @@ Enter/Tab 选择一个,即可插入对它的引用。保存的标题保留引用
 ## 已知的局限,明确说明
 
 - **Grafana 导入仅涉及结构**——布局和面板类型会保留,查询不会(原因见上文
-  “管理仪表板”)。目前没有计划做真正的查询转换——数据源之间没有对应关系。
+  “管理仪表板”)。目前没有计划做真正的查询转换——数据源之间没有对应关系。(导出是相反的方向,会转换查询——见“管理仪表板”。)
   Grafana 的行也会被展平:其中的面板会导入,但不会成为 Flare 的行。导入后请
   重新分组(见“将面板分组到行中”)。
 - **可视化方式仅限 Metrics 面板**——Logs 和 Traces 面板无法切换可视化方式。

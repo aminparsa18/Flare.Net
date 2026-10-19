@@ -681,6 +681,47 @@ Depuis la page **Dashboards**, vous pouvez :
   les définitions de ses panneaux sous forme de fichier JSON, une sauvegarde/
   instantané lisible que vous pouvez aussi utiliser pour déplacer un tableau
   de bord vers une autre instance Flare (voir **Importer** ci-dessous).
+- **Exporter en JSON Grafana** — la seconde icône de téléchargement sur la
+  ligne d'un tableau de bord écrit un tableau de bord que Grafana peut
+  importer. Contrairement à l'*import* Grafana, uniquement structurel (voir
+  plus bas), ce sens transporte les requêtes : Flare sert des API compatibles
+  Prometheus, Loki et Tempo, donc la requête enregistrée de chaque panneau est
+  réécrite en PromQL, LogQL ou TraceQL, que Grafana exécute ensuite sur Flare.
+  L'écran d'import de Grafana vous demande de choisir les sources de données
+  (uniquement celles que le tableau de bord utilise) ; configurez-les d'abord
+  comme décrit pour [Prometheus](../integrations/query-with-prometheus-api.md),
+  [Loki](../integrations/query-with-loki-api.md) et
+  [Tempo](../integrations/query-with-tempo-api.md).
+
+  | Panneau Flare | Devient dans Grafana |
+  |---|---|
+  | Metrics, une jauge | `avg by (service_name) (metric)` |
+  | Metrics, un compteur | `sum by (service_name) (increase(metric_total[$__interval]))` |
+  | Metrics, un histogramme | lignes p50/p95/p99 (seulement p95 si groupé) ; la moyenne pour Value, Pie, Table et Bar ; une carte de chaleur des buckets pour Histogram et Heatmap |
+  | Metrics, une formule | une seule requête qui fait la même arithmétique sur les requêtes opérandes (`exp`, `log`, `sqrt`, `abs`, `ceil`, `floor`) |
+  | Logs | des barres empilées de `count_over_time` par niveau (ou par l'attribut de regroupement), avec les services, sévérités, texte de recherche et filtres d'attributs et de corps JSON du panneau écrits en LogQL |
+  | Traces | un tableau issu d'une recherche TraceQL avec les services, statuts, genres, noms de spans et filtres d'attributs du panneau |
+  | Text | un panneau de texte Markdown |
+
+  La disposition, les titres, les descriptions, les lignes (une ligne repliée
+  reste repliée), les panneaux répétés, la plage de temps par défaut, les
+  unités, les décimales, les bornes souples de l'axe Y, l'échelle log,
+  l'empilement, les seuils, la position et le format de la légende sont
+  conservés. Les variables du tableau de bord deviennent des variables Grafana
+  et restreignent les mêmes panneaux que dans Flare. Le tableau de bord reçoit
+  aussi des annotations pour les incidents d'alerte et les déploiements
+  marqués de Flare (voir
+  [Annotations](../integrations/query-with-prometheus-api.md#annotations)).
+
+  Tout n'a pas d'équivalent Grafana. Les fonctions de post-traitement, la
+  comparaison avec la période précédente et la superposition à décalage
+  temporel, le filtre « having », les requêtes structurelles de traces,
+  « spans d'entrée uniquement » et quelques réglages semblables sont omis, et
+  la description du panneau dans Grafana dit lesquels. Deux traductions sont
+  approximatives : un panneau Metrics sans **Group by** est tracé par service
+  et non par combinaison d'attributs, et un filtre de sévérité qui choisit une
+  partie d'un niveau correspond au niveau entier (`detected_level` de Loki).
+  Réimporter le fichier dans Flare redevient structurel.
 - **Importer** un tableau de bord — choisissez un fichier JSON pour créer un
   nouveau tableau de bord à partir de celui-ci. Deux formats sont reconnus
   depuis le même sélecteur de fichier :
@@ -764,7 +805,9 @@ d'accueil passent toujours avant.
 - **L'import Grafana n'est que structurel** — la disposition et le type de
   panneau sont conservés, pas les requêtes (voir « Gérer les tableaux de
   bord » ci-dessus pour le pourquoi). Une vraie traduction des requêtes
-  n'est pas prévue ; les sources de données n'ont pas d'équivalent.
+  n'est pas prévue ; les sources de données n'ont pas d'équivalent. (L'export
+  est le sens inverse et traduit bien les requêtes — voir « Gérer les tableaux
+  de bord ».)
   Les lignes Grafana sont aussi aplaties : leurs panneaux sont importés,
   mais pas sous forme de lignes Flare. Regroupez-les après l'import (voir
   « Regrouper des panneaux en lignes »).
