@@ -25,6 +25,8 @@ curl -X POST "$FLARE_API/api/checkin-monitors" \
 
 `GET`, `PUT` et `DELETE` sur `/api/checkin-monitors/{id}` lisent, modifient et suppriment un moniteur. Tout utilisateur connecté peut lister les moniteurs ; les créer, les modifier et les supprimer exige le rôle Member ou Admin.
 
+Depuis un terminal, `flare checkin-monitors create "Nightly backup" --cron "0 2 * * *" --timezone Europe/Berlin --grace 600 --max-runtime 3600` fait la même chose sur un Flare local, et `list`, `update` et `delete` gèrent le reste ; `list` affiche l'état de chaque moniteur ainsi que son dernier ping et le prochain attendu. Voir la [référence CLI](../../reference/cli-commands.fr.md).
+
 ## Envoyer des check-ins depuis la tâche
 
 La tâche appelle `Flare.Ingest` sur le port HTTP (4318 par défaut) avec une [clé d'ingestion](../admin/configure-authentication.fr.md), le même identifiant que vos exporteurs OpenTelemetry. Un chemin nu signale un succès ; `/start` et `/fail` sont les deux autres :

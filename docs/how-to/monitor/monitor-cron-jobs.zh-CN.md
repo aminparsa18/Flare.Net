@@ -25,6 +25,8 @@ curl -X POST "$FLARE_API/api/checkin-monitors" \
 
 对 `/api/checkin-monitors/{id}` 使用 `GET`、`PUT` 和 `DELETE` 可读取、修改和删除单个监控。所有已登录用户都可以列出监控；创建、修改和删除需要 Member 或 Admin 角色。
 
+在终端中，`flare checkin-monitors create "Nightly backup" --cron "0 2 * * *" --timezone Europe/Berlin --grace 600 --max-runtime 3600` 可对本地 Flare 完成同样的操作，`list`、`update` 和 `delete` 用于管理其余部分；`list` 会显示每个监控的状态以及最近和预期的下一次 ping。参见 [CLI 参考](../../reference/cli-commands.zh-CN.md)。
+
 ## 在任务中发送签到
 
 任务通过 HTTP 端口（默认 4318）调用 `Flare.Ingest`，使用[摄取密钥](../admin/configure-authentication.zh-CN.md)，也就是你的 OpenTelemetry 导出器所用的同一种凭据。不带后缀的路径表示成功；`/start` 和 `/fail` 是另外两种：

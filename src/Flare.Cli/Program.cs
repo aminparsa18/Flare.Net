@@ -134,6 +134,17 @@ app.Configure(config =>
         syntheticMonitors.AddCommand<SyntheticMonitorsDeleteCommand>("delete")
             .WithDescription("Delete a monitor.");
     });
+    config.AddBranch("checkin-monitors", checkInMonitors =>
+    {
+        checkInMonitors.AddCommand<CheckInMonitorsListCommand>("list")
+            .WithDescription("List cron and job check-in monitors with their state.");
+        checkInMonitors.AddCommand<CheckInMonitorsCreateCommand>("create")
+            .WithDescription("Create a check-in monitor for a scheduled job.");
+        checkInMonitors.AddCommand<CheckInMonitorsUpdateCommand>("update")
+            .WithDescription("Update a monitor (only the options you pass change).");
+        checkInMonitors.AddCommand<CheckInMonitorsDeleteCommand>("delete")
+            .WithDescription("Delete a monitor.");
+    });
     config.AddBranch("status-pages", statusPages =>
     {
         statusPages.AddCommand<StatusPagesListCommand>("list")
