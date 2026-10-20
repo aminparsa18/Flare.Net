@@ -86,6 +86,31 @@ folders are where "what happened and why" actually lives.
     first occurrence.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested
     rollback.
+- **Error tracking closer to Sentry.** The scope boundary is in
+  [the architecture page's non-goals](../../docs/explanation/architecture.md#non-goals). In rough priority order:
+  - **Check-in follow-ups** ([ADR-0260](../adr/0260-cron-job-checkins.md)): `flare checkin-monitors` CLI commands, a
+    Terraform resource and an MCP tool; a per-monitor run history (durations, recent pings) on the page; auto-creating a
+    monitor on first ping; check-ins as status page components.
+  - **Suspect commits.** Releases carry a commit and services can have source links ([ADR-0095](../adr/0095-exception-source-links.md)),
+    but nothing maps a new error group to the commit or author that introduced it.
+  - **Browser session replay**, on the pattern of the MAUI replay-lite ([ADR-0192](../adr/0192-maui-session-replay-lite.md)).
+    Other client SDKs are covered by the MAUI item above; per [ADR-0012](../adr/0012-otlp-only-ingestion.md) they stay thin over OTLP.
+- **APM depth.** Flare receives OTLP and ships no agent, so these close gaps without changing that.
+  - **A one-line .NET setup package** that configures the OTLP exporter, sampler and the common meters for Flare
+    (a thin OpenTelemetry helper, not a proprietary format, so it fits ADR-0012).
+  - **A per-statement database view:** slowest normalized statements with rate and p95, from the `db.*` span attributes.
+    Check first that N+1 detection and span-duration comparison don't already cover the need.
+  - **Span-to-profile links**, once a real profiling sender exists (see the continuous profiling item above). Check
+    whether profiles already carry trace and span ids before designing it.
+- **Security monitoring (not a SIEM).** The audit log has a hash chain, export and forwarding
+  ([ADR-0202](../adr/0202-audit-log-hash-chain-and-export.md), [ADR-0203](../adr/0203-audit-log-forwarding.md)). Two
+  small items fit the existing design; correlation rules, case management and threat-intel feeds stay out of scope.
+  - **Security alert templates:** ready-made log-count rules for failed logins, privilege changes and repeated 401/403s,
+    shipped like the built-in dashboard templates ([ADR-0088](../adr/0088-built-in-dashboard-templates.md)).
+  - **Enrichment actions in pipeline rules:** GeoIP and ASN lookup on an IP attribute at ingest, next to the existing
+    extract, redact and parse-JSON actions ([ADR-0033](../adr/0033-pipeline-rules-extraction-redaction.md),
+    [ADR-0070](../adr/0070-pipeline-rules-parse-json.md)). Needs a bundled or user-supplied database and a decision on
+    licensing.
 - **Grafana interoperability.** Today there is OTLP forwarding to a Grafana endpoint
   ([ADR-0155](../adr/0155-otlp-forwarding.md), with a Grafana Cloud preset and a test-connection button in
   [ADR-0249](../adr/0249-grafana-cloud-forwarding-preset-and-test-connection.md)), a read-only Prometheus API a Grafana data source can query
