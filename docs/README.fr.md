@@ -66,6 +66,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Surveiller des applications Dapr](how-to/monitor/monitor-dapr-applications.fr.md)
 - [Surveiller les API externes](how-to/monitor/monitor-external-apis.fr.md)
 - [Surveiller les appels LLM](how-to/monitor/monitor-llm-calls.fr.md)
+- [Surveiller des tâches cron et des tâches planifiées avec des check-ins](how-to/monitor/monitor-cron-jobs.fr.md)
 - [Publier une page de statut](how-to/monitor/publish-a-status-page.fr.md)
 
 *Investiguer traces, erreurs et versions*

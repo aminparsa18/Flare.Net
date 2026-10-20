@@ -68,6 +68,7 @@ export function workspaceLinks(auth: AuthState): NavLink[] {
 		{ href: '/settings/alert-templates', label: m.alertTemplates_heading() },
 		{ href: '/settings/oncall-rotations', label: m.oncall_heading() },
 		{ href: '/settings/synthetic-monitors', label: m.synthetic_heading() },
+		{ href: '/settings/checkin-monitors', label: m.checkin_heading() },
 		{ href: '/settings/status-pages', label: m.statusPages_heading() },
 		{ href: '/settings/audit-log', label: m.auditLogPage_heading() },
 		{ href: '/settings/indexing', label: m.nav_indexing() },

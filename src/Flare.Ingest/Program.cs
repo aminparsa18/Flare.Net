@@ -168,6 +168,9 @@ builder.Services.AddSingleton<IClickHouseScreenshotWriter, ClickHouseScreenshotW
 // User feedback (ADR-0193): same direct insert.
 builder.Services.AddSingleton<IClickHouseFeedbackWriter, ClickHouseFeedbackWriter>();
 
+// Cron and job check-in pings (ADR-0260): same direct insert.
+builder.Services.AddSingleton<IClickHouseCheckInWriter, ClickHouseCheckInWriter>();
+
 // Metrics - unlike spans, one shared Redis stream/flush worker for all three point
 // types (Gauge/Sum/Histogram); see MetricFlushWorker's remarks for why.
 builder.Services.AddSingleton<IMetricEventSink, RedisStreamMetricEventSink>();
@@ -293,5 +296,6 @@ app.MapGrpcService<OtlpGrpcProfilesService>();
 app.MapOtlpHttpProfilesEndpoint();
 app.MapScreenshotEndpoint();
 app.MapFeedbackEndpoint();
+app.MapCheckInEndpoint();
 
 app.Run();

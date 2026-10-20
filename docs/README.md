@@ -65,6 +65,7 @@ the full rule set on what goes where.
 - [Monitor external APIs](how-to/monitor/monitor-external-apis.md)
 - [Monitor LLM calls](how-to/monitor/monitor-llm-calls.md)
 - [Monitor endpoints, ports and certificates with synthetic probes](how-to/monitor/synthetic-monitoring.md)
+- [Monitor cron jobs and scheduled tasks with check-ins](how-to/monitor/monitor-cron-jobs.md)
 - [Publish a status page](how-to/monitor/publish-a-status-page.md)
 
 *Investigate traces, errors and releases*

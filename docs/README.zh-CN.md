@@ -66,6 +66,7 @@
 - [监控 Dapr 应用](how-to/monitor/monitor-dapr-applications.zh-CN.md)
 - [监控外部 API](how-to/monitor/monitor-external-apis.zh-CN.md)
 - [监控 LLM 调用](how-to/monitor/monitor-llm-calls.zh-CN.md)
+- [用签到监控 cron 任务和定时任务](how-to/monitor/monitor-cron-jobs.zh-CN.md)
 - [发布状态页](how-to/monitor/publish-a-status-page.zh-CN.md)
 
 *排查追踪、错误与发布*

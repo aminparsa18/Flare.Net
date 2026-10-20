@@ -120,7 +120,10 @@ export interface AlertDraftFromMetricsPanel {
 	name: string;
 	metricName: string;
 	metricType: MetricPointType;
-	/** Synthetic monitor name: filters the rule to that monitor and opens the form's "N of M locations" picker. */
+	/**
+	 * The `monitor` attribute value: filters the rule to one monitor. A synthetic monitor's name also opens the form's
+	 * "N of M locations" picker; a check-in monitor's slug (with `checkin.up`) presets "Last < 1" instead.
+	 */
 	syntheticMonitor?: string;
 }
 
