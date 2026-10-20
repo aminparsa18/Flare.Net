@@ -33,7 +33,7 @@ public interface IReleaseQueryService
 }
 
 /// <summary>The ClickHouse seam for <c>releases</c> - same CRUD-via-tombstone / <see cref="LatestVersionSql"/> pattern as <see cref="ErrorIssueQueryService"/>.</summary>
-public sealed class ReleaseQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IReleaseQueryService
+public sealed class ReleaseQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IErrorGroupingQueryService grouping) : IReleaseQueryService
 {
     private const string Columns = "Id, ServiceName, Version, CommitSha, Url, Notes, DeployedAt, CreatedBy, CreatedAt";
 
@@ -56,7 +56,7 @@ public sealed class ReleaseQueryService(IClickHouseClient client, IOptions<Query
         }
 
         var counts = new Dictionary<string, long>();
-        var built = ReleaseQueryBuilder.BuildNewErrorCounts(service, releases.Min(r => r.DeployedAt));
+        var built = ReleaseQueryBuilder.BuildNewErrorCounts(service, releases.Min(r => r.DeployedAt), await grouping.GetAsync(cancellationToken));
         await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken))
         {
             while (reader.Read())
@@ -109,7 +109,7 @@ public sealed class ReleaseQueryService(IClickHouseClient client, IOptions<Query
             return null;
         }
 
-        var built = ReleaseQueryBuilder.BuildNewErrors(service, version, release.DeployedAt);
+        var built = ReleaseQueryBuilder.BuildNewErrors(service, version, release.DeployedAt, await grouping.GetAsync(cancellationToken));
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
         var errors = new List<ReleaseNewError>();
         while (reader.Read())
@@ -135,7 +135,7 @@ public sealed class ReleaseQueryService(IClickHouseClient client, IOptions<Query
             return seen;
         }
 
-        var built = ReleaseQueryBuilder.BuildGroupsSeenInService(service, since, groups);
+        var built = ReleaseQueryBuilder.BuildGroupsSeenInService(service, since, groups, await grouping.GetAsync(cancellationToken));
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
         while (reader.Read())
         {
@@ -156,7 +156,7 @@ public sealed class ReleaseQueryService(IClickHouseClient client, IOptions<Query
         foreach (var group in recent.GroupBy(r => r.Service))
         {
             var counts = new Dictionary<string, long>();
-            var built = ReleaseQueryBuilder.BuildNewErrorCounts(group.Key, group.Min(r => r.DeployedAt));
+            var built = ReleaseQueryBuilder.BuildNewErrorCounts(group.Key, group.Min(r => r.DeployedAt), await grouping.GetAsync(cancellationToken));
             await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken))
             {
                 while (reader.Read())

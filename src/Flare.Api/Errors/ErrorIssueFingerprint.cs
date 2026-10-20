@@ -4,8 +4,8 @@ using System.Text;
 namespace Flare.Api.Errors;
 
 /// <summary>
-/// The stable identity of an exception group. Groups are exact <c>(exception.type,
-/// exception.message)</c> pairs (see <c>ExceptionGroup</c>), so the fingerprint is a hash of
+/// The stable identity of an exception group. Groups are <c>(exception.type, normalized
+/// exception.message)</c> pairs (see <c>ExceptionGroup</c>, <see cref="ErrorMessageNormalizer"/>), so the fingerprint is a hash of
 /// that pair - computed here rather than in SQL so the dashboard never needs to know it: it
 /// matches state to groups by (type, message) and the server derives the key on write.
 /// </summary>

@@ -18,14 +18,12 @@ public static class ErrorIssueEvidenceQueryBuilder
     /// <summary>How far back a group's "known versions" are collected when it is resolved.</summary>
     public static readonly TimeSpan KnownVersionsLookback = TimeSpan.FromDays(30);
 
-    private const string GroupKeySql = "concat(EventAttributes['exception.type'], char(31), EventAttributes['exception.message'])";
-
     /// <summary>
     /// Columns: group key (<see cref="ErrorIssueFingerprint.Key"/>), service.version, occurrences.
     /// Each event is compared with <em>its own</em> issue's change instant via <c>transform</c>, so
     /// one query serves every issue. Returns null when <paramref name="issues"/> is empty.
     /// </summary>
-    public static ErrorIssueSql? BuildEvidence(IReadOnlyList<ErrorIssue> issues)
+    public static ErrorIssueSql? BuildEvidence(IReadOnlyList<ErrorIssue> issues, ErrorGrouping? grouping = null)
     {
         if (issues.Count == 0)
         {
@@ -39,7 +37,7 @@ public static class ErrorIssueEvidenceQueryBuilder
         // hour of slack covers spans that started before the change but recorded the event after.
         parameters.AddParameter("from", issues.Min(i => i.StatusChangedAt).UtcDateTime.AddHours(-1));
 
-        var sql = $"SELECT {GroupKeySql} AS GroupKey, ResourceAttributes['service.version'] AS Version, count() AS Occurrences\n" +
+        var sql = $"SELECT {(grouping ?? ErrorGrouping.Default).EventKeySql()} AS GroupKey, ResourceAttributes['service.version'] AS Version, count() AS Occurrences\n" +
             "FROM spans\n" +
             "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
             "WHERE EventName = 'exception' AND StartTime >= {from:DateTime64(9)}" + ServiceScope.Suffix(parameters) + "\n" +
@@ -49,8 +47,22 @@ public static class ErrorIssueEvidenceQueryBuilder
         return new ErrorIssueSql(sql, parameters);
     }
 
+    /// <summary>
+    /// Columns: type, message, group message - each given (type, message) pair under <paramref name="grouping"/>, the form a
+    /// group is stored and keyed under. Used to canonicalize a message on write and to re-key stored issues when the rules change.
+    /// </summary>
+    public static ErrorIssueSql BuildCanonicalMessages(IReadOnlyList<(string Type, string Message)> pairs, ErrorGrouping? grouping = null)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("types", pairs.Select(p => p.Type).ToArray());
+        parameters.AddParameter("messages", pairs.Select(p => p.Message).ToArray());
+        var sql = "SELECT t, m, " + (grouping ?? ErrorGrouping.Default).Sql("t", "m") + "\n" +
+            "FROM (SELECT arrayJoin(arrayZip({types:Array(String)}, {messages:Array(String)})) AS p, p.1 AS t, p.2 AS m)";
+        return new ErrorIssueSql(sql, parameters);
+    }
+
     /// <summary>Single column: every distinct <c>service.version</c> ("" included) the group's exceptions were seen in recently.</summary>
-    public static ErrorIssueSql BuildKnownVersions(string exceptionType, string exceptionMessage, DateTimeOffset now)
+    public static ErrorIssueSql BuildKnownVersions(string exceptionType, string exceptionMessage, DateTimeOffset now, ErrorGrouping? grouping = null)
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("exceptionType", exceptionType);
@@ -61,7 +73,7 @@ public static class ErrorIssueEvidenceQueryBuilder
             "ARRAY JOIN Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
             "WHERE EventName = 'exception' AND StartTime >= {from:DateTime64(9)}" + ServiceScope.Suffix(parameters) + "\n" +
             "  AND EventAttributes['exception.type'] = {exceptionType:String}\n" +
-            "  AND EventAttributes['exception.message'] = {exceptionMessage:String}";
+            $"  AND {(grouping ?? ErrorGrouping.Default).MatchSql("exceptionType", "exceptionMessage")}";
         return new ErrorIssueSql(sql, parameters);
     }
 }

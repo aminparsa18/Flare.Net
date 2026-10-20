@@ -10,6 +10,8 @@
 	import UserIcon from '@lucide/svelte/icons/user';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import OwnershipRulesDialog from './OwnershipRulesDialog.svelte';
+	import GroupingRulesDialog from './GroupingRulesDialog.svelte';
+	import LayersIcon from '@lucide/svelte/icons/layers';
 	import { authContext } from '#lib/auth/context.ts';
 	import { errorsExplorerContext } from '#lib/errors/context.ts';
 	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '#lib/logs/time-range.ts';
@@ -19,6 +21,7 @@
 	const errors = errorsExplorerContext.get();
 	const auth = authContext.get();
 	let ownershipOpen = $state(false);
+	let groupingOpen = $state(false);
 
 	// No live-tail / custom-range calendar here - same "only fixed-duration presets make
 	// sense" call TracesToolbar's own remarks document for itself; an exceptions rollup is
@@ -113,7 +116,11 @@
 	</Button>
 
 	{#if auth.canMutate}
-		<Button variant="outline" size="sm" class="ml-auto" onclick={() => (ownershipOpen = true)}>
+		<Button variant="outline" size="sm" class="ml-auto" onclick={() => (groupingOpen = true)}>
+			<LayersIcon data-icon="inline-start" />
+			{m.errorGrouping_open()}
+		</Button>
+		<Button variant="outline" size="sm" onclick={() => (ownershipOpen = true)}>
 			<UsersIcon data-icon="inline-start" />
 			{m.errorOwnership_open()}
 		</Button>
@@ -130,3 +137,4 @@
 </div>
 
 <OwnershipRulesDialog bind:open={ownershipOpen} />
+<GroupingRulesDialog bind:open={groupingOpen} />

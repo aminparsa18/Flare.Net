@@ -44,6 +44,6 @@ Via l'API, c'est `conditionKind: "ReleaseErrors"` avec `exceptionCondition: { "e
 
 ## Limites
 
-- Seuls les événements d'exception des spans sont comptés, regroupés par type et message exacts, comme sur la page Erreurs.
+- Seuls les événements d'exception des spans sont comptés, regroupés par type et message normalisé (identifiants et nombres réduits), comme sur la page Erreurs.
 - La télémétrie sans `service.version` n'est attribuée à aucune version.
 - Les compteurs de nouvelles erreurs sont calculés à partir de vos spans au chargement de la page, pour le service sélectionné uniquement.

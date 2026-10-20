@@ -1,5 +1,6 @@
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Errors;
 using Flare.Api.Model;
 
 namespace Flare.Api.Query;
@@ -23,9 +24,9 @@ public sealed record ExceptionGroupSql(string Sql, ClickHouseParameterCollection
 /// Events.Attributes AS EventAttributes</c> re-pairs each event's own timestamp/name/
 /// attributes correctly.
 /// <para>
-/// Exact <c>(exception.type, exception.message)</c> grouping, no fingerprint/template
-/// normalization - see <see cref="ExceptionGroup"/>'s remarks for why that's a deliberate,
-/// known limitation rather than an oversight.
+/// Groups by <c>exception.type</c> and the <em>normalized</em> <c>exception.message</c>
+/// (<see cref="ErrorGrouping"/>, ADR-0258/0259), so a message carrying an id, count or GUID
+/// is one group, not one per occurrence.
 /// </para>
 /// <para>
 /// No index helps this query - same unfiltered-by-service-or-any-equality-column tradeoff
@@ -42,7 +43,7 @@ public static class ExceptionGroupQueryBuilder
     public const int DefaultTopN = 200;
     private const int MaxTopN = 1_000;
 
-    public static ExceptionGroupSql Build(ExceptionGroupsRequest request, DateTimeOffset now)
+    public static ExceptionGroupSql Build(ExceptionGroupsRequest request, DateTimeOffset now, ErrorGrouping? grouping = null)
     {
         // Same System.Text.Json init-only-property caveat SpanSearchQueryBuilder guards
         // against - request.Filter's `= new()` default doesn't survive deserialization when
@@ -54,7 +55,7 @@ public static class ExceptionGroupQueryBuilder
 
         var sql = "SELECT\n" +
             "    EventAttributes['exception.type'] AS ExceptionType,\n" +
-            "    EventAttributes['exception.message'] AS ExceptionMessage,\n" +
+            $"    {(grouping ?? ErrorGrouping.Default).EventMessageSql()} AS ExceptionMessage,\n" +
             "    count() AS OccurrenceCount,\n" +
             "    min(EventTime) AS FirstSeen,\n" +
             "    max(EventTime) AS LastSeen,\n" +

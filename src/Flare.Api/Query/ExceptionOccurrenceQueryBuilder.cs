@@ -1,5 +1,6 @@
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Errors;
 using Flare.Api.Model;
 
 namespace Flare.Api.Query;
@@ -10,8 +11,8 @@ public sealed record ExceptionOccurrenceSql(string Sql, ClickHouseParameterColle
 /// <summary>
 /// Pure <see cref="ExceptionOccurrencesRequest"/> → parameterized SQL builder for
 /// <c>POST /api/errors/occurrences</c> - the exception-groups list's click-through
-/// drill-down: every sample occurrence of one exact <c>(exception.type, exception.message)</c>
-/// pair, most recent first. Same <c>ARRAY JOIN</c> shape as
+/// drill-down: every sample occurrence of one <c>(exception.type, normalized exception.message)</c>
+/// group, most recent first. Same <c>ARRAY JOIN</c> shape as
 /// <see cref="ExceptionGroupQueryBuilder"/> (see its remarks), narrowed by two more equality
 /// predicates instead of a <c>GROUP BY</c>.
 /// </summary>
@@ -24,7 +25,7 @@ public static class ExceptionOccurrenceQueryBuilder
 {
     public const int MaxOccurrences = 50;
 
-    public static ExceptionOccurrenceSql Build(ExceptionOccurrencesRequest request, DateTimeOffset now)
+    public static ExceptionOccurrenceSql Build(ExceptionOccurrencesRequest request, DateTimeOffset now, ErrorGrouping? grouping = null)
     {
         var filterSql = ExceptionFilterSqlBuilder.Build(request.Filter ?? new ExceptionFilter(), now);
 
@@ -41,12 +42,13 @@ public static class ExceptionOccurrenceQueryBuilder
             "    EventAttributes['exception.stacktrace'] AS Stacktrace,\n" +
             "    if(ResourceAttributes['vcs.ref.head.revision'] != '', ResourceAttributes['vcs.ref.head.revision'],\n" +
             "        if(ResourceAttributes['vcs.revision'] != '', ResourceAttributes['vcs.revision'], ResourceAttributes['service.version'])) AS Revision,\n" +
-            "    ResourceAttributes['service.version'] AS ServiceVersion\n" +
+            "    ResourceAttributes['service.version'] AS ServiceVersion,\n" +
+            "    EventAttributes['exception.message'] AS Message\n" +
             "FROM spans\n" +
             "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
             $"WHERE {filterSql.WhereSql}\n" +
             "    AND EventAttributes['exception.type'] = {exceptionType:String}\n" +
-            "    AND EventAttributes['exception.message'] = {exceptionMessage:String}\n" +
+            $"    AND {(grouping ?? ErrorGrouping.Default).MatchSql("exceptionType", "exceptionMessage")}\n" +
             "ORDER BY EventTime DESC\n" +
             "LIMIT {limit:UInt32}";
 

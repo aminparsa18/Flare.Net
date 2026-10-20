@@ -110,7 +110,12 @@
 					<Table.Body>
 						{#each errors.occurrences.occurrences as occurrence (occurrence.traceId + occurrence.spanId)}
 							<Table.Row>
-								<Table.Cell class="font-medium">{occurrence.serviceName}</Table.Cell>
+								<Table.Cell class="font-medium">
+									{occurrence.serviceName}
+									{#if occurrence.message && occurrence.message !== errors.occurrences.exceptionMessage}
+										<div class="text-muted-foreground max-w-80 truncate text-xs font-normal" title={occurrence.message}>{occurrence.message}</div>
+									{/if}
+								</Table.Cell>
 								<Table.Cell class="text-muted-foreground max-w-40 truncate text-xs" title={occurrence.spanName}>
 									{occurrence.spanName}
 								</Table.Cell>

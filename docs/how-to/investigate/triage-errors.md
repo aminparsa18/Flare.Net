@@ -49,6 +49,22 @@ An exception-count notification also names who owns the error. It looks at the r
 
 An exception-count notification also names who owns the error. It looks at the rule's three most frequent groups in the window and adds an `Owner:` line with each group's assignee or, failing that, the first ownership rule that matches (service, exception type or stack-trace path), without repeating a name. The same value is available as `{{owner}}` in [notification templates](../alerting/share-alert-notification-templates.md), empty when nobody owns the groups, and the AI incident summary gets it too.
 
+## Change how errors are grouped
+
+Click **Grouping rules** on the Errors page (Member or Admin). There are three controls, applied in this order:
+
+1. **Collapse ids, numbers and quoted values** is the automatic normalization above. Turn it off if it merges errors you want apart, such as `HTTP 404` and `HTTP 500`.
+2. **Replace** rules rewrite part of every message with a regular expression ([RE2 syntax](https://github.com/google/re2/wiki/Syntax)) and a replacement, where `\1` is the first capture group. `user [a-z]+` replaced by `user <name>` makes `user alice denied` and `user bob denied` one group. Rules run in list order, after the automatic normalization, on every message regardless of exception type.
+3. **Merge** folds one group into another of the same exception type. Open a row's menu, choose **Merge into another group…** and pick the target. The merge is saved as a rule, so it also applies to future occurrences, and appears in the same dialog.
+
+Saving checks every expression. A pattern that does not compile, matches an empty string, or whose replacement matches the pattern again is rejected with the reason.
+
+Triage state follows the groups. When rules change, resolved, ignored and assigned state moves to the group its message now belongs to; when several groups become one, the most recently changed one wins. Taking a rule away, or turning the normalization off, separates groups again but does not bring back state a merged-away group had: those groups start Open.
+
 ## Limits
 
-Groups are exact type-and-message pairs. An error whose message contains a changing id appears as a new group each time, and starts Open.
+Groups are a type plus a normalized message. Before grouping, Flare replaces the variable parts of a message with placeholders: GUIDs (`<guid>`), `0x` hex values (`<hex>`), ISO-8601 timestamps (`<ts>`), quoted values (`'<s>'`) and standalone numbers (`<n>`). `Order 4812 not found` and `Order 77 not found` are one group, shown as `Order <n> not found`; open the group to see each occurrence's own message. Identifiers that merely contain digits, such as `HTTP2` or `sha256`, are left alone.
+
+A message whose variable part is a word rather than a number, id or quoted value (a user name, a host name) is not collapsed automatically; see [Change how errors are grouped](#change-how-errors-are-grouped).
+
+Triage state follows the normalized group. Upgrading re-keys state saved under the old exact messages (migration `0087`): when several old groups collapse into one, the most recently changed one wins. Exception-count alert rules match the same way, so a rule whose message is `Order 4812 not found` now also covers the other order ids.

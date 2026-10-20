@@ -24,11 +24,11 @@ public interface IExceptionQueryService
 /// aggregate vs. a whole-span search) diverge enough to cost more shared-code complexity than
 /// they'd save.
 /// </summary>
-public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IErrorIssueQueryService errorIssues, IErrorOwnershipQueryService ownership) : IExceptionQueryService
+public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IErrorIssueQueryService errorIssues, IErrorOwnershipQueryService ownership, IErrorGroupingQueryService grouping) : IExceptionQueryService
 {
     public async Task<ExceptionGroupsResponse> GetGroupsAsync(ExceptionGroupsRequest request, CancellationToken cancellationToken)
     {
-        var built = ExceptionGroupQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = ExceptionGroupQueryBuilder.Build(request, timeProvider.GetUtcNow(), await grouping.GetAsync(cancellationToken));
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -77,7 +77,7 @@ public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<Que
 
     public async Task<ExceptionOccurrencesResponse> GetOccurrencesAsync(ExceptionOccurrencesRequest request, CancellationToken cancellationToken)
     {
-        var built = ExceptionOccurrenceQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = ExceptionOccurrenceQueryBuilder.Build(request, timeProvider.GetUtcNow(), await grouping.GetAsync(cancellationToken));
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -94,6 +94,7 @@ public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<Que
                 Stacktrace = reader.GetString(5),
                 Revision = reader.GetString(6),
                 ServiceVersion = reader.GetString(7),
+                Message = reader.GetString(8),
             });
         }
 

@@ -8,6 +8,7 @@
 	import { errorsExplorerContext } from '#lib/errors/context.ts';
 	import { authContext } from '#lib/auth/context.ts';
 	import LinkIssueDialog from './LinkIssueDialog.svelte';
+	import MergeGroupDialog from './MergeGroupDialog.svelte';
 	import { buildGitHubIssueUrl } from '#lib/errors/issue-links.ts';
 	import type { ExceptionGroup } from '#lib/errors-api.ts';
 	import * as m from '#lib/paraglide/messages.js';
@@ -24,6 +25,7 @@
 
 	const issueUrl = $derived(errors.issueFor(group)?.issueUrl ?? '');
 	let linkOpen = $state(false);
+	let mergeOpen = $state(false);
 
 	// The prefilled new-issue page of the first affected service whose source repo is on GitHub (ADR-0195).
 	const newGitHubIssueUrl = $derived(
@@ -74,6 +76,7 @@
 		{#if issueUrl}
 			<DropdownMenu.Item onclick={() => errors.updateIssue(group, { issueUrl: '' })}>{m.errorIssue_removeLink()}</DropdownMenu.Item>
 		{/if}
+		<DropdownMenu.Item onclick={() => (mergeOpen = true)}>{m.errorGrouping_mergeMenu()}</DropdownMenu.Item>
 		{#if me || assignee}
 			<DropdownMenu.Separator />
 			{#if me && assignee !== me}
@@ -86,4 +89,5 @@
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
 
+<MergeGroupDialog bind:open={mergeOpen} {group} />
 <LinkIssueDialog bind:open={linkOpen} current={issueUrl} onSave={(url) => errors.updateIssue(group, { issueUrl: url })} />
