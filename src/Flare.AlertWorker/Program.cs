@@ -3,6 +3,7 @@ using Flare.Api.Alerting;
 using Flare.Api.Query;
 using Microsoft.AspNetCore.DataProtection;
 using Flare.AlertWorker.Alerting;
+using Flare.AlertWorker.CheckIns;
 using Flare.AlertWorker.Synthetic;
 using Flare.AlertWorker.Reports;
 using Flare.AlertWorker.Archive;
@@ -107,6 +108,12 @@ builder.Services.AddHttpClient(SyntheticProber.HttpClientName).RemoveAllResilien
 builder.Services.AddSingleton<SyntheticProber>();
 builder.Services.AddSingleton<SyntheticResultWriter>();
 builder.Services.AddHostedService<SyntheticProbeWorker>();
+
+// Cron and job check-ins (ADR-0260): pings arrive at Flare.Ingest; this judges them against each monitor's schedule.
+builder.Services.Configure<CheckInOptions>(builder.Configuration.GetSection(CheckInOptions.SectionName));
+builder.Services.AddSingleton<ICheckInMonitorQueryService, CheckInMonitorQueryService>();
+builder.Services.AddSingleton<CheckInResultWriter>();
+builder.Services.AddHostedService<CheckInWorker>();
 
 // Scheduled dashboard reports (ADR-0142). Off unless Reports:Enabled; renders need a Chromium (see the how-to).
 builder.Services.Configure<ReportsOptions>(builder.Configuration.GetSection(ReportsOptions.SectionName));

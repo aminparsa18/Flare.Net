@@ -518,6 +518,8 @@ builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQuerySe
 builder.Services.AddSingleton<IDashboardScheduleQueryService, DashboardScheduleQueryService>();
 // Synthetic monitors (ADR-0128) - CRUD here; Flare.AlertWorker runs the probes.
 builder.Services.AddSingleton<ISyntheticMonitorQueryService, SyntheticMonitorQueryService>();
+// Cron and job check-ins (ADR-0260) - CRUD here; Flare.Ingest takes the pings, Flare.AlertWorker judges them.
+builder.Services.AddSingleton<ICheckInMonitorQueryService, CheckInMonitorQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IStatusPageQueryService, StatusPageQueryService>();
@@ -651,6 +653,7 @@ authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSourceLinkReadEndpoints();
 authenticatedRoutes.MapSourceMapReadEndpoints();
 authenticatedRoutes.MapAiEndpoints();
+authenticatedRoutes.MapCheckInMonitorReadEndpoints();
 authenticatedRoutes.MapHostInventoryEndpoints();
 authenticatedRoutes.MapMetricCatalogEndpoints();
 authenticatedRoutes.MapPodMetricsEndpoints();
@@ -710,6 +713,7 @@ memberRoutes.MapOnCallRotationEndpoints();
 memberRoutes.MapDashboardScheduleEndpoints();
 // Same Member/Admin-only rationale - a monitor makes this server send requests to the target it names.
 memberRoutes.MapSyntheticMonitorEndpoints();
+memberRoutes.MapCheckInMonitorWriteEndpoints();
 // Same Member/Admin-only rationale - an SLO's burn-rate rules page people; reads are on authenticatedRoutes.
 memberRoutes.MapSloWriteEndpoints();
 // Same Member/Admin-only rationale - ignoring an error group silences exception-count alert rules.

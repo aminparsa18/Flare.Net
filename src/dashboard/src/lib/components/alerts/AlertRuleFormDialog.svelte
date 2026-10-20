@@ -303,7 +303,14 @@
 					metricAggregation = AGGREGATIONS_BY_TYPE[draft.metricType][0];
 					if (draft.syntheticMonitor) {
 						metricFilter = { attributes: [{ key: 'monitor', value: draft.syntheticMonitor }] };
-						quorumPending = true;
+						if (draft.metricName === 'checkin.up') {
+							// A check-in monitor is down when its latest checkin.up point is 0 (ADR-0260); there are no locations to count.
+							metricAggregation = 'Last';
+							comparator = 'LessThan';
+							metricThresholdValueText = '1';
+						} else {
+							quorumPending = true;
+						}
 					}
 				}
 				alerts.createDraft = null;

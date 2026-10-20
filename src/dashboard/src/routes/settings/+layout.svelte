@@ -20,6 +20,7 @@
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
 	import PhoneCallIcon from '@lucide/svelte/icons/phone-call';
 	import RadarIcon from '@lucide/svelte/icons/radar';
+	import HeartPulseIcon from '@lucide/svelte/icons/heart-pulse';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import SendIcon from '@lucide/svelte/icons/send';
@@ -52,6 +53,7 @@
 		'/settings/alert-templates': FileTextIcon,
 		'/settings/oncall-rotations': PhoneCallIcon,
 		'/settings/synthetic-monitors': RadarIcon,
+		'/settings/checkin-monitors': HeartPulseIcon,
 		'/settings/status-pages': GlobeIcon,
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': LayersIcon,

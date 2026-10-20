@@ -66,6 +66,7 @@
 - [Мониторинг приложений Dapr](how-to/monitor/monitor-dapr-applications.ru.md)
 - [Мониторинг внешних API](how-to/monitor/monitor-external-apis.ru.md)
 - [Отслеживание вызовов LLM](how-to/monitor/monitor-llm-calls.ru.md)
+- [Как следить за cron-заданиями и задачами по расписанию с помощью check-in](how-to/monitor/monitor-cron-jobs.ru.md)
 - [Как опубликовать страницу статуса](how-to/monitor/publish-a-status-page.ru.md)
 
 *Анализ трассировок, ошибок и релизов*
