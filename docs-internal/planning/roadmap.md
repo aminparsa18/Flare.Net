@@ -88,9 +88,9 @@ folders are where "what happened and why" actually lives.
     rollback.
 - **Error tracking closer to Sentry.** The scope boundary is in
   [the architecture page's non-goals](../../docs/explanation/architecture.md#non-goals). In rough priority order:
-  - **Check-in follow-ups** ([ADR-0260](../adr/0260-cron-job-checkins.md)): a Terraform resource and an MCP tool
-    (the `flare checkin-monitors` CLI is done); a per-monitor run history (durations, recent pings) on the page; auto-creating a
-    monitor on first ping; check-ins as status page components.
+  - **Check-in follow-ups** ([ADR-0260](../adr/0260-cron-job-checkins.md)): a Terraform resource (the CLI and
+    the `list_checkin_monitors` MCP tool are done); a per-monitor run history (durations, recent pings) on the page;
+    auto-creating a monitor on first ping; check-ins as status page components.
   - **Suspect commits.** Releases carry a commit and services can have source links ([ADR-0095](../adr/0095-exception-source-links.md)),
     but nothing maps a new error group to the commit or author that introduced it.
   - **Browser session replay**, on the pattern of the MAUI replay-lite ([ADR-0192](../adr/0192-maui-session-replay-lite.md)).

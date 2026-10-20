@@ -132,4 +132,37 @@ public class FlareMcpToolsTests
         Assert.Contains("Checkout errors: fired", text);
         Assert.Contains("AI summary (m1): Payments failing. Check provider.", text);
     }
+
+    private const string CheckInList = """
+        {"monitors":[
+          {"id":"1456d212-b231-48cf-b0a0-593d09f8739f","slug":"alpha","name":"Alpha sync","cronExpression":"","intervalSeconds":300,"timeZone":"UTC","graceSeconds":60,"status":{"state":"Ok","lastPing":"2026-10-20T10:00:00+00:00","nextExpected":"2026-10-20T10:05:00+00:00","up":true}},
+          {"id":"2456d212-b231-48cf-b0a0-593d09f8739f","slug":"nightly-backup","name":"Nightly backup","cronExpression":"0 2 * * *","intervalSeconds":0,"timeZone":"Europe/Berlin","graceSeconds":600,"status":{"state":"Late","lastPing":null,"nextExpected":"2026-10-20T00:00:00+00:00","up":false}}]}
+        """;
+
+    [Fact]
+    public async Task ListCheckInMonitors_ListsUnhealthyFirstWithSchedule()
+    {
+        var text = await Tools(new StubHandler(_ => Json(CheckInList))).ListCheckInMonitors();
+
+        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.StartsWith("Nightly backup [nightly-backup]: late schedule=0 2 * * * Europe/Berlin grace=600s last=- next=2026-10-20 00:00:00Z", lines[0]);
+        Assert.StartsWith("Alpha sync [alpha]: ok schedule=every 300s", lines[1]);
+    }
+
+    [Fact]
+    public async Task ListCheckInMonitors_UnhealthyOnly_FiltersHealthy()
+    {
+        var text = await Tools(new StubHandler(_ => Json(CheckInList))).ListCheckInMonitors(unhealthyOnly: true);
+
+        Assert.Contains("Nightly backup", text);
+        Assert.DoesNotContain("Alpha sync", text);
+    }
+
+    [Fact]
+    public async Task ListCheckInMonitors_None_SaysSo()
+    {
+        var text = await Tools(new StubHandler(_ => Json("""{"monitors":[]}"""))).ListCheckInMonitors();
+
+        Assert.Equal("No check-in monitors configured.", text);
+    }
 }

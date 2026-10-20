@@ -53,6 +53,7 @@ pour qu'un système chargé ne submerge pas le contexte de l'assistant.
 | `query_metric` | Une métrique résumée par série : première/dernière/min/moyenne/max, ou percentiles pour les histogrammes. |
 | `list_exceptions` | Principaux groupes d'exceptions avec nombres et services touchés. |
 | `list_firing_alerts` | Règles d'alerte actuellement déclenchées, avec le résumé IA de l'incident s'il est [activé](../alerting/summarize-alerts-with-ai.fr.md). |
+| `list_checkin_monitors` | [Moniteurs de check-in](../monitor/monitor-cron-jobs.fr.md) des tâches cron et planifiées avec leur état (ok, late, failed, overran), leur planification, le dernier ping et le prochain attendu. Les moniteurs en défaut d'abord. |
 | `list_runs` | Quand un service a démarré pour la dernière fois, et les démarrages précédents. |
 | `diff_traces` | Deux traces comparées : spans ajoutés/retirés, changements de durée et d'erreurs. |
 | `compare_runs` | Le même point d'entrée lors de l'exécution précédente du service et de la plus récente, comparés. |
