@@ -25,6 +25,8 @@ curl -X POST "$FLARE_API/api/checkin-monitors" \
 
 `GET`, `PUT` and `DELETE` on `/api/checkin-monitors/{id}` read, change and remove one. Everyone signed in can list monitors; creating, changing and deleting need the Member or Admin role.
 
+From a terminal, `flare checkin-monitors create "Nightly backup" --cron "0 2 * * *" --timezone Europe/Berlin --grace 600 --max-runtime 3600` does the same against a local Flare, and `list`, `update` and `delete` manage the rest; `list` shows each monitor's state and its last and next expected ping. See the [CLI reference](../../reference/cli-commands.md).
+
 ## Send check-ins from the job
 
 The job calls `Flare.Ingest` on the HTTP port (4318 by default) with an [ingest key](../admin/configure-authentication.md), the same credential your OpenTelemetry exporters use. A bare path is a success; `/start` and `/fail` are the other two:

@@ -25,6 +25,8 @@ curl -X POST "$FLARE_API/api/checkin-monitors" \
 
 `GET`, `PUT` и `DELETE` для `/api/checkin-monitors/{id}` читают, изменяют и удаляют монитор. Список мониторов доступен всем вошедшим пользователям; создание, изменение и удаление требуют роли Member или Admin.
 
+Из терминала `flare checkin-monitors create "Nightly backup" --cron "0 2 * * *" --timezone Europe/Berlin --grace 600 --max-runtime 3600` делает то же самое для локального Flare, а `list`, `update` и `delete` управляют остальным; `list` показывает состояние каждого монитора, его последний и ожидаемый следующий пинг. См. [справочник CLI](../../reference/cli-commands.ru.md).
+
 ## Отправка check-in из задания
 
 Задание обращается к `Flare.Ingest` на HTTP-порт (по умолчанию 4318) с [ключом приёма](../admin/configure-authentication.ru.md) — тем же, что используют ваши экспортёры OpenTelemetry. Путь без суффикса означает успех; `/start` и `/fail` — два остальных:
