@@ -1,3 +1,4 @@
+using Flare.Api.Errors;
 using Flare.Api.Model;
 using Flare.Api.Query;
 using Xunit;
@@ -29,6 +30,7 @@ public class ExceptionOccurrenceQueryBuilderTests
         Assert.Contains("EventAttributes['exception.stacktrace'] AS Stacktrace", result.Sql);
         Assert.Contains("ResourceAttributes['vcs.revision']", result.Sql);
         Assert.Contains("ResourceAttributes['service.version'])) AS Revision", result.Sql);
+        Assert.Contains("EventAttributes['exception.message'] AS Message", result.Sql);
         Assert.Contains("FROM spans", result.Sql);
         Assert.Contains("ORDER BY EventTime DESC", result.Sql);
     }
@@ -39,7 +41,7 @@ public class ExceptionOccurrenceQueryBuilderTests
         var result = ExceptionOccurrenceQueryBuilder.Build(Request(), Now);
 
         Assert.Contains("EventAttributes['exception.type'] = {exceptionType:String}", result.Sql);
-        Assert.Contains("EventAttributes['exception.message'] = {exceptionMessage:String}", result.Sql);
+        Assert.Contains(ErrorMessageNormalizer.MatchSql("EventAttributes['exception.message']", "exceptionMessage"), result.Sql);
 
         var parameters = result.Parameters.ToDictionary();
         Assert.Equal("System.NullReferenceException", parameters["exceptionType"]);

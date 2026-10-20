@@ -108,7 +108,7 @@ export async function getExceptionGroups(request: ExceptionGroupsRequest = {}, s
 
 // ---- POST /api/errors/occurrences (ExceptionOccurrencesRequest/Response) --
 // One exception group's click-through drill-down - sample occurrences (trace/span to jump
-// to, plus the stack trace) for one exact (exceptionType, exceptionMessage) pair.
+// to, plus the stack trace) for one (exceptionType, normalized exceptionMessage) group.
 
 export interface ExceptionOccurrence {
 	traceId: string;
@@ -121,6 +121,8 @@ export interface ExceptionOccurrence {
 	revision: string;
 	/** True when the stack trace was rewritten from an uploaded source map (ADR-0152). */
 	symbolicated: boolean;
+	/** This occurrence's own message; the group's message is a normalized template (ADR-0258). */
+	message: string;
 }
 
 function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccurrence {
@@ -132,7 +134,8 @@ function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccu
 		timestamp: dto.timestamp.toISOString(),
 		stacktrace: dto.stacktrace ?? '',
 		revision: dto.revision ?? '',
-		symbolicated: dto.symbolicated
+		symbolicated: dto.symbolicated,
+		message: dto.message ?? ''
 	};
 }
 

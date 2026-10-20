@@ -21,6 +21,9 @@ public interface IErrorIssueQueryService
 
     /// <summary>Explicit assignee per group, keyed by <see cref="ErrorIssueFingerprint.Key"/>; unassigned groups are absent.</summary>
     Task<IReadOnlyDictionary<string, string>> ListAssigneesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Moves every stored issue to the group its message belongs to under the current grouping rules (ADR-0259). Call after the rules change.</summary>
+    Task RekeyAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -28,7 +31,7 @@ public interface IErrorIssueQueryService
 /// pattern as <see cref="MaintenanceWindowQueryService"/>, plus the evidence read that turns stored
 /// state into an effective status (<see cref="ErrorIssueEvaluator"/>).
 /// </summary>
-public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IErrorIssueQueryService
+public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IErrorGroupingQueryService grouping) : IErrorIssueQueryService
 {
     private const string IssueColumns =
         "Id, ExceptionType, ExceptionMessage, Status, Assignee, StatusChangedAt, StatusChangedBy, IgnoreUntil, IgnoreUntilOccurrences, KnownVersions, CreatedAt, UpdatedAt, IssueUrl";
@@ -59,6 +62,8 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
     public async Task<ErrorIssue?> UpsertAsync(ErrorIssueRequest request, string changedBy, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
+        // A group's message is its grouped form (ADR-0258, ADR-0259); accept a raw message from API callers too.
+        request = request with { ExceptionMessage = (await CanonicalMessagesAsync([(request.ExceptionType, request.ExceptionMessage)], cancellationToken)).GetValueOrDefault((request.ExceptionType, request.ExceptionMessage), request.ExceptionMessage) };
         var id = ErrorIssueFingerprint.Compute(request.ExceptionType, request.ExceptionMessage);
         var existing = await GetStoredAsync(id, cancellationToken);
 
@@ -104,7 +109,7 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
         // Only Resolved and count-limited Ignored issues need to look at spans.
         var needEvidence = stored.Where(i => i.Status == ErrorIssueStatus.Resolved || (i.Status == ErrorIssueStatus.Ignored && i.IgnoreUntilOccurrences is not null)).ToList();
         var evidence = new Dictionary<string, List<ErrorIssueEvidence>>();
-        if (ErrorIssueEvidenceQueryBuilder.BuildEvidence(needEvidence) is { } built)
+        if (ErrorIssueEvidenceQueryBuilder.BuildEvidence(needEvidence, await grouping.GetAsync(cancellationToken)) is { } built)
         {
             await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
             while (reader.Read())
@@ -127,9 +132,46 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
             .ToList();
     }
 
+    public async Task RekeyAsync(CancellationToken cancellationToken)
+    {
+        var stored = await ReadStoredAsync(cancellationToken);
+        if (stored.Count == 0)
+        {
+            return;
+        }
+
+        var canonical = await CanonicalMessagesAsync(stored.Select(i => (i.ExceptionType, i.ExceptionMessage)).Distinct().ToList(), cancellationToken);
+        var newMessages = stored.ToDictionary(i => i.Id, i => canonical.GetValueOrDefault((i.ExceptionType, i.ExceptionMessage), i.ExceptionMessage));
+        var plan = ErrorIssueRekey.Plan(stored, newMessages, timeProvider.GetUtcNow());
+
+        var byId = stored.ToDictionary(i => i.Id);
+        foreach (var id in plan.Tombstones)
+        {
+            await InsertVersionAsync(byId[id] with { UpdatedAt = timeProvider.GetUtcNow() }, isDeleted: true, cancellationToken);
+        }
+
+        foreach (var issue in plan.Writes)
+        {
+            await InsertVersionAsync(issue, isDeleted: false, cancellationToken);
+        }
+    }
+
+    private async Task<Dictionary<(string Type, string Message), string>> CanonicalMessagesAsync(IReadOnlyList<(string Type, string Message)> pairs, CancellationToken cancellationToken)
+    {
+        var built = ErrorIssueEvidenceQueryBuilder.BuildCanonicalMessages(pairs, await grouping.GetAsync(cancellationToken));
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+        var result = new Dictionary<(string, string), string>();
+        while (reader.Read())
+        {
+            result[(reader.GetString(0), reader.GetString(1))] = reader.GetString(2);
+        }
+
+        return result;
+    }
+
     private async Task<IReadOnlyList<string>> ReadKnownVersionsAsync(ErrorIssueRequest request, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var built = ErrorIssueEvidenceQueryBuilder.BuildKnownVersions(request.ExceptionType, request.ExceptionMessage, now);
+        var built = ErrorIssueEvidenceQueryBuilder.BuildKnownVersions(request.ExceptionType, request.ExceptionMessage, now, await grouping.GetAsync(cancellationToken));
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
         var versions = new List<string>();
         while (reader.Read())

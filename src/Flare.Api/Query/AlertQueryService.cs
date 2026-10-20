@@ -125,7 +125,7 @@ public interface IAlertQueryService
 /// back immediately" CRUD). All reads go through <see cref="LatestVersionSql"/>
 /// (latest version per Id, then <c>IsDeleted = 0</c>). See db/clickhouse/0003_alert_rules.sql for the full rationale.
 /// </remarks>
-public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues, INotificationSecretProtector secrets) : IAlertQueryService
+public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues, INotificationSecretProtector secrets, IErrorGroupingQueryService errorGrouping) : IAlertQueryService
 {
     private const string RuleColumns =
         "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson, ProjectId, EscalateAfterMinutes, EscalationChannelIds, EscalationRotationId, SecondEscalateAfterMinutes, SecondEscalationChannelIds, NotificationTemplateId";
@@ -460,7 +460,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
     {
         // Groups an operator ignored on /errors (ADR-0121) don't count towards the rule.
         var ignored = await errorIssues.ListIgnoredKeysAsync(cancellationToken);
-        var built = ExceptionCountConditionQueryBuilder.Build(condition, from, to, ignored);
+        var built = ExceptionCountConditionQueryBuilder.Build(condition, from, to, ignored, await errorGrouping.GetAsync(cancellationToken));
         var result = await client.ExecuteScalarAsync(built.Sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
         return ToUInt64(result);
     }

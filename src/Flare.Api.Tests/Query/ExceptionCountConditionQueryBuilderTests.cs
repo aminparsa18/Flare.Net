@@ -1,3 +1,4 @@
+using Flare.Api.Errors;
 using Flare.Api.Model;
 using Flare.Api.Query;
 using Xunit;
@@ -51,7 +52,7 @@ public class ExceptionCountConditionQueryBuilderTests
             From,
             To);
 
-        Assert.Contains("EventAttributes['exception.message'] = {exceptionMessage:String}", result.Sql);
+        Assert.Contains(ErrorMessageNormalizer.MatchSql("EventAttributes['exception.message']", "exceptionMessage"), result.Sql);
         Assert.Equal("Object reference not set", result.Parameters.ToDictionary()["exceptionMessage"]);
     }
 

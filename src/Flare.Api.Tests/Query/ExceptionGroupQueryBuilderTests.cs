@@ -1,3 +1,4 @@
+using Flare.Api.Errors;
 using Flare.Api.Model;
 using Flare.Api.Query;
 using Xunit;
@@ -15,7 +16,7 @@ public class ExceptionGroupQueryBuilderTests
 
         Assert.Contains("ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes", result.Sql);
         Assert.Contains("EventAttributes['exception.type'] AS ExceptionType", result.Sql);
-        Assert.Contains("EventAttributes['exception.message'] AS ExceptionMessage", result.Sql);
+        Assert.Contains(ErrorMessageNormalizer.Sql("EventAttributes['exception.message']") + " AS ExceptionMessage", result.Sql);
         Assert.Contains("count() AS OccurrenceCount", result.Sql);
         Assert.Contains("min(EventTime) AS FirstSeen", result.Sql);
         Assert.Contains("max(EventTime) AS LastSeen", result.Sql);

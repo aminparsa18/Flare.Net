@@ -13,6 +13,7 @@ import {
 	type ExceptionOccurrencesResponse
 } from '#lib/errors-api.ts';
 import { listOwnershipRules, replaceOwnershipRules } from '#lib/error-ownership-api.ts';
+import { getErrorGrouping, replaceErrorGrouping, type ErrorGroupingDocument } from '#lib/error-grouping-api.ts';
 import { listSourceLinks } from '#lib/source-links-api.ts';
 import { ownerFromRules, type OwnershipRule } from '#lib/errors/ownership.ts';
 import type { SourceLinkConfig } from '#lib/errors/source-links.ts';
@@ -90,6 +91,9 @@ export class ErrorsExplorerState {
 	/** Ownership rules (ADR-0195) in match order; best-effort like `issues`. */
 	ownershipRules = $state.raw<OwnershipRule[]>([]);
 
+	/** Grouping rules (ADR-0258, ADR-0259): the normalization switch, custom replacements and merges; best-effort like `issues`. */
+	grouping = $state.raw<ErrorGroupingDocument>({ normalizeMessages: true, rules: [] });
+
 	/** Per-service source repos (ADR-0095), read to offer "new GitHub issue" for a group; best-effort. */
 	sourceLinks = $state.raw<SourceLinkConfig[]>([]);
 
@@ -153,15 +157,17 @@ export class ErrorsExplorerState {
 			const range = this.currentRange();
 			// Triage state is best-effort: a failed read leaves every group looking Open
 			// rather than failing the whole page.
-			const [res, issues, rules, links] = await Promise.all([
+			const [res, issues, rules, links, grouping] = await Promise.all([
 				getExceptionGroups({ filter: this.buildFilter(range), topN }, abort.signal),
 				listErrorIssues(abort.signal).catch(() => null),
 				listOwnershipRules(abort.signal).catch(() => null),
-				listSourceLinks(abort.signal).catch(() => null)
+				listSourceLinks(abort.signal).catch(() => null),
+				getErrorGrouping(abort.signal).catch(() => null)
 			]);
 			if (abort.signal.aborted) return;
 			if (rules) this.ownershipRules = rules;
 			if (links) this.sourceLinks = links;
+			if (grouping) this.grouping = grouping;
 			if (issues) this.issues = new Map(issues.map((i) => [issueKey(i.exceptionType, i.exceptionMessage), i]));
 			this.groups = res.groups;
 			this.searchedRange = range;
@@ -238,6 +244,26 @@ export class ErrorsExplorerState {
 	/** Saves the whole rule list and adopts the server's copy. Throws on failure so the editor can show it. */
 	async saveOwnershipRules(rules: OwnershipRule[]): Promise<void> {
 		this.ownershipRules = await replaceOwnershipRules(rules);
+	}
+
+	/**
+	 * Saves the grouping configuration. The server re-keys triage state to the new groups, so the table and the
+	 * state are fetched again. Throws on failure (a bad regular expression comes back as the message) so the editor can show it.
+	 */
+	async saveGrouping(document: ErrorGroupingDocument): Promise<void> {
+		this.grouping = await replaceErrorGrouping(document);
+		await this.runSearch();
+	}
+
+	/** Folds `source` into `target` (same exception type): a Merge rule, applied by a normal save. */
+	async mergeGroups(source: ExceptionGroup, target: ExceptionGroup): Promise<void> {
+		await this.saveGrouping({
+			...this.grouping,
+			rules: [
+				...this.grouping.rules,
+				{ kind: 'Merge', exceptionType: source.exceptionType, pattern: source.exceptionMessage, replacement: target.exceptionMessage }
+			]
+		});
 	}
 
 	statusOf(group: ExceptionGroup): ErrorIssueStatus {

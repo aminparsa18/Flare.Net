@@ -1,5 +1,6 @@
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Errors;
 using Flare.Api.Model;
 
 namespace Flare.Api.Query;
@@ -22,8 +23,8 @@ public sealed record ExceptionCountConditionSql(string Sql, ClickHouseParameterC
 public static class ExceptionCountConditionQueryBuilder
 {
     /// <param name="ignoredGroupKeys"><see cref="Errors.ErrorIssueFingerprint.Key"/> of groups an operator ignored (<c>error_issues</c>); their events are not counted. Null/empty = count everything.</param>
-    public static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, IReadOnlyList<string>? ignoredGroupKeys = null) =>
-        Build(condition, from, to, "count()", "", ignoredGroupKeys);
+    public static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, IReadOnlyList<string>? ignoredGroupKeys = null, ErrorGrouping? grouping = null) =>
+        Build(condition, from, to, "count()", "", ignoredGroupKeys, grouping ?? ErrorGrouping.Default);
 
     /// <summary>
     /// The matching occurrences grouped by (type, message), most frequent first - the incident
@@ -31,16 +32,17 @@ public static class ExceptionCountConditionQueryBuilder
     /// Columns: type, message, count, service, a sample trace id (or ""), every affected service, and a sample stack trace
     /// (the same expression the Errors page uses, so ownership rules can match its paths - ADR-0197).
     /// </summary>
-    public static ExceptionCountConditionSql BuildTopGroups(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, int limit, IReadOnlyList<string>? ignoredGroupKeys = null) =>
+    public static ExceptionCountConditionSql BuildTopGroups(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, int limit, IReadOnlyList<string>? ignoredGroupKeys = null, ErrorGrouping? grouping = null) =>
         Build(
             condition,
             from,
             to,
-            "EventAttributes['exception.type'] AS ExType, EventAttributes['exception.message'] AS ExMessage, count() AS Occurrences, any(ServiceName), anyIf(TraceId, TraceId != ''), groupUniqArray(ServiceName), substring(anyIf(EventAttributes['exception.stacktrace'], EventAttributes['exception.stacktrace'] != ''), 1, 16000)",
+            $"EventAttributes['exception.type'] AS ExType, {(grouping ?? ErrorGrouping.Default).EventMessageSql()} AS ExMessage, count() AS Occurrences, any(ServiceName), anyIf(TraceId, TraceId != ''), groupUniqArray(ServiceName), substring(anyIf(EventAttributes['exception.stacktrace'], EventAttributes['exception.stacktrace'] != ''), 1, 16000)",
             $"\nGROUP BY ExType, ExMessage ORDER BY Occurrences DESC LIMIT {Math.Clamp(limit, 1, 50)}",
-            ignoredGroupKeys);
+            ignoredGroupKeys,
+            grouping ?? ErrorGrouping.Default);
 
-    private static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, string select, string suffix, IReadOnlyList<string>? ignoredGroupKeys)
+    private static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, string select, string suffix, IReadOnlyList<string>? ignoredGroupKeys, ErrorGrouping grouping)
     {
         // Same System.Text.Json init-only-property caveat MetricAlertConditionQueryBuilder
         // guards against - condition.Filter's `= new()` default doesn't survive
@@ -56,13 +58,13 @@ public static class ExceptionCountConditionQueryBuilder
         if (!string.IsNullOrEmpty(condition.ExceptionMessage))
         {
             filterSql.Parameters.AddParameter("exceptionMessage", condition.ExceptionMessage);
-            clauses += " AND EventAttributes['exception.message'] = {exceptionMessage:String}";
+            clauses += $" AND {grouping.MatchSql("exceptionType", "exceptionMessage")}";
         }
 
         if (ignoredGroupKeys is { Count: > 0 })
         {
             filterSql.Parameters.AddParameter("ignoredGroupKeys", ignoredGroupKeys.ToArray());
-            clauses += " AND concat(EventAttributes['exception.type'], char(31), EventAttributes['exception.message']) NOT IN {ignoredGroupKeys:Array(String)}";
+            clauses += $" AND {grouping.EventKeySql()} NOT IN {{ignoredGroupKeys:Array(String)}}";
         }
 
         var sql = $"SELECT {select} FROM spans\n" +

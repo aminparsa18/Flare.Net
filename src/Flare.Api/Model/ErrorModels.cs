@@ -46,11 +46,11 @@ public sealed partial record ExceptionGroupsRequest
 }
 
 /// <summary>
-/// One (ExceptionType, ExceptionMessage) group - exact-match grouping, no fingerprint/
-/// template normalization (unlike logs' Drain-clustered <see cref="LogPatternRow"/>, which
-/// this type otherwise mirrors closely: same Count/FirstSeen/LastSeen shape). Matches the
-/// roadmap item's literal "type/message" ask; normalizing messages that differ only by an
-/// embedded id/value is a known follow-up, not attempted here.
+/// One (ExceptionType, ExceptionMessage) group. <see cref="ExceptionMessage"/> is the message
+/// with its variable parts (GUIDs, numbers, quoted values) replaced by placeholders
+/// (<see cref="Errors.ErrorMessageNormalizer"/>, ADR-0258), so occurrences that differ only by
+/// an id share a group. Mirrors logs' <see cref="LogPatternRow"/> otherwise: same
+/// Count/FirstSeen/LastSeen shape.
 /// </summary>
 [MemoryPackable]
 public sealed partial record ExceptionGroup
@@ -58,7 +58,7 @@ public sealed partial record ExceptionGroup
     /// <summary>The <c>exception.type</c> event attribute, e.g. <c>"System.NullReferenceException"</c>. Never empty - the query only groups events that set this attribute.</summary>
     public required string ExceptionType { get; init; }
 
-    /// <summary><c>exception.message</c>. May be empty - unlike <see cref="ExceptionType"/>, OTel's semantic conventions don't require it.</summary>
+    /// <summary>The normalized <c>exception.message</c> (the group's template). May be empty - unlike <see cref="ExceptionType"/>, OTel's semantic conventions don't require it.</summary>
     public required string ExceptionMessage { get; init; }
 
     public required ulong OccurrenceCount { get; init; }
@@ -134,6 +134,9 @@ public sealed partial record ExceptionOccurrence
 
     /// <summary>True when <see cref="Stacktrace"/> was rewritten from an uploaded source map (browser frames mapped back to original sources).</summary>
     public bool Symbolicated { get; init; }
+
+    /// <summary>This occurrence's own <c>exception.message</c>, un-normalized: the group's message is a template (ADR-0258), this is the concrete id/value that produced it. Last member on purpose - MemoryPack tolerates trailing additions.</summary>
+    public string Message { get; init; } = "";
 }
 
 /// <summary>

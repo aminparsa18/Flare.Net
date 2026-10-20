@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Errors;
 
 namespace Flare.Api.Query;
 
@@ -30,24 +31,24 @@ public static class ReleaseQueryBuilder
     /// Columns: first version, number of groups first seen under it. One row per version that
     /// introduced anything; the caller keeps the versions it has marked as releases.
     /// </summary>
-    public static ReleaseSql BuildNewErrorCounts(string service, DateTimeOffset earliestDeploy)
+    public static ReleaseSql BuildNewErrorCounts(string service, DateTimeOffset earliestDeploy, ErrorGrouping? grouping = null)
     {
         var parameters = Parameters(service, earliestDeploy);
         var sql = "SELECT FirstVersion, count() AS Groups\n" +
-            $"FROM (\n{FirstSeenSelect(parameters)}\n)\n" +
+            $"FROM (\n{FirstSeenSelect(parameters, grouping ?? ErrorGrouping.Default)}\n)\n" +
             "WHERE FirstVersion != ''\n" +
             "GROUP BY FirstVersion";
         return new ReleaseSql(sql, parameters);
     }
 
     /// <summary>Columns: type, message, occurrences, first seen, last seen - the groups one version introduced, most frequent first.</summary>
-    public static ReleaseSql BuildNewErrors(string service, string version, DateTimeOffset deployedAt)
+    public static ReleaseSql BuildNewErrors(string service, string version, DateTimeOffset deployedAt, ErrorGrouping? grouping = null)
     {
         var parameters = Parameters(service, deployedAt);
         parameters.AddParameter("version", version);
         parameters.AddParameter("limit", (uint)MaxErrors);
         var sql = "SELECT ExceptionType, ExceptionMessage, Occurrences, FirstSeen, LastSeen\n" +
-            $"FROM (\n{FirstSeenSelect(parameters)}\n)\n" +
+            $"FROM (\n{FirstSeenSelect(parameters, grouping ?? ErrorGrouping.Default)}\n)\n" +
             "WHERE FirstVersion = {version:String}\n" +
             "ORDER BY Occurrences DESC\n" +
             "LIMIT {limit:UInt32}";
@@ -58,14 +59,14 @@ public static class ReleaseQueryBuilder
     /// Columns: version, type, message - which of the given groups occurred in <paramref name="service"/>, per version,
     /// since <paramref name="since"/>. Lets a regression (matched to a release on version alone) be confirmed against the service.
     /// </summary>
-    public static ReleaseSql BuildGroupsSeenInService(string service, DateTimeOffset since, IReadOnlyList<(string Type, string Message)> groups)
+    public static ReleaseSql BuildGroupsSeenInService(string service, DateTimeOffset since, IReadOnlyList<(string Type, string Message)> groups, ErrorGrouping? grouping = null)
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("service", service);
         parameters.AddParameter("since", since.UtcDateTime);
         parameters.AddParameter("types", groups.Select(g => g.Type).ToArray());
         parameters.AddParameter("messages", groups.Select(g => g.Message).ToArray());
-        var sql = $"SELECT DISTINCT {VersionExpr} AS Version, EventAttributes['exception.type'] AS ExceptionType, EventAttributes['exception.message'] AS ExceptionMessage\n" +
+        var sql = $"SELECT DISTINCT {VersionExpr} AS Version, EventAttributes['exception.type'] AS ExceptionType, {(grouping ?? ErrorGrouping.Default).EventMessageSql()} AS ExceptionMessage\n" +
             "FROM spans\n" +
             "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
             "WHERE ServiceName = {service:String} AND StartTime >= {since:DateTime64(9)} AND EventName = 'exception'\n" +
@@ -73,10 +74,10 @@ public static class ReleaseQueryBuilder
         return new ReleaseSql(sql, parameters);
     }
 
-    private static string FirstSeenSelect(ClickHouseParameterCollection parameters) =>
+    private static string FirstSeenSelect(ClickHouseParameterCollection parameters, ErrorGrouping grouping) =>
         "SELECT\n" +
         "    EventAttributes['exception.type'] AS ExceptionType,\n" +
-        "    EventAttributes['exception.message'] AS ExceptionMessage,\n" +
+        $"    {grouping.EventMessageSql()} AS ExceptionMessage,\n" +
         $"    argMin({VersionExpr}, EventTime) AS FirstVersion,\n" +
         "    count() AS Occurrences,\n" +
         "    min(EventTime) AS FirstSeen,\n" +

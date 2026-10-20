@@ -42,6 +42,7 @@ builder.Services.AddSingleton<IReleaseQueryService, ReleaseQueryService>();
 builder.Services.AddSingleton<IAppSessionQueryService, AppSessionQueryService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 builder.Services.AddSingleton<IErrorOwnershipQueryService, ErrorOwnershipQueryService>();
+builder.Services.AddSingleton<IErrorGroupingQueryService, ErrorGroupingQueryService>();
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));

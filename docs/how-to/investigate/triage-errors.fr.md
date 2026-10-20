@@ -45,6 +45,22 @@ Les règles d'alerte sur le nombre d'exceptions ne comptent pas les groupes igno
 
 Une notification d'alerte sur le nombre d'exceptions indique aussi qui est responsable de l'erreur. Elle examine les trois groupes les plus fréquents de la fenêtre et ajoute une ligne `Owner:` avec l'assigné de chaque groupe ou, à défaut, la première règle de propriété qui correspond (service, type d'exception ou chemin de la trace de pile), sans répéter un nom. La même valeur est disponible sous la forme `{{owner}}` dans les [modèles de notification](../alerting/share-alert-notification-templates.fr.md), vide si personne ne possède les groupes, et le résumé d'incident par IA la reçoit aussi.
 
+## Modifier le regroupement des erreurs
+
+Cliquez sur **Règles de regroupement** dans la page Erreurs (Member ou Admin). Trois réglages s'appliquent dans cet ordre :
+
+1. **Réduire les identifiants, nombres et valeurs entre guillemets** est la normalisation automatique décrite plus haut. Désactivez-la si elle fusionne des erreurs que vous voulez distinguer, comme `HTTP 404` et `HTTP 500`.
+2. Les règles **Remplacer** réécrivent une partie de chaque message avec une expression régulière ([syntaxe RE2](https://github.com/google/re2/wiki/Syntax)) et un remplacement, où `\1` désigne le premier groupe de capture. `user [a-z]+` remplacé par `user <name>` fait de `user alice denied` et `user bob denied` un seul groupe. Les règles s'exécutent dans l'ordre de la liste, après la normalisation automatique, sur tous les messages quel que soit le type d'exception.
+3. **Fusionner** intègre un groupe à un autre du même type d'exception. Ouvrez le menu d'une ligne, choisissez **Fusionner avec un autre groupe…** puis la cible. La fusion est enregistrée comme règle : elle s'applique aussi aux occurrences futures et apparaît dans la même fenêtre.
+
+L'enregistrement vérifie chaque expression. Un motif qui ne compile pas, qui correspond à une chaîne vide ou dont le remplacement correspond de nouveau au motif est refusé, avec la raison.
+
+L'état de triage suit les groupes. Quand les règles changent, l'état résolu, ignoré ou assigné passe au groupe auquel appartient désormais le message ; si plusieurs groupes n'en forment plus qu'un, le plus récemment modifié l'emporte. Retirer une règle ou désactiver la normalisation sépare de nouveau les groupes, mais ne restaure pas l'état qu'avait un groupe fusionné : ces groupes redémarrent à Open.
+
 ## Limites
 
-Les groupes sont des paires type-message exactes. Une erreur dont le message contient un identifiant variable apparaît comme un nouveau groupe à chaque fois, et démarre à Open.
+Un groupe est un type associé à un message normalisé. Avant le regroupement, Flare remplace les parties variables d'un message par des marqueurs : GUID (`<guid>`), valeurs hexadécimales `0x` (`<hex>`), horodatages ISO-8601 (`<ts>`), valeurs entre guillemets (`'<s>'`) et nombres isolés (`<n>`). `Order 4812 not found` et `Order 77 not found` forment un seul groupe, affiché `Order <n> not found` ; ouvrez le groupe pour voir le message propre à chaque occurrence. Les identifiants qui contiennent simplement des chiffres, comme `HTTP2` ou `sha256`, ne sont pas modifiés.
+
+Un message dont la partie variable est un mot et non un nombre, un identifiant ou une valeur entre guillemets (un nom d'utilisateur, un nom d'hôte) n'est pas réduit automatiquement ; voir [Modifier le regroupement des erreurs](#modifier-le-regroupement-des-erreurs).
+
+L'état de triage suit le groupe normalisé. La mise à jour réattribue l'état enregistré sous les anciens messages exacts (migration `0087`) : quand plusieurs anciens groupes n'en forment plus qu'un, le plus récemment modifié l'emporte. Les règles d'alerte sur le nombre d'exceptions comparent de la même façon : une règle dont le message est `Order 4812 not found` couvre désormais aussi les autres identifiants de commande.

@@ -44,6 +44,6 @@ The same rule over the API is `conditionKind: "ReleaseErrors"` with `exceptionCo
 
 ## Limits
 
-- Only exception events on spans are counted, grouped by exact type and message, like the Errors page.
+- Only exception events on spans are counted, grouped by type and normalized message (ids and numbers collapsed), like the Errors page.
 - Telemetry without `service.version` is not attributed to any release.
 - The new-error counts are computed from your spans when the page loads, for the selected service only.

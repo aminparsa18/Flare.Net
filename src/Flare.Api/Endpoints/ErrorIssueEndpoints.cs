@@ -54,7 +54,7 @@ public static class ErrorIssueEndpoints
         }
 
         var issue = await issues.UpsertAsync(request, http.User.Identity?.Name ?? "", cancellationToken);
-        AuditContext.SetResourceId(http, Errors.ErrorIssueFingerprint.Compute(request.ExceptionType, request.ExceptionMessage));
+        AuditContext.SetResourceId(http, issue?.Id ?? Errors.ErrorIssueFingerprint.Compute(request.ExceptionType, request.ExceptionMessage));
         // Back to Open and unassigned = no stored state; answer 204 so the caller drops its row.
         return issue is null ? Results.NoContent() : ApiSerialization.Write(http, issue, ErrorIssuesJsonContext.Default.ErrorIssue);
     }
