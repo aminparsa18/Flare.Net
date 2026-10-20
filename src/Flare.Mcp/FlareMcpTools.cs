@@ -525,6 +525,57 @@ internal sealed class FlareMcpTools(FlareApiClient api)
         return sb.Length == 0 ? $"No alerts firing ({enabled.Count} enabled rules checked)." : sb.ToString();
     }
 
+    [McpServerTool(Name = "list_checkin_monitors", ReadOnly = true)]
+    [Description("List cron and job check-in monitors with their state: ok, running, pending, disabled, or the unhealthy late (no ping within the grace period), failed (the job reported failure) and overran (started and not finished within its maximum runtime). Unhealthy monitors first, with schedule, last ping and next expected ping. Use it to check whether scheduled jobs are running on time.")]
+    public async Task<string> ListCheckInMonitors(
+        [Description("Only monitors that are late, failed or overran.")] bool unhealthyOnly = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (NotReady() is { } notReady)
+        {
+            throw new McpException(notReady);
+        }
+
+        CheckInMonitorListResponseWire? response;
+        try
+        {
+            using var http = await api.Http.GetAsync("/api/checkin-monitors", cancellationToken);
+            if (!http.IsSuccessStatusCode)
+            {
+                throw new McpException(StatusText("GET /api/checkin-monitors", http));
+            }
+
+            response = await http.Content.ReadFromJsonAsync<CheckInMonitorListResponseWire>(WireJsonOptions.Instance, cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
+        {
+            throw new McpException(FailureMessage(ex));
+        }
+
+        var all = response?.Monitors ?? [];
+        var monitors = all
+            .Where(m => !unhealthyOnly || m.Status is { Up: false })
+            .OrderBy(m => m.Status is { Up: false } ? 0 : 1)
+            .ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxLimit)
+            .ToList();
+        if (monitors.Count == 0)
+        {
+            return all.Count == 0 ? "No check-in monitors configured." : $"No unhealthy check-in monitors ({all.Count} checked).";
+        }
+
+        var sb = new StringBuilder();
+        foreach (var m in monitors)
+        {
+            var schedule = m.CronExpression.Length > 0 ? $"{m.CronExpression} {m.TimeZone}" : $"every {m.IntervalSeconds}s";
+            sb.AppendLine($"{m.Name} [{m.Slug}]: {(m.Status?.State ?? "Unknown").ToLowerInvariant()} schedule={schedule} grace={m.GraceSeconds}s last={FormatTime(m.Status?.LastPing)} next={FormatTime(m.Status?.NextExpected)}");
+        }
+
+        return sb.ToString();
+
+        static string FormatTime(DateTimeOffset? time) => time is { } t ? t.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss'Z'") : "-";
+    }
+
     private async Task<(DateTimeOffset From, string? Error)> ResolveFromAsync(string since, bool lastRun, string[]? services, CancellationToken cancellationToken)
     {
         if (!lastRun)

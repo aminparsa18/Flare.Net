@@ -1,4 +1,5 @@
 using Flare.Cli.Commands;
+using Flare.Mcp;
 using Xunit;
 
 namespace Flare.Cli.Tests;
