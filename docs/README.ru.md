@@ -52,8 +52,9 @@
 - [Настройка аутентификации](how-to/admin/configure-authentication.ru.md)
 - [Как организовать команды с помощью проектов](how-to/admin/organize-teams-with-projects.ru.md)
 
-*Инструментирование приложений (браузер, .NET MAUI)*
+*Инструментирование приложений (.NET, браузер, .NET MAUI)*
 
+- [Отправка телеметрии .NET-приложения во Flare](how-to/instrument/send-dotnet-telemetry.ru.md)
 - [Отправить телеметрию браузера во Flare](how-to/instrument/send-browser-telemetry.ru.md)
 - [Отправить телеметрию из приложения .NET MAUI во Flare](how-to/instrument/send-maui-telemetry.ru.md)
 - [Отправка телеметрии приложения Orleans во Flare](how-to/instrument/send-orleans-telemetry.ru.md)

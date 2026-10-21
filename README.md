@@ -100,6 +100,10 @@ Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup 
 
 Want your AI assistant to read your telemetry? `flare mcp` is a read-only [MCP](https://modelcontextprotocol.io) server — see [docs/how-to/integrations/connect-ai-assistants.md](docs/how-to/integrations/connect-ai-assistants.md).
 
+### Send telemetry from your .NET app
+
+Not running under Aspire? [`Flare.OpenTelemetry`](src/Flare.OpenTelemetry) (preview, not yet on NuGet) is one call, `builder.AddFlareTelemetry("http://localhost:4317")`: an OTLP exporter for logs, traces and metrics, ASP.NET Core and `HttpClient` instrumentation, runtime metrics and an optional trace sampler — see [docs/how-to/instrument/send-dotnet-telemetry.md](docs/how-to/instrument/send-dotnet-telemetry.md).
+
 ### Mobile apps (.NET MAUI)
 
 Building a mobile app? [`Flare.Maui`](src/Flare.Maui) (preview, not yet on NuGet) adds `builder.UseFlare(...)` to a .NET MAUI app: OTLP/HTTP export with an offline queue, device and session attributes, `HttpClient` and Shell navigation spans, and unhandled-exception capture — see [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.md).

@@ -38,6 +38,10 @@ does today for Seq's own API key.
 
 Logs and traces - Flare.Ingest doesn't receive OTLP metrics yet (a separate, later roadmap item with a materially different data model than traces).
 
+Not using Aspire? [`Flare.OpenTelemetry`](https://www.nuget.org/packages/Flare.OpenTelemetry) does the same with a plain
+endpoint and API key (`builder.AddFlareTelemetry("http://localhost:4317")`) and also sets up ASP.NET Core / `HttpClient` /
+runtime instrumentation and an optional trace sampler.
+
 ## Status
 
 Pre-alpha, mirroring [`Flare.Hosting.Aspire`](https://github.com/aminparsa18/Flare.Net/blob/main/src/Aspire.Hosting.Flare/README.md)'s

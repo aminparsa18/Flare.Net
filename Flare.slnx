@@ -19,6 +19,8 @@
     <Project Path="src/Flare.Benchmarks/Flare.Benchmarks.csproj" />
     <Project Path="src/Flare.Cli/Flare.Cli.csproj" />
     <Project Path="src/Flare.Mcp/Flare.Mcp.csproj" />
+    <Project Path="src/Flare.OpenTelemetry.Tests/Flare.OpenTelemetry.Tests.csproj" />
+    <Project Path="src/Flare.OpenTelemetry/Flare.OpenTelemetry.csproj" />
     <Project Path="src/Flare.Cli.Tests/Flare.Cli.Tests.csproj" />
     <Project Path="src/Flare.Identity.Tests/Flare.Identity.Tests.csproj" />
     <Project Path="src/Flare.Identity/Flare.Identity.csproj" />

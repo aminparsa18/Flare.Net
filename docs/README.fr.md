@@ -52,8 +52,9 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Configurer l'authentification](how-to/admin/configure-authentication.fr.md)
 - [Organiser les équipes avec des projets](how-to/admin/organize-teams-with-projects.fr.md)
 
-*Instrumenter vos applications (navigateur, .NET MAUI)*
+*Instrumenter vos applications (.NET, navigateur, .NET MAUI)*
 
+- [Envoyer la télémétrie d'une application .NET à Flare](how-to/instrument/send-dotnet-telemetry.fr.md)
 - [Envoyer la télémétrie du navigateur à Flare](how-to/instrument/send-browser-telemetry.fr.md)
 - [Envoyer la télémétrie d'une application .NET MAUI à Flare](how-to/instrument/send-maui-telemetry.fr.md)
 - [Envoyer la télémétrie d'une application Orleans à Flare](how-to/instrument/send-orleans-telemetry.fr.md)
