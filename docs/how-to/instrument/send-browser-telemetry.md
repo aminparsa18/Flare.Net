@@ -288,6 +288,9 @@ viewer's browser must be able to reach it.
 | `bufferMs` | `30000` | `onError` only: how far back an error's recording reaches. |
 | `afterErrorMs` | `10000` | `onError` only: how long recording continues after an error. |
 | `captureErrors` | `true` | `onError` only: treat uncaught errors and unhandled promise rejections as errors to keep. |
+| `captureConsole` | off | Record console output: `true` for `warn` and `error`, or a list of levels (`'log'`, `'info'`, `'warn'`, `'error'`, `'debug'`). |
+| `captureNetwork` | `false` | Record `fetch`, `XMLHttpRequest` and beacon requests (URL, status, timing). |
+| `networkKeepQuery` | `false` | Keep the query string and fragment of recorded request URLs. |
 | `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Selectors for the two attributes above. |
 | `onStop` | none | Called with a reason when the recorder stops by itself. |
 
@@ -309,6 +312,24 @@ On an error the recorder sends what it holds (between `bufferMs` and twice `buff
 snapshot) and keeps recording for `afterErrorMs`. Then it drops events until the next snapshot, so a session with several
 errors becomes several recordings, and a session without one leaves nothing behind. Nothing leaves the browser until the
 error, but the page is still recorded into memory the whole time, so the masking rules above apply either way.
+
+### Show console output and requests
+
+The replay can list what the page logged and which requests it made, next to the video. Both are off by default, because
+neither is masked the way form fields are:
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, captureConsole: ['warn', 'error'], captureNetwork: true });
+```
+
+- **Console**: the chosen levels, plus uncaught errors and unhandled rejections as `error` entries. Each argument is cut to
+  500 characters and 3 levels deep. Anything the page logs is stored as written, so do not log what you would not keep.
+- **Network**: `fetch`, `XMLHttpRequest` and beacon requests, as the URL, status and duration. Headers and bodies are never
+  recorded. The query string and fragment are dropped from the URL unless `networkKeepQuery` is set, and the recorder's own
+  uploads are left out. The method is not recorded, and a browser that does not report response status shows none.
+
+Below the player, **Console** and **Network** list the entries. A row opens the recording at that moment, and rows after the
+current position are dimmed.
 
 ### Find a recording
 

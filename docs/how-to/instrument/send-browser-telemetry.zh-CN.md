@@ -276,6 +276,9 @@ class SessionIdProcessor implements SpanProcessor {
 | `bufferMs` | `30000` | 仅 `onError`：错误的录制向前回溯多久。 |
 | `afterErrorMs` | `10000` | 仅 `onError`：错误之后继续录制多久。 |
 | `captureErrors` | `true` | 仅 `onError`：把未捕获的错误和未处理的 Promise 拒绝视为需要保留的错误。 |
+| `captureConsole` | 关闭 | 录制控制台输出：`true` 表示 `warn` 和 `error`，或给出级别列表（`'log'`、`'info'`、`'warn'`、`'error'`、`'debug'`）。 |
+| `captureNetwork` | `false` | 录制 `fetch`、`XMLHttpRequest` 和 beacon 请求（URL、状态、耗时）。 |
+| `networkKeepQuery` | `false` | 保留所录请求 URL 的查询字符串和片段。 |
 | `blockSelector`、`maskTextSelector` | `[data-flare-block]`、`[data-flare-mask]` | 上述两个属性对应的选择器。 |
 | `onStop` | 无 | 录制器自行停止时，带着原因调用。 |
 
@@ -292,6 +295,22 @@ try { await checkout(); } catch (err) { report(err); replay.keep(); }   // 你�
 ```
 
 未捕获的错误或未处理的 Promise 拒绝无需任何代码也会触发同样的行为（用 `captureErrors: false` 关闭）。出错时，录制器会发送它保留的内容（错误之前 `bufferMs` 到两倍 `bufferMs` 的范围，从一次页面快照开始），并继续录制 `afterErrorMs`。之后它会丢弃事件，直到下一次快照，所以有多次错误的会话会产生多段录制，没有错误的会话则不留下任何内容。出错之前没有任何数据离开浏览器，但页面始终在内存中被录制，因此上面的遮罩规则在两种模式下都适用。
+
+### 显示控制台输出和请求
+
+回放可以在视频旁列出页面输出的日志和发出的请求。两者默认都关闭，因为它们都不像表单字段那样会被遮盖：
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, captureConsole: ['warn', 'error'], captureNetwork: true });
+```
+
+- **控制台**：所选级别，以及作为 `error` 条目的未捕获错误和未处理的 Promise 拒绝。每个参数最多保留 500 个字符、3 层深度。
+  页面输出的内容按原样存储，所以不要输出你不想保留的内容。
+- **网络**：`fetch`、`XMLHttpRequest` 和 beacon 请求，记录 URL、状态和耗时。请求头和请求体从不录制。除非设置
+  `networkKeepQuery`，否则 URL 中的查询字符串和片段会被去掉，录制器自身的上传也不会被记录。不记录请求方法；不报告响应状态的
+  浏览器不会显示状态。
+
+播放器下方的 **控制台** 和 **网络** 列出这些条目。点击一行会在该时刻打开录制，当前位置之后的行会变暗。
 
 ### 找到录制
 

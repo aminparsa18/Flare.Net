@@ -4,6 +4,7 @@
 	// only when "Watch recording" is pressed.
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { Badge } from '#lib/components/ui/badge/index.ts';
+	import WebReplayCapture from '#lib/components/sessions/WebReplayCapture.svelte';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import { Switch } from '#lib/components/ui/switch/index.ts';
 	import PlayIcon from '@lucide/svelte/icons/play';
@@ -107,6 +108,9 @@
 					{m.sessionsPage_webReplay_skipInactive()}
 				</label>
 			</div>
+		{/if}
+		{#if replay.ready && (replay.consoleEntries.length > 0 || replay.networkEntries.length > 0)}
+			<WebReplayCapture {replay} />
 		{/if}
 		{#if replay.replay?.truncated}
 			<p class="text-muted-foreground pt-2 text-xs">{m.sessionsPage_webReplay_truncated()}</p>
