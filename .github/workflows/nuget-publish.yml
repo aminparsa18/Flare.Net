@@ -16,6 +16,7 @@
 # Microsoft-reserved prefix on nuget.org, see the .csproj PackageId comments and Planning.md):
 #   - Flare.Hosting.Aspire (project: src/Aspire.Hosting.Flare/)  <- tag aspire-hosting-flare-v*.*.*
 #   - Flare.Aspire         (project: src/Aspire.Flare/)          <- tag aspire-flare-v*.*.*
+#   - Flare.OpenTelemetry  (project: src/Flare.OpenTelemetry/)  <- tag flare-opentelemetry-v*.*.*
 #   - Flare.Cli            (project: src/Flare.Cli/)             <- tag flare-cli-v*.*.*
 #     ("flare" itself is already taken/unlisted on nuget.org, unrelated to this project -
 #     see src/Flare.Cli/Flare.Cli.csproj's PackageId comment. ToolCommandName is still
@@ -48,6 +49,7 @@ on:
     tags:
       - 'aspire-hosting-flare-v*.*.*'
       - 'aspire-flare-v*.*.*'
+      - 'flare-opentelemetry-v*.*.*'
       - 'flare-cli-v*.*.*'
       - 'flare-maui-v*.*.*'
   workflow_dispatch:
@@ -59,6 +61,7 @@ on:
         options:
           - Flare.Hosting.Aspire
           - Flare.Aspire
+          - Flare.OpenTelemetry
           - Flare.Cli
           - Flare.Maui
 
@@ -96,6 +99,7 @@ jobs:
             case "$GITHUB_REF_NAME" in
               aspire-hosting-flare-v*) PACKAGE="Flare.Hosting.Aspire" ;;
               aspire-flare-v*) PACKAGE="Flare.Aspire" ;;
+              flare-opentelemetry-v*) PACKAGE="Flare.OpenTelemetry" ;;
               flare-cli-v*) PACKAGE="Flare.Cli" ;;
               flare-maui-v*) PACKAGE="Flare.Maui" ;;
               *) echo "::error::Unrecognized tag $GITHUB_REF_NAME"; exit 1 ;;
@@ -110,6 +114,10 @@ jobs:
             Flare.Aspire)
               echo "project=src/Aspire.Flare/Aspire.Flare.csproj" >> "$GITHUB_OUTPUT"
               echo "tag_prefix=aspire-flare-v" >> "$GITHUB_OUTPUT"
+              ;;
+            Flare.OpenTelemetry)
+              echo "project=src/Flare.OpenTelemetry/Flare.OpenTelemetry.csproj" >> "$GITHUB_OUTPUT"
+              echo "tag_prefix=flare-opentelemetry-v" >> "$GITHUB_OUTPUT"
               ;;
             Flare.Cli)
               echo "project=src/Flare.Cli/Flare.Cli.csproj" >> "$GITHUB_OUTPUT"

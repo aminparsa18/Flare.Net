@@ -50,8 +50,9 @@ the full rule set on what goes where.
 - [Configure authentication](how-to/admin/configure-authentication.md)
 - [Organize teams with projects](how-to/admin/organize-teams-with-projects.md)
 
-*Instrument your apps (browser, .NET MAUI)*
+*Instrument your apps (.NET, browser, .NET MAUI)*
 
+- [Send telemetry from a .NET app to Flare](how-to/instrument/send-dotnet-telemetry.md)
 - [Send browser telemetry to Flare](how-to/instrument/send-browser-telemetry.md)
 - [Send telemetry from a .NET MAUI app to Flare](how-to/instrument/send-maui-telemetry.md)
 - [Send telemetry from an Orleans app to Flare](how-to/instrument/send-orleans-telemetry.md)

@@ -119,6 +119,7 @@ and alert evaluation runs in its own process.
 | `Flare.Dashboard` | SvelteKit (Svelte 5, runes) + Tailwind + shadcn-svelte | The UI — the thing people come for. See [ADR-0001](../../docs-internal/adr/0001-sveltekit-dashboard.md). |
 | `Flare.AppHost` | .NET Aspire | Local orchestration of all of the above |
 | `Flare.Cli`, `Flare.Mcp` | .NET global tool | The `flare` CLI that manages a standing instance and queries it from a terminal; `flare mcp` is the same read-only tools served over stdio |
+| `Flare.OpenTelemetry` | NuGet package | `AddFlareTelemetry()` for any .NET app: OTLP exporter for all three signals, ASP.NET Core / `HttpClient` / runtime instrumentation and an optional trace sampler, with or without Aspire — see [ADR-0270](../../docs-internal/adr/0270-flare-opentelemetry-package.md) |
 | `Flare.Maui` | NuGet package | `UseFlare()` for .NET MAUI apps: sessions, crashes, hangs, startup performance, breadcrumbs — see [ADR-0166](../../docs-internal/adr/0166-maui-sdk.md) |
 
 Flare is still four things to run (Ingest, Api, AlertWorker, Dashboard) and

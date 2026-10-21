@@ -52,8 +52,9 @@
 - [Configure authentication](how-to/admin/configure-authentication.zh-CN.md)
 - [使用项目组织团队](how-to/admin/organize-teams-with-projects.zh-CN.md)
 
-*为应用接入遥测（浏览器、.NET MAUI）*
+*为应用接入遥测（.NET、浏览器、.NET MAUI）*
 
+- [将 .NET 应用的遥测发送到 Flare](how-to/instrument/send-dotnet-telemetry.zh-CN.md)
 - [将浏览器遥测发送到 Flare](how-to/instrument/send-browser-telemetry.zh-CN.md)
 - [将 .NET MAUI 应用的遥测数据发送到 Flare](how-to/instrument/send-maui-telemetry.zh-CN.md)
 - [将 Orleans 应用的遥测发送到 Flare](how-to/instrument/send-orleans-telemetry.zh-CN.md)
