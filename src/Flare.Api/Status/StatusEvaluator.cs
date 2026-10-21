@@ -33,6 +33,17 @@ public static class StatusEvaluator
     public static StatusState SloState(double? errorBudgetRemaining) =>
         errorBudgetRemaining is not { } remaining ? StatusState.Unknown : remaining >= 0 ? StatusState.Operational : StatusState.Degraded;
 
+    /// <summary>
+    /// A check-in monitor (ADR-0260) is Operational while its job is on schedule (Ok or Running) and Outage once it is
+    /// Late, Failed or Overran. Pending (no ping yet) and Disabled are Unknown, so a paused job does not stay green.
+    /// </summary>
+    public static StatusState CheckInState(CheckInStatus status) => status.State switch
+    {
+        Model.CheckInState.Ok or Model.CheckInState.Running => StatusState.Operational,
+        Model.CheckInState.Late or Model.CheckInState.Failed or Model.CheckInState.Overran => StatusState.Outage,
+        _ => StatusState.Unknown,
+    };
+
     /// <summary>The worst component state wins; Unknown components are ignored unless nothing else is known.</summary>
     public static StatusState Overall(IReadOnlyCollection<StatusState> states)
     {

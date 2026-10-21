@@ -170,6 +170,9 @@ builder.Services.AddSingleton<IClickHouseFeedbackWriter, ClickHouseFeedbackWrite
 
 // Cron and job check-in pings (ADR-0260): same direct insert.
 builder.Services.AddSingleton<IClickHouseCheckInWriter, ClickHouseCheckInWriter>();
+builder.Services.Configure<CheckInIngestOptions>(builder.Configuration.GetSection(CheckInIngestOptions.SectionName));
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IClickHouseCheckInProvisioner, ClickHouseCheckInProvisioner>();
 
 // Metrics - unlike spans, one shared Redis stream/flush worker for all three point
 // types (Gauge/Sum/Histogram); see MetricFlushWorker's remarks for why.

@@ -57,9 +57,29 @@ curl -fsS -m 10 -H "$AUTH" "$FLARE/v1/checkins/nightly-backup/start"
 | `/v1/checkins/{slug}/start` | The job started. Optional; send it to catch a job that starts and hangs. |
 | `/v1/checkins/{slug}/fail` | The job finished and failed. |
 
-Both `GET` and `POST` work. A `POST` body of up to 4 KiB is kept as a message (the first 1,000 characters). The endpoint answers `204`, `400` for a bad slug or status, `401` for a missing or wrong ingest key, and `503` if the ping could not be stored, so `curl -f` fails loudly. A ping for a slug with no monitor is accepted and ignored.
+Both `GET` and `POST` work. A `POST` body of up to 4 KiB is kept as a message (the first 1,000 characters). The endpoint answers `204`, `400` for a bad slug or status, `401` for a missing or wrong ingest key, and `503` if the ping could not be stored, so `curl -f` fails loudly. A ping for a slug with no monitor is accepted and ignored, unless it asks Flare to create the monitor (next section).
 
 The monitors table has a **Copy ping command** button on each row.
+
+## Create the monitor from the first ping
+
+A job can create its own monitor instead of someone creating it first. Add `create=1` and a schedule to the ping URL:
+
+```bash
+curl -fsS -m 10 -H "$AUTH" "$FLARE/v1/checkins/nightly-backup/start?create=1&cron=0%202%20*%20*%20*&tz=Europe/Berlin&grace=600&name=Nightly%20backup"
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `create` | `1` or `true` asks for the monitor. Without it the other parameters are ignored. |
+| `cron` or `interval` | The schedule, exactly one of them, as in the table above. URL-encode the spaces in a cron expression. |
+| `tz` | The IANA zone for `cron`. `UTC` by default. |
+| `grace`, `max_runtime` | Seconds, as `graceSeconds` and `maxRuntimeSeconds`. 300 and 0 by default. |
+| `name` | The display name. The slug by default. |
+
+The monitor is created once, from the first such ping, and the ping is stored as usual. If a monitor with that slug already exists the parameters are ignored, so later pings never change a schedule: edit it in the dashboard, the API or Terraform. An invalid schedule answers `400` and stores nothing. Leave `create=1` on the job's pings or remove it after the first run; both work.
+
+Auto-create can be turned off with `CheckIns__AutoCreate=false` on `Flare.Ingest` (such pings then answer `403`), and `CheckIns__MaxMonitors` (500 by default) caps how many monitors exist, so a leaked ingest key cannot fill the table. Without `create=1`, a typo in a slug still creates nothing.
 
 ## How the state is decided
 
@@ -91,7 +111,7 @@ To be told when the monitor itself stops reporting (for example the worker is do
 
 ## Limits
 
-- Any valid ingest key can ping any slug. Give jobs their own key rather than reusing a browser key.
+- Any valid ingest key can ping any slug, and (unless you turn it off) create a monitor with `create=1`. Give jobs their own key rather than reusing a browser key.
 - The grace period should cover clock skew, and for an interval schedule also the job's run time, because the interval is measured from the last ping.
 - A late job is reported up to `CheckIn__PollInterval` (15 s) after its grace period ends, so use alert windows longer than that.
 - Set `CheckIn__Enabled=false` on the worker to turn judging off. Pings are still stored.

@@ -4,7 +4,7 @@
 
 import { API_BASE_URL, apiFetch } from './api';
 
-export type StatusComponentKind = 'Monitor' | 'Slo';
+export type StatusComponentKind = 'Monitor' | 'Slo' | 'CheckIn';
 export type StatusState = 'Unknown' | 'Operational' | 'Degraded' | 'Outage';
 
 export interface StatusPageComponent {

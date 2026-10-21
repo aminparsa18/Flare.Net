@@ -1,13 +1,13 @@
 # Comment publier une page de statut
 
-Une **page de statut** est une page en lecture seule sur la santé de vos services, que toute personne disposant du lien peut ouvrir sans compte Flare. Elle affiche l'état actuel de chaque composant et sa disponibilité quotidienne sur les 90 derniers jours. Un composant est un [moniteur synthétique](synthetic-monitoring.fr.md) ou un [SLO](../alerting/define-slos.fr.md), et la page n'affiche que le nom que vous lui donnez.
+Une **page de statut** est une page en lecture seule sur la santé de vos services, que toute personne disposant du lien peut ouvrir sans compte Flare. Elle affiche l'état actuel de chaque composant et sa disponibilité quotidienne sur les 90 derniers jours. Un composant est un [moniteur synthétique](synthetic-monitoring.fr.md) un [SLO](../alerting/define-slos.fr.md) ou un [moniteur de check-in de tâche cron](monitor-cron-jobs.fr.md), et la page n'affiche que le nom que vous lui donnez.
 
 ## Créer une page
 
 Ouvrez **Settings > Workspace > Status pages** (Admin) et choisissez **New status page** :
 
 1. Donnez-lui un **titre** et un **slug d'URL** (lettres minuscules, chiffres et tirets). La page est servie à `/status/<slug>` sur le tableau de bord.
-2. Ajoutez des **composants** : choisissez des moniteurs et des SLO, et modifiez le nom public de chacun. Les cibles des moniteurs et les noms des SLO ne sont jamais affichés.
+2. Ajoutez des **composants** : choisissez des moniteurs, des SLO et des moniteurs de check-in, et modifiez le nom public de chacun. Les cibles des moniteurs, les noms des SLO et les slugs de check-in ne sont jamais affichés.
 3. Activez **Published**. Les pages sont créées non publiées, et une page non publiée répond 404.
 
 Vous pouvez faire la même chose avec l'API (`/api/status-pages`, Admin) avec un cookie de session ou un jeton d'accès personnel :
@@ -24,12 +24,12 @@ curl -X POST "$FLARE_API/api/status-pages" \
 
 ## Ce que voient les visiteurs
 
-| État | Composant moniteur | Composant SLO |
-| --- | --- | --- |
-| Operational | Tous les emplacements ayant répondu récemment le voient disponible. | Le budget d'erreurs n'est pas consommé. |
-| Degraded | Certains emplacements le voient indisponible. | Le budget d'erreurs est dépassé. |
-| Outage | Tous les emplacements le voient indisponible. | |
-| No data | Désactivé, jamais sondé, ou aucun résultat depuis trois intervalles. | Aucun trafic dans la fenêtre du SLO. |
+| État | Composant moniteur | Composant SLO | Composant check-in |
+| --- | --- | --- | --- |
+| Operational | Tous les emplacements ayant répondu récemment le voient disponible. | Le budget d'erreurs n'est pas consommé. | Dans les temps ou en cours d'exécution. |
+| Degraded | Certains emplacements le voient indisponible. | Le budget d'erreurs est dépassé. | |
+| Outage | Tous les emplacements le voient indisponible. | | En retard, en échec ou trop long. |
+| No data | Désactivé, jamais sondé, ou aucun résultat depuis trois intervalles. | Aucun trafic dans la fenêtre du SLO. | En pause, ou aucun check-in reçu. |
 
 La bannière du haut affiche le pire état parmi les composants. Chaque composant a aussi une barre de 90 jours au plus, un segment par jour UTC : vert à 99,9 % ou plus, ambre à 95 % ou plus, rouge en dessous. Le jour d'un moniteur est la part de sondes réussies. Le jour d'un SLO est la part d'événements corrects, et un SLO n'affiche pas plus de jours que sa propre fenêtre.
 
@@ -64,7 +64,7 @@ resource "flare_status_page" "public" {
 
 L'état calculé dit ce qui fonctionne ; un incident explique pourquoi, avec vos mots. Dans **Paramètres > Pages de statut**, ouvrez la boîte **Incidents** d'une page, signalez un incident avec un titre, un statut (Investigating, Identified, Monitoring ou Resolved) et un message, puis publiez des mises à jour au fil de l'eau. Une mise à jour **Resolved** le clôt.
 
-Les incidents ouverts s'affichent au-dessus des composants sur la page publique, et les incidents résolus y restent 14 jours. Les incidents ne modifient ni l'état calculé ni la bannière. L'API est `/api/status-pages/{id}/incidents` ; le texte des mises à jour est public, n'y mettez donc aucun secret. Cochez les composants touchés par un incident et la page publique les nomme à côté ; le champ `components` de l'API prend leurs ids de moniteur ou de SLO, et une mise à jour ultérieure peut modifier la liste. C'est une simple étiquette : l'état calculé du composant ne change pas.
+Les incidents ouverts s'affichent au-dessus des composants sur la page publique, et les incidents résolus y restent 14 jours. Les incidents ne modifient ni l'état calculé ni la bannière. L'API est `/api/status-pages/{id}/incidents` ; le texte des mises à jour est public, n'y mettez donc aucun secret. Cochez les composants touchés par un incident et la page publique les nomme à côté ; le champ `components` de l'API prend leurs ids de moniteur, de SLO ou de moniteur de check-in, et une mise à jour ultérieure peut modifier la liste. C'est une simple étiquette : l'état calculé du composant ne change pas.
 
 ### Notifier des canaux
 
@@ -87,4 +87,4 @@ Flare n'émet pas de certificats et ne gère pas le DNS. Faites pointer le DNS e
 - La page est publique pour toute personne pouvant joindre l'instance. Dépubliez-la ou supprimez-la pour désactiver le lien immédiatement.
 - Le résultat est mis en cache 30 secondes, un changement peut donc mettre ce temps à apparaître. La page se rafraîchit toute seule chaque minute.
 - Renommer un moniteur repart de zéro pour son historique, car les résultats de sonde sont stockés sous le nom du moniteur.
-- Un composant dont le moniteur ou le SLO a été supprimé reste sur la page avec **No data** ; retirez-le dans l'éditeur.
+- Un composant dont le moniteur, le SLO ou le moniteur de check-in a été supprimé reste sur la page avec **No data** ; retirez-le dans l'éditeur.

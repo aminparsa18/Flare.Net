@@ -61,7 +61,7 @@ public static class StatusPageEndpoints
         return Results.Json(page with { Subscribable = mailer.IsAvailable }, StatusPagesJsonContext.Default.PublicStatusPage);
     }
 
-    private static async Task<IResult> HandleCreateAsync(HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, INotificationChannelQueryService channels, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleCreateAsync(HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, ICheckInMonitorQueryService checkIns, INotificationChannelQueryService channels, CancellationToken cancellationToken)
     {
         var (request, problem) = await ReadRequestAsync(http, cancellationToken);
         if (problem is not null)
@@ -69,7 +69,7 @@ public static class StatusPageEndpoints
             return problem;
         }
 
-        if (await CheckAsync(request!, null, pages, monitors, slos, channels, cancellationToken) is { } rejected)
+        if (await CheckAsync(request!, null, pages, monitors, slos, checkIns, channels, cancellationToken) is { } rejected)
         {
             return rejected;
         }
@@ -88,7 +88,7 @@ public static class StatusPageEndpoints
         return page is null ? Results.NotFound() : Results.Json(page, StatusPagesJsonContext.Default.StatusPage);
     }
 
-    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, INotificationChannelQueryService channels, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, ICheckInMonitorQueryService checkIns, INotificationChannelQueryService channels, CancellationToken cancellationToken)
     {
         var (request, problem) = await ReadRequestAsync(http, cancellationToken);
         if (problem is not null)
@@ -96,7 +96,7 @@ public static class StatusPageEndpoints
             return problem;
         }
 
-        if (await CheckAsync(request!, id, pages, monitors, slos, channels, cancellationToken) is { } rejected)
+        if (await CheckAsync(request!, id, pages, monitors, slos, checkIns, channels, cancellationToken) is { } rejected)
         {
             return rejected;
         }
@@ -196,6 +196,7 @@ public static class StatusPageEndpoints
         IStatusPageQueryService pages,
         ISyntheticMonitorQueryService monitors,
         ISloQueryService slos,
+        ICheckInMonitorQueryService checkIns,
         INotificationChannelQueryService channels,
         CancellationToken cancellationToken)
     {
@@ -236,12 +237,20 @@ public static class StatusPageEndpoints
         var sloIds = components.Any(c => c.Kind == StatusComponentKind.Slo)
             ? (await slos.ListAsync(cancellationToken)).Select(s => s.Id).ToHashSet()
             : [];
+        var checkInIds = components.Any(c => c.Kind == StatusComponentKind.CheckIn)
+            ? (await checkIns.ListAsync(cancellationToken)).Select(m => m.Id).ToHashSet()
+            : [];
         foreach (var component in components)
         {
-            var exists = component.Kind == StatusComponentKind.Monitor ? monitorIds.Contains(component.RefId) : sloIds.Contains(component.RefId);
+            var exists = component.Kind switch
+            {
+                StatusComponentKind.Monitor => monitorIds.Contains(component.RefId),
+                StatusComponentKind.CheckIn => checkInIds.Contains(component.RefId),
+                _ => sloIds.Contains(component.RefId),
+            };
             if (!exists)
             {
-                return Results.Problem($"Component '{component.Name}' points at a {component.Kind.ToString().ToLowerInvariant()} that does not exist.", statusCode: StatusCodes.Status400BadRequest);
+                return Results.Problem($"Component '{component.Name}' points at a {(component.Kind == StatusComponentKind.CheckIn ? "check-in monitor" : component.Kind.ToString().ToLowerInvariant())} that does not exist.", statusCode: StatusCodes.Status400BadRequest);
             }
         }
 
