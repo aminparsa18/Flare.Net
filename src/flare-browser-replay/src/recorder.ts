@@ -1,5 +1,6 @@
 import { record } from '@rrweb/record';
 import { ChunkBuffer } from './buffer.js';
+import { CANVAS_TAG, startCanvasCapture, type CanvasCapture } from './canvas.js';
 import { capturePlugins } from './capture.js';
 import { RollingBuffer } from './rolling.js';
 import { replayUrl, resolveOptions, type ReplayOptions } from './options.js';
@@ -19,6 +20,9 @@ export interface ReplayHandle {
 	/** Stops recording and sends the rest. */
 	stop(): Promise<void>;
 }
+
+/** rrweb's `EventType.FullSnapshot`. */
+const FULL_SNAPSHOT = 2;
 
 const NOT_RECORDING: Omit<ReplayHandle, 'sessionId'> = { keep: () => {}, flush: async () => {}, stop: async () => {} };
 
@@ -61,9 +65,12 @@ export function startReplay(input: ReplayOptions): ReplayHandle {
 		return inFlight;
 	};
 
+	let canvas: CanvasCapture | undefined;
 	const stopRecording = record({
 		emit(event) {
 			if (stopped) return;
+			// A new page snapshot rebuilds every canvas blank, so each one is sent again after it.
+			if (event.type === FULL_SNAPSHOT) canvas?.invalidate();
 			// In onError mode the rolling buffer holds events back until an error asks for them.
 			const out = rolling ? rolling.push(event, Date.now()) : [event];
 			let full = false;
@@ -80,6 +87,15 @@ export function startReplay(input: ReplayOptions): ReplayHandle {
 		plugins: capturePlugins(options),
 		sampling: { mousemove: 100, scroll: 200, input: 'last' },
 	});
+
+	if (options.canvasFps > 0 && stopRecording) {
+		canvas = startCanvasCapture({
+			fps: options.canvasFps,
+			skipSelectors: [options.blockSelector, options.maskTextSelector, '.flare-block', '.flare-mask'],
+			getId: (el) => record.mirror.getId(el),
+			emit: (frame) => record.addCustomEvent(CANVAS_TAG, frame),
+		});
+	}
 
 	const keep = (): void => {
 		if (!rolling || stopped) return;
@@ -112,6 +128,7 @@ export function startReplay(input: ReplayOptions): ReplayHandle {
 		window.removeEventListener('pagehide', onPageHide);
 		window.removeEventListener('error', onError);
 		window.removeEventListener('unhandledrejection', onError);
+		canvas?.stop();
 		stopRecording?.();
 		options.onStop?.(reason);
 	}
@@ -129,6 +146,7 @@ export function startReplay(input: ReplayOptions): ReplayHandle {
 			window.removeEventListener('pagehide', onPageHide);
 			window.removeEventListener('error', onError);
 			window.removeEventListener('unhandledrejection', onError);
+			canvas?.stop();
 			stopRecording?.();
 			await send(true);
 		},

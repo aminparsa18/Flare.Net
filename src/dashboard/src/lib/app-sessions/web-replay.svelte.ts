@@ -10,6 +10,7 @@ import {
 	extractNetwork,
 	fitScale,
 	mergeChunks,
+	parseCanvasFrame,
 	trimToFullSnapshot,
 	type ConsoleEntry,
 	type NetworkEntry,
@@ -222,6 +223,12 @@ export class WebReplayState {
 			this.viewportHeight = height;
 			this.#fit();
 		});
+		// Canvas pixels are not part of the DOM snapshot: the recorder sends them as frames, painted onto the replayed canvas
+		// here rather than by rrweb's own canvas replay, which would need scripts enabled in the replay frame (ADR-0267).
+		replayer.on('custom-event', (event: unknown) => {
+			const frame = parseCanvasFrame(event as ReplayEvent);
+			if (frame) this.#paintCanvas(replayer, frame.id, frame.src);
+		});
 		replayer.on('finish', () => {
 			this.playing = false;
 			cancelAnimationFrame(this.#raf);
@@ -234,6 +241,24 @@ export class WebReplayState {
 		// Show the first frame, or the moment the page was opened for, without starting playback.
 		replayer.pause(this.#firstFrameMs);
 		if (this.#focusUnixMs !== undefined) this.seekToUnixMs(this.#focusUnixMs - FOCUS_LEAD_MS);
+	}
+
+	/** Latest picture asked for per canvas, so a slow decode of an old frame never overwrites a newer one. */
+	#canvasSeq = new Map<number, number>();
+
+	#paintCanvas(replayer: ReplayerInstance, id: number, src: string): void {
+		const seq = (this.#canvasSeq.get(id) ?? 0) + 1;
+		this.#canvasSeq.set(id, seq);
+		const image = new Image();
+		image.onload = () => {
+			if (this.#canvasSeq.get(id) !== seq || this.#replayer !== replayer) return;
+			const node = replayer.getMirror().getNode(id);
+			// The element belongs to the replay frame's window, so `instanceof HTMLCanvasElement` would be false.
+			if (node?.nodeName !== 'CANVAS') return;
+			const canvas = node as HTMLCanvasElement;
+			canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
+		};
+		image.src = src;
 	}
 
 	#fit(): void {

@@ -279,6 +279,7 @@ class SessionIdProcessor implements SpanProcessor {
 | `captureConsole` | 关闭 | 录制控制台输出：`true` 表示 `warn` 和 `error`，或给出级别列表（`'log'`、`'info'`、`'warn'`、`'error'`、`'debug'`）。 |
 | `captureNetwork` | `false` | 录制 `fetch`、`XMLHttpRequest` 和 beacon 请求（URL、状态、耗时）。 |
 | `networkKeepQuery` | `false` | 保留所录请求 URL 的查询字符串和片段。 |
+| `captureCanvas` | 关闭 | 录制 `<canvas>` 元素显示的内容：`true` 为每秒 1 帧，或 1 到 10 的数字。 |
 | `blockSelector`、`maskTextSelector` | `[data-flare-block]`、`[data-flare-mask]` | 上述两个属性对应的选择器。 |
 | `onStop` | 无 | 录制器自行停止时，带着原因调用。 |
 
@@ -311,6 +312,21 @@ const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, capture
   浏览器不会显示状态。
 
 播放器下方的 **控制台** 和 **网络** 列出这些条目。点击一行会在该时刻打开录制，当前位置之后的行会变暗。
+
+### 显示 canvas 内容
+
+`<canvas>`（图表、地图、绘图、游戏）不属于页面标记，所以普通录制中它是空白的。开启 `captureCanvas` 以录制它绘制的内容：
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, captureCanvas: 2 });   // 每秒 2 帧
+```
+
+- 默认关闭。像素不能像文本那样被遮盖，所以绘制个人数据的 canvas 会按绘制结果存储。位于匹配 `blockSelector` 或
+  `maskTextSelector` 的元素内的 canvas 永远不会被录制，`maskAllText: true` 会关闭 canvas 录制。
+- 没有变化的 canvas 不发送任何内容。每帧最长边缩放到 800 像素，压缩为 WebP（浏览器不支持时用 PNG），仍超过 150 KB 的帧会被丢弃。
+  一个会话在大约 25 MB 的帧之后停止录制 canvas。
+- 2D 和 WebGL canvas 都支持。绘制过无 CORS 的跨域图片的 canvas 无法被浏览器读取，保持空白。
+- 回放时，帧会随录制播放绘制到 canvas 上，跳转时显示此前最近的一帧。变化快于帧率的 canvas 看起来像幻灯片。
 
 ### 找到录制
 

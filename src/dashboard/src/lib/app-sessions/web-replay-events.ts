@@ -13,6 +13,9 @@ export const FULL_SNAPSHOT = 2;
 export const META = 4;
 /** rrweb's `EventType.Plugin`: console and network capture arrive as these (ADR-0266). */
 export const PLUGIN = 6;
+/** rrweb's `EventType.Custom`: the recorder sends canvas frames as these (ADR-0267). */
+export const CUSTOM = 5;
+export const CANVAS_TAG = 'flare-canvas';
 
 /** Rendering hard limits: a session whose JSON is larger than this is not loaded without asking (see WebReplayState). */
 export const LARGE_REPLAY_BYTES = 40 * 1024 * 1024;
@@ -130,4 +133,29 @@ function stripQuotes(value: string): string {
 	} catch {
 		return value.slice(1, -1);
 	}
+}
+
+/** One canvas frame from the recorder: which element, and its picture. */
+export interface CanvasFrame {
+	id: number;
+	src: string;
+}
+
+/** Longest encoded frame the player will decode; the recorder sends at most 150 000 characters. */
+const MAX_FRAME_CHARS = 400_000;
+/** Only these picture types are drawn. An SVG data URL is not on the list on purpose. */
+const FRAME_SRC = /^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+/**
+ * The canvas frame in a custom event, or undefined when it is not one. A recording is whatever a client with an ingest key
+ * posted, so nothing here is trusted: the id must be a whole number and the picture a base64 webp, png or jpeg data URL.
+ */
+export function parseCanvasFrame(event: ReplayEvent): CanvasFrame | undefined {
+	if (event.type !== CUSTOM) return undefined;
+	const data = event.data as { tag?: unknown; payload?: unknown } | undefined;
+	if (data?.tag !== CANVAS_TAG || typeof data.payload !== 'object' || data.payload === null) return undefined;
+	const { id, src } = data.payload as { id?: unknown; src?: unknown };
+	if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) return undefined;
+	if (typeof src !== 'string' || src.length > MAX_FRAME_CHARS || !FRAME_SRC.test(src)) return undefined;
+	return { id, src };
 }
