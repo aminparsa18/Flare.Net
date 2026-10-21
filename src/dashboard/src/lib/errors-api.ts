@@ -123,6 +123,8 @@ export interface ExceptionOccurrence {
 	symbolicated: boolean;
 	/** This occurrence's own message; the group's message is a normalized template (ADR-0258). */
 	message: string;
+	/** The span's `session.id`, '' when it has none; links to the session's browser replay (ADR-0264). */
+	sessionId: string;
 }
 
 function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccurrence {
@@ -135,7 +137,8 @@ function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccu
 		stacktrace: dto.stacktrace ?? '',
 		revision: dto.revision ?? '',
 		symbolicated: dto.symbolicated,
-		message: dto.message ?? ''
+		message: dto.message ?? '',
+		sessionId: dto.sessionId ?? ''
 	};
 }
 

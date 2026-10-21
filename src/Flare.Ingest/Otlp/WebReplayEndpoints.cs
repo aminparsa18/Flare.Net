@@ -62,6 +62,10 @@ public static partial class WebReplayEndpoints
         if (summary is null)
             return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
 
+        // The key's byte caps (ADR-0051) count a chunk's bytes like an OTLP body's. Its event caps do not: an rrweb event is not a
+        // telemetry record, and one page snapshot is a single event hundreds of kilobytes long.
+        IngestKeyUsageFeature.Add(http, events: 0, bytes: payload.Length);
+
         var now = timeProvider.GetUtcNow();
         var start = Clamp(summary.Value.FirstUnixMs, now);
         var end = Clamp(summary.Value.LastUnixMs, now);

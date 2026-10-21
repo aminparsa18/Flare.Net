@@ -19,6 +19,7 @@ export class ExceptionOccurrence {
 	serviceVersion: string | null;
 	symbolicated: boolean;
 	message: string | null;
+	sessionId: string | null;
 
 	constructor() {
 		this.traceId = null;
@@ -31,6 +32,7 @@ export class ExceptionOccurrence {
 		this.serviceVersion = null;
 		this.symbolicated = false;
 		this.message = null;
+		this.sessionId = null;
 	}
 
 	static serialize(value: ExceptionOccurrence | null): Uint8Array {
@@ -45,7 +47,7 @@ export class ExceptionOccurrence {
 			return;
 		}
 
-		writer.writeObjectHeader(10);
+		writer.writeObjectHeader(11);
 		writer.writeString(value.traceId);
 		writer.writeString(value.spanId);
 		writer.writeString(value.serviceName);
@@ -56,6 +58,7 @@ export class ExceptionOccurrence {
 		writer.writeString(value.serviceVersion);
 		writer.writeBoolean(value.symbolicated);
 		writer.writeString(value.message);
+		writer.writeString(value.sessionId);
 	}
 
 	static serializeArray(value: (ExceptionOccurrence | null)[] | null): Uint8Array {
@@ -79,7 +82,7 @@ export class ExceptionOccurrence {
 		}
 
 		const value = new ExceptionOccurrence();
-		if (count == 10) {
+		if (count == 11) {
 			value.traceId = reader.readString();
 			value.spanId = reader.readString();
 			value.serviceName = reader.readString();
@@ -90,7 +93,8 @@ export class ExceptionOccurrence {
 			value.serviceVersion = reader.readString();
 			value.symbolicated = reader.readBoolean();
 			value.message = reader.readString();
-		} else if (count > 10) {
+			value.sessionId = reader.readString();
+		} else if (count > 11) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -114,6 +118,8 @@ export class ExceptionOccurrence {
 			if (count == 9) return value;
 			value.message = reader.readString();
 			if (count == 10) return value;
+			value.sessionId = reader.readString();
+			if (count == 11) return value;
 		}
 		return value;
 	}

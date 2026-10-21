@@ -49,11 +49,17 @@ public static class AppSessionQueryBuilder
     /// <summary>
     /// One row per session, most recently active first. Columns: SessionId, ServiceName, Version,
     /// Os, Device, FirstSeenUnixMs, LastSeenUnixMs, SpanCount, TraceCount, ErrorCount, Screens.
+    /// <paramref name="onlySessionIds"/> restricts the result to those sessions (the ones with a browser recording).
     /// </summary>
-    public static AppSessionSql BuildSessions(AppSessionsRequest request, int windowMinutes, DateTimeOffset end)
+    public static AppSessionSql BuildSessions(AppSessionsRequest request, int windowMinutes, DateTimeOffset end, IReadOnlyCollection<string>? onlySessionIds = null)
     {
         var parameters = new ClickHouseParameterCollection();
         var where = Where(parameters, windowMinutes, end, request.Service, request.Version);
+        if (onlySessionIds is not null)
+        {
+            parameters.AddParameter("onlySessionIds", onlySessionIds.ToArray());
+            where += $" AND {SessionId} IN {{onlySessionIds:Array(String)}}";
+        }
         parameters.AddParameter("limit", (uint)(MaxRows + 1));
 
         var having = request.ErrorsOnly ? "\nHAVING ErrorCount > 0" : string.Empty;

@@ -70,6 +70,37 @@ public class WebReplayEndpointsTests
     }
 
     [Fact]
+    public async Task Accepted_chunk_counts_its_bytes_but_no_events_against_the_ingest_key()
+    {
+        var body = Bytes(Events(NowMs - 1000, NowMs));
+        var context = new DefaultHttpContext();
+        context.Request.ContentType = "application/json";
+        context.Request.Body = new MemoryStream(body);
+        context.Request.QueryString = new QueryString(DefaultQuery);
+        var usage = new IngestKeyUsageFeature(Guid.NewGuid());
+        context.Features.Set(usage);
+
+        await WebReplayEndpoints.HandleAsync(context, new FakeWriter(), new FixedClock(Now), NullLoggerFactory.Instance, CancellationToken.None);
+
+        Assert.Equal((0L, (long)body.Length), (usage.Events, usage.Bytes));
+    }
+
+    [Fact]
+    public async Task Rejected_chunk_counts_nothing_against_the_ingest_key()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.ContentType = "application/json";
+        context.Request.Body = new MemoryStream(Bytes("[1]"));
+        context.Request.QueryString = new QueryString(DefaultQuery);
+        var usage = new IngestKeyUsageFeature(Guid.NewGuid());
+        context.Features.Set(usage);
+
+        await WebReplayEndpoints.HandleAsync(context, new FakeWriter(), new FixedClock(Now), NullLoggerFactory.Instance, CancellationToken.None);
+
+        Assert.Equal((0L, 0L), (usage.Events, usage.Bytes));
+    }
+
+    [Fact]
     public async Task Payload_is_stored_as_received()
     {
         var json = Events(NowMs);

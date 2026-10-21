@@ -110,11 +110,11 @@ describe('sampling', () => {
 describe('sendChunk', () => {
 	const json = JSON.stringify([{ type: 3, timestamp: 1, data: {} }]);
 
-	function fakeFetch(status: number) {
+	function fakeFetch(status: number, headers: Record<string, string> = {}) {
 		const calls: { url: string; init: RequestInit }[] = [];
 		const impl = (async (url: string, init: RequestInit) => {
 			calls.push({ url, init });
-			return { ok: status >= 200 && status < 300, status } as Response;
+			return { ok: status >= 200 && status < 300, status, headers: new Headers(headers) } as Response;
 		}) as unknown as typeof fetch;
 		return { calls, impl };
 	}
@@ -156,5 +156,27 @@ describe('sendChunk', () => {
 		const { calls, impl } = fakeFetch(204);
 		assert.equal(await sendChunk('x'.repeat(MAX_CHUNK_BYTES + 1), { url: 'u', fetchImpl: impl }), 'dropped');
 		assert.equal(calls.length, 0);
+	});
+
+	it('answers a 429 with how long to hold off, from Retry-After or a default', async () => {
+		assert.deepEqual(await sendChunk(json, { url: 'u', fetchImpl: fakeFetch(429, { 'Retry-After': '30' }).impl }), { retryAfterMs: 30_000 });
+		assert.deepEqual(await sendChunk(json, { url: 'u', fetchImpl: fakeFetch(429).impl }), { retryAfterMs: 60_000 });
+		assert.deepEqual(await sendChunk(json, { url: 'u', fetchImpl: fakeFetch(429, { 'Retry-After': '999999' }).impl }), { retryAfterMs: 3_600_000 });
+	});
+});
+
+describe('onError options', () => {
+	it('default to recording the whole session', () => {
+		const o = resolveOptions({ endpoint: 'x', service: 'web' });
+		assert.deepEqual([o.mode, o.bufferMs, o.afterErrorMs, o.captureErrors], ['session', 30_000, 10_000, true]);
+	});
+
+	it('clamp the buffer so a snapshot is not taken every instant', () => {
+		const o = resolveOptions({ endpoint: 'x', service: 'web', mode: 'onError', bufferMs: 10, afterErrorMs: -1 });
+		assert.deepEqual([o.mode, o.bufferMs, o.afterErrorMs], ['onError', 5000, 0]);
+	});
+
+	it('treat an unknown mode as session', () => {
+		assert.equal(resolveOptions({ endpoint: 'x', service: 'web', mode: 'nope' as never }).mode, 'session');
 	});
 });

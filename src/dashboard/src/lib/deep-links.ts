@@ -565,3 +565,11 @@ export function buildSessionTracesHref(sessionId: string, fromMs: number, toMs: 
 export function buildSessionTimelineHref(sessionId: string, fromMs: number, toMs: number): string {
 	return withBase(`/sessions/${encodeURIComponent(sessionId)}?from=${Math.floor(fromMs)}&to=${Math.ceil(toMs)}`);
 }
+
+/**
+ * A session's page opened at a moment, for the replay to jump to (an error occurrence's time). The spans window runs from an hour
+ * before to ten minutes after, which covers a recording of the longest length the dashboard lists around the moment.
+ */
+export function buildSessionReplayHref(sessionId: string, atMs: number): string {
+	return `${buildSessionTimelineHref(sessionId, atMs - 3_600_000, atMs + 600_000)}&at=${Math.floor(atMs)}`;
+}

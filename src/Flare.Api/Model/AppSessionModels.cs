@@ -22,6 +22,9 @@ public sealed record AppSessionsRequest
 
     /// <summary>Only sessions with at least one error span.</summary>
     public bool ErrorsOnly { get; init; }
+
+    /// <summary>Only sessions with a browser recording (ADR-0264) in the window.</summary>
+    public bool ReplayOnly { get; init; }
 }
 
 /// <summary>One session. Times are Unix epoch milliseconds.</summary>
@@ -52,6 +55,9 @@ public sealed record AppSession
 
     /// <summary>Up to <see cref="Query.AppSessionQueryBuilder.MaxScreensPerSession"/> distinct <c>screen.name</c> values.</summary>
     public required IReadOnlyList<string> Screens { get; init; }
+
+    /// <summary>True when the window holds a browser recording (ADR-0264) of this session.</summary>
+    public bool HasReplay { get; init; }
 }
 
 public sealed record AppSessionsResponse

@@ -34,10 +34,12 @@
 	};
 	const from = num('from');
 	const to = num('to');
+	// An error occurrence links here with the moment it happened; the recording opens a few seconds before it.
+	const at = num('at');
 
 	onMount(() => {
 		void replay.load(sessionId, from, to);
-		void webReplay.load(sessionId, from, to);
+		void webReplay.load(sessionId, from, to, at);
 		return state.load(sessionId, from, to);
 	});
 	onDestroy(() => {

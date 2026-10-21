@@ -1,0 +1,70 @@
+# Publishes the browser session replay recorder to npm as @apardev/flare-browser-replay (src/flare-browser-replay, ADR-0264).
+#
+# Releases on a `flare-browser-replay-v*.*.*` tag whose version matches src/flare-browser-replay/package.json, the same
+# tag-must-match-the-project-version rule as npm-publish.yml (the CLI) and nuget-publish.yml.
+#
+# Auth is npm trusted publishing (OIDC), no NPM_TOKEN. npm only lets you attach a trusted publisher to a package that already
+# exists, so the very first release is a manual `npm publish --access public` from a logged-in maintainer; after that, add this
+# workflow (browser-replay-publish.yml, environment `release`) as the package's trusted publisher.
+
+name: Browser replay publish
+
+on:
+  push:
+    tags:
+      - 'flare-browser-replay-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build, test and pack, but do not publish (no tag needed)'
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write # npm trusted publishing + provenance
+      contents: read
+    defaults:
+      run:
+        working-directory: src/flare-browser-replay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24' # npm >= 11.5.1 is required for trusted publishing
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: src/flare-browser-replay/package-lock.json
+
+      - name: Validate tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "flare-browser-replay-v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version ($VERSION)"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/') || inputs.dry_run == false
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version already published, skipping"
+            exit 0
+          fi
+          npm publish --access public --provenance
+
+      - name: Dry run (pack only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.dry_run != false }}
+        run: npm pack --dry-run

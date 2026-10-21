@@ -284,18 +284,47 @@ viewer's browser must be able to reach it.
 | `maxEventsPerChunk` | `500` | A batch is sent early at this many events. |
 | `maxDurationMs` | one hour | Recording stops after this long; the dashboard lists one hour. |
 | `checkoutEveryMs` | off | Take a fresh page snapshot this often, so a replay can start later in a long session. |
+| `mode` | `'session'` | `'session'` records everything; `'onError'` records only around errors (below). |
+| `bufferMs` | `30000` | `onError` only: how far back an error's recording reaches. |
+| `afterErrorMs` | `10000` | `onError` only: how long recording continues after an error. |
+| `captureErrors` | `true` | `onError` only: treat uncaught errors and unhandled promise rejections as errors to keep. |
 | `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Selectors for the two attributes above. |
 | `onStop` | none | Called with a reason when the recorder stops by itself. |
 
 `replay.stop()` ends the recording and sends what is left; `replay.flush()` sends what has been recorded so far.
 
+### Record only around an error
+
+Recording every session is the most to store and the most to review. With `mode: 'onError'` the recorder keeps only the last
+seconds in memory and sends nothing until something goes wrong:
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, mode: 'onError', bufferMs: 30_000, afterErrorMs: 10_000 });
+
+try { await checkout(); } catch (err) { report(err); replay.keep(); }   // an error you handled yourself
+```
+
+An uncaught error or an unhandled promise rejection does the same without any code (turn it off with `captureErrors: false`).
+On an error the recorder sends what it holds (between `bufferMs` and twice `bufferMs` before the error, starting at a page
+snapshot) and keeps recording for `afterErrorMs`. Then it drops events until the next snapshot, so a session with several
+errors becomes several recordings, and a session without one leaves nothing behind. Nothing leaves the browser until the
+error, but the page is still recorded into memory the whole time, so the masking rules above apply either way.
+
+### Find a recording
+
+On **Sessions**, a session with a recording shows a play icon next to its id, and **Recorded only** hides the rest. On
+**Errors**, an occurrence whose span carries the `session.id` attribute has a **View session replay** link that opens the
+session at the moment of the error, a few seconds early.
+
 ### What to expect
 
 - A batch is sent every few seconds and when the tab is hidden. A failed send is dropped, not retried, so a replay can have a
   gap but never plays an event twice. Closing a tab can lose the last batch of more than about 60 KB.
-- A recording stops by itself after an hour or when the key is rejected (`401` or `403`), and `onStop` is called.
+- A recording stops by itself after an hour or when the key is rejected (`401` or `403`), and `onStop` is called. When the key
+  is over a limit (`429`), the recorder drops batches for the time the response's `Retry-After` gives and carries on after it.
 - Recordings count against the Traces retention, and a long page with a lot of DOM changes is large. Use `sampleRate` on busy
-  sites. Replay is not part of the per-key ingest limits yet.
+  sites, or `mode: 'onError'`. A recording counts against the key's byte limits (the **Bytes** caps per minute and per day under the
+  key's **Limits**, the same ones OTLP uses) but not its event limits, since a replay event is not a telemetry record.
 - Over 40 MB of stored recording, the player warns before loading it into the tab.
 
 ## Check it worked

@@ -272,17 +272,37 @@ class SessionIdProcessor implements SpanProcessor {
 | `maxEventsPerChunk` | `500` | 达到该事件数时提前发送。 |
 | `maxDurationMs` | 一小时 | 超过该时长后停止录制；仪表板列出一小时。 |
 | `checkoutEveryMs` | 关闭 | 按此间隔重新拍摄页面快照，使回放可以从长会话的中途开始。 |
+| `mode` | `'session'` | `'session'` 录制全部内容；`'onError'` 只录制错误前后（见下文）。 |
+| `bufferMs` | `30000` | 仅 `onError`：错误的录制向前回溯多久。 |
+| `afterErrorMs` | `10000` | 仅 `onError`：错误之后继续录制多久。 |
+| `captureErrors` | `true` | 仅 `onError`：把未捕获的错误和未处理的 Promise 拒绝视为需要保留的错误。 |
 | `blockSelector`、`maskTextSelector` | `[data-flare-block]`、`[data-flare-mask]` | 上述两个属性对应的选择器。 |
 | `onStop` | 无 | 录制器自行停止时，带着原因调用。 |
 
 `replay.stop()` 结束录制并发送剩余内容；`replay.flush()` 发送目前已录制的内容。
 
+### 只录制错误前后
+
+录制每一个会话占用的存储最多，需要查看的内容也最多。使用 `mode: 'onError'` 时，录制器只在内存中保留最近几秒，出错之前不会发送任何内容：
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, mode: 'onError', bufferMs: 30_000, afterErrorMs: 10_000 });
+
+try { await checkout(); } catch (err) { report(err); replay.keep(); }   // 你自己处理过的错误
+```
+
+未捕获的错误或未处理的 Promise 拒绝无需任何代码也会触发同样的行为（用 `captureErrors: false` 关闭）。出错时，录制器会发送它保留的内容（错误之前 `bufferMs` 到两倍 `bufferMs` 的范围，从一次页面快照开始），并继续录制 `afterErrorMs`。之后它会丢弃事件，直到下一次快照，所以有多次错误的会话会产生多段录制，没有错误的会话则不留下任何内容。出错之前没有任何数据离开浏览器，但页面始终在内存中被录制，因此上面的遮罩规则在两种模式下都适用。
+
+### 找到录制
+
+在 **Sessions** 中，有录制的会话在其 ID 旁显示播放图标，**仅含录制** 开关会隐藏其余会话。在 **Errors** 中，如果某次出现的 span 带有 `session.id` 属性，就有一个 **查看会话回放** 链接，会在错误发生的时刻（提前几秒）打开该会话。
+
 ### 预期行为
 
 - 每隔几秒以及标签页被隐藏时发送一批。发送失败的批次会被丢弃而不会重试：回放可能出现空缺，但不会重复播放同一事件。
   关闭标签页时，超过约 60 KB 的最后一批可能丢失。
-- 录制在一小时后或密钥被拒绝（`401` 或 `403`）时自行停止，并调用 `onStop`。
-- 录制计入 Traces 的保留策略，DOM 变化很多的长页面体积较大。访问量大的站点请使用 `sampleRate`。回放目前不计入按密钥的摄取限制。
+- 录制在一小时后或密钥被拒绝（`401` 或 `403`）时自行停止，并调用 `onStop`。密钥超出限额（`429`）时，录制器会在 `Retry-After` 给出的时间内丢弃批次，之后继续。
+- 录制计入 Traces 的保留策略，DOM 变化很多的长页面体积较大。访问量大的站点请使用 `sampleRate` 或 `mode: 'onError'`。录制计入密钥的字节限额（密钥 **Limits** 中每分钟和每天的 **Bytes** 上限，与 OTLP 相同），但不计入事件限额，因为回放事件不是遥测记录。
 - 已存储的录制超过 40 MB 时，播放器会在加载到标签页之前给出提示。
 
 ## 验证是否生效

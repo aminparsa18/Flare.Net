@@ -43,6 +43,23 @@ public class AppSessionQueryBuilderTests
     }
 
     [Fact]
+    public void BuildSessions_RestrictsToTheGivenSessionIdsAsABoundArray()
+    {
+        var built = AppSessionQueryBuilder.BuildSessions(new AppSessionsRequest(), 60, End, ["s-1", "s-2"]);
+
+        Assert.Contains("AND SpanAttributes['session.id'] IN {onlySessionIds:Array(String)}", built.Sql);
+        Assert.DoesNotContain("s-1", built.Sql);
+    }
+
+    [Fact]
+    public void BuildSessions_WithoutAnIdRestrictionHasNoSessionIdPredicate()
+    {
+        var built = AppSessionQueryBuilder.BuildSessions(new AppSessionsRequest(), 60, End);
+
+        Assert.DoesNotContain("onlySessionIds", built.Sql);
+    }
+
+    [Fact]
     public void BuildSessions_FetchesOneRowPastTheCap()
     {
         var built = AppSessionQueryBuilder.BuildSessions(new AppSessionsRequest(), 60, End);
