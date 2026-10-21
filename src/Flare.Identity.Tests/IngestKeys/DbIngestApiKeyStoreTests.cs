@@ -117,6 +117,18 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task UpdateLimitsAsync_RoundTripsTheReplayCaps()
+    {
+        var (key, _) = await _store.CreateAsync("replay-limited");
+        var limits = new IngestApiKeyLimits(true, null, null, null, null, MaxReplayBytesPerMinute: 50_000_000, MaxReplayBytesPerDay: 2_000_000_000);
+
+        await _store.UpdateLimitsAsync(key.Id, limits);
+
+        Assert.Equal(limits, (await _store.ListAsync()).Single(k => k.Id == key.Id).Limits);
+        Assert.Equal(limits, (await _store.ListActiveKeysAsync()).Single(k => k.Id == key.Id).Limits);
+    }
+
+    [Fact]
     public async Task UpdateLimitsAsync_RoundTripsThroughBothListMethods()
     {
         var (key, _) = await _store.CreateAsync("limited");

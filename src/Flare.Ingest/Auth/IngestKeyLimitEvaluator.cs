@@ -18,21 +18,24 @@ public static class IngestKeyLimitEvaluator
     /// <summary>Returns how long the client should wait before retrying if any enforced
     /// cap is reached, or null if the request may proceed. A reached daily cap wins over a
     /// reached per-minute one, since retrying before UTC midnight would just be rejected
-    /// again.</summary>
-    public static TimeSpan? Evaluate(IngestApiKeyLimits limits, IngestKeyUsage usage, DateTimeOffset now)
+    /// again. The replay caps (ADR-0268) are checked only for a replay request
+    /// (<paramref name="isReplay"/>): OTLP traffic is never refused because replay filled its budget.</summary>
+    public static TimeSpan? Evaluate(IngestApiKeyLimits limits, IngestKeyUsage usage, DateTimeOffset now, bool isReplay = false)
     {
         if (!limits.IsEnforced)
         {
             return null;
         }
 
-        if (Reached(usage.Day.Events, limits.MaxEventsPerDay) || Reached(usage.Day.Bytes, limits.MaxBytesPerDay))
+        if (Reached(usage.Day.Events, limits.MaxEventsPerDay) || Reached(usage.Day.Bytes, limits.MaxBytesPerDay)
+            || (isReplay && Reached(usage.Day.ReplayBytes, limits.MaxReplayBytesPerDay)))
         {
             var nextDay = DateTimeOffset.FromUnixTimeSeconds((IngestApiKeyUsageKeys.EpochDay(now) + 1) * 86_400);
             return nextDay - now;
         }
 
-        if (Reached(usage.Minute.Events, limits.MaxEventsPerMinute) || Reached(usage.Minute.Bytes, limits.MaxBytesPerMinute))
+        if (Reached(usage.Minute.Events, limits.MaxEventsPerMinute) || Reached(usage.Minute.Bytes, limits.MaxBytesPerMinute)
+            || (isReplay && Reached(usage.Minute.ReplayBytes, limits.MaxReplayBytesPerMinute)))
         {
             var nextMinute = DateTimeOffset.FromUnixTimeSeconds((IngestApiKeyUsageKeys.EpochMinute(now) + 1) * 60);
             return nextMinute - now;

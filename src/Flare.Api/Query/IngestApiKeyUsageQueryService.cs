@@ -4,7 +4,7 @@ using StackExchange.Redis;
 namespace Flare.Api.Query;
 
 /// <summary>One key's accepted events/bytes in the current UTC minute and UTC day.</summary>
-public readonly record struct IngestApiKeyUsage(long EventsThisMinute, long BytesThisMinute, long EventsToday, long BytesToday);
+public readonly record struct IngestApiKeyUsage(long EventsThisMinute, long BytesThisMinute, long EventsToday, long BytesToday, long ReplayBytesThisMinute = 0, long ReplayBytesToday = 0);
 
 public interface IIngestApiKeyUsageQueryService
 {
@@ -19,7 +19,7 @@ public interface IIngestApiKeyUsageQueryService
 /// </summary>
 public sealed class IngestApiKeyUsageQueryService(IConnectionMultiplexer connectionMultiplexer, TimeProvider timeProvider) : IIngestApiKeyUsageQueryService
 {
-    private static readonly RedisValue[] Fields = [IngestApiKeyUsageKeys.EventsField, IngestApiKeyUsageKeys.BytesField];
+    private static readonly RedisValue[] Fields = [IngestApiKeyUsageKeys.EventsField, IngestApiKeyUsageKeys.BytesField, IngestApiKeyUsageKeys.ReplayBytesField];
 
     public async Task<IReadOnlyDictionary<Guid, IngestApiKeyUsage>> GetUsageAsync(IReadOnlyList<Guid> keyIds, CancellationToken cancellationToken = default)
     {
@@ -46,7 +46,9 @@ public sealed class IngestApiKeyUsageQueryService(IConnectionMultiplexer connect
                 EventsThisMinute: ToLong(r.Minute.Result[0]),
                 BytesThisMinute: ToLong(r.Minute.Result[1]),
                 EventsToday: ToLong(r.Day.Result[0]),
-                BytesToday: ToLong(r.Day.Result[1])));
+                BytesToday: ToLong(r.Day.Result[1]),
+                ReplayBytesThisMinute: ToLong(r.Minute.Result[2]),
+                ReplayBytesToday: ToLong(r.Day.Result[2])));
     }
 
     private static long ToLong(RedisValue value) => value.IsNull ? 0 : (long)value;

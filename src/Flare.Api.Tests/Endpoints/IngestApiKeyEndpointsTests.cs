@@ -39,6 +39,8 @@ public class IngestApiKeyEndpointsTests
             MaxBytesPerMinute = 1_000,
             MaxEventsPerDay = 1_000_000,
             MaxBytesPerDay = 10_000_000_000,
+            MaxReplayBytesPerMinute = 1_000,
+            MaxReplayBytesPerDay = 100_000,
         };
 
         Assert.Null(IngestApiKeyEndpoints.ValidateLimits(request));
@@ -53,5 +55,14 @@ public class IngestApiKeyEndpointsTests
 
         Assert.NotNull(error);
         Assert.Contains(nameof(UpdateIngestApiKeyLimitsRequest.MaxBytesPerDay), error);
+    }
+
+    [Fact]
+    public void ValidateLimits_RejectsANonPositiveReplayCap_NamingIt()
+    {
+        var error = IngestApiKeyEndpoints.ValidateLimits(new UpdateIngestApiKeyLimitsRequest { LimitsEnabled = true, MaxReplayBytesPerMinute = 0 });
+
+        Assert.NotNull(error);
+        Assert.Contains(nameof(UpdateIngestApiKeyLimitsRequest.MaxReplayBytesPerMinute), error);
     }
 }

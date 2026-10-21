@@ -93,11 +93,11 @@ public sealed class IngestApiKeyValidationMiddleware(
 
         await next(context);
 
-        if (usage.Events > 0 || usage.Bytes > 0)
+        if (usage.Events > 0 || usage.Bytes > 0 || usage.ReplayBytes > 0)
         {
             try
             {
-                await usageStore.RecordAsync(keyId, usage.Events, usage.Bytes, timeProvider.GetUtcNow(), context.RequestAborted);
+                await usageStore.RecordAsync(keyId, usage.Events, usage.Bytes, usage.ReplayBytes, timeProvider.GetUtcNow(), context.RequestAborted);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -115,7 +115,7 @@ public sealed class IngestApiKeyValidationMiddleware(
         try
         {
             var usage = await usageStore.GetAsync(keyId, now, context.RequestAborted);
-            return IngestKeyLimitEvaluator.Evaluate(key.Limits, usage, now);
+            return IngestKeyLimitEvaluator.Evaluate(key.Limits, usage, now, IngestKeyLimitRejection.IsReplay(context.Request));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

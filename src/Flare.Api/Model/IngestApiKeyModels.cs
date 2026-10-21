@@ -51,6 +51,18 @@ public sealed partial record IngestApiKeyDto
 
     /// <summary>When the key stops working (ADR-0207); null = never. <see cref="IsActive"/> is already false once this has passed. Appended last, same reason.</summary>
     public DateTimeOffset? ExpiresAt { get; init; }
+
+    /// <summary>Cap on browser session replay bytes per UTC minute (ADR-0268); null = none. Appended last, same reason.</summary>
+    public long? MaxReplayBytesPerMinute { get; init; }
+
+    /// <summary>Cap on browser session replay bytes per UTC day (ADR-0268); null = none. Appended last, same reason.</summary>
+    public long? MaxReplayBytesPerDay { get; init; }
+
+    /// <summary>Replay bytes accepted in the current UTC minute (ADR-0268). Appended last, same reason.</summary>
+    public long ReplayBytesThisMinute { get; init; }
+
+    /// <summary>Replay bytes accepted in the current UTC day (ADR-0268). Appended last, same reason.</summary>
+    public long ReplayBytesToday { get; init; }
 }
 
 /// <summary>Request body for <c>PUT /api/ingest-keys/{id}/expiry</c> - sets the expiry, or clears it when null.
@@ -78,7 +90,7 @@ public sealed partial record SetIngestApiKeyOriginsRequest
     public required string[] Origins { get; init; }
 }
 
-/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/limits</c> - replaces all five
+/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/limits</c> - replaces all seven
 /// limit settings at once. A null cap means "no cap on this dimension"; a set one must be
 /// positive.</summary>
 [MemoryPackable]
@@ -94,6 +106,10 @@ public sealed partial record UpdateIngestApiKeyLimitsRequest
     public long? MaxEventsPerDay { get; init; }
 
     public long? MaxBytesPerDay { get; init; }
+
+    public long? MaxReplayBytesPerMinute { get; init; }
+
+    public long? MaxReplayBytesPerDay { get; init; }
 }
 
 /// <summary>Request body for <c>POST /api/ingest-keys</c>.</summary>

@@ -30,6 +30,9 @@ export interface IngestApiKeyLimits {
 	maxBytesPerMinute: number | null;
 	maxEventsPerDay: number | null;
 	maxBytesPerDay: number | null;
+	/** Caps on browser session replay bytes only (ADR-0268); a replay chunk also counts against the byte caps above. */
+	maxReplayBytesPerMinute: number | null;
+	maxReplayBytesPerDay: number | null;
 }
 
 /** Usage in the current UTC minute / UTC day - the same Redis counters the limits are enforced against. */
@@ -38,6 +41,8 @@ export interface IngestApiKeyUsage {
 	bytesThisMinute: number;
 	eventsToday: number;
 	bytesToday: number;
+	replayBytesThisMinute: number;
+	replayBytesToday: number;
 }
 
 export interface IngestApiKeyDto extends IngestApiKeyLimits, IngestApiKeyUsage {
@@ -90,10 +95,14 @@ function toIngestApiKey(dto: GeneratedIngestApiKeyDto): IngestApiKeyDto {
 		maxBytesPerMinute: toNumber(dto.maxBytesPerMinute),
 		maxEventsPerDay: toNumber(dto.maxEventsPerDay),
 		maxBytesPerDay: toNumber(dto.maxBytesPerDay),
+		maxReplayBytesPerMinute: toNumber(dto.maxReplayBytesPerMinute),
+		maxReplayBytesPerDay: toNumber(dto.maxReplayBytesPerDay),
 		eventsThisMinute: Number(dto.eventsThisMinute),
 		bytesThisMinute: Number(dto.bytesThisMinute),
 		eventsToday: Number(dto.eventsToday),
-		bytesToday: Number(dto.bytesToday)
+		bytesToday: Number(dto.bytesToday),
+		replayBytesThisMinute: Number(dto.replayBytesThisMinute),
+		replayBytesToday: Number(dto.replayBytesToday)
 	};
 }
 
@@ -168,6 +177,8 @@ export async function updateIngestApiKeyLimits(id: string, limits: IngestApiKeyL
 	dto.maxBytesPerMinute = toBigInt(limits.maxBytesPerMinute);
 	dto.maxEventsPerDay = toBigInt(limits.maxEventsPerDay);
 	dto.maxBytesPerDay = toBigInt(limits.maxBytesPerDay);
+	dto.maxReplayBytesPerMinute = toBigInt(limits.maxReplayBytesPerMinute);
+	dto.maxReplayBytesPerDay = toBigInt(limits.maxReplayBytesPerDay);
 	const res = await apiFetch(`${API_BASE_URL}/api/ingest-keys/${id}/limits`, {
 		method: 'PUT',
 		headers: memoryPackRequestHeaders(),
