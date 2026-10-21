@@ -21,8 +21,8 @@ In a **new terminal**, outside the `Flare.Net` checkout:
 ```sh
 dotnet new web -n flare-shop
 cd flare-shop
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.20.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.20.1
 dotnet add package OpenTelemetry.Instrumentation.AspNetCore
 dotnet add package OpenTelemetry.Instrumentation.Http
 ```

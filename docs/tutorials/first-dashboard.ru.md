@@ -30,8 +30,8 @@
 ```sh
 mkdir flare-metrics && cd flare-metrics
 dotnet new console
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.20.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.20.1
 ```
 
 Замените `Program.cs` на:
