@@ -4,6 +4,7 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import type { WebReplayState } from '#lib/app-sessions/web-replay.svelte.ts';
+	import type { NetworkEntry } from '#lib/app-sessions/web-replay-events.ts';
 	import { formatOffset } from '#lib/app-sessions/timeline.svelte.ts';
 	import * as m from '#lib/paraglide/messages.js';
 
@@ -23,6 +24,13 @@
 
 	function levelVariant(level: string): 'destructive' | 'secondary' | 'outline' {
 		return level === 'error' || level === 'assert' ? 'destructive' : level === 'warn' ? 'secondary' : 'outline';
+	}
+
+	/** Rows whose recorded headers and bodies are shown (ADR-0269), by row index. */
+	let expanded = $state<Record<number, boolean>>({});
+
+	function hasDetail(entry: NetworkEntry): boolean {
+		return !!(entry.requestHeaders || entry.responseHeaders || entry.requestBody || entry.responseBody);
 	}
 
 	function statusClass(status: number | undefined): string {
@@ -62,18 +70,57 @@
 		{:else}
 			{#each networkRows as entry, i (i)}
 				<li class={entry.unixMs > replay.currentUnixMs ? 'opacity-50' : ''}>
-					<button
-						type="button"
-						class="hover:bg-muted flex w-full items-baseline gap-2 px-2 py-1 text-left"
-						onclick={() => replay.seekToUnixMs(entry.unixMs)}
-					>
-						<span class="text-muted-foreground w-20 shrink-0 tabular-nums">{formatOffset(entry.unixMs - replay.startUnixMs)}</span>
-						<span class="w-10 shrink-0 tabular-nums {statusClass(entry.status)}">{entry.status ?? '–'}</span>
-						<span class="min-w-0 flex-1 break-all">{entry.url}</span>
-						{#if entry.durationMs !== undefined}
-							<span class="text-muted-foreground shrink-0 tabular-nums">{entry.durationMs} ms</span>
+					<div class="hover:bg-muted flex items-baseline">
+						<button
+							type="button"
+							class="flex min-w-0 flex-1 items-baseline gap-2 px-2 py-1 text-left"
+							onclick={() => replay.seekToUnixMs(entry.unixMs)}
+						>
+							<span class="text-muted-foreground w-20 shrink-0 tabular-nums">{formatOffset(entry.unixMs - replay.startUnixMs)}</span>
+							<span class="w-10 shrink-0 tabular-nums {statusClass(entry.status)}">{entry.status ?? '–'}</span>
+							{#if entry.method}
+								<span class="text-muted-foreground w-12 shrink-0">{entry.method}</span>
+							{/if}
+							<span class="min-w-0 flex-1 break-all">{entry.url}</span>
+							{#if entry.durationMs !== undefined}
+								<span class="text-muted-foreground shrink-0 tabular-nums">{entry.durationMs} ms</span>
+							{/if}
+						</button>
+						{#if hasDetail(entry)}
+							<button
+								type="button"
+								class="text-muted-foreground hover:text-foreground shrink-0 px-2 py-1"
+								aria-expanded={!!expanded[i]}
+								aria-label={m.sessionsPage_webReplay_requestDetails()}
+								title={m.sessionsPage_webReplay_requestDetails()}
+								onclick={() => (expanded[i] = !expanded[i])}
+							>
+								{expanded[i] ? '▾' : '▸'}
+							</button>
 						{/if}
-					</button>
+					</div>
+					{#if expanded[i]}
+						<div class="bg-muted/40 space-y-2 border-t px-2 py-2">
+							{#each [[m.sessionsPage_webReplay_requestHeaders(), entry.requestHeaders], [m.sessionsPage_webReplay_responseHeaders(), entry.responseHeaders]] as [label, headers] (label)}
+								{#if headers}
+									<div>
+										<div class="text-muted-foreground mb-0.5">{label}</div>
+										{#each Object.entries(headers) as [name, value] (name)}
+											<div class="break-all"><span class="text-muted-foreground">{name}:</span> {value}</div>
+										{/each}
+									</div>
+								{/if}
+							{/each}
+							{#each [[m.sessionsPage_webReplay_requestBody(), entry.requestBody], [m.sessionsPage_webReplay_responseBody(), entry.responseBody]] as [label, body] (label)}
+								{#if body}
+									<div>
+										<div class="text-muted-foreground mb-0.5">{label}</div>
+										<pre class="break-words whitespace-pre-wrap">{body}</pre>
+									</div>
+								{/if}
+							{/each}
+						</div>
+					{/if}
 				</li>
 			{/each}
 		{/if}

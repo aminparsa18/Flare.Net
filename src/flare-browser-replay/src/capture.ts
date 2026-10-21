@@ -20,13 +20,17 @@ export function capturePlugins(options: ResolvedReplayOptions): ReturnType<typeo
 	}
 	if (options.captureNetwork) {
 		const replayEndpoint = `${options.endpoint}/v1/`;
+		const detail = options.networkDetail;
 		plugins.push(
 			getRecordNetworkPlugin({
 				initiatorTypes: [...NETWORK_INITIATORS],
-				recordHeaders: false,
-				recordBody: false,
+				// The plugin only wraps fetch and XHR, which is what yields the method, when either option is truthy. The object
+				// form is truthy but records no headers; sanitizeRequest keeps only what the allowlist names.
+				recordHeaders: detail && detail.headers.length > 0 ? true : detail ? { request: false, response: false } : false,
+				// Only JSON bodies are ever read from the wire; the rest is never touched.
+				recordBody: detail?.bodies ? ['json'] : false,
 				recordInitialRequests: false,
-				transformRequestFn: (request) => sanitizeRequest(request, replayEndpoint, options.networkKeepQuery),
+				transformRequestFn: (request) => sanitizeRequest(request, replayEndpoint, options.networkKeepQuery, detail),
 			}),
 		);
 	}

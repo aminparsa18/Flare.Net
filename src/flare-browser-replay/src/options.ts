@@ -1,3 +1,5 @@
+import { DEFAULT_BODY_LIMIT, type NetworkDetail } from './sanitize.js';
+
 export type ConsoleLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
 const CONSOLE_LEVELS: readonly ConsoleLevel[] = ['log', 'info', 'warn', 'error', 'debug'];
@@ -59,12 +61,22 @@ export interface ReplayOptions {
 	captureConsole?: boolean | ConsoleLevel[];
 	/**
 	 * Record the page's `fetch`, `XMLHttpRequest` and beacon requests (URL, status, timing) so the replay shows them beside the
-	 * video. Off by default. Headers and bodies are never recorded. The query string and fragment are dropped from the URL unless
+	 * video. Off by default. Headers and bodies are recorded only through `networkDetail`. The query string and fragment are dropped from the URL unless
 	 * `networkKeepQuery` is set, and the recorder's own uploads are left out.
 	 */
 	captureNetwork?: boolean;
 	/** Keep the query string and fragment of recorded request URLs. Default false: they often carry tokens and ids. */
 	networkKeepQuery?: boolean;
+	/**
+	 * With `captureNetwork`: also record each request's method, and optionally headers and bodies. Off by default, and it makes
+	 * the recorder wrap `fetch` and `XMLHttpRequest` (the plain list does not). `true` records the method only.
+	 * `headers` is an allowlist of header names to keep for both the request and the response; nothing else is recorded, names
+	 * that look like credentials (authorization, cookie, anything with token, secret, key, session) are refused even if listed,
+	 * and values are cut to 200 characters. `bodies` keeps the request and response body of a request that failed (status 400
+	 * or above), only when it is JSON, with values under keys that look like secrets (password, token, card and the like)
+	 * replaced and the text cut to `bodyLimit` characters (default 2048, 256 to 8192). Other values in a body are stored as sent.
+	 */
+	networkDetail?: boolean | { headers?: string[]; bodies?: boolean; bodyLimit?: number };
 	/**
 	 * Record what `<canvas>` elements show (charts, maps, drawings, WebGL). Off by default: pixels cannot be masked the way text
 	 * can, so a canvas that draws personal data would be stored as drawn. Give a number of frames per second (1 to 10) or `true`
@@ -98,6 +110,8 @@ export interface ResolvedReplayOptions {
 	captureConsole: ConsoleLevel[];
 	captureNetwork: boolean;
 	networkKeepQuery: boolean;
+	/** Undefined when only the plain list is wanted. */
+	networkDetail: NetworkDetail | undefined;
 	/** Frames per second, 0 when canvas capture is off. */
 	canvasFps: number;
 	onStop?: (reason: string) => void;
@@ -127,6 +141,7 @@ export function resolveOptions(options: ReplayOptions): ResolvedReplayOptions {
 		captureConsole: consoleLevels(options.captureConsole),
 		captureNetwork: options.captureNetwork ?? false,
 		networkKeepQuery: options.networkKeepQuery ?? false,
+		networkDetail: options.captureNetwork ? networkDetail(options.networkDetail) : undefined,
 		// Masking all text is a promise that nothing readable is stored, which a canvas of rendered text would break.
 		canvasFps: options.maskAllText ? 0 : canvasFps(options.captureCanvas),
 		onStop: options.onStop,
@@ -138,6 +153,13 @@ function canvasFps(value: ReplayOptions['captureCanvas']): number {
 	if (value === true) return 1;
 	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 0;
 	return Math.min(10, Math.max(1, value));
+}
+
+function networkDetail(value: ReplayOptions['networkDetail']): NetworkDetail | undefined {
+	if (!value) return undefined;
+	const o = value === true ? {} : value;
+	const headers = Array.isArray(o.headers) ? o.headers.filter((h): h is string => typeof h === 'string' && h.trim() !== '').map((h) => h.trim().toLowerCase()) : [];
+	return { headers: [...new Set(headers)], bodies: o.bodies === true, bodyLimit: clamp(o.bodyLimit ?? DEFAULT_BODY_LIMIT, 256, 8192) };
 }
 
 /** `true` is warn and error; a list is cut to the levels the recorder knows; anything else is off. */

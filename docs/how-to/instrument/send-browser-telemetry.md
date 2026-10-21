@@ -291,6 +291,7 @@ viewer's browser must be able to reach it.
 | `captureConsole` | off | Record console output: `true` for `warn` and `error`, or a list of levels (`'log'`, `'info'`, `'warn'`, `'error'`, `'debug'`). |
 | `captureNetwork` | `false` | Record `fetch`, `XMLHttpRequest` and beacon requests (URL, status, timing). |
 | `networkKeepQuery` | `false` | Keep the query string and fragment of recorded request URLs. |
+| `networkDetail` | off | With `captureNetwork`: record the request method (`true`), and optionally `{ headers: [names], bodies: true, bodyLimit }`. See below. |
 | `captureCanvas` | off | Record what `<canvas>` elements show: `true` for 1 frame per second, or a number from 1 to 10. |
 | `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Selectors for the two attributes above. |
 | `onStop` | none | Called with a reason when the recorder stops by itself. |
@@ -325,9 +326,18 @@ const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, capture
 
 - **Console**: the chosen levels, plus uncaught errors and unhandled rejections as `error` entries. Each argument is cut to
   500 characters and 3 levels deep. Anything the page logs is stored as written, so do not log what you would not keep.
-- **Network**: `fetch`, `XMLHttpRequest` and beacon requests, as the URL, status and duration. Headers and bodies are never
-  recorded. The query string and fragment are dropped from the URL unless `networkKeepQuery` is set, and the recorder's own
-  uploads are left out. The method is not recorded, and a browser that does not report response status shows none.
+- **Network**: `fetch`, `XMLHttpRequest` and beacon requests, as the URL, status and duration. Headers and bodies are not
+  recorded unless `networkDetail` asks for them. The query string and fragment are dropped from the URL unless `networkKeepQuery` is set, and the recorder's own
+  uploads are left out. A browser that does not report response status shows none.
+- **Network detail** (`networkDetail`, off by default): the request method, and optionally headers and bodies. It makes the
+  recorder wrap `fetch` and `XMLHttpRequest`, which the plain list does not. `networkDetail: true` records the method only.
+  `networkDetail: { headers: ['content-type', 'x-request-id'], bodies: true }` also keeps the listed headers of the request and
+  the response, and the request and response bodies of requests that failed (status 400 or above), JSON only. Header names that
+  look like credentials (authorization, cookie, anything with token, secret, key or session) are refused even if you list
+  them, and values are cut to 200 characters. In a body, values under keys such as `password`, `token`, `secret`, `apiKey` and
+  `card` are replaced with `[redacted]` and the text is cut to `bodyLimit` characters (2048 by default, 256 to 8192). Every
+  other value is stored as the page sent it, so keep `bodies` off if your error responses echo personal data. A row with
+  recorded detail has an arrow that opens it.
 
 Below the player, **Console** and **Network** list the entries. A row opens the recording at that moment, and rows after the
 current position are dimmed.

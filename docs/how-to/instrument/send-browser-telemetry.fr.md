@@ -298,6 +298,7 @@ lecteur doit pouvoir l'atteindre.
 | `captureConsole` | désactivé | Enregistrer la sortie console : `true` pour `warn` et `error`, ou une liste de niveaux (`'log'`, `'info'`, `'warn'`, `'error'`, `'debug'`). |
 | `captureNetwork` | `false` | Enregistrer les requêtes `fetch`, `XMLHttpRequest` et beacon (URL, statut, durée). |
 | `networkKeepQuery` | `false` | Conserver la chaîne de requête et le fragment des URL de requêtes enregistrées. |
+| `networkDetail` | désactivé | Avec `captureNetwork` : enregistrer la méthode (`true`), et éventuellement `{ headers: [noms], bodies: true, bodyLimit }`. Voir ci-dessous. |
 | `captureCanvas` | désactivé | Enregistrer ce qu'affichent les éléments `<canvas>` : `true` pour 1 image par seconde, ou un nombre de 1 à 10. |
 | `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Sélecteurs des deux attributs ci-dessus. |
 | `onStop` | aucun | Appelé avec une raison quand l'enregistreur s'arrête de lui-même. |
@@ -335,9 +336,19 @@ const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, capture
   argument est tronqué à 500 caractères et 3 niveaux de profondeur. Tout ce que la page journalise est stocké tel quel : ne
   journalisez pas ce que vous ne voudriez pas conserver.
 - **Réseau** : les requêtes `fetch`, `XMLHttpRequest` et beacon, sous forme d'URL, de statut et de durée. Les en-têtes et les
-  corps ne sont jamais enregistrés. La chaîne de requête et le fragment sont retirés de l'URL sauf si `networkKeepQuery` est
-  activé, et les envois de l'enregistreur lui-même sont exclus. La méthode n'est pas enregistrée, et un navigateur qui ne
-  fournit pas le statut de la réponse n'en affiche aucun.
+  corps ne sont enregistrés que si `networkDetail` le demande. La chaîne de requête et le fragment sont retirés de l'URL sauf si `networkKeepQuery` est
+  activé, et les envois de l'enregistreur lui-même sont exclus. Un navigateur qui ne fournit pas le statut de la réponse
+  n'en affiche aucun.
+- **Détail réseau** (`networkDetail`, désactivé par défaut) : la méthode de la requête, et éventuellement les en-têtes et les
+  corps. L'enregistreur enveloppe alors `fetch` et `XMLHttpRequest`, ce que la liste simple ne fait pas. `networkDetail: true`
+  n'enregistre que la méthode. `networkDetail: { headers: ['content-type', 'x-request-id'], bodies: true }` conserve en plus
+  les en-têtes listés de la requête et de la réponse, ainsi que les corps de requête et de réponse des requêtes en échec
+  (statut 400 ou plus), uniquement en JSON. Les noms d'en-tête qui ressemblent à des identifiants (authorization, cookie,
+  tout nom contenant token, secret, key ou session) sont refusés même s'ils sont listés, et les valeurs sont tronquées à
+  200 caractères. Dans un corps, les valeurs des clés comme `password`, `token`, `secret`, `apiKey` et `card` sont remplacées
+  par `[redacted]` et le texte est tronqué à `bodyLimit` caractères (2048 par défaut, de 256 à 8192). Toute autre valeur est
+  stockée telle que la page l'a envoyée : laissez `bodies` désactivé si vos réponses d'erreur renvoient des données
+  personnelles. Une ligne dont le détail est enregistré a une flèche pour l'ouvrir.
 
 Sous le lecteur, **Console** et **Réseau** listent les entrées. Une ligne ouvre l'enregistrement à cet instant, et les lignes
 postérieures à la position courante sont atténuées.

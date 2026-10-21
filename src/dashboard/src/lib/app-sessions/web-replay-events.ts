@@ -73,6 +73,12 @@ export interface NetworkEntry {
 	status: number | undefined;
 	durationMs: number | undefined;
 	kind: string | undefined;
+	/** Only in a recording made with `networkDetail` (ADR-0269). */
+	method?: string;
+	requestHeaders?: Record<string, string>;
+	responseHeaders?: Record<string, string>;
+	requestBody?: string;
+	responseBody?: string;
 }
 
 /** Most entries of each kind a recording is read for; a page logging in a loop would otherwise fill the tab. */
@@ -110,18 +116,40 @@ export function extractNetwork(events: readonly ReplayEvent[]): NetworkEntry[] {
 			const r = raw as Record<string, unknown>;
 			if (typeof r.name !== 'string') continue;
 			const durationMs = typeof r.duration === 'number' && Number.isFinite(r.duration) ? Math.round(r.duration) : undefined;
-			entries.push({
+			const entry: NetworkEntry = {
 				unixMs: event.timestamp - (durationMs ?? 0),
 				url: r.name,
 				// Browsers that do not report a status give 0.
 				status: typeof r.status === 'number' && r.status > 0 ? r.status : undefined,
 				durationMs,
 				kind: typeof r.initiatorType === 'string' ? r.initiatorType : undefined,
-			});
+			};
+			// The recorder redacts before it records; these are read as untrusted anyway, since a chunk is whatever a client posted.
+			if (typeof r.method === 'string' && /^[A-Za-z]{1,10}$/.test(r.method)) entry.method = r.method.toUpperCase();
+			const requestHeaders = readHeaders(r.requestHeaders);
+			if (requestHeaders) entry.requestHeaders = requestHeaders;
+			const responseHeaders = readHeaders(r.responseHeaders);
+			if (responseHeaders) entry.responseHeaders = responseHeaders;
+			if (typeof r.requestBody === 'string' && r.requestBody !== '') entry.requestBody = r.requestBody.slice(0, MAX_BODY_CHARS);
+			if (typeof r.responseBody === 'string' && r.responseBody !== '') entry.responseBody = r.responseBody.slice(0, MAX_BODY_CHARS);
+			entries.push(entry);
 			if (entries.length >= MAX_CAPTURE_ENTRIES) return entries.sort((a, b) => a.unixMs - b.unixMs);
 		}
 	}
 	return entries.sort((a, b) => a.unixMs - b.unixMs);
+}
+
+/** Longest body, and most headers, read from one recorded request. */
+const MAX_BODY_CHARS = 8200;
+const MAX_HEADERS = 30;
+
+function readHeaders(value: unknown): Record<string, string> | undefined {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+	const out: Record<string, string> = {};
+	for (const [name, v] of Object.entries(value).slice(0, MAX_HEADERS)) {
+		if (typeof v === 'string') out[name] = v.slice(0, 400);
+	}
+	return Object.keys(out).length > 0 ? out : undefined;
 }
 
 function stripQuotes(value: string): string {
