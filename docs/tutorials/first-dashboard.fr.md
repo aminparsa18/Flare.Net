@@ -30,8 +30,8 @@ Dans un **nouveau terminal**, en dehors du dépôt `Flare.Net` :
 ```sh
 mkdir flare-metrics && cd flare-metrics
 dotnet new console
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.20.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.20.1
 ```
 
 Remplacez `Program.cs` par :

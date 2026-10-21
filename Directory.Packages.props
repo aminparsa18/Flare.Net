@@ -52,14 +52,14 @@
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.12" />
-    <PackageVersion Include="OpenTelemetry" Version="1.19.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.20.1" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.20" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.0" />
     <!-- Flare.Aspire (project: src/Aspire.Flare/) - the client-side package (v2 roadmap item).
          Pinned at 10.0.12 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
          .NET 10 servicing train). -->
@@ -161,7 +161,7 @@
     <PackageVersion Include="Aspire.Hosting.Kafka" Version="13.6.0" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.0" />
     <PackageVersion Include="Confluent.Kafka" Version="2.15.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka" Version="0.3.0-alpha.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka" Version="0.3.0-alpha.3" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <!-- The shop's LLM calls (examples/ExampleApp.Shop/LlmClients.cs): the real
          Microsoft.Extensions.AI abstractions and its UseOpenTelemetry() decorator over an
