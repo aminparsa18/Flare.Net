@@ -27,6 +27,17 @@ curl -X POST "$FLARE_API/api/checkin-monitors" \
 
 From a terminal, `flare checkin-monitors create "Nightly backup" --cron "0 2 * * *" --timezone Europe/Berlin --grace 600 --max-runtime 3600` does the same against a local Flare, and `list`, `update` and `delete` manage the rest; `list` shows each monitor's state and its last and next expected ping. See the [CLI reference](../../reference/cli-commands.md).
 
+With the Flare Terraform / OpenTofu provider, a monitor is a `flare_checkin_monitor` resource (set `cron_expression` or `interval_seconds`, not both):
+
+```hcl
+resource "flare_checkin_monitor" "nightly_backup" {
+  name            = "Nightly backup"
+  cron_expression = "0 2 * * *"
+  time_zone       = "Europe/Berlin"
+  grace_seconds   = 600
+}
+```
+
 ## Send check-ins from the job
 
 The job calls `Flare.Ingest` on the HTTP port (4318 by default) with an [ingest key](../admin/configure-authentication.md), the same credential your OpenTelemetry exporters use. A bare path is a success; `/start` and `/fail` are the other two:
@@ -65,6 +76,12 @@ The next ping is expected at the first scheduled time after the last ping. Each 
 | Paused | The monitor is disabled. It writes no metric. | none |
 
 Saving a monitor restarts its clock: the first ping is expected after the schedule's next occurrence from that moment, so editing or re-enabling a monitor never reports it late at once. A job that starts but never finishes, with no `maxRuntimeSeconds`, is reported late once its next scheduled time plus the grace period passes.
+
+## See a monitor's runs
+
+The history button on a monitor's row lists its recent runs, newest first: when each started, how long it took, whether it succeeded, failed or never finished, and the message it sent. `GET /api/checkin-monitors/{id}/runs?limit=50` returns the same list (up to 200).
+
+Runs are paired from the pings you already send: a finish ping (`ok` or `fail`) closes the latest start before it, and a second `start` while one is open leaves the first one marked **Never finished**. A job that sends only a finish ping still shows up, without a duration. Pings carry no run id, so two overlapping runs of the same job can be paired wrongly.
 
 ## Alert on a monitor
 

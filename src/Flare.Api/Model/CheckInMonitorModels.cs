@@ -145,6 +145,74 @@ public static class CheckInEvaluator
             : after.AddSeconds(monitor.IntervalSeconds);
 }
 
+/// <summary>One ping as stored in <c>checkin_events</c>. <see cref="Status"/> is <c>start</c>, <c>ok</c> or <c>fail</c>.</summary>
+public sealed record CheckInPing(DateTimeOffset Time, string Status, string Message);
+
+/// <summary>How a run ended. <see cref="Unfinished"/> is a start that was never followed by a finish ping.</summary>
+public enum CheckInRunOutcome
+{
+    Ok,
+    Failed,
+
+    /// <summary>Started and not finished yet, within the monitor's maximum runtime (or it has none).</summary>
+    Running,
+
+    /// <summary>Started and never finished: a later start replaced it, or it outlived the maximum runtime.</summary>
+    Unfinished,
+}
+
+/// <summary>One run of a job, paired from its pings. A job that only sends a finish ping has no <see cref="StartedAt"/> or duration.</summary>
+public sealed record CheckInRun(DateTimeOffset? StartedAt, DateTimeOffset? FinishedAt, double? DurationSeconds, CheckInRunOutcome Outcome, string Message);
+
+/// <summary>Response body for <c>GET /api/checkin-monitors/{id}/runs</c>, newest first.</summary>
+public sealed record CheckInRunListResponse(IReadOnlyList<CheckInRun> Runs);
+
+/// <summary>
+/// Pairs a job's pings into runs. Pure, like <see cref="CheckInEvaluator"/>. A finish ping closes the latest open start before
+/// it; a second start while one is open leaves the first <see cref="CheckInRunOutcome.Unfinished"/>. Pings carry no run id, so
+/// two overlapping runs of the same job can pair wrongly - the same limit the evaluator has.
+/// </summary>
+public static class CheckInRunHistory
+{
+    /// <summary>The runs in <paramref name="pings"/> (oldest first), newest first.</summary>
+    public static IReadOnlyList<CheckInRun> Build(IEnumerable<CheckInPing> pings, int maxRuntimeSeconds, DateTimeOffset now)
+    {
+        var runs = new List<CheckInRun>();
+        CheckInPing? open = null;
+        foreach (var ping in pings)
+        {
+            if (ping.Status == "start")
+            {
+                if (open is not null)
+                {
+                    runs.Add(new CheckInRun(open.Time, null, null, CheckInRunOutcome.Unfinished, open.Message));
+                }
+
+                open = ping;
+                continue;
+            }
+
+            var failed = ping.Status == "fail";
+            runs.Add(new CheckInRun(
+                open?.Time,
+                ping.Time,
+                open is null ? null : Math.Max(0, (ping.Time - open.Time).TotalSeconds),
+                failed ? CheckInRunOutcome.Failed : CheckInRunOutcome.Ok,
+                ping.Message.Length > 0 ? ping.Message : open?.Message ?? ""));
+            open = null;
+        }
+
+        if (open is not null)
+        {
+            var overran = maxRuntimeSeconds > 0 && now - open.Time > TimeSpan.FromSeconds(maxRuntimeSeconds);
+            runs.Add(new CheckInRun(open.Time, null, null, overran ? CheckInRunOutcome.Unfinished : CheckInRunOutcome.Running, open.Message));
+        }
+
+        runs.Reverse();
+        return runs;
+    }
+}
+
 /// <summary>Response body for <c>GET /api/checkin-monitors</c>.</summary>
 public sealed record CheckInMonitorListResponse(IReadOnlyList<CheckInMonitor> Monitors);
 

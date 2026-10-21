@@ -50,6 +50,20 @@ export interface CheckInMonitorRequest {
 	maxRuntimeSeconds: number;
 }
 
+export type CheckInRunOutcome = 'Ok' | 'Failed' | 'Running' | 'Unfinished';
+
+/** One run of a job, paired from its start and finish pings. */
+export interface CheckInRun {
+	/** Null when the job only sends a finish ping. */
+	startedAt: string | null;
+	/** Null while running or when the run never finished. */
+	finishedAt: string | null;
+	/** Null unless both pings exist. */
+	durationSeconds: number | null;
+	outcome: CheckInRunOutcome;
+	message: string;
+}
+
 async function failure(res: Response, what: string): Promise<Error> {
 	let message = `${what} failed: ${res.status} ${res.statusText}`;
 	try {
@@ -85,6 +99,23 @@ export async function updateCheckInMonitor(id: string, request: CheckInMonitorRe
 export async function deleteCheckInMonitor(id: string): Promise<void> {
 	const res = await apiFetch(`${API_BASE_URL}/api/checkin-monitors/${id}`, { method: 'DELETE' });
 	if (!res.ok) throw await failure(res, `DELETE /api/checkin-monitors/${id}`);
+}
+
+/** The monitor's recent runs, newest first. */
+export async function listCheckInRuns(id: string, limit = 50, signal?: AbortSignal): Promise<CheckInRun[]> {
+	const res = await apiFetch(`${API_BASE_URL}/api/checkin-monitors/${id}/runs?limit=${limit}`, { headers: { Accept: 'application/json' }, signal });
+	if (!res.ok) throw await failure(res, `GET /api/checkin-monitors/${id}/runs`);
+	return ((await res.json()) as { runs?: CheckInRun[] }).runs ?? [];
+}
+
+/** "12s", "3m 05s" or "1h 02m": runs last seconds to hours, so one unit would hide either end. */
+export function formatRunDuration(seconds: number): string {
+	if (seconds < 10) return `${seconds.toFixed(1)}s`;
+	const whole = Math.round(seconds);
+	if (whole < 60) return `${whole}s`;
+	const pad = (n: number) => String(n).padStart(2, '0');
+	if (whole < 3600) return `${Math.floor(whole / 60)}m ${pad(whole % 60)}s`;
+	return `${Math.floor(whole / 3600)}h ${pad(Math.floor((whole % 3600) / 60))}m`;
 }
 
 /** The request that reproduces `monitor` unchanged, for the enable switch. */

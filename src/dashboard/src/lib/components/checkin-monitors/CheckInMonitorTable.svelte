@@ -18,6 +18,7 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import HistoryIcon from '@lucide/svelte/icons/history';
 	import HeartPulseIcon from '@lucide/svelte/icons/heart-pulse';
 
 	const monitors = checkInMonitorsContext.get();
@@ -150,6 +151,9 @@
 							<Switch size="sm" checked={monitor.enabled} onCheckedChange={(v) => monitors.setEnabled(monitor, v)} />
 						</Table.Cell>
 						<Table.Cell class="text-right">
+							<Button variant="ghost" size="icon-sm" title={m.checkin_actionRuns()} onclick={() => monitors.openRuns(monitor)}>
+								<HistoryIcon />
+							</Button>
 							<Button variant="ghost" size="icon-sm" title={m.checkin_actionCopyPing()} onclick={() => copyPing(monitor)}>
 								<CopyIcon />
 							</Button>

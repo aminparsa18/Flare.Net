@@ -18,6 +18,9 @@ public interface ICheckInMonitorQueryService
     /// <summary>The newest pings per slug among <paramref name="slugs"/>. A slug that never pinged is absent.</summary>
     Task<IReadOnlyDictionary<string, CheckInPings>> PingsAsync(IReadOnlyCollection<string> slugs, CancellationToken cancellationToken);
 
+    /// <summary>The newest <paramref name="limit"/> pings for <paramref name="slug"/>, oldest first.</summary>
+    Task<IReadOnlyList<CheckInPing>> RecentPingsAsync(string slug, int limit, CancellationToken cancellationToken);
+
     Task<CheckInMonitor?> GetAsync(Guid id, CancellationToken cancellationToken);
 
     Task<CheckInMonitor?> UpdateAsync(Guid id, CheckInMonitorRequest request, CancellationToken cancellationToken);
@@ -115,6 +118,31 @@ public sealed class CheckInMonitorQueryService(IClickHouseClient client, IOption
                 reader.GetString(5) == "fail");
         }
 
+        return pings;
+    }
+
+    public async Task<IReadOnlyList<CheckInPing>> RecentPingsAsync(string slug, int limit, CancellationToken cancellationToken)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("slug", slug);
+        parameters.AddParameter("limit", (uint)limit);
+
+        const string sql = """
+            SELECT Time, Status, Message
+            FROM checkin_events
+            WHERE Slug = {slug:String}
+            ORDER BY Time DESC
+            LIMIT {limit:UInt32}
+            """;
+
+        await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
+        var pings = new List<CheckInPing>();
+        while (reader.Read())
+        {
+            pings.Add(new CheckInPing(ReadUtc(reader, 0), reader.GetString(1), reader.GetString(2)));
+        }
+
+        pings.Reverse();
         return pings;
     }
 

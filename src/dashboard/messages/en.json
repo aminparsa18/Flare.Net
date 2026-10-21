@@ -3855,5 +3855,18 @@
 	"checkin_graceLabel": "Grace period (seconds)",
 	"checkin_maxRuntimeLabel": "Maximum runtime (seconds)",
 	"checkin_graceHint": "The grace period is how long after the expected time a check-in may be late. Maximum runtime is optional: a run that starts and does not finish in that time counts as down. 0 means no limit.",
+	"checkin_actionRuns": "Run history",
+	"checkin_runsTitle": "Runs of {name}",
+	"checkin_runsDescription": "Start and finish check-ins paired into runs, newest first. A job that sends only a finish check-in has no duration.",
+	"checkin_runsEmpty": "No check-ins received yet.",
+	"checkin_runsSummary": "{count} recent runs, {failures} failed, average duration {average}.",
+	"checkin_runColStarted": "Started",
+	"checkin_runColDuration": "Duration",
+	"checkin_runColOutcome": "Outcome",
+	"checkin_runColMessage": "Message",
+	"checkin_runOk": "Succeeded",
+	"checkin_runFailed": "Failed",
+	"checkin_runRunning": "Running",
+	"checkin_runUnfinished": "Never finished",
 	"checkin_create": "Create"
 }
