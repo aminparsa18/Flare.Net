@@ -122,7 +122,9 @@ public static class IngestApiKeyEndpoints
             request.MaxEventsPerMinute,
             request.MaxBytesPerMinute,
             request.MaxEventsPerDay,
-            request.MaxBytesPerDay);
+            request.MaxBytesPerDay,
+            request.MaxReplayBytesPerMinute,
+            request.MaxReplayBytesPerDay);
 
         var before = (await keys.ListAsync(cancellationToken)).FirstOrDefault(k => k.Id == id)?.Limits;
         if (!await keys.UpdateLimitsAsync(id, limits, cancellationToken))
@@ -338,6 +340,8 @@ public static class IngestApiKeyEndpoints
             (nameof(request.MaxBytesPerMinute), request.MaxBytesPerMinute),
             (nameof(request.MaxEventsPerDay), request.MaxEventsPerDay),
             (nameof(request.MaxBytesPerDay), request.MaxBytesPerDay),
+            (nameof(request.MaxReplayBytesPerMinute), request.MaxReplayBytesPerMinute),
+            (nameof(request.MaxReplayBytesPerDay), request.MaxReplayBytesPerDay),
         ];
 
         foreach (var (name, value) in caps)
@@ -369,6 +373,10 @@ public static class IngestApiKeyEndpoints
         MaxBytesPerMinute = key.Limits.MaxBytesPerMinute,
         MaxEventsPerDay = key.Limits.MaxEventsPerDay,
         MaxBytesPerDay = key.Limits.MaxBytesPerDay,
+        MaxReplayBytesPerMinute = key.Limits.MaxReplayBytesPerMinute,
+        MaxReplayBytesPerDay = key.Limits.MaxReplayBytesPerDay,
+        ReplayBytesThisMinute = usage.ReplayBytesThisMinute,
+        ReplayBytesToday = usage.ReplayBytesToday,
         EventsThisMinute = usage.EventsThisMinute,
         BytesThisMinute = usage.BytesThisMinute,
         EventsToday = usage.EventsToday,

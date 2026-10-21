@@ -60,4 +60,39 @@ public class IngestKeyLimitEvaluatorTests
 
         Assert.Null(IngestKeyLimitEvaluator.Evaluate(limits, Usage(minuteEvents: long.MaxValue, dayEvents: long.MaxValue), Now));
     }
+
+    private static IngestKeyUsage ReplayUsage(long minuteReplay = 0, long dayReplay = 0) =>
+        new(new IngestKeyWindowUsage(0, minuteReplay, minuteReplay), new IngestKeyWindowUsage(0, dayReplay, dayReplay));
+
+    [Fact]
+    public void Evaluate_AppliesReplayCaps_OnlyToAReplayRequest()
+    {
+        var limits = new IngestApiKeyLimits(true, null, null, null, null, MaxReplayBytesPerMinute: 1_000);
+        var usage = ReplayUsage(minuteReplay: 1_000);
+
+        Assert.Equal(TimeSpan.FromSeconds(40), IngestKeyLimitEvaluator.Evaluate(limits, usage, Now, isReplay: true));
+        Assert.Null(IngestKeyLimitEvaluator.Evaluate(limits, usage, Now, isReplay: false));
+    }
+
+    [Fact]
+    public void Evaluate_RetriesAtUtcMidnight_WhenTheDailyReplayCapIsReached()
+    {
+        var limits = new IngestApiKeyLimits(true, null, null, null, null, MaxReplayBytesPerDay: 5_000);
+
+        Assert.Equal(new TimeSpan(13, 44, 40), IngestKeyLimitEvaluator.Evaluate(limits, ReplayUsage(dayReplay: 5_000), Now, isReplay: true));
+    }
+
+    [Fact]
+    public void Evaluate_StillAppliesTheSharedByteCaps_ToAReplayRequest()
+    {
+        var limits = new IngestApiKeyLimits(true, null, MaxBytesPerMinute: 1_000, null, null, MaxReplayBytesPerMinute: 10_000);
+
+        Assert.Equal(TimeSpan.FromSeconds(40), IngestKeyLimitEvaluator.Evaluate(limits, ReplayUsage(minuteReplay: 1_000), Now, isReplay: true));
+    }
+
+    [Fact]
+    public void IsEnforced_IsTrue_WhenOnlyAReplayCapIsSet()
+    {
+        Assert.True(new IngestApiKeyLimits(true, null, null, null, null, MaxReplayBytesPerDay: 1).IsEnforced);
+    }
 }

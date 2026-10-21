@@ -74,7 +74,7 @@ internal static partial class ConfigSync
 
     private static readonly string[] ServerFields = ["id", "createdAt", "updatedAt", "projectId"];
 
-    private static readonly string[] KeyLimitFields = ["limitsEnabled", "maxEventsPerMinute", "maxBytesPerMinute", "maxEventsPerDay", "maxBytesPerDay"];
+    private static readonly string[] KeyLimitFields = ["limitsEnabled", "maxEventsPerMinute", "maxBytesPerMinute", "maxEventsPerDay", "maxBytesPerDay", "maxReplayBytesPerMinute", "maxReplayBytesPerDay"];
 
     private const string ExpiresAtField = "expiresAt";
 

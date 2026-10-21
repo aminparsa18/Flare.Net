@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Edits one key's ingestion limits (ADR-0051): an on/off toggle plus four independently
-	// optional caps - events and bytes, per UTC minute and per UTC day. An empty field means
+	// optional caps - events and bytes, per UTC minute and per UTC day - and, on a further row, bytes
+	// of browser session replay alone (ADR-0268). An empty field means
 	// "no cap", matching the backend's null. Byte caps take a unit (KB/MB/GB, 1024-based like
 	// #lib/ingestion/format.ts's formatBytes) so a daily cap doesn't have to be typed in raw bytes.
 	import * as Dialog from '#lib/components/ui/dialog/index.ts';
@@ -27,6 +28,8 @@
 	let eventsPerDay = $state<number | null>(null);
 	let bytesPerMinute = $state<ByteField>({ value: null, unit: 'MB' });
 	let bytesPerDay = $state<ByteField>({ value: null, unit: 'GB' });
+	let replayPerMinute = $state<ByteField>({ value: null, unit: 'MB' });
+	let replayPerDay = $state<ByteField>({ value: null, unit: 'GB' });
 	let validationError = $state<string | null>(null);
 
 	/** Largest unit that represents the stored byte count exactly, so reopening the dialog
@@ -47,6 +50,8 @@
 			eventsPerDay = target.maxEventsPerDay;
 			bytesPerMinute = toByteField(target.maxBytesPerMinute, 'MB');
 			bytesPerDay = toByteField(target.maxBytesPerDay, 'GB');
+			replayPerMinute = toByteField(target.maxReplayBytesPerMinute, 'MB');
+			replayPerDay = toByteField(target.maxReplayBytesPerDay, 'GB');
 			validationError = null;
 		}
 	});
@@ -70,7 +75,9 @@
 			maxEventsPerMinute: parseCap(eventsPerMinute),
 			maxEventsPerDay: parseCap(eventsPerDay),
 			maxBytesPerMinute: parseCap(bytesPerMinute.value, UNITS[bytesPerMinute.unit]),
-			maxBytesPerDay: parseCap(bytesPerDay.value, UNITS[bytesPerDay.unit])
+			maxBytesPerDay: parseCap(bytesPerDay.value, UNITS[bytesPerDay.unit]),
+			maxReplayBytesPerMinute: parseCap(replayPerMinute.value, UNITS[replayPerMinute.unit]),
+			maxReplayBytesPerDay: parseCap(replayPerDay.value, UNITS[replayPerDay.unit])
 		};
 		if (Object.values(caps).some((c) => c === undefined)) {
 			validationError = m.ingestKeyLimitsDialog_invalidCap();
@@ -82,7 +89,9 @@
 			maxEventsPerMinute: caps.maxEventsPerMinute ?? null,
 			maxEventsPerDay: caps.maxEventsPerDay ?? null,
 			maxBytesPerMinute: caps.maxBytesPerMinute ?? null,
-			maxBytesPerDay: caps.maxBytesPerDay ?? null
+			maxBytesPerDay: caps.maxBytesPerDay ?? null,
+			maxReplayBytesPerMinute: caps.maxReplayBytesPerMinute ?? null,
+			maxReplayBytesPerDay: caps.maxReplayBytesPerDay ?? null
 		});
 	}
 </script>
@@ -162,6 +171,32 @@
 						aria-label={`${m.ingestKeyLimitsDialog_bytes()} ${m.ingestKeyLimitsDialog_perDay()}`}
 					/>
 					{@render unitSelect(bytesPerDay, 'bytes-per-day-unit')}
+				</div>
+
+				<span class="font-medium">{m.ingestKeyLimitsDialog_replay()}</span>
+				<div class="flex gap-1">
+					<Input
+						type="number"
+						min="0"
+						step="any"
+						bind:value={replayPerMinute.value}
+						disabled={!enabled}
+						placeholder={m.ingestKeyLimitsDialog_noCap()}
+						aria-label={`${m.ingestKeyLimitsDialog_replay()} ${m.ingestKeyLimitsDialog_perMinute()}`}
+					/>
+					{@render unitSelect(replayPerMinute, 'replay-per-minute-unit')}
+				</div>
+				<div class="flex gap-1">
+					<Input
+						type="number"
+						min="0"
+						step="any"
+						bind:value={replayPerDay.value}
+						disabled={!enabled}
+						placeholder={m.ingestKeyLimitsDialog_noCap()}
+						aria-label={`${m.ingestKeyLimitsDialog_replay()} ${m.ingestKeyLimitsDialog_perDay()}`}
+					/>
+					{@render unitSelect(replayPerDay, 'replay-per-day-unit')}
 				</div>
 			</div>
 

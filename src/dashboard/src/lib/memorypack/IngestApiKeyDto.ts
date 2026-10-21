@@ -28,6 +28,10 @@ export class IngestApiKeyDto {
 	allowedOrigins: string[];
 	allowedServices: string[];
 	expiresAt: Date | null;
+	maxReplayBytesPerMinute: bigint | null;
+	maxReplayBytesPerDay: bigint | null;
+	replayBytesThisMinute: bigint;
+	replayBytesToday: bigint;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -48,6 +52,10 @@ export class IngestApiKeyDto {
 		this.allowedOrigins = [];
 		this.allowedServices = [];
 		this.expiresAt = null;
+		this.maxReplayBytesPerMinute = null;
+		this.maxReplayBytesPerDay = null;
+		this.replayBytesThisMinute = 0n;
+		this.replayBytesToday = 0n;
 	}
 
 	static serialize(value: IngestApiKeyDto | null): Uint8Array {
@@ -62,7 +70,7 @@ export class IngestApiKeyDto {
 			return;
 		}
 
-		writer.writeObjectHeader(18);
+		writer.writeObjectHeader(22);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writeDateTimeOffset(writer, value.createdAt);
@@ -81,6 +89,10 @@ export class IngestApiKeyDto {
 		writer.writeArray(value.allowedOrigins, (writer, x) => writer.writeString(x));
 		writer.writeArray(value.allowedServices, (writer, x) => writer.writeString(x));
 		writeNullableDateTimeOffset(writer, value.expiresAt);
+		writer.writeNullableInt64(value.maxReplayBytesPerMinute);
+		writer.writeNullableInt64(value.maxReplayBytesPerDay);
+		writer.writeInt64(value.replayBytesThisMinute);
+		writer.writeInt64(value.replayBytesToday);
 	}
 
 	static serializeArray(value: (IngestApiKeyDto | null)[] | null): Uint8Array {
@@ -104,7 +116,7 @@ export class IngestApiKeyDto {
 		}
 
 		const value = new IngestApiKeyDto();
-		if (count == 18) {
+		if (count == 22) {
 			value.id = reader.readGuid();
 			value.name = reader.readString() ?? '';
 			value.createdAt = readDateTimeOffset(reader);
@@ -123,7 +135,11 @@ export class IngestApiKeyDto {
 			value.allowedOrigins = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
 			value.allowedServices = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
 			value.expiresAt = readNullableDateTimeOffset(reader);
-		} else if (count > 18) {
+			value.maxReplayBytesPerMinute = reader.readNullableInt64();
+			value.maxReplayBytesPerDay = reader.readNullableInt64();
+			value.replayBytesThisMinute = reader.readInt64();
+			value.replayBytesToday = reader.readInt64();
+		} else if (count > 22) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -163,6 +179,14 @@ export class IngestApiKeyDto {
 			if (count == 17) return value;
 			value.expiresAt = readNullableDateTimeOffset(reader);
 			if (count == 18) return value;
+			value.maxReplayBytesPerMinute = reader.readNullableInt64();
+			if (count == 19) return value;
+			value.maxReplayBytesPerDay = reader.readNullableInt64();
+			if (count == 20) return value;
+			value.replayBytesThisMinute = reader.readInt64();
+			if (count == 21) return value;
+			value.replayBytesToday = reader.readInt64();
+			if (count == 22) return value;
 		}
 		return value;
 	}

@@ -184,6 +184,40 @@ public class IngestApiKeyValidationMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_Returns429ForReplay_WhenTheReplayCapIsReached_ButAdmitsOtlpTraffic()
+    {
+        var fixture = await CreateAsync(new IngestAuthOptions { IngestKeyRequired = true });
+        var (keyId, rawKey) = await fixture.AddKeyAsync("browser", new IngestApiKeyLimits(true, null, null, null, null, MaxReplayBytesPerMinute: 1_000));
+        fixture.Usage.Usage[keyId] = new IngestKeyUsage(new IngestKeyWindowUsage(0, 1_000, 1_000), new IngestKeyWindowUsage(0, 1_000, 1_000));
+
+        var replay = CreateHttpContext(path: "/v1/replay", bearerToken: rawKey);
+        replay.Response.Body = new MemoryStream();
+        var replayNext = false;
+        await fixture.Middleware.InvokeAsync(replay, _ => { replayNext = true; return Task.CompletedTask; });
+
+        var logs = CreateHttpContext(path: "/v1/logs", bearerToken: rawKey);
+        var logsNext = false;
+        await fixture.Middleware.InvokeAsync(logs, _ => { logsNext = true; return Task.CompletedTask; });
+
+        Assert.False(replayNext);
+        Assert.Equal(StatusCodes.Status429TooManyRequests, replay.Response.StatusCode);
+        Assert.True(logsNext);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_RecordsReplayBytes_ReportedByTheReplayEndpoint()
+    {
+        var fixture = await CreateAsync(new IngestAuthOptions { IngestKeyRequired = true });
+        var (keyId, rawKey) = await fixture.AddKeyAsync("browser", IngestApiKeyLimits.None);
+        var context = CreateHttpContext(path: "/v1/replay", bearerToken: rawKey);
+
+        await fixture.Middleware.InvokeAsync(context, ctx => { IngestKeyUsageFeature.AddReplay(ctx, 2_048); return Task.CompletedTask; });
+
+        Assert.Equal([(keyId, 0L, 2_048L)], fixture.Usage.Recorded);
+        Assert.Equal([2_048L], fixture.Usage.RecordedReplayBytes);
+    }
+
+    [Fact]
     public async Task InvokeAsync_ReturnsTrailersOnlyResourceExhausted_OverGrpc_WhenACapIsReached()
     {
         var fixture = await CreateAsync(new IngestAuthOptions { IngestKeyRequired = true });

@@ -25,6 +25,9 @@ public sealed class IngestKeyUsageFeature(Guid keyId)
 
     public long Bytes { get; private set; }
 
+    /// <summary>The part of <see cref="Bytes"/> that was browser session replay (ADR-0268).</summary>
+    public long ReplayBytes { get; private set; }
+
     /// <summary>No-op when the request carries no feature - key auth off, the static key,
     /// or a test calling a receiver directly.</summary>
     public static void Add(HttpContext? context, long events, long bytes)
@@ -37,5 +40,19 @@ public sealed class IngestKeyUsageFeature(Guid keyId)
 
         feature.Events += events;
         feature.Bytes += bytes;
+    }
+
+    /// <summary>Counts a replay chunk against the key's shared byte totals and its replay-specific ones, with no events:
+    /// an rrweb event is not a telemetry record, and one page snapshot is a single event hundreds of kilobytes long.</summary>
+    public static void AddReplay(HttpContext? context, long bytes)
+    {
+        var feature = context?.Features.Get<IngestKeyUsageFeature>();
+        if (feature is null)
+        {
+            return;
+        }
+
+        feature.Bytes += bytes;
+        feature.ReplayBytes += bytes;
     }
 }

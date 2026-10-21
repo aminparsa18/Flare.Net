@@ -27,7 +27,8 @@
 	function enforced(key: IngestApiKeyDto): boolean {
 		return (
 			key.limitsEnabled &&
-			(key.maxEventsPerMinute != null || key.maxBytesPerMinute != null || key.maxEventsPerDay != null || key.maxBytesPerDay != null)
+			(key.maxEventsPerMinute != null || key.maxBytesPerMinute != null || key.maxEventsPerDay != null || key.maxBytesPerDay != null ||
+				key.maxReplayBytesPerMinute != null || key.maxReplayBytesPerDay != null)
 		);
 	}
 
@@ -67,7 +68,7 @@
 	}
 </script>
 
-{#snippet usageCell(events: number, eventsCap: number | null, bytes: number, bytesCap: number | null, active: boolean)}
+{#snippet usageCell(events: number, eventsCap: number | null, bytes: number, bytesCap: number | null, replay: number, replayCap: number | null, active: boolean)}
 	<div class="flex flex-col text-xs tabular-nums">
 		<span class={tone(events, eventsCap, active)}>
 			{m.ingestKeyTable_events({ count: formatCount(events) })}{#if active && eventsCap != null}<span class="text-muted-foreground"
@@ -77,6 +78,13 @@
 		<span class={tone(bytes, bytesCap, active)}>
 			{formatBytes(bytes)}{#if active && bytesCap != null}<span class="text-muted-foreground">{` / ${formatBytes(bytesCap)}`}</span>{/if}
 		</span>
+		{#if replayCap != null}
+			<span class={tone(replay, replayCap, active)}>
+				{m.ingestKeyTable_replayBytes({ size: formatBytes(replay) })}{#if active}<span class="text-muted-foreground"
+						>{` / ${formatBytes(replayCap)}`}</span
+					>{/if}
+			</span>
+		{/if}
 	</div>
 {/snippet}
 
@@ -174,14 +182,14 @@
 						</Table.Cell>
 						<Table.Cell>
 							{#if key.isActive}
-								{@render usageCell(key.eventsThisMinute, key.maxEventsPerMinute, key.bytesThisMinute, key.maxBytesPerMinute, active)}
+								{@render usageCell(key.eventsThisMinute, key.maxEventsPerMinute, key.bytesThisMinute, key.maxBytesPerMinute, key.replayBytesThisMinute, key.maxReplayBytesPerMinute, active)}
 							{:else}
 								<span class="text-muted-foreground">—</span>
 							{/if}
 						</Table.Cell>
 						<Table.Cell>
 							{#if key.isActive}
-								{@render usageCell(key.eventsToday, key.maxEventsPerDay, key.bytesToday, key.maxBytesPerDay, active)}
+								{@render usageCell(key.eventsToday, key.maxEventsPerDay, key.bytesToday, key.maxBytesPerDay, key.replayBytesToday, key.maxReplayBytesPerDay, active)}
 							{:else}
 								<span class="text-muted-foreground">—</span>
 							{/if}

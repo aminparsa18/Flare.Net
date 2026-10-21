@@ -379,6 +379,9 @@ replay de la session** qui ouvre la session au moment de l'erreur, quelques seco
   volumineuse. Utilisez `sampleRate` sur les sites très fréquentés, ou `mode: 'onError'`. Un enregistrement compte dans les
   limites d'octets de la clé (les plafonds **Bytes** par minute et par jour dans les **Limits** de la clé, les mêmes que pour OTLP) mais pas dans ses limites
   d'événements, car un événement de replay n'est pas un enregistrement de télémétrie.
+  Pour borner les enregistrements seuls, fixez les plafonds **Replay bytes** dans la même boîte de dialogue : ils ne
+  s'appliquent qu'aux enregistrements, en plus des plafonds **Bytes**, donc les journaux, traces et métriques ne sont jamais
+  refusés parce que le replay a épuisé son budget.
 - Au-delà de 40 Mo d'enregistrement stocké, le lecteur avertit avant de le charger dans l'onglet.
 
 ## Vérifier que ça fonctionne

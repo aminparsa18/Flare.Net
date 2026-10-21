@@ -366,6 +366,8 @@ session at the moment of the error, a few seconds early.
 - Recordings count against the Traces retention, and a long page with a lot of DOM changes is large. Use `sampleRate` on busy
   sites, or `mode: 'onError'`. A recording counts against the key's byte limits (the **Bytes** caps per minute and per day under the
   key's **Limits**, the same ones OTLP uses) but not its event limits, since a replay event is not a telemetry record.
+  To bound recordings on their own, set the **Replay bytes** caps in the same dialog: they apply to recordings only, on top
+  of the **Bytes** caps, so logs, traces and metrics are never refused because replay used up its budget.
 - Over 40 MB of stored recording, the player warns before loading it into the tab.
 
 ## Check it worked

@@ -36,7 +36,8 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         command.CommandText =
             """
             SELECT Id, Name, CreatedAt, RevokedAt,
-                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, ProjectId, AllowedOrigins, AllowedServices, ExpiresAt
+                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, ProjectId, AllowedOrigins, AllowedServices, ExpiresAt,
+                   MaxReplayBytesPerMinute, MaxReplayBytesPerDay
             FROM IngestApiKeys ORDER BY CreatedAt
             """;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -50,7 +51,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
                 CreatedAt: DateTimeOffset.Parse(reader.GetString(2)),
                 RevokedAt: reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3)))
             {
-                Limits = ReadLimits(reader, firstOrdinal: 4),
+                Limits = ReadLimits(reader, firstOrdinal: 4, replayOrdinal: 13),
                 ProjectId = reader.IsDBNull(9) ? null : Guid.Parse(reader.GetString(9)),
                 AllowedOrigins = IngestKeyOrigins.Deserialize(reader.IsDBNull(10) ? null : reader.GetString(10)),
                 AllowedServices = IngestKeyServices.Deserialize(reader.IsDBNull(11) ? null : reader.GetString(11)),
@@ -131,7 +132,9 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
                 MaxEventsPerMinute = @maxEventsPerMinute,
                 MaxBytesPerMinute = @maxBytesPerMinute,
                 MaxEventsPerDay = @maxEventsPerDay,
-                MaxBytesPerDay = @maxBytesPerDay
+                MaxBytesPerDay = @maxBytesPerDay,
+                MaxReplayBytesPerMinute = @maxReplayBytesPerMinute,
+                MaxReplayBytesPerDay = @maxReplayBytesPerDay
             WHERE Id = @id
             """;
         command.AddParameter("@id", id.ToString());
@@ -140,6 +143,8 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         command.AddParameter("@maxBytesPerMinute", (object?)limits.MaxBytesPerMinute ?? DBNull.Value);
         command.AddParameter("@maxEventsPerDay", (object?)limits.MaxEventsPerDay ?? DBNull.Value);
         command.AddParameter("@maxBytesPerDay", (object?)limits.MaxBytesPerDay ?? DBNull.Value);
+        command.AddParameter("@maxReplayBytesPerMinute", (object?)limits.MaxReplayBytesPerMinute ?? DBNull.Value);
+        command.AddParameter("@maxReplayBytesPerDay", (object?)limits.MaxReplayBytesPerDay ?? DBNull.Value);
         return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
@@ -150,7 +155,8 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         command.CommandText =
             """
             SELECT Id, Name, KeyHash,
-                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, AllowedOrigins, AllowedServices, ExpiresAt
+                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, AllowedOrigins, AllowedServices, ExpiresAt,
+                   MaxReplayBytesPerMinute, MaxReplayBytesPerDay
             FROM IngestApiKeys WHERE RevokedAt IS NULL
             """;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -162,7 +168,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
                 Id: Guid.Parse(reader.GetString(0)),
                 Name: reader.GetString(1),
                 KeyHash: reader.GetString(2),
-                Limits: ReadLimits(reader, firstOrdinal: 3))
+                Limits: ReadLimits(reader, firstOrdinal: 3, replayOrdinal: 11))
             {
                 AllowedOrigins = IngestKeyOrigins.Deserialize(reader.IsDBNull(8) ? null : reader.GetString(8)),
                 AllowedServices = IngestKeyServices.Deserialize(reader.IsDBNull(9) ? null : reader.GetString(9)),
@@ -173,8 +179,8 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
     }
 
     /// <summary>Reads the five limit columns, in migration 0016's column order, starting
-    /// at <paramref name="firstOrdinal"/>.</summary>
-    private static IngestApiKeyLimits ReadLimits(DbDataReader reader, int firstOrdinal)
+    /// at <paramref name="firstOrdinal"/>, and the two replay caps (ADR-0268) at <paramref name="replayOrdinal"/>.</summary>
+    private static IngestApiKeyLimits ReadLimits(DbDataReader reader, int firstOrdinal, int replayOrdinal)
     {
         long? Nullable(int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetInt64(ordinal);
 
@@ -183,6 +189,8 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
             MaxEventsPerMinute: Nullable(firstOrdinal + 1),
             MaxBytesPerMinute: Nullable(firstOrdinal + 2),
             MaxEventsPerDay: Nullable(firstOrdinal + 3),
-            MaxBytesPerDay: Nullable(firstOrdinal + 4));
+            MaxBytesPerDay: Nullable(firstOrdinal + 4),
+            MaxReplayBytesPerMinute: Nullable(replayOrdinal),
+            MaxReplayBytesPerDay: Nullable(replayOrdinal + 1));
     }
 }

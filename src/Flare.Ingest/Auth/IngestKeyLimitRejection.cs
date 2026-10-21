@@ -93,6 +93,10 @@ public static class IngestKeyLimitRejection
         return null;
     }
 
+    /// <summary>True for <c>POST /v1/replay</c> (ADR-0264), the one upload the replay-specific caps apply to.</summary>
+    public static bool IsReplay(HttpRequest request) =>
+        request.Path.Equals("/v1/replay", StringComparison.Ordinal);
+
     public static bool IsGrpc(HttpRequest request) =>
         request.ContentType?.StartsWith("application/grpc", StringComparison.OrdinalIgnoreCase) ?? false;
 

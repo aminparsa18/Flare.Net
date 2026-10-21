@@ -21,6 +21,9 @@ public static class IngestApiKeyUsageKeys
     public const string EventsField = "events";
     public const string BytesField = "bytes";
 
+    /// <summary>Bytes of browser session replay (ADR-0268), counted in <see cref="BytesField"/> too.</summary>
+    public const string ReplayBytesField = "replay_bytes";
+
     /// <summary>Only the current minute is ever read, so a short TTL - just long enough
     /// to outlive the window plus clock skew between replicas.</summary>
     public static readonly TimeSpan MinuteTtl = TimeSpan.FromMinutes(2);

@@ -10,6 +10,8 @@ internal sealed class FakeIngestKeyUsageStore : IIngestKeyUsageStore
 
     public List<(Guid KeyId, long Events, long Bytes)> Recorded { get; } = [];
 
+    public List<long> RecordedReplayBytes { get; } = [];
+
     public int GetCalls { get; private set; }
 
     public bool ThrowOnGet { get; set; }
@@ -24,9 +26,10 @@ internal sealed class FakeIngestKeyUsageStore : IIngestKeyUsageStore
         return ValueTask.FromResult(Usage.GetValueOrDefault(keyId));
     }
 
-    public ValueTask RecordAsync(Guid keyId, long events, long bytes, DateTimeOffset now, CancellationToken cancellationToken = default)
+    public ValueTask RecordAsync(Guid keyId, long events, long bytes, long replayBytes, DateTimeOffset now, CancellationToken cancellationToken = default)
     {
         Recorded.Add((keyId, events, bytes));
+        RecordedReplayBytes.Add(replayBytes);
         return ValueTask.CompletedTask;
     }
 }
