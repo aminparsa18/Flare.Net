@@ -13,4 +13,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(CheckInMonitorRequest))]
 [JsonSerializable(typeof(CheckInMonitor))]
 [JsonSerializable(typeof(CheckInMonitorListResponse))]
+[JsonSerializable(typeof(CheckInRunListResponse))]
 public sealed partial class CheckInMonitorsJsonContext : JsonSerializerContext;

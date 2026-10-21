@@ -27,6 +27,17 @@ curl -X POST "$FLARE_API/api/checkin-monitors" \
 
 Depuis un terminal, `flare checkin-monitors create "Nightly backup" --cron "0 2 * * *" --timezone Europe/Berlin --grace 600 --max-runtime 3600` fait la même chose sur un Flare local, et `list`, `update` et `delete` gèrent le reste ; `list` affiche l'état de chaque moniteur ainsi que son dernier ping et le prochain attendu. Voir la [référence CLI](../../reference/cli-commands.fr.md).
 
+Avec le provider Terraform / OpenTofu de Flare, un moniteur est une ressource `flare_checkin_monitor` (définissez `cron_expression` ou `interval_seconds`, pas les deux) :
+
+```hcl
+resource "flare_checkin_monitor" "nightly_backup" {
+  name            = "Nightly backup"
+  cron_expression = "0 2 * * *"
+  time_zone       = "Europe/Berlin"
+  grace_seconds   = 600
+}
+```
+
 ## Envoyer des check-ins depuis la tâche
 
 La tâche appelle `Flare.Ingest` sur le port HTTP (4318 par défaut) avec une [clé d'ingestion](../admin/configure-authentication.fr.md), le même identifiant que vos exporteurs OpenTelemetry. Un chemin nu signale un succès ; `/start` et `/fail` sont les deux autres :
@@ -65,6 +76,12 @@ Le prochain ping est attendu à la première heure planifiée suivant le dernier
 | Paused | Le moniteur est désactivé. Il n'écrit aucune métrique. | aucune |
 
 Enregistrer un moniteur relance son horloge : le premier ping est attendu à la prochaine occurrence de la planification à partir de ce moment, de sorte que modifier ou réactiver un moniteur ne le signale jamais en retard immédiatement. Une tâche qui démarre sans jamais se terminer, sans `maxRuntimeSeconds`, est signalée en retard une fois sa prochaine heure planifiée et le délai de grâce écoulés.
+
+## Voir les exécutions d'un moniteur
+
+Le bouton d'historique de la ligne d'un moniteur liste ses exécutions récentes, de la plus récente à la plus ancienne : heure de début, durée, succès, échec ou jamais terminée, et le message envoyé. `GET /api/checkin-monitors/{id}/runs?limit=50` renvoie la même liste (200 au maximum).
+
+Les exécutions sont reconstituées à partir des pings que vous envoyez déjà : un ping de fin (`ok` ou `fail`) clôt le dernier début qui le précède, et un second `start` alors qu'un autre est ouvert laisse le premier marqué **Jamais terminée**. Une tâche qui n'envoie qu'un ping de fin apparaît aussi, sans durée. Les pings ne portent pas d'identifiant d'exécution : deux exécutions simultanées de la même tâche peuvent donc être mal appariées.
 
 ## Alerter sur un moniteur
 

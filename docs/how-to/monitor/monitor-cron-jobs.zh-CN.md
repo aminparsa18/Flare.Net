@@ -27,6 +27,17 @@ curl -X POST "$FLARE_API/api/checkin-monitors" \
 
 在终端中，`flare checkin-monitors create "Nightly backup" --cron "0 2 * * *" --timezone Europe/Berlin --grace 600 --max-runtime 3600` 可对本地 Flare 完成同样的操作，`list`、`update` 和 `delete` 用于管理其余部分；`list` 会显示每个监控的状态以及最近和预期的下一次 ping。参见 [CLI 参考](../../reference/cli-commands.zh-CN.md)。
 
+使用 Flare 的 Terraform / OpenTofu provider 时，监控器是一个 `flare_checkin_monitor` 资源（`cron_expression` 与 `interval_seconds` 二选一）：
+
+```hcl
+resource "flare_checkin_monitor" "nightly_backup" {
+  name            = "Nightly backup"
+  cron_expression = "0 2 * * *"
+  time_zone       = "Europe/Berlin"
+  grace_seconds   = 600
+}
+```
+
 ## 在任务中发送签到
 
 任务通过 HTTP 端口（默认 4318）调用 `Flare.Ingest`，使用[摄取密钥](../admin/configure-authentication.zh-CN.md)，也就是你的 OpenTelemetry 导出器所用的同一种凭据。不带后缀的路径表示成功；`/start` 和 `/fail` 是另外两种：
@@ -65,6 +76,12 @@ curl -fsS -m 10 -H "$AUTH" "$FLARE/v1/checkins/nightly-backup/start"
 | Paused | 监控已禁用。不写入指标。 | 无 |
 
 保存监控会重置它的计时：第一次 ping 预期出现在从此刻起计划的下一个时间点，因此修改或重新启用监控绝不会立刻报告迟到。如果任务开始后一直不结束且没有设置 `maxRuntimeSeconds`，则在下一个计划时间加宽限期过后报告为迟到。
+
+## 查看监控的运行记录
+
+监控所在行的历史按钮会列出它最近的运行记录，最新的在前：每次的开始时间、耗时、成功、失败或从未结束，以及发送的消息。`GET /api/checkin-monitors/{id}/runs?limit=50` 返回同样的列表（最多 200 条）。
+
+运行记录由你已经在发送的签到配对而成：结束签到（`ok` 或 `fail`）会结束它之前最近的一次开始；在已有一次开始未结束时再收到 `start`，前一次会被标记为**从未结束**。只发送结束签到的任务同样会显示，只是没有耗时。签到不带运行 ID，因此同一任务的两次重叠运行可能被错误配对。
 
 ## 对监控设置告警
 

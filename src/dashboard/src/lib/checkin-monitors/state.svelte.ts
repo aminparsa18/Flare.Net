@@ -5,8 +5,10 @@ import {
 	createCheckInMonitor,
 	updateCheckInMonitor,
 	deleteCheckInMonitor,
+	listCheckInRuns,
 	requestFrom,
 	type CheckInMonitor,
+	type CheckInRun,
 	type CheckInMonitorRequest
 } from '#lib/checkin-monitors-api.ts';
 
@@ -19,6 +21,12 @@ export class CheckInMonitorsState {
 	formTarget = $state<CheckInMonitor | 'new' | null>(null);
 	saving = $state(false);
 	saveError = $state<string | null>(null);
+
+	/** The monitor whose run history dialog is open, or `null`. */
+	runsTarget = $state<CheckInMonitor | null>(null);
+	runs = $state.raw<CheckInRun[]>([]);
+	runsLoading = $state(false);
+	runsError = $state<string | null>(null);
 
 	async load(): Promise<void> {
 		this.loading = true;
@@ -40,6 +48,26 @@ export class CheckInMonitorsState {
 	openEdit(monitor: CheckInMonitor): void {
 		this.saveError = null;
 		this.formTarget = monitor;
+	}
+
+	async openRuns(monitor: CheckInMonitor): Promise<void> {
+		this.runsTarget = monitor;
+		this.runs = [];
+		this.runsError = null;
+		this.runsLoading = true;
+		try {
+			const runs = await listCheckInRuns(monitor.id);
+			// Ignore a response for a dialog that was closed or reopened on another monitor meanwhile.
+			if (this.runsTarget?.id === monitor.id) this.runs = runs;
+		} catch (err) {
+			if (this.runsTarget?.id === monitor.id) this.runsError = err instanceof Error ? err.message : String(err);
+		} finally {
+			if (this.runsTarget?.id === monitor.id) this.runsLoading = false;
+		}
+	}
+
+	closeRuns(): void {
+		this.runsTarget = null;
 	}
 
 	closeForm(): void {

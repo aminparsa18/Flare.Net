@@ -4,6 +4,7 @@
 	import { checkInMonitorsContext } from '#lib/checkin-monitors/context.ts';
 	import CheckInMonitorTable from '#lib/components/checkin-monitors/CheckInMonitorTable.svelte';
 	import CheckInMonitorFormDialog from '#lib/components/checkin-monitors/CheckInMonitorFormDialog.svelte';
+	import CheckInRunsDialog from '#lib/components/checkin-monitors/CheckInRunsDialog.svelte';
 	import * as m from '#lib/paraglide/messages.js';
 
 	const monitors = checkInMonitorsContext.set(new CheckInMonitorsState());
@@ -19,3 +20,4 @@
 
 <CheckInMonitorTable />
 <CheckInMonitorFormDialog />
+<CheckInRunsDialog />

@@ -3855,5 +3855,18 @@
 	"checkin_graceLabel": "Допуск (секунд)",
 	"checkin_maxRuntimeLabel": "Максимальное время выполнения (секунд)",
 	"checkin_graceHint": "Допуск — на сколько позже ожидаемого времени может прийти сигнал. Максимальное время выполнения необязательно: запуск, который не завершился за это время, считается неисправным. 0 — без ограничения.",
+	"checkin_actionRuns": "История запусков",
+	"checkin_runsTitle": "Запуски: {name}",
+	"checkin_runsDescription": "Check-in о начале и завершении объединены в запуски, новые сверху. У задачи, которая шлёт только check-in о завершении, нет длительности.",
+	"checkin_runsEmpty": "Check-in ещё не поступали.",
+	"checkin_runsSummary": "Последних запусков: {count}, неудачных: {failures}, средняя длительность {average}.",
+	"checkin_runColStarted": "Начало",
+	"checkin_runColDuration": "Длительность",
+	"checkin_runColOutcome": "Результат",
+	"checkin_runColMessage": "Сообщение",
+	"checkin_runOk": "Успешно",
+	"checkin_runFailed": "Ошибка",
+	"checkin_runRunning": "Выполняется",
+	"checkin_runUnfinished": "Не завершился",
 	"checkin_create": "Создать"
 }

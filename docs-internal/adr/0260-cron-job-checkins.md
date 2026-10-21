@@ -73,6 +73,5 @@ recovery thresholds, cooldowns, maintenance windows and every notification chann
 
 ## Not decided here
 
-- `flare checkin-monitors` CLI commands, a Terraform resource and an MCP tool.
-- A per-monitor run history (durations, recent pings) on the page, and a duration metric.
+- A duration metric. (Run history on the page is [ADR-0261](0261-checkin-run-history.md).)
 - Auto-creating a monitor on first ping, and status page components for check-ins.

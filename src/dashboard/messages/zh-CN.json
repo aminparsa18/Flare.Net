@@ -3855,5 +3855,18 @@
 	"checkin_graceLabel": "宽限期（秒）",
 	"checkin_maxRuntimeLabel": "最长运行时间（秒）",
 	"checkin_graceHint": "宽限期是签到可以比预期时间晚多久。最长运行时间是可选项：开始后未在该时间内结束的运行视为异常。0 表示不限制。",
+	"checkin_actionRuns": "运行历史",
+	"checkin_runsTitle": "{name} 的运行记录",
+	"checkin_runsDescription": "开始和结束签到配对成运行记录，最新的在前。只发送结束签到的任务没有耗时。",
+	"checkin_runsEmpty": "尚未收到任何签到。",
+	"checkin_runsSummary": "最近 {count} 次运行，{failures} 次失败，平均耗时 {average}。",
+	"checkin_runColStarted": "开始时间",
+	"checkin_runColDuration": "耗时",
+	"checkin_runColOutcome": "结果",
+	"checkin_runColMessage": "消息",
+	"checkin_runOk": "成功",
+	"checkin_runFailed": "失败",
+	"checkin_runRunning": "运行中",
+	"checkin_runUnfinished": "从未结束",
 	"checkin_create": "创建"
 }

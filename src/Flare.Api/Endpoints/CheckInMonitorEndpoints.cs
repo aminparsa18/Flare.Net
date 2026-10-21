@@ -12,11 +12,15 @@ namespace Flare.Api.Endpoints;
 /// </summary>
 public static class CheckInMonitorEndpoints
 {
+    private const int DefaultRunLimit = 50;
+    private const int MaxRunLimit = 200;
+
     /// <summary>List and get, open to every signed-in user: a monitor only reports whether a job is on schedule.</summary>
     public static IEndpointRouteBuilder MapCheckInMonitorReadEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/checkin-monitors", HandleListAsync);
         endpoints.MapGet("/api/checkin-monitors/{id:guid}", HandleGetAsync);
+        endpoints.MapGet("/api/checkin-monitors/{id:guid}/runs", HandleRunsAsync);
         return endpoints;
     }
 
@@ -62,6 +66,23 @@ public static class CheckInMonitorEndpoints
     {
         var monitor = await monitors.GetAsync(id, cancellationToken);
         return monitor is null ? Results.NotFound() : Results.Json(monitor, CheckInMonitorsJsonContext.Default.CheckInMonitor);
+    }
+
+    /// <summary>The monitor's recent runs, newest first, paired from its pings. <c>limit</c> defaults to 50, at most 200.</summary>
+    private static async Task<IResult> HandleRunsAsync(Guid id, int? limit, ICheckInMonitorQueryService monitors, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        var monitor = await monitors.GetAsync(id, cancellationToken);
+        if (monitor is null)
+        {
+            return Results.NotFound();
+        }
+
+        var take = Math.Clamp(limit ?? DefaultRunLimit, 1, MaxRunLimit);
+
+        // A run is at most two pings, so this window holds the newest `take` runs; the oldest run in it may be cut off.
+        var pings = await monitors.RecentPingsAsync(monitor.Slug, take * 2 + 1, cancellationToken);
+        var runs = CheckInRunHistory.Build(pings, monitor.MaxRuntimeSeconds, timeProvider.GetUtcNow()).Take(take).ToList();
+        return Results.Json(new CheckInRunListResponse(runs), CheckInMonitorsJsonContext.Default.CheckInRunListResponse);
     }
 
     private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, ICheckInMonitorQueryService monitors, CancellationToken cancellationToken)
