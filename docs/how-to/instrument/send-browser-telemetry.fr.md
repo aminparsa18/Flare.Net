@@ -213,6 +213,100 @@ La symbolisation a lieu à l'ouverture d'une occurrence : les maps importées ap
 
 Ouvrez **Frontend** (dans la liste **Plus** du menu utilisateur). Elle affiche, par service, le 75e centile de LCP, INP, CLS, FCP et TTFB sur la période choisie, coloré selon les seuils de Google, avec la part des mesures jugées bonnes par le navigateur, ainsi que les principales erreurs JavaScript du navigateur. Ce sont les exceptions des ressources avec `telemetry.sdk.language = webjs` ; **Ouvrir dans Erreurs** y mène. **Paramètres > Source maps** liste les maps envoyées par version et permet de les supprimer.
 
+## Enregistrer le replay de session
+
+Flare peut rejouer ce qu'un utilisateur a vu dans le navigateur : chargements de page, clics, défilement et texte affiché,
+lus à côté des spans et des erreurs de la session. L'enregistreur est `@apardev/flare-browser-replay`, une fine couche
+au-dessus de [rrweb](https://github.com/rrweb-io/rrweb) qui envoie l'enregistrement à `POST /v1/replay` de Flare.Ingest.
+Il est facultatif et n'enregistre rien tant que vous ne le démarrez pas.
+
+```bash
+npm install @apardev/flare-browser-replay
+```
+
+```ts
+import { startReplay } from '@apardev/flare-browser-replay';
+
+const replay = startReplay({
+  endpoint: 'https://flare.example.com:4318',
+  service: 'my-web-app',
+  ingestKey: '<une clé d'ingestion limitée au navigateur>',
+  sampleRate: 0.25 // facultatif : enregistrer une session sur quatre
+});
+```
+
+L'origine doit être autorisée comme pour OTLP (voir [Autoriser l'origine de votre site](#autoriser-lorigine-de-votre-site)) ;
+la même clé d'ingestion convient, et une clé limitée à des services doit lister `my-web-app`. Un ClickHouse existant
+nécessite la [migration 0090](../../../db/clickhouse/0090_web_replay_chunks.sql).
+
+### Relier l'enregistrement aux spans de la session
+
+Un enregistrement est stocké sous un identifiant de session, et Flare l'affiche sur la page de cette session. Les spans
+apparaissent sur la même page lorsqu'ils portent cet identifiant dans l'attribut `session.id`. `replay.sessionId` est
+l'identifiant de cet onglet : copiez-le sur vos spans.
+
+```ts
+import type { Context } from '@opentelemetry/api';
+import type { ReadableSpan, Span, SpanProcessor } from '@opentelemetry/sdk-trace-web';
+
+class SessionIdProcessor implements SpanProcessor {
+  onStart(span: Span, _context: Context) { span.setAttribute('session.id', replay.sessionId); }
+  onEnd(_span: ReadableSpan) {}
+  forceFlush() { return Promise.resolve(); }
+  shutdown() { return Promise.resolve(); }
+}
+// à ajouter aux spanProcessors du WebTracerProvider, avant le BatchSpanProcessor
+```
+
+Ouvrez ensuite **Sessions**, choisissez la session et cliquez sur **Voir l'enregistrement**. **Afficher dans le replay**
+sur une ligne de span place le lecteur au début de ce span. Une session qui a un enregistrement mais aucun span reste
+accessible à `/sessions/<id>`.
+
+### Ce qui est masqué
+
+Tout ce qui est saisi dans un champ de formulaire est remplacé par des astérisques, et un champ de mot de passe l'est
+toujours. Pour le reste :
+
+| Pour | Faire |
+| --- | --- |
+| Exclure entièrement un élément (il est rejoué comme une zone vide) | ajouter l'attribut `data-flare-block` ou la classe `flare-block` |
+| Masquer le texte d'un élément | ajouter `data-flare-mask` ou la classe `flare-mask` |
+| Masquer tout le texte de la page | `startReplay({ ..., maskAllText: true })` |
+| Afficher les champs tels que saisis | `startReplay({ ..., maskAllInputs: false })` (déconseillé) |
+
+Le masquage se fait dans le navigateur avant tout envoi ; il vaut donc ce que vaut le balisage. Flare ne peut pas savoir ce
+que contient un événement enregistré, et quiconque détient une clé d'ingestion peut envoyer des événements quelconques.
+Examinez quelques enregistrements avant d'activer le replay pour tous les utilisateurs, et marquez tout ce qui est personnel
+sans être un champ de formulaire (page de compte, adresse affichée en texte). Les feuilles de style sont intégrées à
+l'enregistrement, mais les images et les polices sont chargées depuis votre site au moment du visionnage : le navigateur du
+lecteur doit pouvoir l'atteindre.
+
+### Options
+
+| Option | Par défaut | Signification |
+| --- | --- | --- |
+| `sessionId` | un par onglet, conservé dans `sessionStorage` | L'identifiant sous lequel l'enregistrement est stocké. À fournir pour réutiliser un identifiant existant. |
+| `sampleRate` | `1` | Part des sessions à enregistrer, décidée une fois par session. |
+| `flushIntervalMs` | `5000` | Fréquence d'envoi d'un lot. |
+| `maxEventsPerChunk` | `500` | Un lot part plus tôt à ce nombre d'événements. |
+| `maxDurationMs` | une heure | L'enregistrement s'arrête après cette durée ; le tableau de bord liste une heure. |
+| `checkoutEveryMs` | désactivé | Prendre un nouvel instantané de la page à cet intervalle, pour qu'un replay puisse démarrer plus tard dans une longue session. |
+| `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Sélecteurs des deux attributs ci-dessus. |
+| `onStop` | aucun | Appelé avec une raison quand l'enregistreur s'arrête de lui-même. |
+
+`replay.stop()` termine l'enregistrement et envoie le reste ; `replay.flush()` envoie ce qui a été enregistré jusque-là.
+
+### À savoir
+
+- Un lot est envoyé toutes les quelques secondes et quand l'onglet est masqué. Un envoi échoué est abandonné, pas
+  réessayé : un replay peut avoir un trou, mais ne rejoue jamais un événement deux fois. La fermeture d'un onglet peut faire
+  perdre le dernier lot s'il dépasse environ 60 Ko.
+- L'enregistrement s'arrête de lui-même après une heure ou quand la clé est refusée (`401` ou `403`), et `onStop` est appelé.
+- Les enregistrements comptent dans la rétention des traces, et une longue page avec beaucoup de changements du DOM est
+  volumineuse. Utilisez `sampleRate` sur les sites très fréquentés. Le replay ne fait pas encore partie des limites
+  d'ingestion par clé.
+- Au-delà de 40 Mo d'enregistrement stocké, le lecteur avertit avant de le charger dans l'onglet.
+
 ## Vérifier que ça fonctionne
 
 Ouvrez la page **Traces** et filtrez sur le service `my-web-app`. Un chargement de

@@ -164,6 +164,8 @@ builder.Services.AddHostedService<ProfileFlushWorker>();
 
 // Error screenshots (ADR-0174): a direct best-effort insert, no stream.
 builder.Services.AddSingleton<IClickHouseScreenshotWriter, ClickHouseScreenshotWriter>();
+// Browser session replay (ADR-0264): rrweb event batches, the same direct best-effort insert.
+builder.Services.AddSingleton<IClickHouseWebReplayWriter, ClickHouseWebReplayWriter>();
 
 // User feedback (ADR-0193): same direct insert.
 builder.Services.AddSingleton<IClickHouseFeedbackWriter, ClickHouseFeedbackWriter>();
@@ -298,6 +300,7 @@ app.MapOtlpHttpMetricsEndpoint();
 app.MapGrpcService<OtlpGrpcProfilesService>();
 app.MapOtlpHttpProfilesEndpoint();
 app.MapScreenshotEndpoint();
+app.MapWebReplayEndpoint();
 app.MapFeedbackEndpoint();
 app.MapCheckInEndpoint();
 

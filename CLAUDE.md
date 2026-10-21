@@ -23,6 +23,7 @@ src/Flare.ServiceDefaults Shared Aspire service defaults + ClickHouseMigrations 
 src/dashboard             SvelteKit 3 (Svelte 5 runes) + Tailwind 4 + shadcn-svelte SPA — talks to Flare.Api over HTTP/WS
 src/website               Next.js marketing site (separate from the dashboard app)
 src/grafana-datasource    Grafana data source plugin (TypeScript frontend + Go backend in pkg/) for sessions/errors/release health; own package.json and go.mod, outside Flare.slnx
+src/flare-browser-replay  npm `@apardev/flare-browser-replay`: rrweb recorder that posts to Flare.Ingest's `POST /v1/replay` (ADR-0264); own package.json, outside Flare.slnx
 src/*.Tests               xUnit unit tests, one per testable project (Flare.Ingest.Tests, Flare.Api.Tests, Flare.Identity.Tests)
 db/clickhouse             Numbered .sql migrations, mounted at container init (docker-entrypoint-initdb.d convention)
 db/clickhouse-cluster     Same migrations, cluster-mode variant

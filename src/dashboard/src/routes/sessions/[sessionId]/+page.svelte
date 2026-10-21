@@ -9,9 +9,12 @@
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import ImageIcon from '@lucide/svelte/icons/image';
+	import MonitorPlayIcon from '@lucide/svelte/icons/monitor-play';
 	import { AppSessionTimelineState, formatOffset, barGeometry } from '#lib/app-sessions/timeline.svelte.ts';
 	import { AppSessionReplayState } from '#lib/app-sessions/replay.svelte.ts';
+	import { WebReplayState } from '#lib/app-sessions/web-replay.svelte.ts';
 	import ReplayPlayer from '#lib/components/sessions/ReplayPlayer.svelte';
+	import WebReplayPlayer from '#lib/components/sessions/WebReplayPlayer.svelte';
 	import { buildSessionTracesHref } from '#lib/deep-links.ts';
 	import { withBase } from '#lib/paths.ts';
 	import { formatDateTime } from '#lib/time/format.ts';
@@ -20,6 +23,7 @@
 
 	const state = new AppSessionTimelineState();
 	const replay = new AppSessionReplayState();
+	const webReplay = new WebReplayState();
 
 	// page.params.sessionId is fixed for this component's lifetime - SvelteKit remounts per route param.
 	const sessionId = page.params.sessionId!;
@@ -33,11 +37,13 @@
 
 	onMount(() => {
 		void replay.load(sessionId, from, to);
+		void webReplay.load(sessionId, from, to);
 		return state.load(sessionId, from, to);
 	});
 	onDestroy(() => {
 		state.dispose();
 		replay.dispose();
+		webReplay.dispose();
 	});
 
 	const events = $derived(state.timeline?.events ?? []);
@@ -72,6 +78,8 @@
 		{#if state.error}
 			<p class="text-destructive py-2 text-xs">{state.error}</p>
 		{/if}
+		<!-- A browser recording is independent of the span list: a session may have one without any spans carrying session.id. -->
+		<WebReplayPlayer replay={webReplay} {events} />
 		{#if state.loading && !state.timeline}
 			<div class="flex h-32 items-center justify-center"><Spinner /></div>
 		{:else if state.timeline && events.length === 0}
@@ -120,6 +128,12 @@
 							{/if}
 							{#if e.isError}
 								<Badge variant="destructive">{m.sessionsPage_detail_errorBadge()}</Badge>
+							{/if}
+							{#if webReplay.ready}
+								<Button variant="outline" size="xs" onclick={() => webReplay.seekToUnixMs(e.startUnixMs)}>
+									<MonitorPlayIcon data-icon="inline-start" />
+									{m.sessionsPage_webReplay_jump()}
+								</Button>
 							{/if}
 							{#if e.hasScreenshot}
 								<Button variant="outline" size="xs" onclick={() => state.toggleScreenshot(sessionId, e.spanId, from, to)}>

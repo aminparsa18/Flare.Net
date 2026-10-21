@@ -14,7 +14,7 @@ Flare is a self-hosted, OpenTelemetry-native observability platform for .NET: lo
 
 | Component | Role | Listens on |
 |---|---|---|
-| `Flare.Ingest` | OTLP receiver (gRPC/HTTP) → Redis Streams → ClickHouse; also `/v1/feedback`, `/v1/screenshots` | 4317, 4318 |
+| `Flare.Ingest` | OTLP receiver (gRPC/HTTP) → Redis Streams → ClickHouse; also `/v1/feedback`, `/v1/screenshots`, `/v1/replay` | 4317, 4318 |
 | `Flare.Api` | Query/admin API, live-tail WebSocket, `/mcp`, auth flows, public status pages | 8080 |
 | `Flare.AlertWorker` | Evaluates alert rules, sends notifications, runs synthetic probes | none public |
 | `src/dashboard` | SvelteKit (adapter-node) SPA/SSR server, talks to Flare.Api cross-origin | 3000 (7777 published) |
@@ -63,7 +63,7 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 | `Authorization`, `X-` identity headers via proxy | Proxy (trusted) / anyone (if API directly reachable) | See B4 |
 | Signed tokens (ack link, status subscription links, render token) | Holder of a notification/email | Data Protection output, purpose-scoped **[obs]** |
 | Compose/Helm/appsettings values, env vars, Data Protection key ring | **Operator/developer** | Never attacker input |
-| Source maps, `/v1/screenshots` blobs, `/v1/feedback` | Attacker (ingest-key holder) / CI (admin route for source maps) | Stored in ClickHouse and rendered later **[obs]** |
+| Source maps, `/v1/screenshots` blobs, `/v1/feedback`, `/v1/replay` rrweb events | Attacker (ingest-key holder) / CI (admin route for source maps) | Stored in ClickHouse and rendered later **[obs]**. `/v1/replay` checks only that the body is a JSON array of objects with numeric `type`/`timestamp` (10 MB cap); the dashboard plays it in an rrweb `Replayer` whose iframe is sandboxed `allow-same-origin` with no scripts (ADR-0264) |
 
 ### Invariants the code must preserve
 
@@ -90,7 +90,7 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 
 ### Primary surfaces
 
-1. **OTLP ingest** (gRPC/HTTP logs, traces, metrics, profiles; `/v1/feedback`, `/v1/screenshots`). Parsers for protobuf, OTLP/JSON, Prometheus exposition. Large payloads, decompression, malformed ids, `service.name` spoofing, Drain/pattern clustering memory, cardinality explosion.
+1. **OTLP ingest** (gRPC/HTTP logs, traces, metrics, profiles; `/v1/feedback`, `/v1/screenshots`, `/v1/replay`). Parsers for protobuf, OTLP/JSON, Prometheus exposition. Large payloads, decompression, malformed ids, `service.name` spoofing, Drain/pattern clustering memory, cardinality explosion.
 2. **Flare.Api authenticated REST + WebSocket live tail** (`/api/logs/tail`). ClickHouse query construction (filters, LogQL, formulas, aggregate), exports (CSV/JSON/XML), MemoryPack and JSON bodies.
 3. **Authentication flows.** Local login/bootstrap/set-password/forgot-password, Entra and generic OIDC (OpenIdConnect handlers), LDAP bind (filter escaping via `LdapFilterEncoder`), reverse-proxy header login (`ProxyAuthLoginEndpoints`, `TrustedProxyNetworks`).
 4. **Anonymous bearer-ish endpoints.** Ack link (`/api/alerts/ack-link`), Slack interactivity and PagerDuty webhook (signature is the credential; 404 until a secret is set), public status pages and subscriber double-opt-in with rate limiting.
@@ -153,7 +153,7 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 | Anonymous (auth enabled) | Network reach | Login/bootstrap flows, public status pages, subscribe/confirm/unsubscribe (rate-limited), ack link with valid token, Slack/PD webhooks with valid signature | n/a |
 | **Anonymous (auth disabled, the default on a fresh DB)** | Network reach | **Everything an Admin can do**, since authz short-circuits | **No barrier at all.** Any finding that "requires admin" is exploitable by anyone on such an instance; triage against the configured state |
 | Bootstrap race (fresh DB, auth enabled, zero users) | Network reach | First `POST /api/auth/bootstrap` creates an Admin; a benign race can create two (documented) | Barrier only after the first account exists |
-| Ingest-key holder | `Authorization: Bearer <key>` | Write telemetry (subject to limits, origin/service allowlists, expiry). No read. Includes `/v1/feedback`, `/v1/screenshots` | Real barrier when `IngestKeyRequired=true`; **not** when it is false |
+| Ingest-key holder | `Authorization: Bearer <key>` | Write telemetry (subject to limits, origin/service allowlists, expiry). No read. Includes `/v1/feedback`, `/v1/screenshots`, `/v1/replay` | Real barrier when `IngestKeyRequired=true`; **not** when it is false |
 | Static ingest key holder | `Ingest:StaticIngestApiKey` | Same, unlimited, never expires, cannot be restricted or revoked via API | Operator secret |
 | Viewer | Session or PAT | Read all in-scope telemetry, own PATs/sessions/preferences, own dashboards | Real barrier for Member/Admin routes |
 | Member | Session or PAT | Viewer + create/edit alerts, channels (with secrets), templates, SLOs, rotations, maintenance windows, synthetic monitors, dashboard schedules, pipeline rules, metric rules, log metrics, error ownership, releases | Real barrier, but Member can already cause outbound requests and page people |
@@ -175,7 +175,7 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 |---|---|---|---|
 | Logs, span attributes, exception stacks, metric labels | **High, uncontrolled.** Commonly contain PII, tokens, connection strings, request bodies | ClickHouse (`logs`, `spans`, `exceptions`, …), Redis Streams (transient), live-tail sockets | Dashboards, exports (CSV/JSON/XML), MCP/CLI, forwarding targets, S3 archive, LLM (after `AiRedactor`), notification bodies (log excerpts) |
 | Managed PII redaction / data-subject erasure | Control, not data | ADR-0198/0199 pipeline and `Erasure` | Erasure mutations are async (`ALTER … DELETE`) |
-| Screenshots, user feedback, session replay-lite | **High** (can show on-screen PII) | ClickHouse blobs | Dashboard |
+| Screenshots, user feedback, session replay-lite, browser session replay | **High** (can show on-screen PII; browser replay is the DOM as the page rendered it, masked only by the recorder's own rules) | ClickHouse (`app_screenshots`, `web_replay_chunks`) | Dashboard; the viewer's browser also fetches the recorded page's images and fonts from their original URLs |
 | Password hashes | High | Identity DB (PBKDF2 via ASP.NET `PasswordHasher`) | none |
 | **Session tokens** | **High** | Identity DB `Sessions.Id` in **plaintext**; cookie `flare_session` | Cookie only |
 | PAT, ingest keys | High | SHA-256 hash only; raw shown once | Client-held |

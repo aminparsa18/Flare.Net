@@ -202,6 +202,89 @@ flare sourcemaps upload ./dist --url https://flare.example.com \
 
 打开**前端**(用户菜单的**更多**列表中)。页面按服务显示所选时段内 LCP、INP、CLS、FCP 和 TTFB 的第 75 百分位(按 Google 阈值着色)及浏览器评为良好的测量占比,并列出浏览器端的主要 JavaScript 错误。这些错误是带有 `telemetry.sdk.language = webjs` 的资源产生的异常,点击**在错误页中打开**可继续查看。**设置 > Source maps** 按版本列出已上传的映射并可删除。
 
+## 录制会话回放
+
+Flare 可以回放用户在浏览器中看到的内容：页面加载、点击、滚动和页面上的文字，并与该会话的 span 和错误并排播放。录制器是
+`@apardev/flare-browser-replay`，它是对 [rrweb](https://github.com/rrweb-io/rrweb) 的薄封装，会把录制内容发送到
+Flare.Ingest 的 `POST /v1/replay`。它是可选的，只有在你启动之后才会录制。
+
+```bash
+npm install @apardev/flare-browser-replay
+```
+
+```ts
+import { startReplay } from '@apardev/flare-browser-replay';
+
+const replay = startReplay({
+  endpoint: 'https://flare.example.com:4318',
+  service: 'my-web-app',
+  ingestKey: '<限定浏览器使用的摄取密钥>',
+  sampleRate: 0.25 // 可选：每四个会话录制一个
+});
+```
+
+来源需要像 OTLP 一样允许（见[允许你的站点来源](#允许你的站点来源)）；可以使用同一个摄取密钥，限定了服务的密钥必须包含
+`my-web-app`。已有的 ClickHouse 需要执行[迁移 0090](../../../db/clickhouse/0090_web_replay_chunks.sql)。
+
+### 将录制与会话的 span 关联
+
+录制以会话 ID 存储，Flare 在该会话的页面上显示它。当 span 以 `session.id` 属性携带同一个 ID 时，它们会出现在同一页面。
+`replay.sessionId` 是当前标签页的 ID，请把它复制到你的 span 上：
+
+```ts
+import type { Context } from '@opentelemetry/api';
+import type { ReadableSpan, Span, SpanProcessor } from '@opentelemetry/sdk-trace-web';
+
+class SessionIdProcessor implements SpanProcessor {
+  onStart(span: Span, _context: Context) { span.setAttribute('session.id', replay.sessionId); }
+  onEnd(_span: ReadableSpan) {}
+  forceFlush() { return Promise.resolve(); }
+  shutdown() { return Promise.resolve(); }
+}
+// 加入 WebTracerProvider 的 spanProcessors，放在 BatchSpanProcessor 之前
+```
+
+然后打开 **Sessions**，选择该会话并点击 **观看录制**。span 行上的 **在回放中显示** 会把播放器跳到该 span 的开始时间。
+有录制但没有 span 的会话仍可通过 `/sessions/<id>` 访问。
+
+### 哪些内容会被遮盖
+
+在表单字段中输入的所有内容都会被替换为星号，密码字段始终如此。此外：
+
+| 目的 | 做法 |
+| --- | --- |
+| 完全排除某个元素（回放时是一个空框） | 添加属性 `data-flare-block` 或类 `flare-block` |
+| 隐藏某个元素的文字 | 添加 `data-flare-mask` 或类 `flare-mask` |
+| 隐藏页面上的所有文字 | `startReplay({ ..., maskAllText: true })` |
+| 按输入原样显示表单字段 | `startReplay({ ..., maskAllInputs: false })`（不推荐） |
+
+遮盖在浏览器中、发送之前完成，因此效果取决于你的标记：Flare 无法知道录制的事件里有什么，任何持有摄取密钥的人都可以发送任意事件。
+在对所有用户开启回放之前，请先查看几段录制，并为所有不是表单字段的个人信息（账户页、渲染出来的地址文字）添加标记。样式表会内嵌到录制中，
+但图片和字体在观看时从你的站点加载，因此观看者的浏览器必须能访问它。
+
+### 选项
+
+| 选项 | 默认值 | 含义 |
+| --- | --- | --- |
+| `sessionId` | 每个标签页一个，保存在 `sessionStorage` | 录制存储所用的 ID。设置它即可复用已有的 ID。 |
+| `sampleRate` | `1` | 录制的会话比例，每个会话只决定一次。 |
+| `flushIntervalMs` | `5000` | 发送一批数据的间隔。 |
+| `maxEventsPerChunk` | `500` | 达到该事件数时提前发送。 |
+| `maxDurationMs` | 一小时 | 超过该时长后停止录制；仪表板列出一小时。 |
+| `checkoutEveryMs` | 关闭 | 按此间隔重新拍摄页面快照，使回放可以从长会话的中途开始。 |
+| `blockSelector`、`maskTextSelector` | `[data-flare-block]`、`[data-flare-mask]` | 上述两个属性对应的选择器。 |
+| `onStop` | 无 | 录制器自行停止时，带着原因调用。 |
+
+`replay.stop()` 结束录制并发送剩余内容；`replay.flush()` 发送目前已录制的内容。
+
+### 预期行为
+
+- 每隔几秒以及标签页被隐藏时发送一批。发送失败的批次会被丢弃而不会重试：回放可能出现空缺，但不会重复播放同一事件。
+  关闭标签页时，超过约 60 KB 的最后一批可能丢失。
+- 录制在一小时后或密钥被拒绝（`401` 或 `403`）时自行停止，并调用 `onStop`。
+- 录制计入 Traces 的保留策略，DOM 变化很多的长页面体积较大。访问量大的站点请使用 `sampleRate`。回放目前不计入按密钥的摄取限制。
+- 已存储的录制超过 40 MB 时，播放器会在加载到标签页之前给出提示。
+
 ## 验证是否生效
 
 打开 **Traces** 页面，按服务 `my-web-app` 过滤。一次页面加载会显示为 `documentLoad` trace，

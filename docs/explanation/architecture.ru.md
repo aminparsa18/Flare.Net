@@ -175,9 +175,9 @@ Serilog через `Serilog.Sinks.OpenTelemetry`, NLog через
   аналитики безопасности и правил корреляции.
 - Не замена Sentry или GlitchTip для всех платформ. Отслеживание ошибок
   строится из исключений OTel, сгруппированных на [странице Errors](#ошибки),
-  с символизацией для .NET и source maps для JavaScript, а `Flare.Maui` —
-  единственный выделенный клиентский SDK; остальные платформы отправляют
-  OTLP.
+  с символизацией для .NET и source maps для JavaScript, а `Flare.Maui` и
+  [запись сессий в браузере](../how-to/instrument/send-browser-telemetry.ru.md#запись-сессии-session-replay) —
+  выделенные клиентские SDK; остальные платформы отправляют OTLP.
 - Не готовая замена Prometheus, Loki или Tempo. Совместимые API доступны
   только для чтения и покрывают подмножество PromQL, LogQL и TraceQL —
   достаточно, чтобы Grafana запрашивала Flare, но не чтобы заменить эти

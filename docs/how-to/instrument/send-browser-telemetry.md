@@ -209,6 +209,95 @@ Symbolication happens when you open an occurrence, so maps uploaded after an err
 
 Open **Frontend** (in the user menu's **More** list). It shows each service's 75th-percentile LCP, INP, CLS, FCP and TTFB over the chosen window, coloured against Google's thresholds, with the share of measurements the browser rated good, and the top browser JavaScript errors. The errors are the exceptions from resources with `telemetry.sdk.language = webjs`; **Open in Errors** continues there. **Settings > Source maps** lists the uploaded maps by release and deletes them.
 
+## Record session replay
+
+Flare can replay what a user saw in the browser: page loads, clicks, scrolling and the text on the page, played back next
+to the session's spans and errors. The recorder is `@apardev/flare-browser-replay`, a thin wrapper around
+[rrweb](https://github.com/rrweb-io/rrweb) that sends the recording to Flare.Ingest's `POST /v1/replay`. It is optional
+and records nothing until you start it.
+
+```bash
+npm install @apardev/flare-browser-replay
+```
+
+```ts
+import { startReplay } from '@apardev/flare-browser-replay';
+
+const replay = startReplay({
+  endpoint: 'https://flare.example.com:4318',
+  service: 'my-web-app',
+  ingestKey: '<a browser-restricted ingest key>',
+  sampleRate: 0.25 // optional: record one session in four
+});
+```
+
+The origin must be allowed in the same way as for OTLP (see [Allow your site's origin](#allow-your-sites-origin)); the
+same ingest key works, and a key restricted to services must list `my-web-app`. An existing ClickHouse needs
+[migration 0090](../../../db/clickhouse/0090_web_replay_chunks.sql).
+
+### Link the recording to the session's spans
+
+A recording is stored under a session id, and Flare shows it on the session page for that id. Spans appear on the same
+page when they carry it as the `session.id` attribute. `replay.sessionId` is the id for this tab, so copy it onto your
+spans:
+
+```ts
+import type { Context } from '@opentelemetry/api';
+import type { ReadableSpan, Span, SpanProcessor } from '@opentelemetry/sdk-trace-web';
+
+class SessionIdProcessor implements SpanProcessor {
+  onStart(span: Span, _context: Context) { span.setAttribute('session.id', replay.sessionId); }
+  onEnd(_span: ReadableSpan) {}
+  forceFlush() { return Promise.resolve(); }
+  shutdown() { return Promise.resolve(); }
+}
+// add it to the WebTracerProvider's spanProcessors, before the BatchSpanProcessor
+```
+
+Then open **Sessions**, pick the session and press **Watch recording**. **Show in replay** on a span row jumps the player
+to that span's start. A session that has a recording but no spans is still reachable at `/sessions/<id>`.
+
+### What is masked
+
+Everything typed into a form field is replaced with asterisks, and a password field always is. Beyond that:
+
+| To | Do |
+| --- | --- |
+| Leave an element out entirely (it replays as an empty box) | add the attribute `data-flare-block` or the class `flare-block` |
+| Hide an element's text | add `data-flare-mask` or the class `flare-mask` |
+| Hide all text on the page | `startReplay({ ..., maskAllText: true })` |
+| Show form fields as typed | `startReplay({ ..., maskAllInputs: false })` (not recommended) |
+
+Masking happens in the browser before anything is sent, so it is only as good as the markup: Flare cannot tell what a
+recorded event contains, and anyone holding an ingest key can post any events. Review a few recordings before turning replay
+on for all users, and mark anything personal that is not a form field (an account page, an address in rendered text).
+Stylesheets are inlined into the recording, but images and fonts are loaded from your site when someone watches, so the
+viewer's browser must be able to reach it.
+
+### Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `sessionId` | one per tab, kept in `sessionStorage` | The id the recording is stored under. Set it to reuse an id you already have. |
+| `sampleRate` | `1` | Share of sessions to record, decided once per session. |
+| `flushIntervalMs` | `5000` | How often a batch is sent. |
+| `maxEventsPerChunk` | `500` | A batch is sent early at this many events. |
+| `maxDurationMs` | one hour | Recording stops after this long; the dashboard lists one hour. |
+| `checkoutEveryMs` | off | Take a fresh page snapshot this often, so a replay can start later in a long session. |
+| `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Selectors for the two attributes above. |
+| `onStop` | none | Called with a reason when the recorder stops by itself. |
+
+`replay.stop()` ends the recording and sends what is left; `replay.flush()` sends what has been recorded so far.
+
+### What to expect
+
+- A batch is sent every few seconds and when the tab is hidden. A failed send is dropped, not retried, so a replay can have a
+  gap but never plays an event twice. Closing a tab can lose the last batch of more than about 60 KB.
+- A recording stops by itself after an hour or when the key is rejected (`401` or `403`), and `onStop` is called.
+- Recordings count against the Traces retention, and a long page with a lot of DOM changes is large. Use `sampleRate` on busy
+  sites. Replay is not part of the per-key ingest limits yet.
+- Over 40 MB of stored recording, the player warns before loading it into the tab.
+
 ## Check it worked
 
 Open the **Traces** page and filter by service `my-web-app`. A page load shows

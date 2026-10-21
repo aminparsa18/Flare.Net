@@ -1,0 +1,39 @@
+{
+	"name": "@apardev/flare-browser-replay",
+	"version": "0.1.0",
+	"description": "Browser session replay for Flare: records the DOM with rrweb and sends it to Flare.Ingest's POST /v1/replay. Inputs are masked by default.",
+	"license": "MIT",
+	"author": "Amin Parsa",
+	"homepage": "https://github.com/aminparsa18/Flare.Net",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/aminparsa18/Flare.Net.git",
+		"directory": "src/flare-browser-replay"
+	},
+	"keywords": ["flare", "session-replay", "rrweb", "observability", "opentelemetry"],
+	"type": "module",
+	"sideEffects": false,
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": ["dist", "README.md"],
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"check": "tsc -p tsconfig.json --noEmit",
+		"test": "node --import tsx --test test/*.test.ts",
+		"prepublishOnly": "npm run build && npm test"
+	},
+	"dependencies": {
+		"@rrweb/record": "2.1.7"
+	},
+	"devDependencies": {
+		"@types/node": "^22.20.1",
+		"tsx": "^4.23.13",
+		"typescript": "^5.9.3"
+	}
+}
