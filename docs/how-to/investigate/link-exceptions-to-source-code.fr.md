@@ -59,7 +59,7 @@ exige donc un jeton d'accès en lecture seule. Saisissez-le dans le même formul
 de l'icône de lien :
 
 - GitHub : un jeton à granularité fine avec accès en lecture à **Contents**.
-- GitLab : un jeton avec la portée `read_repository`.
+- GitLab : un jeton avec la portée `read_api` (`read_repository` suffit pour l'aperçu du code, mais les commits suspects appellent aussi l'API des commits).
 - Azure DevOps : un jeton d'accès personnel avec **Code (Read)**.
 
 Le jeton est en écriture seule : Flare ne l'affiche plus, et laisser le champ vide

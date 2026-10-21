@@ -142,3 +142,31 @@ export function firstFrameTarget(trace: string, config: SourceLinkConfig | undef
 	}
 	return null;
 }
+
+/**
+ * Every repo-relative file in `trace`'s frames, throw site first, each once - what suspect commits
+ * (ADR-0263) look for in a release's diff. Frames that don't map to a repo path (framework code, a
+ * path no prefix explains) are skipped.
+ */
+export function frameRepoPaths(trace: string, config: SourceLinkConfig | undefined): string[] {
+	if (!config) return [];
+	const paths: string[] = [];
+	for (const line of trace.split('\n')) {
+		if (!/^\s*at\s/.test(line)) continue;
+		const location = DOTNET_LOCATION.exec(line)?.[1] ?? PAREN_LOCATION.exec(line)?.[1];
+		const frame = location ? parseFrameLocation(location) : null;
+		const path = frame ? repoRelativePath(frame.path, config) : null;
+		if (path && !paths.includes(path)) paths.push(path);
+	}
+	return paths;
+}
+
+/**
+ * The commit a release was built from: its marked commit, else the SHA after `+` in a SourceLink-style
+ * version (`1.2.3+<sha>`). Null when neither names one - a plain `1.2.3` cannot be diffed.
+ */
+export function releaseCommit(release: { commit: string; version: string }): string | null {
+	const commit = release.commit.trim();
+	if (commit) return commit;
+	return /\+([0-9a-f]{7,40})$/i.exec(release.version)?.[1] ?? null;
+}

@@ -50,7 +50,7 @@ Flare's API fetches the file from your repository host, so a private repository
 needs a read-only access token. Enter it in the same link-icon form:
 
 - GitHub: a fine-grained token with read access to **Contents**.
-- GitLab: a token with the `read_repository` scope.
+- GitLab: a token with the `read_api` scope (`read_repository` is enough for source preview, but suspect commits also call the commits API).
 - Azure DevOps: a personal access token with **Code (Read)**.
 
 The token is write-only: Flare never shows it again, and leaving the field blank

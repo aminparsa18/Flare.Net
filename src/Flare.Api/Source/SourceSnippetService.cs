@@ -61,7 +61,7 @@ public sealed class SourceSnippetService(
                     return (null, $"The repository host returned {(int)response.StatusCode}. For a private repository, add an access token.");
                 }
 
-                var text = await ReadCappedAsync(response, timeout.Token);
+                var text = await ReadCappedAsync(response, MaxBodyBytes, timeout.Token);
                 if (text is null)
                 {
                     return (null, "The file is too large to preview.");
@@ -96,7 +96,7 @@ public sealed class SourceSnippetService(
     public static bool IsSafeRef(string gitRef) =>
         gitRef.Length is > 0 and <= 200 && gitRef.All(c => char.IsLetterOrDigit(c) || c is '.' or '/' or '_' or '-' or '+');
 
-    private static async Task<string?> ReadCappedAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    internal static async Task<string?> ReadCappedAsync(HttpResponseMessage response, int maxBodyBytes, CancellationToken cancellationToken)
     {
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var buffer = new MemoryStream();
@@ -105,7 +105,7 @@ public sealed class SourceSnippetService(
         while ((read = await stream.ReadAsync(chunk, cancellationToken)) > 0)
         {
             buffer.Write(chunk, 0, read);
-            if (buffer.Length > MaxBodyBytes)
+            if (buffer.Length > maxBodyBytes)
             {
                 return null;
             }

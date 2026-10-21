@@ -28,6 +28,18 @@ Open **Releases** from the menu and pick a service. Each row is a marked version
 
 A group counts as new when it had no occurrence in the 30 days before the deploy. A group that went quiet for longer than that and then came back reads as new in the version where it returned.
 
+## Find suspect commits
+
+Next to each new error, **Suspect commits** lists the commits that probably introduced it. Flare asks your repository host for the commits between this release and the one before it, then keeps the ones that changed a file in the error's stack trace, throw site first. Each entry shows the commit, its author, and which stack files it changed. A **Compare** link opens the whole range on the host.
+
+This needs:
+
+- a [source repository configured](link-exceptions-to-source-code.md) for the service, with an access token if the repository is private;
+- a commit on the release and on the one before it: the `commit` you marked, or the SHA after `+` in a `service.version` like `1.4.2+3f9c2ab`;
+- a stack trace whose frames map to repository files (set the path prefix in the source link if they don't).
+
+Flare checks the newest 40 commits of the range, so a very long range can miss a suspect; the page says so when that happens. A commit that touched a stack file is a candidate, not proof: it is the shortest list to read first.
+
 ## Regressions
 
 A group you resolved on the [Errors page](triage-errors.md) is shown as **Regressed** when it recurs in a version it had not been seen in. That works from `service.version` alone, with or without release markers. The Releases page answers the other questions: which errors a given version added, and which resolved groups came back in it. The **Regressions** column counts the latter, and expanding a row lists those groups first, with when each was resolved. A group counts only if it occurred in that service under that version.

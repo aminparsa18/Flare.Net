@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
+using Flare.Api.Query;
 using Flare.Api.Source;
 using Flare.Identity.SourceLinks;
 
@@ -19,6 +20,7 @@ public static class SourceLinkEndpoints
     {
         endpoints.MapGet("/api/source-links", HandleListAsync);
         endpoints.MapPost("/api/source-links/snippet", HandleSnippetAsync);
+        endpoints.MapPost("/api/source-links/suspects", HandleSuspectsAsync);
         return endpoints;
     }
 
@@ -68,6 +70,34 @@ public static class SourceLinkEndpoints
         return snippet is null
             ? Results.Problem(error, statusCode: StatusCodes.Status422UnprocessableEntity)
             : ApiSerialization.Write(http, snippet, SourceLinksJsonContext.Default.SourceSnippetResponse);
+    }
+
+    private static async Task<IResult> HandleSuspectsAsync(HttpContext http, ISuspectCommitService suspects, CancellationToken cancellationToken)
+    {
+        SuspectCommitsRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, SourceLinksJsonContext.Default.SuspectCommitsRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (!ServiceScope.Allows(request.ServiceName))
+        {
+            return Results.Forbid();
+        }
+
+        var (result, error) = await suspects.GetAsync(request, cancellationToken);
+        return result is null
+            ? Results.Problem(error, statusCode: StatusCodes.Status422UnprocessableEntity)
+            : ApiSerialization.Write(http, result, SourceLinksJsonContext.Default.SuspectCommitsResponse);
     }
 
     private static async Task<IResult> HandleSetAsync(HttpContext http, string serviceName, ISourceLinkStore store, CancellationToken cancellationToken)
