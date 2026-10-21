@@ -90,7 +90,7 @@ folders are where "what happened and why" actually lives.
   [the architecture page's non-goals](../../docs/explanation/architecture.md#non-goals). In rough priority order:
   - **Browser session replay follow-ups** (ADR-0264 to ADR-0268; verified end to end single-node in headless Chromium;
     the cluster migration is not run): request method, headers and bodies for the network list if a use for them appears
-    that outweighs what they leak, and the `flare_ingest_key` Terraform resource's two replay-cap attributes.
+    that outweighs what they leak.
 - **APM depth.** Flare receives OTLP and ships no agent, so these close gaps without changing that.
   - **A one-line .NET setup package** that configures the OTLP exporter, sampler and the common meters for Flare
     (a thin OpenTelemetry helper, not a proprietary format, so it fits ADR-0012).
