@@ -23,7 +23,7 @@ replay.sessionId; // set this as the `session.id` attribute on your spans to see
 ```
 
 Pass `mode: 'onError'` to record only the seconds around an error instead of whole sessions. Every form field is masked by default. Add `data-flare-block` to leave an element out and `data-flare-mask` to hide its
-text; see the guide for the rest. `captureConsole`, `captureNetwork` and `captureCanvas` (all off by default) add the page's console output, request list and canvas pictures to the recording. Masking is done here, in the browser: the server stores what it is sent.
+text; see the guide for the rest. `captureConsole`, `captureNetwork` and `captureCanvas` (all off by default) add the page's console output, request list and canvas pictures to the recording. `networkDetail` adds each request's method and, from an allowlist, headers and the redacted JSON bodies of failed requests. Masking is done here, in the browser: the server stores what it is sent.
 
 ## Layout
 

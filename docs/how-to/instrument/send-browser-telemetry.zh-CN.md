@@ -279,6 +279,7 @@ class SessionIdProcessor implements SpanProcessor {
 | `captureConsole` | 关闭 | 录制控制台输出：`true` 表示 `warn` 和 `error`，或给出级别列表（`'log'`、`'info'`、`'warn'`、`'error'`、`'debug'`）。 |
 | `captureNetwork` | `false` | 录制 `fetch`、`XMLHttpRequest` 和 beacon 请求（URL、状态、耗时）。 |
 | `networkKeepQuery` | `false` | 保留所录请求 URL 的查询字符串和片段。 |
+| `networkDetail` | 关闭 | 配合 `captureNetwork`：记录请求方法（`true`），也可传 `{ headers: [名称], bodies: true, bodyLimit }`。见下文。 |
 | `captureCanvas` | 关闭 | 录制 `<canvas>` 元素显示的内容：`true` 为每秒 1 帧，或 1 到 10 的数字。 |
 | `blockSelector`、`maskTextSelector` | `[data-flare-block]`、`[data-flare-mask]` | 上述两个属性对应的选择器。 |
 | `onStop` | 无 | 录制器自行停止时，带着原因调用。 |
@@ -307,9 +308,15 @@ const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, capture
 
 - **控制台**：所选级别，以及作为 `error` 条目的未捕获错误和未处理的 Promise 拒绝。每个参数最多保留 500 个字符、3 层深度。
   页面输出的内容按原样存储，所以不要输出你不想保留的内容。
-- **网络**：`fetch`、`XMLHttpRequest` 和 beacon 请求，记录 URL、状态和耗时。请求头和请求体从不录制。除非设置
-  `networkKeepQuery`，否则 URL 中的查询字符串和片段会被去掉，录制器自身的上传也不会被记录。不记录请求方法；不报告响应状态的
-  浏览器不会显示状态。
+- **网络**：`fetch`、`XMLHttpRequest` 和 beacon 请求，记录 URL、状态和耗时。除非 `networkDetail` 要求，否则不录制请求头和请求体。除非设置
+  `networkKeepQuery`，否则 URL 中的查询字符串和片段会被去掉，录制器自身的上传也不会被记录。不报告响应状态的浏览器不会显示状态。
+- **网络详情**（`networkDetail`，默认关闭）：请求方法，以及可选的请求头和请求体。开启后录制器会包装 `fetch` 和
+  `XMLHttpRequest`，普通列表不会这样做。`networkDetail: true` 只记录方法。
+  `networkDetail: { headers: ['content-type', 'x-request-id'], bodies: true }` 还会保留所列的请求头和响应头，以及失败请求
+  （状态 400 及以上）的请求体和响应体，仅限 JSON。看起来像凭据的请求头名称（authorization、cookie，以及含 token、secret、
+  key 或 session 的名称）即使列出也会被拒绝，值最多保留 200 个字符。请求体中 `password`、`token`、`secret`、`apiKey`、
+  `card` 等键对应的值会被替换为 `[redacted]`，文本最多保留 `bodyLimit` 个字符（默认 2048，范围 256 到 8192）。其他值按页面
+  发送的原样存储，所以如果错误响应会回显个人数据，请不要开启 `bodies`。带有详情的行有一个箭头，点击可展开。
 
 播放器下方的 **控制台** 和 **网络** 列出这些条目。点击一行会在该时刻打开录制，当前位置之后的行会变暗。
 

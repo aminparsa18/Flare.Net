@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { gunzipSync } from 'node:zlib';
 import { describe, it } from 'node:test';
 import { ChunkBuffer, MAX_CHUNK_BYTES } from '../src/buffer.js';
-import { MAX_URL_LENGTH, sanitizeRequest } from '../src/sanitize.js';
+import { MAX_URL_LENGTH, redactJsonBody, sanitizeRequest } from '../src/sanitize.js';
 import { replayUrl, resolveOptions } from '../src/options.js';
 import { isSampled, resolveSessionId, type KeyValueStore } from '../src/session.js';
 import { sendChunk } from '../src/transport.js';
@@ -224,5 +224,89 @@ describe('sanitizeRequest', () => {
 		const out = sanitizeRequest({ ...request, name: `https://a.example.com/${'x'.repeat(1000)}` }, endpoint, false);
 		assert.equal(out?.name.length, MAX_URL_LENGTH + 1);
 		assert.ok(out?.name.endsWith('…'));
+	});
+});
+
+describe('sanitizeRequest with networkDetail', () => {
+	const endpoint = 'https://flare.example.com:4318/v1/';
+	const detail = { headers: ['content-type', 'x-request-id', 'authorization'], bodies: true, bodyLimit: 2048 };
+	const base = {
+		name: 'https://api.example.com/orders', initiatorType: 'fetch', method: 'post', status: 500, startTime: 1, endTime: 9, duration: 8, entryType: 'resource',
+		requestHeaders: { 'Content-Type': 'application/json', Authorization: 'Bearer abc', Cookie: 'sid=1', 'X-Request-Id': 'r-1' },
+		responseHeaders: { 'content-type': 'application/json', 'set-cookie': 'sid=2' },
+		requestBody: '{"item":"a","password":"hunter2","nested":{"apiKey":"k","n":1}}',
+		responseBody: '{"error":"boom","token":"t"}',
+	} as const;
+
+	it('records nothing extra without the option, even if the plugin supplied it', () => {
+		const out = sanitizeRequest({ ...base }, endpoint, false);
+		assert.equal(out?.method, undefined);
+		assert.equal(out?.requestHeaders, undefined);
+		assert.equal(out?.requestBody, undefined);
+	});
+
+	it('records the method alone when no headers or bodies are asked for', () => {
+		const out = sanitizeRequest({ ...base }, endpoint, false, { headers: [], bodies: false, bodyLimit: 2048 });
+		assert.equal(out?.method, 'POST');
+		assert.equal(out?.requestHeaders, undefined);
+		assert.equal(out?.responseHeaders, undefined);
+		assert.equal(out?.requestBody, undefined);
+	});
+
+	it('keeps only allowlisted headers and refuses credential-like names even when listed', () => {
+		const out = sanitizeRequest({ ...base }, endpoint, false, detail);
+		assert.deepEqual(out?.requestHeaders, { 'content-type': 'application/json', 'x-request-id': 'r-1' });
+		assert.deepEqual(out?.responseHeaders, { 'content-type': 'application/json' });
+	});
+
+	it('cuts long header values', () => {
+		const out = sanitizeRequest({ ...base, requestHeaders: { 'x-request-id': 'x'.repeat(500) } }, endpoint, false, detail);
+		assert.equal(out?.requestHeaders?.['x-request-id']?.length, 201);
+	});
+
+	it('keeps redacted bodies of a failed request only', () => {
+		const failed = sanitizeRequest({ ...base }, endpoint, false, detail);
+		assert.equal(failed?.requestBody, '{"item":"a","password":"[redacted]","nested":{"apiKey":"[redacted]","n":1}}');
+		assert.equal(failed?.responseBody, '{"error":"boom","token":"[redacted]"}');
+		const ok = sanitizeRequest({ ...base, status: 200 }, endpoint, false, detail);
+		assert.equal(ok?.requestBody, undefined);
+		assert.equal(ok?.responseBody, undefined);
+		const none = sanitizeRequest({ ...base }, endpoint, false, { ...detail, bodies: false });
+		assert.equal(none?.requestBody, undefined);
+	});
+
+	it('ignores a method that is not a plain verb', () => {
+		assert.equal(sanitizeRequest({ ...base, method: 'GET /x?token=1' }, endpoint, false, detail)?.method, undefined);
+	});
+});
+
+describe('redactJsonBody', () => {
+	it('drops what is not JSON, including the plugin placeholders', () => {
+		assert.equal(redactJsonBody('<html>oops</html>', 100), undefined);
+		assert.equal(redactJsonBody('[rrweb/network] Timeout while reading body', 100), undefined);
+		assert.equal(redactJsonBody(null, 100), undefined);
+		assert.equal(redactJsonBody('', 100), undefined);
+	});
+
+	it('redacts secret keys at any depth, in arrays too, and cuts to the limit', () => {
+		assert.equal(redactJsonBody('[{"cardNumber":"4111"},{"ok":1}]', 100), '[{"cardNumber":"[redacted]"},{"ok":1}]');
+		const cut = redactJsonBody(JSON.stringify({ note: 'x'.repeat(500) }), 50);
+		assert.equal(cut?.length, 51);
+		assert.ok(cut?.endsWith('…'));
+	});
+});
+
+describe('resolveOptions networkDetail', () => {
+	const base = { endpoint: 'https://f', service: 'web' };
+	it('is off unless captureNetwork is on', () => {
+		assert.equal(resolveOptions({ ...base, networkDetail: true }).networkDetail, undefined);
+		assert.equal(resolveOptions({ ...base, captureNetwork: true }).networkDetail, undefined);
+	});
+	it('true is the method only; an object is normalised and clamped', () => {
+		assert.deepEqual(resolveOptions({ ...base, captureNetwork: true, networkDetail: true }).networkDetail, { headers: [], bodies: false, bodyLimit: 2048 });
+		assert.deepEqual(
+			resolveOptions({ ...base, captureNetwork: true, networkDetail: { headers: [' X-Request-Id ', 'x-request-id', ''], bodies: true, bodyLimit: 10 } }).networkDetail,
+			{ headers: ['x-request-id'], bodies: true, bodyLimit: 256 },
+		);
 	});
 });
