@@ -3,7 +3,18 @@
 // so a session without a recording costs the page nothing.
 
 import { getWebReplay, getWebReplayChunk, type WebReplay } from '#lib/app-sessions-api.ts';
-import { FULL_SNAPSHOT, LARGE_REPLAY_BYTES, fitScale, mergeChunks, trimToFullSnapshot, type ReplayEvent } from './web-replay-events.ts';
+import {
+	FULL_SNAPSHOT,
+	LARGE_REPLAY_BYTES,
+	extractConsole,
+	extractNetwork,
+	fitScale,
+	mergeChunks,
+	trimToFullSnapshot,
+	type ConsoleEntry,
+	type NetworkEntry,
+	type ReplayEvent
+} from './web-replay-events.ts';
 
 /** Chunks fetched at once. */
 const FETCH_CONCURRENCY = 4;
@@ -37,6 +48,10 @@ export class WebReplayState {
 	/** Size of the recorded page, from rrweb's resize event; 0 until the first one. */
 	viewportWidth = $state(0);
 	viewportHeight = $state(0);
+
+	/** Console calls and requests the recorder captured (ADR-0266); empty when it was not asked to. */
+	consoleEntries = $state.raw<ConsoleEntry[]>([]);
+	networkEntries = $state.raw<NetworkEntry[]>([]);
 
 	#abort: AbortController | null = null;
 	#replayer: ReplayerInstance | null = null;
@@ -104,6 +119,8 @@ export class WebReplayState {
 				this.error = 'This recording has no page snapshot to start from.';
 				return;
 			}
+			this.consoleEntries = extractConsole(events);
+			this.networkEntries = extractNetwork(events);
 			const [{ Replayer }] = await Promise.all([import('@rrweb/replay'), import('@rrweb/replay/dist/style.css')]);
 			if (abort.signal.aborted) return;
 			this.#build(Replayer, events, root, measure);

@@ -1,3 +1,7 @@
+export type ConsoleLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
+
+const CONSOLE_LEVELS: readonly ConsoleLevel[] = ['log', 'info', 'warn', 'error', 'debug'];
+
 /** What `startReplay` accepts. Only `endpoint` and `service` are required. */
 export interface ReplayOptions {
 	/** Base URL of Flare.Ingest's HTTP receiver, e.g. `https://flare.example.com:4318`. Chunks go to `{endpoint}/v1/replay`. */
@@ -46,6 +50,22 @@ export interface ReplayOptions {
 	/** `onError` only: treat an uncaught error or unhandled promise rejection as an error to keep. Default true. */
 	captureErrors?: boolean;
 
+	/**
+	 * Record the page's console output so the replay shows it beside the video. Off by default, because console output often
+	 * carries data the page would never display. Give the levels to record (`['warn', 'error']` is the usual choice), or `true`
+	 * for `warn` and `error`. Uncaught errors and unhandled rejections are recorded as `error` entries. Arguments are cut to
+	 * 500 characters and 3 levels deep. Nothing in the console is masked, so do not log what you would not store.
+	 */
+	captureConsole?: boolean | ConsoleLevel[];
+	/**
+	 * Record the page's `fetch`, `XMLHttpRequest` and beacon requests (URL, status, timing) so the replay shows them beside the
+	 * video. Off by default. Headers and bodies are never recorded. The query string and fragment are dropped from the URL unless
+	 * `networkKeepQuery` is set, and the recorder's own uploads are left out.
+	 */
+	captureNetwork?: boolean;
+	/** Keep the query string and fragment of recorded request URLs. Default false: they often carry tokens and ids. */
+	networkKeepQuery?: boolean;
+
 	/** Called with a short reason when the recorder stops by itself (rejected key, over the size limit). */
 	onStop?: (reason: string) => void;
 }
@@ -68,6 +88,9 @@ export interface ResolvedReplayOptions {
 	bufferMs: number;
 	afterErrorMs: number;
 	captureErrors: boolean;
+	captureConsole: ConsoleLevel[];
+	captureNetwork: boolean;
+	networkKeepQuery: boolean;
 	onStop?: (reason: string) => void;
 }
 
@@ -92,8 +115,18 @@ export function resolveOptions(options: ReplayOptions): ResolvedReplayOptions {
 		bufferMs: Math.max(5000, options.bufferMs ?? 30_000),
 		afterErrorMs: Math.max(0, options.afterErrorMs ?? 10_000),
 		captureErrors: options.captureErrors ?? true,
+		captureConsole: consoleLevels(options.captureConsole),
+		captureNetwork: options.captureNetwork ?? false,
+		networkKeepQuery: options.networkKeepQuery ?? false,
 		onStop: options.onStop,
 	};
+}
+
+/** `true` is warn and error; a list is cut to the levels the recorder knows; anything else is off. */
+function consoleLevels(value: ReplayOptions['captureConsole']): ConsoleLevel[] {
+	if (value === true) return ['warn', 'error'];
+	if (!Array.isArray(value)) return [];
+	return CONSOLE_LEVELS.filter((level) => value.includes(level));
 }
 
 function clamp(value: number, min: number, max: number): number {

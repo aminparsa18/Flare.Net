@@ -295,6 +295,9 @@ lecteur doit pouvoir l'atteindre.
 | `bufferMs` | `30000` | `onError` seulement : jusqu'où l'enregistrement d'une erreur remonte dans le temps. |
 | `afterErrorMs` | `10000` | `onError` seulement : durée pendant laquelle l'enregistrement continue après une erreur. |
 | `captureErrors` | `true` | `onError` seulement : traiter les erreurs non interceptées et les rejets de promesse non gérés comme des erreurs à conserver. |
+| `captureConsole` | désactivé | Enregistrer la sortie console : `true` pour `warn` et `error`, ou une liste de niveaux (`'log'`, `'info'`, `'warn'`, `'error'`, `'debug'`). |
+| `captureNetwork` | `false` | Enregistrer les requêtes `fetch`, `XMLHttpRequest` et beacon (URL, statut, durée). |
+| `networkKeepQuery` | `false` | Conserver la chaîne de requête et le fragment des URL de requêtes enregistrées. |
 | `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Sélecteurs des deux attributs ci-dessus. |
 | `onStop` | aucun | Appelé avec une raison quand l'enregistreur s'arrête de lui-même. |
 
@@ -317,6 +320,26 @@ avant l'erreur, en commençant à un instantané de la page) et continue d'enreg
 ignore les événements jusqu'au prochain instantané : une session avec plusieurs erreurs donne plusieurs enregistrements, et
 une session sans erreur ne laisse rien. Rien ne quitte le navigateur avant l'erreur, mais la page est enregistrée en mémoire
 en permanence ; les règles de masquage ci-dessus s'appliquent donc dans les deux cas.
+
+### Afficher la console et les requêtes
+
+La relecture peut lister ce que la page a journalisé et les requêtes qu'elle a faites, à côté de la vidéo. Les deux sont
+désactivés par défaut, car ni l'un ni l'autre n'est masqué comme les champs de formulaire :
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, captureConsole: ['warn', 'error'], captureNetwork: true });
+```
+
+- **Console** : les niveaux choisis, plus les erreurs non interceptées et les rejets non gérés comme entrées `error`. Chaque
+  argument est tronqué à 500 caractères et 3 niveaux de profondeur. Tout ce que la page journalise est stocké tel quel : ne
+  journalisez pas ce que vous ne voudriez pas conserver.
+- **Réseau** : les requêtes `fetch`, `XMLHttpRequest` et beacon, sous forme d'URL, de statut et de durée. Les en-têtes et les
+  corps ne sont jamais enregistrés. La chaîne de requête et le fragment sont retirés de l'URL sauf si `networkKeepQuery` est
+  activé, et les envois de l'enregistreur lui-même sont exclus. La méthode n'est pas enregistrée, et un navigateur qui ne
+  fournit pas le statut de la réponse n'en affiche aucun.
+
+Sous le lecteur, **Console** et **Réseau** listent les entrées. Une ligne ouvre l'enregistrement à cet instant, et les lignes
+postérieures à la position courante sont atténuées.
 
 ### Retrouver un enregistrement
 

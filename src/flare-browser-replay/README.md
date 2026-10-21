@@ -23,7 +23,7 @@ replay.sessionId; // set this as the `session.id` attribute on your spans to see
 ```
 
 Pass `mode: 'onError'` to record only the seconds around an error instead of whole sessions. Every form field is masked by default. Add `data-flare-block` to leave an element out and `data-flare-mask` to hide its
-text; see the guide for the rest. Masking is done here, in the browser: the server stores what it is sent.
+text; see the guide for the rest. `captureConsole` and `captureNetwork` (both off by default) add the page's console output and request list to the recording. Masking is done here, in the browser: the server stores what it is sent.
 
 ## Layout
 
@@ -31,6 +31,8 @@ text; see the guide for the rest. Masking is done here, in the browser: the serv
 | --- | --- |
 | `src/recorder.ts` | `startReplay`: starts rrweb, flushes on a timer, at a size limit and when the tab is hidden, stops after `maxDurationMs` or when the key is rejected |
 | `src/rolling.ts` | `RollingBuffer`: the `mode: 'onError'` state machine (hold the last two snapshot segments, release them on an error, pass events through for a while, then wait for the next snapshot) |
+| `src/capture.ts` | The rrweb console and network record plugins, configured: chosen console levels, `fetch`/XHR/beacon requests with no headers or bodies |
+| `src/sanitize.ts` | `sanitizeRequest`: strips the query string and fragment, caps the URL length, drops the recorder's own uploads. Pure, so it is unit-tested |
 | `src/buffer.ts` | `ChunkBuffer`: collects events and hands them out as the JSON array text the server expects |
 | `src/transport.ts` | `sendChunk`: gzip (when the browser has `CompressionStream`), `keepalive` for the last small batch, no retries; a `429` returns how long to hold off |
 | `src/session.ts` | The per-tab session id and the once-per-session sampling decision, both kept in `sessionStorage` when it is available |

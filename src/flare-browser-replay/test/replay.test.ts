@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { gunzipSync } from 'node:zlib';
 import { describe, it } from 'node:test';
 import { ChunkBuffer, MAX_CHUNK_BYTES } from '../src/buffer.js';
+import { MAX_URL_LENGTH, sanitizeRequest } from '../src/sanitize.js';
 import { replayUrl, resolveOptions } from '../src/options.js';
 import { isSampled, resolveSessionId, type KeyValueStore } from '../src/session.js';
 import { sendChunk } from '../src/transport.js';
@@ -178,5 +179,50 @@ describe('onError options', () => {
 
 	it('treat an unknown mode as session', () => {
 		assert.equal(resolveOptions({ endpoint: 'x', service: 'web', mode: 'nope' as never }).mode, 'session');
+	});
+});
+
+describe('console and network capture options', () => {
+	it('are off by default', () => {
+		const o = resolveOptions({ endpoint: 'x', service: 'web' });
+		assert.deepEqual(o.captureConsole, []);
+		assert.equal(o.captureNetwork, false);
+		assert.equal(o.networkKeepQuery, false);
+	});
+
+	it('read true as warn and error, and keep only known levels of a list', () => {
+		assert.deepEqual(resolveOptions({ endpoint: 'x', service: 'web', captureConsole: true }).captureConsole, ['warn', 'error']);
+		assert.deepEqual(resolveOptions({ endpoint: 'x', service: 'web', captureConsole: false }).captureConsole, []);
+		const levels = ['error', 'bogus', 'log'] as unknown as ('error' | 'log')[];
+		assert.deepEqual(resolveOptions({ endpoint: 'x', service: 'web', captureConsole: levels }).captureConsole, ['log', 'error']);
+	});
+});
+
+describe('sanitizeRequest', () => {
+	const endpoint = 'https://flare.example.com:4318/v1/';
+	const request = { name: 'https://api.example.com/users/42?token=secret#frag', initiatorType: 'fetch', status: 200, startTime: 10, endTime: 60, duration: 50, entryType: 'resource', requestHeaders: { authorization: 'x' }, responseBody: 'private' } as const;
+
+	it('drops the query string, the fragment and anything that is not timing or status', () => {
+		const out = sanitizeRequest({ ...request }, endpoint, false);
+		assert.deepEqual(out, { name: 'https://api.example.com/users/42', initiatorType: 'fetch', status: 200, startTime: 10, endTime: 60, duration: 50, entryType: 'resource' });
+	});
+
+	it('keeps the query string only when asked, but still no headers or bodies', () => {
+		const out = sanitizeRequest({ ...request }, endpoint, true);
+		assert.equal(out?.name, request.name);
+		assert.equal(out?.requestHeaders, undefined);
+		assert.equal(out?.responseBody, undefined);
+	});
+
+	it('leaves out the recorder\'s own uploads, data and blob urls', () => {
+		assert.equal(sanitizeRequest({ ...request, name: 'https://flare.example.com:4318/v1/replay?service=web' }, endpoint, false), undefined);
+		assert.equal(sanitizeRequest({ ...request, name: 'data:image/png;base64,AAAA' }, endpoint, false), undefined);
+		assert.equal(sanitizeRequest({ ...request, name: 'blob:https://app/1' }, endpoint, false), undefined);
+	});
+
+	it('cuts a very long url', () => {
+		const out = sanitizeRequest({ ...request, name: `https://a.example.com/${'x'.repeat(1000)}` }, endpoint, false);
+		assert.equal(out?.name.length, MAX_URL_LENGTH + 1);
+		assert.ok(out?.name.endsWith('…'));
 	});
 });

@@ -1,5 +1,6 @@
 import { record } from '@rrweb/record';
 import { ChunkBuffer } from './buffer.js';
+import { capturePlugins } from './capture.js';
 import { RollingBuffer } from './rolling.js';
 import { replayUrl, resolveOptions, type ReplayOptions } from './options.js';
 import { isSampled, resolveSessionId, type KeyValueStore } from './session.js';
@@ -76,6 +77,7 @@ export function startReplay(input: ReplayOptions): ReplayHandle {
 		maskTextClass: 'flare-mask',
 		ignoreClass: 'flare-ignore',
 		checkoutEveryNms: rolling ? options.bufferMs : options.checkoutEveryMs > 0 ? options.checkoutEveryMs : undefined,
+		plugins: capturePlugins(options),
 		sampling: { mousemove: 100, scroll: 200, input: 'last' },
 	});
 
