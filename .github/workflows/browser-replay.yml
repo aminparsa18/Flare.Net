@@ -1,0 +1,38 @@
+# Type-checks, tests and builds the browser session replay recorder (src/flare-browser-replay, ADR-0264).
+# It has its own package.json and is outside Flare.slnx, so ci.yml never touches it.
+
+name: Browser replay CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/flare-browser-replay/**'
+      - '.github/workflows/browser-replay.yml'
+  pull_request:
+    paths:
+      - 'src/flare-browser-replay/**'
+      - '.github/workflows/browser-replay.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: browser-replay-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/flare-browser-replay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/flare-browser-replay/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build

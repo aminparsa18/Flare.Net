@@ -16,7 +16,7 @@ public static class ErasureSql
 
     public const int MaxIdentifiers = 10;
 
-    /// <summary>Sessions followed from the identifiers into <c>app_screenshots</c>/<c>app_feedback</c>.</summary>
+    /// <summary>Sessions followed from the identifiers into <c>app_screenshots</c>/<c>web_replay_chunks</c>/<c>app_feedback</c>.</summary>
     public const int MaxSessions = 10_000;
 
     public const string SessionAttribute = "session.id";
@@ -48,6 +48,7 @@ public static class ErasureSql
         new("metric_exemplars", ["ResourceAttributes", "DataPointAttributes", "FilteredAttributes"], SessionMap: "DataPointAttributes"),
         new("profile_samples", ["ResourceAttributes", "SampleAttributes"]),
         new("app_screenshots", [], UsesSessions: true),
+        new("web_replay_chunks", [], UsesSessions: true),
         new("app_feedback", [], UsesSessions: true, UserIdColumn: "UserId", EmailColumn: "Email"),
     ];
 

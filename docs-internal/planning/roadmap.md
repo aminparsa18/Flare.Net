@@ -88,8 +88,11 @@ folders are where "what happened and why" actually lives.
     rollback.
 - **Error tracking closer to Sentry.** The scope boundary is in
   [the architecture page's non-goals](../../docs/explanation/architecture.md#non-goals). In rough priority order:
-  - **Browser session replay**, on the pattern of the MAUI replay-lite ([ADR-0192](../adr/0192-maui-session-replay-lite.md)).
-    Other client SDKs are covered by the MAUI item above; per [ADR-0012](../adr/0012-otlp-only-ingestion.md) they stay thin over OTLP.
+  - **Browser session replay follow-ups** (ADR-0264, verified end to end single-node in headless Chromium; the cluster
+    migration is not run): record only the seconds around an error (a rolling buffer flushed when an exception is reported),
+    a "has replay" marker and filter in the sessions list, a link from an error occurrence to its session's replay,
+    console and network capture, canvas recording, a per-key byte limit for replay bodies, and an npm publish workflow
+    for `@apardev/flare-browser-replay`.
 - **APM depth.** Flare receives OTLP and ships no agent, so these close gaps without changing that.
   - **A one-line .NET setup package** that configures the OTLP exporter, sampler and the common meters for Flare
     (a thin OpenTelemetry helper, not a proprietary format, so it fits ADR-0012).

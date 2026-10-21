@@ -104,7 +104,7 @@ Flare 仍然是四样要运行的东西（Ingest、Api、AlertWorker、Dashboard
 
 - 不是 APM 代理。Flare 不对你的代码做插桩，也不附带代理；它接收 OpenTelemetry 发来的内容。它基于你发送的数据提供分布式追踪、持续性能剖析（OTLP profiles 信号，在 OpenTelemetry 中仍是 Alpha）和发布跟踪。
 - 不是 SIEM。有审计日志和摄取时的脱敏，但没有安全分析或关联规则。
-- 不是适用于所有平台的 Sentry 或 GlitchTip 替代品。错误追踪基于 OTel 异常构建，在[错误页](#错误)中分组，支持 .NET 符号化和 JavaScript source map；`Flare.Maui` 是唯一专用的客户端 SDK，其他平台则发送 OTLP。
+- 不是适用于所有平台的 Sentry 或 GlitchTip 替代品。错误追踪基于 OTel 异常构建，在[错误页](#错误)中分组，支持 .NET 符号化和 JavaScript source map；`Flare.Maui` 和[浏览器回放录制器](../how-to/instrument/send-browser-telemetry.zh-CN.md#录制会话回放)是专用的客户端 SDK，其他平台则发送 OTLP。
 - 不是可直接替换的 Prometheus、Loki 或 Tempo。兼容 API 是只读的，只覆盖 PromQL、LogQL 和 TraceQL 的一个子集，足够让 Grafana 查询 Flare，但不足以取代那些服务器。
 - 不追求与 Datadog/Grafana/SigNoz 的功能对等。不同的赌注 —— 参见上面的[为什么 Flare 存在](#为什么-flare-存在)。
 

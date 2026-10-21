@@ -284,6 +284,59 @@ export async function getAppSessionReplayFrame(
 	return (await res.json()) as AppSessionScreenshot;
 }
 
+/** One batch of rrweb events from a browser session (browser session replay, ADR-0264). */
+export interface WebReplayChunk {
+	chunkId: string;
+	startUnixMs: number;
+	endUnixMs: number;
+	eventCount: number;
+	payloadBytes: number;
+}
+
+export interface WebReplay {
+	sessionId: string;
+	serviceName: string;
+	chunks: WebReplayChunk[];
+	truncated: boolean;
+}
+
+/** The recorded chunks of a browser session, oldest first; none when the session was not recorded. */
+export async function getWebReplay(
+	sessionId: string,
+	range: { fromUnixMs?: number; toUnixMs?: number },
+	signal?: AbortSignal
+): Promise<WebReplay> {
+	const res = await apiFetch(`${API_BASE_URL}/api/web-replay`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ sessionId, fromUnixMs: range.fromUnixMs ?? null, toUnixMs: range.toUnixMs ?? null }),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/web-replay failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as WebReplay;
+}
+
+/** One chunk's rrweb events, or null when it is gone (404). */
+export async function getWebReplayChunk(
+	sessionId: string,
+	chunk: Pick<WebReplayChunk, 'chunkId' | 'startUnixMs'>,
+	signal?: AbortSignal
+): Promise<unknown[] | null> {
+	const res = await apiFetch(`${API_BASE_URL}/api/web-replay/chunk`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ sessionId, chunkId: chunk.chunkId, startUnixMs: chunk.startUnixMs }),
+		signal
+	});
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`POST /api/web-replay/chunk failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as unknown[];
+}
+
 export interface AppFeedback {
 	feedbackId: string;
 	timeUnixMs: number;

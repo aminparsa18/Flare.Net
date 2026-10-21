@@ -183,8 +183,9 @@ pour les versions de paquets connues comme fonctionnelles.
 - Pas un remplaçant de Sentry ou GlitchTip pour toutes les plateformes. Le
   suivi des erreurs est construit à partir des exceptions OTel, regroupées
   sur la [page Errors](#erreurs) avec symbolisation .NET et par source maps
-  JavaScript, et `Flare.Maui` est le seul SDK client dédié ; les autres
-  plateformes envoient de l'OTLP.
+  JavaScript, et `Flare.Maui` et
+  l'[enregistreur de replay navigateur](../how-to/instrument/send-browser-telemetry.fr.md#enregistrer-le-replay-de-session)
+  sont les SDK clients dédiés ; les autres plateformes envoient de l'OTLP.
 - Pas un remplaçant direct de Prometheus, Loki ou Tempo. Les API compatibles
   sont en lecture seule et couvrent un sous-ensemble de PromQL, LogQL et
   TraceQL, assez pour que Grafana interroge Flare, pas pour remplacer ces
