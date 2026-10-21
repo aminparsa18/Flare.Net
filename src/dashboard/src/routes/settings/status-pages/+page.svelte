@@ -17,6 +17,7 @@
 		isValidSlug,
 		listStatusPages,
 		updateStatusPage,
+		type StatusComponentKind,
 		type StatusPage,
 		type StatusPageComponent,
 		type StatusPageRequest
@@ -24,6 +25,7 @@
 	import IncidentsDialog from './IncidentsDialog.svelte';
 	import { listSyntheticMonitors } from '#lib/synthetic-monitors-api.ts';
 	import { listSlos } from '#lib/slos-api.ts';
+	import { listCheckInMonitors } from '#lib/checkin-monitors-api.ts';
 	import { listNotificationChannels } from '#lib/notification-channels-api.ts';
 	import { withBase } from '#lib/paths.ts';
 	import * as m from '#lib/paraglide/messages.js';
@@ -39,7 +41,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	// What a component can point at: [kind:id] -> label.
-	let options = $state<{ key: string; kind: 'Monitor' | 'Slo'; refId: string; label: string }[]>([]);
+	let options = $state<{ key: string; kind: StatusComponentKind; refId: string; label: string }[]>([]);
 	// Channels that suit an announcement (not PagerDuty, Jira and the like): id -> name.
 	let channelOptions = $state<{ id: string; name: string }[]>([]);
 	const SUBSCRIBER_TYPES = ['Webhook', 'Telegram', 'Email', 'Teams', 'Discord'];
@@ -68,12 +70,13 @@
 	async function load(): Promise<void> {
 		loading = true;
 		try {
-			const [list, monitors, slos, channels] = await Promise.all([listStatusPages(), listSyntheticMonitors(), listSlos(), listNotificationChannels()]);
+			const [list, monitors, slos, checkIns, channels] = await Promise.all([listStatusPages(), listSyntheticMonitors(), listSlos(), listCheckInMonitors(), listNotificationChannels()]);
 			pages = list;
 			channelOptions = channels.channels.filter((c) => SUBSCRIBER_TYPES.includes(c.type)).map((c) => ({ id: c.id, name: c.name }));
 			options = [
 				...monitors.map((x) => ({ key: `Monitor:${x.id}`, kind: 'Monitor' as const, refId: x.id, label: x.name })),
-				...slos.map((x) => ({ key: `Slo:${x.id}`, kind: 'Slo' as const, refId: x.id, label: x.name }))
+				...slos.map((x) => ({ key: `Slo:${x.id}`, kind: 'Slo' as const, refId: x.id, label: x.name })),
+				...checkIns.map((x) => ({ key: `CheckIn:${x.id}`, kind: 'CheckIn' as const, refId: x.id, label: x.name }))
 			];
 			error = null;
 		} catch (err) {
@@ -99,6 +102,10 @@
 		logoUrl = page?.logoUrl ?? '';
 		accentColor = page?.accentColor ?? '';
 		supportUrl = page?.supportUrl ?? '';
+	}
+
+	function kindLabel(kind: StatusComponentKind): string {
+		return kind === 'Monitor' ? m.statusPages_kindMonitor() : kind === 'Slo' ? m.statusPages_kindSlo() : m.statusPages_kindCheckIn();
 	}
 
 	function labelFor(c: StatusPageComponent): string {
@@ -283,7 +290,7 @@
 					<div class="flex items-center gap-2">
 						<Input bind:value={component.name} maxlength={100} class="flex-1" aria-label={m.statusPages_componentName()} />
 						<span class="text-muted-foreground w-40 truncate text-xs" title={labelFor(component)}>
-							{component.kind === 'Monitor' ? m.statusPages_kindMonitor() : m.statusPages_kindSlo()}: {labelFor(component)}
+							{kindLabel(component.kind)}: {labelFor(component)}
 						</span>
 						<Button variant="ghost" size="icon-sm" title={m.statusPages_removeComponent()} onclick={() => (components = components.filter((_, j) => j !== i))}>
 							<XIcon />
@@ -296,7 +303,7 @@
 						<Select.Content>
 							{#each unused as option (option.key)}
 								<Select.Item value={option.key} label={option.label}>
-									{option.kind === 'Monitor' ? m.statusPages_kindMonitor() : m.statusPages_kindSlo()}: {option.label}
+									{kindLabel(option.kind)}: {option.label}
 								</Select.Item>
 							{/each}
 						</Select.Content>

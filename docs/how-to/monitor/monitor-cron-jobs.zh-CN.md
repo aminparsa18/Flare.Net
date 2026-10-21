@@ -57,9 +57,29 @@ curl -fsS -m 10 -H "$AUTH" "$FLARE/v1/checkins/nightly-backup/start"
 | `/v1/checkins/{slug}/start` | 任务已开始。可选；发送它可以发现开始后卡住的任务。 |
 | `/v1/checkins/{slug}/fail` | 任务完成但失败。 |
 
-`GET` 和 `POST` 都可以。最多 4 KiB 的 `POST` 请求体会保存为消息（前 1000 个字符）。该端点返回 `204`；slug 或状态无效时返回 `400`；摄取密钥缺失或错误时返回 `401`；ping 无法保存时返回 `503`，因此 `curl -f` 会明确失败。对没有对应监控的 slug 发送的 ping 会被接受并忽略。
+`GET` 和 `POST` 都可以。最多 4 KiB 的 `POST` 请求体会保存为消息（前 1000 个字符）。该端点返回 `204`；slug 或状态无效时返回 `400`；摄取密钥缺失或错误时返回 `401`；ping 无法保存时返回 `503`，因此 `curl -f` 会明确失败。对没有对应监控的 slug 发送的 ping 会被接受并忽略，除非它要求 Flare 创建该监控（见下一节）。
 
 监控表格每一行都有 **Copy ping command** 按钮。
+
+## 由首次 ping 创建监控
+
+任务可以自己创建监控，而不必先有人创建。在 ping 的 URL 中加上 `create=1` 和计划：
+
+```bash
+curl -fsS -m 10 -H "$AUTH" "$FLARE/v1/checkins/nightly-backup/start?create=1&cron=0%202%20*%20*%20*&tz=Europe/Berlin&grace=600&name=Nightly%20backup"
+```
+
+| 参数 | 含义 |
+| --- | --- |
+| `create` | `1` 或 `true` 表示请求创建监控。没有它，其他参数会被忽略。 |
+| `cron` 或 `interval` | 计划，二选一，与上表相同。cron 表达式中的空格需要做 URL 编码。 |
+| `tz` | `cron` 使用的 IANA 时区，默认 `UTC`。 |
+| `grace`、`max_runtime` | 单位为秒，对应 `graceSeconds` 和 `maxRuntimeSeconds`，默认 300 和 0。 |
+| `name` | 显示名称，默认为 slug。 |
+
+监控只会在第一个这样的 ping 时创建一次，ping 照常保存。如果该 slug 的监控已存在，这些参数会被忽略，所以之后的 ping 不会改动计划；请在仪表板、API 或 Terraform 中修改。计划无效时返回 `400`，且不会保存任何内容。可以让任务的 ping 一直带着 `create=1`，也可以在首次运行后去掉。
+
+在 `Flare.Ingest` 上设置 `CheckIns__AutoCreate=false` 可关闭自动创建（此类 ping 将返回 `403`），`CheckIns__MaxMonitors`（默认 500）限制监控总数，避免泄露的摄取密钥填满表。没有 `create=1` 时，slug 拼写错误仍不会创建任何内容。
 
 ## 状态如何判定
 
@@ -91,7 +111,7 @@ curl -fsS -m 10 -H "$AUTH" "$FLARE/v1/checkins/nightly-backup/start"
 
 ## 限制
 
-- 任何有效的摄取密钥都可以对任意 slug 发送 ping。请为任务单独创建密钥，不要复用浏览器密钥。
+- 任何有效的摄取密钥都可以对任意 slug 发送 ping，并且（除非关闭）可通过 `create=1` 创建监控。请为任务单独创建密钥，不要复用浏览器密钥。
 - 宽限期应覆盖时钟偏差；对于间隔计划，还应覆盖任务的运行时间，因为间隔是从上一次 ping 开始计算的。
 - 迟到的任务最多会在宽限期结束后的 `CheckIn__PollInterval`（15 秒）内被报告，因此告警窗口应比这更长。
 - 在 worker 上设置 `CheckIn__Enabled=false` 可关闭判定。ping 仍会被保存。

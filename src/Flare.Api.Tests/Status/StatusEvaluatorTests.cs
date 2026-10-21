@@ -120,4 +120,15 @@ public sealed class StatusEvaluatorTests
         Assert.NotNull(noName.Validate());
         Assert.Null(ok.Validate());
     }
+
+    [Theory]
+    [InlineData(CheckInState.Ok, StatusState.Operational)]
+    [InlineData(CheckInState.Running, StatusState.Operational)]
+    [InlineData(CheckInState.Late, StatusState.Outage)]
+    [InlineData(CheckInState.Failed, StatusState.Outage)]
+    [InlineData(CheckInState.Overran, StatusState.Outage)]
+    [InlineData(CheckInState.Pending, StatusState.Unknown)]
+    [InlineData(CheckInState.Disabled, StatusState.Unknown)]
+    public void Check_in_state_maps_to_a_public_state(CheckInState state, StatusState expected) =>
+        Assert.Equal(expected, StatusEvaluator.CheckInState(new CheckInStatus(state, null, null)));
 }

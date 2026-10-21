@@ -21,6 +21,9 @@ public interface ICheckInMonitorQueryService
     /// <summary>The newest <paramref name="limit"/> pings for <paramref name="slug"/>, oldest first.</summary>
     Task<IReadOnlyList<CheckInPing>> RecentPingsAsync(string slug, int limit, CancellationToken cancellationToken);
 
+    /// <summary>Mean of <c>checkin.up</c> per UTC day since <paramref name="since"/>, as a percentage, per slug. A slug or day with no points is absent.</summary>
+    Task<IReadOnlyDictionary<string, IReadOnlyDictionary<DateOnly, double>>> DailyUptimeAsync(IReadOnlyCollection<string> slugs, DateTimeOffset since, CancellationToken cancellationToken);
+
     Task<CheckInMonitor?> GetAsync(Guid id, CancellationToken cancellationToken);
 
     Task<CheckInMonitor?> UpdateAsync(Guid id, CheckInMonitorRequest request, CancellationToken cancellationToken);
@@ -144,6 +147,44 @@ public sealed class CheckInMonitorQueryService(IClickHouseClient client, IOption
 
         pings.Reverse();
         return pings;
+    }
+
+    public async Task<IReadOnlyDictionary<string, IReadOnlyDictionary<DateOnly, double>>> DailyUptimeAsync(IReadOnlyCollection<string> slugs, DateTimeOffset since, CancellationToken cancellationToken)
+    {
+        if (slugs.Count == 0)
+        {
+            return new Dictionary<string, IReadOnlyDictionary<DateOnly, double>>();
+        }
+
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("service", CheckInMetrics.ServiceName);
+        parameters.AddParameter("metric", CheckInMetrics.Up);
+        parameters.AddParameter("since", since.UtcDateTime);
+        parameters.AddParameter("slugs", slugs.ToArray());
+        const string sql = """
+            SELECT DataPointAttributes['monitor'] AS Monitor, toDate(Time, 'UTC') AS Day, avg(Value) * 100 AS UptimePercent
+            FROM metrics_gauge
+            WHERE ServiceName = {service:String}
+              AND MetricName = {metric:String}
+              AND Time >= {since:DateTime64(3)}
+              AND DataPointAttributes['monitor'] IN {slugs:Array(String)}
+            GROUP BY Monitor, Day
+            """;
+
+        await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
+        var result = new Dictionary<string, Dictionary<DateOnly, double>>();
+        while (reader.Read())
+        {
+            var slug = reader.GetString(0);
+            if (!result.TryGetValue(slug, out var days))
+            {
+                result[slug] = days = [];
+            }
+
+            days[DateOnly.FromDateTime(reader.GetDateTime(1))] = reader.GetDouble(2);
+        }
+
+        return result.ToDictionary(kv => kv.Key, kv => (IReadOnlyDictionary<DateOnly, double>)kv.Value);
     }
 
     public async Task<CheckInMonitor?> GetAsync(Guid id, CancellationToken cancellationToken)

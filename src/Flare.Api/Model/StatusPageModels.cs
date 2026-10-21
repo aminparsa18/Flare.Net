@@ -8,6 +8,9 @@ public enum StatusComponentKind
 
     /// <summary>An SLO (ADR-0108), by id.</summary>
     Slo,
+
+    /// <summary>A cron or job check-in monitor (ADR-0260), by id.</summary>
+    CheckIn,
 }
 
 /// <summary>A component's (or a whole page's) health as a visitor sees it.</summary>
@@ -21,12 +24,12 @@ public enum StatusState
     /// <summary>Some probe locations are down, or an SLO has spent more than its error budget.</summary>
     Degraded,
 
-    /// <summary>Every probe location is down.</summary>
+    /// <summary>Every probe location is down, or a check-in job is late, failed or overran.</summary>
     Outage,
 }
 
 /// <summary>
-/// One row of a status page: a public display name over a monitor or SLO. The display name is
+/// One row of a status page: a public display name over a monitor, SLO or check-in monitor. The display name is
 /// what visitors see, so an internal monitor name, target or SLO name is never exposed.
 /// </summary>
 public sealed record StatusPageComponent(string Name, StatusComponentKind Kind, Guid RefId);

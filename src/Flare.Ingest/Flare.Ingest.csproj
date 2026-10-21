@@ -11,6 +11,7 @@
          (Directory.Packages.props), same package Flare.Api already uses for its HTTP
          request/response MemoryPack support. -->
     <PackageReference Include="MemoryPack" />
+    <PackageReference Include="Cronos" />
   </ItemGroup>
 
   <ItemGroup>

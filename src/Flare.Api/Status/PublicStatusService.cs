@@ -24,6 +24,7 @@ public sealed class PublicStatusService(
     IStatusIncidentQueryService incidents,
     ISyntheticMonitorQueryService monitors,
     ISloQueryService slos,
+    ICheckInMonitorQueryService checkIns,
     IMemoryCache cache,
     TimeProvider timeProvider) : IPublicStatusService
 {
@@ -90,12 +91,23 @@ public sealed class PublicStatusService(
             ? (await slos.ListAsync(cancellationToken)).ToDictionary(s => s.Id)
             : [];
 
+        var checkInComponents = page.Components.Where(c => c.Kind == StatusComponentKind.CheckIn).ToList();
+        var allCheckIns = checkInComponents.Count > 0
+            ? (await checkIns.ListAsync(cancellationToken)).ToDictionary(m => m.Id)
+            : [];
+        var checkInSlugs = checkInComponents.Where(c => allCheckIns.ContainsKey(c.RefId)).Select(c => allCheckIns[c.RefId].Slug).Distinct().ToList();
+        var checkInPings = checkInSlugs.Count > 0 ? await checkIns.PingsAsync(checkInSlugs, cancellationToken) : null;
+        var checkInUptime = checkInSlugs.Count > 0 ? await checkIns.DailyUptimeAsync(checkInSlugs, since, cancellationToken) : null;
+
         var components = new List<PublicStatusComponent>();
         foreach (var component in page.Components)
         {
-            components.Add(component.Kind == StatusComponentKind.Monitor
-                ? MonitorComponent(page.Id, component, allMonitors, statuses, uptime, today, now)
-                : await SloComponentAsync(page.Id, component, allSlos, today, cancellationToken));
+            components.Add(component.Kind switch
+            {
+                StatusComponentKind.Monitor => MonitorComponent(page.Id, component, allMonitors, statuses, uptime, today, now),
+                StatusComponentKind.CheckIn => CheckInComponent(page.Id, component, allCheckIns, checkInPings, checkInUptime, today, now),
+                _ => await SloComponentAsync(page.Id, component, allSlos, today, cancellationToken),
+            });
         }
 
         var published = StatusIncidents.ForPublic(await incidents.ListAsync(page.Id, cancellationToken), page.Components, now);
@@ -121,6 +133,27 @@ public sealed class PublicStatusService(
         var byDay = uptime is not null && uptime.TryGetValue(monitor.Name, out var days) ? days : new Dictionary<DateOnly, double>();
         var history = StatusEvaluator.Days(byDay, today);
         return new PublicStatusComponent(component.Name, StatusEvaluator.MonitorState(monitor, locations, now), StatusEvaluator.UptimePercent(history), history, StatusSubscriptions.ComponentKey(pageId, component.RefId));
+    }
+
+    private static PublicStatusComponent CheckInComponent(
+        Guid pageId,
+        StatusPageComponent component,
+        Dictionary<Guid, CheckInMonitor> allCheckIns,
+        IReadOnlyDictionary<string, CheckInPings>? pings,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<DateOnly, double>>? uptime,
+        DateOnly today,
+        DateTimeOffset now)
+    {
+        if (!allCheckIns.TryGetValue(component.RefId, out var monitor))
+        {
+            return Unknown(pageId, component, today);
+        }
+
+        var monitorPings = pings is not null && pings.TryGetValue(monitor.Slug, out var found) ? found : CheckInPings.None;
+        var byDay = uptime is not null && uptime.TryGetValue(monitor.Slug, out var days) ? days : new Dictionary<DateOnly, double>();
+        var history = StatusEvaluator.Days(byDay, today);
+        var state = StatusEvaluator.CheckInState(CheckInEvaluator.Evaluate(monitor, monitorPings, now));
+        return new PublicStatusComponent(component.Name, state, StatusEvaluator.UptimePercent(history), history, StatusSubscriptions.ComponentKey(pageId, component.RefId));
     }
 
     private async Task<PublicStatusComponent> SloComponentAsync(Guid pageId, StatusPageComponent component, Dictionary<Guid, Slo> allSlos, DateOnly today, CancellationToken cancellationToken)

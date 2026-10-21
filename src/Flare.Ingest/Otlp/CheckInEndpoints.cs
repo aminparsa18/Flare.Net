@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using Flare.Ingest.Pipeline;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Ingest.Otlp;
 
@@ -8,7 +9,7 @@ namespace Flare.Ingest.Otlp;
 /// <c>GET|POST /v1/checkins/{slug}[/{start|ok|fail}]</c> - a scheduled job telling Flare it started, finished or failed
 /// (ADR-0260). Not OTLP, but under <c>/v1</c> so the ingest-key middleware covers it like the signal endpoints. The status
 /// is the last path segment and defaults to <c>ok</c>; a POST body, if any, is kept as a short message. A ping for a slug
-/// with no monitor is stored and monitors nothing. Both verbs are accepted so a plain <c>curl</c> works.
+/// with no monitor is stored and monitors nothing, unless the ping carries <c>create=1</c> and a schedule, which creates the monitor first (ADR-0262). Both verbs are accepted so a plain <c>curl</c> works.
 /// </summary>
 public static partial class CheckInEndpoints
 {
@@ -45,6 +46,8 @@ public static partial class CheckInEndpoints
         string? status,
         HttpContext http,
         IClickHouseCheckInWriter writer,
+        IClickHouseCheckInProvisioner provisioner,
+        IOptions<CheckInIngestOptions> options,
         TimeProvider timeProvider,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
@@ -53,6 +56,11 @@ public static partial class CheckInEndpoints
             return Results.Problem("The slug must be 1-64 lower-case letters, digits, '-' or '_'.", statusCode: StatusCodes.Status400BadRequest);
         if (ParseStatus(status) is not { } parsed)
             return Results.Problem("The status must be start, ok or fail.", statusCode: StatusCodes.Status400BadRequest);
+        var creating = CheckInAutoCreate.TryParse(http.Request.Query, slug, out var spec, out var createError);
+        if (createError is not null)
+            return Results.Problem(createError, statusCode: StatusCodes.Status400BadRequest);
+        if (creating && !options.Value.AutoCreate)
+            return Results.Problem("Auto-creating check-in monitors is turned off (CheckIns__AutoCreate).", statusCode: StatusCodes.Status403Forbidden);
         if (http.Request.ContentLength is > MaxBodyBytes)
             return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
@@ -68,6 +76,9 @@ public static partial class CheckInEndpoints
 
         try
         {
+            if (creating && await provisioner.EnsureAsync(slug, spec!, cancellationToken) == CheckInProvisionResult.LimitReached)
+                return Results.Problem($"There are already {options.Value.MaxMonitors} check-in monitors; delete one or raise CheckIns__MaxMonitors.", statusCode: StatusCodes.Status403Forbidden);
+
             await writer.WriteAsync(new CheckInRecord(timeProvider.GetUtcNow(), slug, parsed, ToMessage(buffer.ToArray())), cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

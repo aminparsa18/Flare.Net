@@ -57,9 +57,29 @@ curl -fsS -m 10 -H "$AUTH" "$FLARE/v1/checkins/nightly-backup/start"
 | `/v1/checkins/{slug}/start` | La tâche a démarré. Facultatif ; envoyez-le pour repérer une tâche qui démarre puis se bloque. |
 | `/v1/checkins/{slug}/fail` | La tâche s'est terminée en échec. |
 
-`GET` et `POST` fonctionnent tous deux. Un corps `POST` de 4 Kio au plus est conservé comme message (les 1 000 premiers caractères). Le point d'entrée répond `204`, `400` pour un slug ou un statut invalide, `401` pour une clé d'ingestion absente ou incorrecte, et `503` si le ping n'a pas pu être enregistré ; `curl -f` échoue donc bruyamment. Un ping pour un slug sans moniteur est accepté et ignoré.
+`GET` et `POST` fonctionnent tous deux. Un corps `POST` de 4 Kio au plus est conservé comme message (les 1 000 premiers caractères). Le point d'entrée répond `204`, `400` pour un slug ou un statut invalide, `401` pour une clé d'ingestion absente ou incorrecte, et `503` si le ping n'a pas pu être enregistré ; `curl -f` échoue donc bruyamment. Un ping pour un slug sans moniteur est accepté et ignoré, sauf s'il demande à Flare de créer le moniteur (section suivante).
 
 Le tableau des moniteurs propose un bouton **Copy ping command** sur chaque ligne.
+
+## Créer le moniteur depuis le premier ping
+
+Une tâche peut créer son propre moniteur au lieu d'attendre qu'on le crée. Ajoutez `create=1` et un planning à l'URL du ping :
+
+```bash
+curl -fsS -m 10 -H "$AUTH" "$FLARE/v1/checkins/nightly-backup/start?create=1&cron=0%202%20*%20*%20*&tz=Europe/Berlin&grace=600&name=Nightly%20backup"
+```
+
+| Paramètre | Signification |
+| --- | --- |
+| `create` | `1` ou `true` demande le moniteur. Sans lui, les autres paramètres sont ignorés. |
+| `cron` ou `interval` | Le planning, un seul des deux, comme dans le tableau ci-dessus. Encodez les espaces d'une expression cron dans l'URL. |
+| `tz` | Le fuseau IANA de `cron`. `UTC` par défaut. |
+| `grace`, `max_runtime` | En secondes, comme `graceSeconds` et `maxRuntimeSeconds`. 300 et 0 par défaut. |
+| `name` | Le nom affiché. Le slug par défaut. |
+
+Le moniteur est créé une seule fois, au premier ping de ce type, et le ping est enregistré comme d'habitude. Si un moniteur portant ce slug existe déjà, les paramètres sont ignorés : les pings suivants ne modifient donc jamais un planning, modifiez-le dans le tableau de bord, l'API ou Terraform. Un planning invalide renvoie `400` et rien n'est enregistré. Vous pouvez laisser `create=1` sur les pings de la tâche ou le retirer après la première exécution.
+
+La création automatique se désactive avec `CheckIns__AutoCreate=false` sur `Flare.Ingest` (ces pings renvoient alors `403`), et `CheckIns__MaxMonitors` (500 par défaut) plafonne le nombre de moniteurs, afin qu'une clé d'ingestion divulguée ne puisse pas remplir la table. Sans `create=1`, une faute de frappe dans un slug ne crée toujours rien.
 
 ## Comment l'état est déterminé
 
@@ -91,7 +111,7 @@ Pour être prévenu quand le moniteur lui-même cesse de rapporter (par exemple 
 
 ## Limites
 
-- Toute clé d'ingestion valide peut pinger n'importe quel slug. Donnez à vos tâches leur propre clé plutôt que de réutiliser une clé de navigateur.
+- Toute clé d'ingestion valide peut pinger n'importe quel slug et, sauf désactivation, créer un moniteur avec `create=1`. Donnez à vos tâches leur propre clé plutôt que de réutiliser une clé de navigateur.
 - Le délai de grâce doit couvrir le décalage d'horloge et, pour une planification par intervalle, aussi la durée d'exécution de la tâche, car l'intervalle est mesuré à partir du dernier ping.
 - Une tâche en retard est signalée jusqu'à `CheckIn__PollInterval` (15 s) après la fin de son délai de grâce ; utilisez donc des fenêtres d'alerte plus longues.
 - Définissez `CheckIn__Enabled=false` sur le worker pour désactiver l'évaluation. Les pings sont toujours enregistrés.
