@@ -150,7 +150,11 @@ public class DbAuditEventStoreTests : IAsyncLifetime
         }
 
         var target = (await _store.QueryAsync(new AuditEventFilter(), null, 10))[1];
-        await TamperAsync($"DROP TRIGGER IF EXISTS TR_AuditEvents_NoUpdate; UPDATE AuditEvents SET ActorName = 'mallory' WHERE Id = {target.Id}");
+        // The no-update trigger has to go first; Postgres names the table in DROP TRIGGER, SQLite does not.
+        var dropTrigger = _database.Provider == IdentityProvider.Postgres
+            ? "DROP TRIGGER IF EXISTS TR_AuditEvents_NoUpdate ON AuditEvents"
+            : "DROP TRIGGER IF EXISTS TR_AuditEvents_NoUpdate";
+        await TamperAsync($"{dropTrigger}; UPDATE AuditEvents SET ActorName = 'mallory' WHERE Id = {target.Id}");
 
         var result = await _store.VerifyChainAsync();
 
