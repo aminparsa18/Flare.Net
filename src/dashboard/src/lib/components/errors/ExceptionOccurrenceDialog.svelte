@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { withBase } from '#lib/paths.ts';
+	import { buildSessionReplayHref } from '#lib/deep-links.ts';
 	// The exception-groups table row's click-through drill-down - sample occurrences
 	// (service, timestamp, a link to the existing /traces/{traceId} waterfall route) plus
 	// each occurrence's own stack trace. Opened by clicking a row in ExceptionGroupsTable;
@@ -124,6 +125,14 @@
 									<a class="text-primary text-xs hover:underline" href={withBase(`/traces/${occurrence.traceId}`)}>
 										{m.exceptionOccurrenceDialog_viewTrace()}
 									</a>
+									{#if occurrence.sessionId}
+										<a
+											class="text-primary ml-3 text-xs hover:underline"
+											href={buildSessionReplayHref(occurrence.sessionId, Date.parse(occurrence.timestamp))}
+										>
+											{m.exceptionOccurrenceDialog_viewReplay()}
+										</a>
+									{/if}
 								</Table.Cell>
 							</Table.Row>
 							{#if occurrence.stacktrace}

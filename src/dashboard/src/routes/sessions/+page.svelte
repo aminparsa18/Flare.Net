@@ -12,6 +12,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
+	import MonitorPlayIcon from '@lucide/svelte/icons/monitor-play';
 	import { withBase } from '#lib/paths.ts';
 	import { AppSessionsState, APP_SESSIONS_WINDOW_PRESETS, type AppSessionsWindowPreset } from '#lib/app-sessions/state.svelte.ts';
 	import { servicesWindowPresetLabel } from '#lib/services/state.svelte.ts';
@@ -98,6 +99,10 @@
 		<label class="flex items-center gap-2 text-xs">
 			<Switch.Root checked={sessions.errorsOnly} onCheckedChange={(v) => sessions.setErrorsOnly(v)} />
 			{m.sessionsPage_errorsOnly()}
+		</label>
+		<label class="flex items-center gap-2 text-xs">
+			<Switch.Root checked={sessions.replayOnly} onCheckedChange={(v) => sessions.setReplayOnly(v)} />
+			{m.sessionsPage_replayOnly()}
 		</label>
 		<Select.Root type="single" value={sessions.windowPreset} onValueChange={(v) => v && sessions.setWindowPreset(v as AppSessionsWindowPreset)}>
 			<Select.Trigger class="ml-auto w-auto">
@@ -271,6 +276,11 @@
 								>
 									{row.sessionId.slice(0, 8)}
 								</a>
+								{#if row.hasReplay}
+									<span title={m.sessionsPage_hasReplay()}>
+										<MonitorPlayIcon class="text-muted-foreground ml-1 inline size-3.5 align-text-bottom" aria-label={m.sessionsPage_hasReplay()} />
+									</span>
+								{/if}
 							</Table.Cell>
 							<Table.Cell class="font-medium">{row.serviceName}</Table.Cell>
 							<Table.Cell class="text-muted-foreground">{row.version || '—'}</Table.Cell>

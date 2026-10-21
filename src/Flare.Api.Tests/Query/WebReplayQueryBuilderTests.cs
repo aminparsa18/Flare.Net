@@ -38,6 +38,31 @@ public class WebReplayQueryBuilderTests
     }
 
     [Fact]
+    public void BuildSessionIds_ListsDistinctSessionsInTheWindowWithoutReadingPayloads()
+    {
+        var built = WebReplayQueryBuilder.BuildSessionIds(End.AddHours(-1), End, null, null);
+
+        Assert.StartsWith("SELECT DISTINCT SessionId\nFROM web_replay_chunks", built.Sql);
+        Assert.Contains("StartTime >= {from:DateTime64(3)}", built.Sql);
+        Assert.Contains("StartTime < {to:DateTime64(3)}", built.Sql);
+        Assert.DoesNotContain("Payload", built.Sql);
+        Assert.DoesNotContain("{service:String}", built.Sql);
+        Assert.DoesNotContain("{sessionIds:Array(String)}", built.Sql);
+        Assert.EndsWith("LIMIT 5000", built.Sql);
+    }
+
+    [Fact]
+    public void BuildSessionIds_NarrowsToTheServiceAndTheGivenSessionsAsBoundParameters()
+    {
+        var built = WebReplayQueryBuilder.BuildSessionIds(End.AddHours(-1), End, "shop-web", ["s-1", "s-2"]);
+
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.Contains("SessionId IN {sessionIds:Array(String)}", built.Sql);
+        Assert.DoesNotContain("s-1", built.Sql);
+        Assert.DoesNotContain("shop-web", built.Sql);
+    }
+
+    [Fact]
     public void BothQueriesKeepTheServiceScopeClause()
     {
         ServiceScope.Current = ["shop-*", "billing"];

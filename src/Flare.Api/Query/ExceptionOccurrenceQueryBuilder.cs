@@ -43,7 +43,8 @@ public static class ExceptionOccurrenceQueryBuilder
             "    if(ResourceAttributes['vcs.ref.head.revision'] != '', ResourceAttributes['vcs.ref.head.revision'],\n" +
             "        if(ResourceAttributes['vcs.revision'] != '', ResourceAttributes['vcs.revision'], ResourceAttributes['service.version'])) AS Revision,\n" +
             "    ResourceAttributes['service.version'] AS ServiceVersion,\n" +
-            "    EventAttributes['exception.message'] AS Message\n" +
+            "    EventAttributes['exception.message'] AS Message,\n" +
+            "    SpanAttributes['session.id'] AS SessionId\n" +
             "FROM spans\n" +
             "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
             $"WHERE {filterSql.WhereSql}\n" +

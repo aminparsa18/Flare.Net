@@ -291,10 +291,38 @@ lecteur doit pouvoir l'atteindre.
 | `maxEventsPerChunk` | `500` | Un lot part plus tôt à ce nombre d'événements. |
 | `maxDurationMs` | une heure | L'enregistrement s'arrête après cette durée ; le tableau de bord liste une heure. |
 | `checkoutEveryMs` | désactivé | Prendre un nouvel instantané de la page à cet intervalle, pour qu'un replay puisse démarrer plus tard dans une longue session. |
+| `mode` | `'session'` | `'session'` enregistre tout ; `'onError'` n'enregistre qu'autour des erreurs (voir ci-dessous). |
+| `bufferMs` | `30000` | `onError` seulement : jusqu'où l'enregistrement d'une erreur remonte dans le temps. |
+| `afterErrorMs` | `10000` | `onError` seulement : durée pendant laquelle l'enregistrement continue après une erreur. |
+| `captureErrors` | `true` | `onError` seulement : traiter les erreurs non interceptées et les rejets de promesse non gérés comme des erreurs à conserver. |
 | `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Sélecteurs des deux attributs ci-dessus. |
 | `onStop` | aucun | Appelé avec une raison quand l'enregistreur s'arrête de lui-même. |
 
 `replay.stop()` termine l'enregistrement et envoie le reste ; `replay.flush()` envoie ce qui a été enregistré jusque-là.
+
+### N'enregistrer qu'autour d'une erreur
+
+Enregistrer chaque session est ce qui coûte le plus à stocker et à examiner. Avec `mode: 'onError'`, l'enregistreur ne garde
+en mémoire que les dernières secondes et n'envoie rien tant que rien ne va mal :
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, mode: 'onError', bufferMs: 30_000, afterErrorMs: 10_000 });
+
+try { await checkout(); } catch (err) { report(err); replay.keep(); }   // une erreur que vous avez gérée vous-même
+```
+
+Une erreur non interceptée ou un rejet de promesse non géré fait la même chose sans code (désactivez-le avec
+`captureErrors: false`). Lors d'une erreur, l'enregistreur envoie ce qu'il détient (entre `bufferMs` et deux fois `bufferMs`
+avant l'erreur, en commençant à un instantané de la page) et continue d'enregistrer pendant `afterErrorMs`. Ensuite il
+ignore les événements jusqu'au prochain instantané : une session avec plusieurs erreurs donne plusieurs enregistrements, et
+une session sans erreur ne laisse rien. Rien ne quitte le navigateur avant l'erreur, mais la page est enregistrée en mémoire
+en permanence ; les règles de masquage ci-dessus s'appliquent donc dans les deux cas.
+
+### Retrouver un enregistrement
+
+Dans **Sessions**, une session enregistrée affiche une icône de lecture à côté de son identifiant, et **Enregistrées
+seulement** masque les autres. Dans **Erreurs**, une occurrence dont le span porte l'attribut `session.id` a un lien **Voir le
+replay de la session** qui ouvre la session au moment de l'erreur, quelques secondes avant.
 
 ### À savoir
 
@@ -302,9 +330,12 @@ lecteur doit pouvoir l'atteindre.
   réessayé : un replay peut avoir un trou, mais ne rejoue jamais un événement deux fois. La fermeture d'un onglet peut faire
   perdre le dernier lot s'il dépasse environ 60 Ko.
 - L'enregistrement s'arrête de lui-même après une heure ou quand la clé est refusée (`401` ou `403`), et `onStop` est appelé.
+  Quand la clé dépasse une limite (`429`), l'enregistreur abandonne les lots pendant la durée donnée par `Retry-After`, puis
+  reprend.
 - Les enregistrements comptent dans la rétention des traces, et une longue page avec beaucoup de changements du DOM est
-  volumineuse. Utilisez `sampleRate` sur les sites très fréquentés. Le replay ne fait pas encore partie des limites
-  d'ingestion par clé.
+  volumineuse. Utilisez `sampleRate` sur les sites très fréquentés, ou `mode: 'onError'`. Un enregistrement compte dans les
+  limites d'octets de la clé (les plafonds **Bytes** par minute et par jour dans les **Limits** de la clé, les mêmes que pour OTLP) mais pas dans ses limites
+  d'événements, car un événement de replay n'est pas un enregistrement de télémétrie.
 - Au-delà de 40 Mo d'enregistrement stocké, le lecteur avertit avant de le charger dans l'onglet.
 
 ## Vérifier que ça fonctionne

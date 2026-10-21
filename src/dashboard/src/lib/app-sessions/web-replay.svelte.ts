@@ -8,6 +8,9 @@ import { FULL_SNAPSHOT, LARGE_REPLAY_BYTES, fitScale, mergeChunks, trimToFullSna
 /** Chunks fetched at once. */
 const FETCH_CONCURRENCY = 4;
 
+/** How long before the focus moment the recording opens, so the lead-up to an error is visible. */
+const FOCUS_LEAD_MS = 5000;
+
 export const REPLAY_SPEEDS = [1, 2, 4, 8] as const;
 
 type ReplayerInstance = import('@rrweb/replay').Replayer;
@@ -39,6 +42,7 @@ export class WebReplayState {
 	#replayer: ReplayerInstance | null = null;
 	#raf = 0;
 	#sessionId = '';
+	#focusUnixMs: number | undefined;
 	#measure: HTMLElement | null = null;
 	/**
 	 * The earliest position the Replayer can show: one millisecond past the first full snapshot. It applies an event
@@ -65,11 +69,13 @@ export class WebReplayState {
 		return this.startUnixMs + this.elapsedMs;
 	}
 
-	async load(sessionId: string, fromUnixMs?: number, toUnixMs?: number): Promise<void> {
+	/** `focusUnixMs`: where the recording opens once it is loaded, a few seconds before it (an error's time). */
+	async load(sessionId: string, fromUnixMs?: number, toUnixMs?: number, focusUnixMs?: number): Promise<void> {
 		this.#abort?.abort();
 		const abort = new AbortController();
 		this.#abort = abort;
 		this.#sessionId = sessionId;
+		this.#focusUnixMs = focusUnixMs;
 		try {
 			const replay = await getWebReplay(sessionId, { fromUnixMs, toUnixMs }, abort.signal);
 			if (!abort.signal.aborted) this.replay = replay;
@@ -208,8 +214,9 @@ export class WebReplayState {
 		this.#resizeObserver.observe(measure);
 		this.#replayer = replayer;
 		this.ready = true;
-		// Show the first frame without starting playback.
+		// Show the first frame, or the moment the page was opened for, without starting playback.
 		replayer.pause(this.#firstFrameMs);
+		if (this.#focusUnixMs !== undefined) this.seekToUnixMs(this.#focusUnixMs - FOCUS_LEAD_MS);
 	}
 
 	#fit(): void {

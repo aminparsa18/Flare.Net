@@ -46,7 +46,11 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
 
         var sessions = new List<AppSession>();
         var truncated = false;
-        var built = AppSessionQueryBuilder.BuildSessions(request, windowMinutes, end);
+        var from = end.AddMinutes(-windowMinutes);
+        IReadOnlySet<string>? replaySessions = null;
+        if (request.ReplayOnly)
+            replaySessions = await ReadReplaySessionIdsAsync(from, end, request.Service, null, cancellationToken);
+        var built = AppSessionQueryBuilder.BuildSessions(request, windowMinutes, end, replaySessions);
         await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken))
         {
             while (reader.Read())
@@ -74,6 +78,16 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
             }
         }
 
+        if (replaySessions is null && sessions.Count > 0)
+            replaySessions = await ReadReplaySessionIdsAsync(from, end, request.Service, sessions.Select(s => s.SessionId).ToArray(), cancellationToken);
+        if (replaySessions is { Count: > 0 })
+        {
+            for (var i = 0; i < sessions.Count; i++)
+            {
+                if (replaySessions.Contains(sessions[i].SessionId)) sessions[i] = sessions[i] with { HasReplay = true };
+            }
+        }
+
         string[] services = [];
         string[] versions = [];
         var facets = AppSessionQueryBuilder.BuildFacets(windowMinutes, end);
@@ -94,6 +108,28 @@ public sealed class AppSessionQueryService(IClickHouseClient client, IOptions<Qu
             Services = services,
             Versions = versions,
         };
+    }
+
+    /// <summary>
+    /// The sessions with a browser recording (ADR-0264) starting in the window. A missing <c>web_replay_chunks</c> table (migration
+    /// 0090 not applied) means no recordings, not a failed sessions page.
+    /// </summary>
+    private async Task<IReadOnlySet<string>> ReadReplaySessionIdsAsync(
+        DateTimeOffset from, DateTimeOffset to, string? service, IReadOnlyCollection<string>? sessionIds, CancellationToken cancellationToken)
+    {
+        var ids = new HashSet<string>();
+        var built = WebReplayQueryBuilder.BuildSessionIds(from, to, service, sessionIds);
+        try
+        {
+            await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.Full(queryLimits.Value), cancellationToken);
+            while (reader.Read()) ids.Add(reader.GetString(0));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            ids.Clear();
+        }
+
+        return ids;
     }
 
     public async Task<ReleaseHealthResponse> GetReleaseHealthAsync(ReleaseHealthRequest request, CancellationToken cancellationToken)

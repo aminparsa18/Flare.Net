@@ -14,6 +14,7 @@ export class AppSessionsState {
 	service = $state('');
 	version = $state('');
 	errorsOnly = $state(false);
+	replayOnly = $state(false);
 
 	sessions = $state.raw<AppSession[] | null>(null);
 	truncated = $state(false);
@@ -44,7 +45,7 @@ export class AppSessionsState {
 		try {
 			const minutes = APP_SESSIONS_WINDOW_PRESETS.find((p) => p.value === this.windowPreset)?.minutes ?? 60;
 			const [response, health, trend, perf] = await Promise.all([
-				getAppSessions({ windowMinutes: minutes, service: this.service, version: this.version, errorsOnly: this.errorsOnly }, abort.signal),
+				getAppSessions({ windowMinutes: minutes, service: this.service, version: this.version, errorsOnly: this.errorsOnly, replayOnly: this.replayOnly }, abort.signal),
 				getReleaseHealth({ windowMinutes: minutes, service: this.service }, abort.signal).catch((err) => {
 					if (abort.signal.aborted) throw err;
 					return null;
@@ -92,6 +93,11 @@ export class AppSessionsState {
 
 	setErrorsOnly(value: boolean): void {
 		this.errorsOnly = value;
+		void this.load();
+	}
+
+	setReplayOnly(value: boolean): void {
+		this.replayOnly = value;
 		void this.load();
 	}
 

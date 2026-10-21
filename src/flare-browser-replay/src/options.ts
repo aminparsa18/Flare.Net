@@ -32,6 +32,20 @@ export interface ReplayOptions {
 	/** Take a fresh full page snapshot this often, so a replay can start later in a long session. Default off. */
 	checkoutEveryMs?: number;
 
+	/**
+	 * `session` (default) records the whole session. `onError` keeps only the last seconds in memory and sends them, with the
+	 * seconds after, when an error is reported (`handle.keep()`, or an uncaught error or unhandled rejection with `captureErrors`);
+	 * a session without an error sends nothing. Much less to store and to review, at the price of not seeing sessions that
+	 * went wrong without throwing.
+	 */
+	mode?: 'session' | 'onError';
+	/** `onError` only: how far back an error's recording reaches. A fresh page snapshot is taken this often, and the last two are kept, so the lead-up is between this and twice this. Default 30000. */
+	bufferMs?: number;
+	/** `onError` only: how long recording continues after an error. Default 10000. */
+	afterErrorMs?: number;
+	/** `onError` only: treat an uncaught error or unhandled promise rejection as an error to keep. Default true. */
+	captureErrors?: boolean;
+
 	/** Called with a short reason when the recorder stops by itself (rejected key, over the size limit). */
 	onStop?: (reason: string) => void;
 }
@@ -50,6 +64,10 @@ export interface ResolvedReplayOptions {
 	maxEventsPerChunk: number;
 	maxDurationMs: number;
 	checkoutEveryMs: number;
+	mode: 'session' | 'onError';
+	bufferMs: number;
+	afterErrorMs: number;
+	captureErrors: boolean;
 	onStop?: (reason: string) => void;
 }
 
@@ -70,6 +88,10 @@ export function resolveOptions(options: ReplayOptions): ResolvedReplayOptions {
 		maxEventsPerChunk: Math.max(10, options.maxEventsPerChunk ?? 500),
 		maxDurationMs: options.maxDurationMs ?? 3_600_000,
 		checkoutEveryMs: Math.max(0, options.checkoutEveryMs ?? 0),
+		mode: options.mode === 'onError' ? 'onError' : 'session',
+		bufferMs: Math.max(5000, options.bufferMs ?? 30_000),
+		afterErrorMs: Math.max(0, options.afterErrorMs ?? 10_000),
+		captureErrors: options.captureErrors ?? true,
 		onStop: options.onStop,
 	};
 }

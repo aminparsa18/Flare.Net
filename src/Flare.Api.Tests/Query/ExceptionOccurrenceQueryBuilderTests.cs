@@ -31,6 +31,7 @@ public class ExceptionOccurrenceQueryBuilderTests
         Assert.Contains("ResourceAttributes['vcs.revision']", result.Sql);
         Assert.Contains("ResourceAttributes['service.version'])) AS Revision", result.Sql);
         Assert.Contains("EventAttributes['exception.message'] AS Message", result.Sql);
+        Assert.Contains("SpanAttributes['session.id'] AS SessionId", result.Sql);
         Assert.Contains("FROM spans", result.Sql);
         Assert.Contains("ORDER BY EventTime DESC", result.Sql);
     }

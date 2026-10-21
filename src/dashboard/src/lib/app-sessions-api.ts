@@ -18,6 +18,8 @@ export interface AppSession {
 	traceCount: number;
 	errorCount: number;
 	screens: string[];
+	/** A browser recording (ADR-0264) of this session exists in the window. */
+	hasReplay: boolean;
 }
 
 export interface AppSessionsResponse {
@@ -35,6 +37,8 @@ export interface AppSessionsQuery {
 	service?: string;
 	version?: string;
 	errorsOnly?: boolean;
+	/** Only sessions with a browser recording. */
+	replayOnly?: boolean;
 }
 
 export async function getAppSessions(query: AppSessionsQuery, signal?: AbortSignal): Promise<AppSessionsResponse> {
@@ -45,7 +49,8 @@ export async function getAppSessions(query: AppSessionsQuery, signal?: AbortSign
 			windowMinutes: query.windowMinutes,
 			service: query.service || null,
 			version: query.version || null,
-			errorsOnly: query.errorsOnly ?? false
+			errorsOnly: query.errorsOnly ?? false,
+			replayOnly: query.replayOnly ?? false
 		}),
 		signal
 	});

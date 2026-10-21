@@ -137,6 +137,9 @@ public sealed partial record ExceptionOccurrence
 
     /// <summary>This occurrence's own <c>exception.message</c>, un-normalized: the group's message is a template (ADR-0258), this is the concrete id/value that produced it. Last member on purpose - MemoryPack tolerates trailing additions.</summary>
     public string Message { get; init; } = "";
+
+    /// <summary>The span's <c>session.id</c> attribute, which links the occurrence to the session's browser replay (ADR-0264). Empty when the span has none. Last member on purpose - MemoryPack tolerates trailing additions.</summary>
+    public string SessionId { get; init; } = "";
 }
 
 /// <summary>

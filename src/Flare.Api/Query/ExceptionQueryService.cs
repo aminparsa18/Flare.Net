@@ -95,6 +95,7 @@ public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<Que
                 Revision = reader.GetString(6),
                 ServiceVersion = reader.GetString(7),
                 Message = reader.GetString(8),
+                SessionId = reader.GetString(9),
             });
         }
 

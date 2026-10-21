@@ -26,6 +26,34 @@ public static class WebReplayQueryBuilder
             parameters);
     }
 
+    /// <summary>Most recorded sessions one lookup returns; a window with more is cut and the sessions list shows the first of them.</summary>
+    public const int MaxSessionIds = 5000;
+
+    /// <summary>
+    /// The sessions that have a recording starting in the window, optionally only among <paramref name="sessionIds"/> and one
+    /// service. One column: SessionId. Reads no <c>Payload</c> and touches the sort key's prefix only.
+    /// </summary>
+    public static AppSessionSql BuildSessionIds(DateTimeOffset from, DateTimeOffset to, string? service, IReadOnlyCollection<string>? sessionIds)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("from", from.UtcDateTime);
+        parameters.AddParameter("to", to.UtcDateTime);
+        var clauses = new List<string> { "StartTime >= {from:DateTime64(3)}", "StartTime < {to:DateTime64(3)}" };
+        if (!string.IsNullOrWhiteSpace(service))
+        {
+            parameters.AddParameter("service", service);
+            clauses.Add("ServiceName = {service:String}");
+        }
+        if (sessionIds is not null)
+        {
+            parameters.AddParameter("sessionIds", sessionIds.ToArray());
+            clauses.Add("SessionId IN {sessionIds:Array(String)}");
+        }
+        ServiceScope.Append(clauses, parameters);
+        return new AppSessionSql(
+            $"SELECT DISTINCT SessionId\nFROM web_replay_chunks\nWHERE {string.Join(" AND ", clauses)}\nLIMIT {MaxSessionIds}", parameters);
+    }
+
     /// <summary>One chunk's JSON text. One column: Payload. <paramref name="startUnixMs"/> is the chunk's own start, so only its partition is read.</summary>
     public static AppSessionSql BuildChunk(string sessionId, Guid chunkId, long startUnixMs)
     {
