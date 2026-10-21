@@ -298,6 +298,7 @@ lecteur doit pouvoir l'atteindre.
 | `captureConsole` | désactivé | Enregistrer la sortie console : `true` pour `warn` et `error`, ou une liste de niveaux (`'log'`, `'info'`, `'warn'`, `'error'`, `'debug'`). |
 | `captureNetwork` | `false` | Enregistrer les requêtes `fetch`, `XMLHttpRequest` et beacon (URL, statut, durée). |
 | `networkKeepQuery` | `false` | Conserver la chaîne de requête et le fragment des URL de requêtes enregistrées. |
+| `captureCanvas` | désactivé | Enregistrer ce qu'affichent les éléments `<canvas>` : `true` pour 1 image par seconde, ou un nombre de 1 à 10. |
 | `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Sélecteurs des deux attributs ci-dessus. |
 | `onStop` | aucun | Appelé avec une raison quand l'enregistreur s'arrête de lui-même. |
 
@@ -340,6 +341,25 @@ const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, capture
 
 Sous le lecteur, **Console** et **Réseau** listent les entrées. Une ligne ouvre l'enregistrement à cet instant, et les lignes
 postérieures à la position courante sont atténuées.
+
+### Afficher le contenu des canvas
+
+Un `<canvas>` (graphique, carte, dessin, jeu) ne fait pas partie du balisage de la page : dans un enregistrement ordinaire il
+apparaît vide. Activez `captureCanvas` pour enregistrer ce qu'il dessine :
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, captureCanvas: 2 });   // 2 images par seconde
+```
+
+- Désactivé par défaut. Les pixels ne se masquent pas comme le texte : un canvas qui dessine des données personnelles est
+  stocké tel que dessiné. Un canvas situé dans un élément correspondant à `blockSelector` ou `maskTextSelector` n'est jamais
+  enregistré, et `maskAllText: true` désactive la capture des canvas.
+- Un canvas inchangé n'envoie rien. Chaque image est réduite à 800 pixels au plus, compressée en WebP (en PNG si le navigateur
+  ne sait pas), et abandonnée si elle dépasse encore 150 Ko. Une session cesse de capturer les canvas après environ 25 Mo d'images.
+- Les canvas 2D et WebGL fonctionnent. Un canvas ayant dessiné une image d'une autre origine sans CORS ne peut pas être lu par
+  le navigateur et reste vide.
+- À la lecture, les images sont peintes sur le canvas au fil de l'enregistrement, et une recherche affiche la dernière image
+  précédente. Un canvas qui change plus vite que la cadence ressemble à un diaporama.
 
 ### Retrouver un enregistrement
 

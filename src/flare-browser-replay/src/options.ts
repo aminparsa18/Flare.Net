@@ -65,6 +65,13 @@ export interface ReplayOptions {
 	captureNetwork?: boolean;
 	/** Keep the query string and fragment of recorded request URLs. Default false: they often carry tokens and ids. */
 	networkKeepQuery?: boolean;
+	/**
+	 * Record what `<canvas>` elements show (charts, maps, drawings, WebGL). Off by default: pixels cannot be masked the way text
+	 * can, so a canvas that draws personal data would be stored as drawn. Give a number of frames per second (1 to 10) or `true`
+	 * for 1. A canvas that has not changed sends nothing; frames are scaled to 800 px and compressed. A canvas inside an element
+	 * matching `blockSelector` or `maskTextSelector` is never recorded, and `maskAllText` turns canvas capture off.
+	 */
+	captureCanvas?: boolean | number;
 
 	/** Called with a short reason when the recorder stops by itself (rejected key, over the size limit). */
 	onStop?: (reason: string) => void;
@@ -91,6 +98,8 @@ export interface ResolvedReplayOptions {
 	captureConsole: ConsoleLevel[];
 	captureNetwork: boolean;
 	networkKeepQuery: boolean;
+	/** Frames per second, 0 when canvas capture is off. */
+	canvasFps: number;
 	onStop?: (reason: string) => void;
 }
 
@@ -118,8 +127,17 @@ export function resolveOptions(options: ReplayOptions): ResolvedReplayOptions {
 		captureConsole: consoleLevels(options.captureConsole),
 		captureNetwork: options.captureNetwork ?? false,
 		networkKeepQuery: options.networkKeepQuery ?? false,
+		// Masking all text is a promise that nothing readable is stored, which a canvas of rendered text would break.
+		canvasFps: options.maskAllText ? 0 : canvasFps(options.captureCanvas),
 		onStop: options.onStop,
 	};
+}
+
+/** `true` is 1 frame per second; a number is clamped to 1 to 10; anything else is off. */
+function canvasFps(value: ReplayOptions['captureCanvas']): number {
+	if (value === true) return 1;
+	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 0;
+	return Math.min(10, Math.max(1, value));
 }
 
 /** `true` is warn and error; a list is cut to the levels the recorder knows; anything else is off. */

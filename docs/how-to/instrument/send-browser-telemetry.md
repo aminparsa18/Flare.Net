@@ -291,6 +291,7 @@ viewer's browser must be able to reach it.
 | `captureConsole` | off | Record console output: `true` for `warn` and `error`, or a list of levels (`'log'`, `'info'`, `'warn'`, `'error'`, `'debug'`). |
 | `captureNetwork` | `false` | Record `fetch`, `XMLHttpRequest` and beacon requests (URL, status, timing). |
 | `networkKeepQuery` | `false` | Keep the query string and fragment of recorded request URLs. |
+| `captureCanvas` | off | Record what `<canvas>` elements show: `true` for 1 frame per second, or a number from 1 to 10. |
 | `blockSelector`, `maskTextSelector` | `[data-flare-block]`, `[data-flare-mask]` | Selectors for the two attributes above. |
 | `onStop` | none | Called with a reason when the recorder stops by itself. |
 
@@ -330,6 +331,25 @@ const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, capture
 
 Below the player, **Console** and **Network** list the entries. A row opens the recording at that moment, and rows after the
 current position are dimmed.
+
+### Show canvas content
+
+A `<canvas>` (a chart, a map, a drawing, a game) is not part of the page's markup, so a plain recording shows it blank. Turn
+`captureCanvas` on to record what it draws:
+
+```ts
+const replay = startReplay({ endpoint, service: 'my-web-app', ingestKey, captureCanvas: 2 });   // 2 frames per second
+```
+
+- It is off by default. Pixels cannot be masked the way text can, so a canvas that draws personal data is stored as drawn.
+  A canvas inside an element matching `blockSelector` or `maskTextSelector` is never recorded, and `maskAllText: true`
+  turns canvas capture off.
+- A canvas that has not changed sends nothing. Each frame is scaled to at most 800 pixels, compressed as WebP (PNG where the
+  browser cannot), and dropped if it is still over 150 KB. A session stops capturing canvas after about 25 MB of frames.
+- 2D and WebGL canvases both work. A canvas that has drawn a cross-origin image without CORS cannot be read by the browser
+  and stays blank.
+- In the replay the frames are painted onto the canvas as the recording plays, and a seek shows the latest frame before it.
+  A canvas that changes faster than the frame rate looks like a slideshow.
 
 ### Find a recording
 
