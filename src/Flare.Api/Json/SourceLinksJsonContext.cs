@@ -11,4 +11,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(SourceLinkListResponse))]
 [JsonSerializable(typeof(SourceSnippetRequest))]
 [JsonSerializable(typeof(SourceSnippetResponse))]
+[JsonSerializable(typeof(SuspectCommitsRequest))]
+[JsonSerializable(typeof(SuspectCommitsResponse))]
 public sealed partial class SourceLinksJsonContext : JsonSerializerContext;

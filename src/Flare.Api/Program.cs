@@ -469,6 +469,7 @@ builder.Services.AddFlareMcp(builder.Configuration);
 builder.Services.AddHttpClient(Flare.Api.Source.SourceSnippetService.HttpClientName)
     .AddOutboundGuard(allowAutoRedirect: false);
 builder.Services.AddSingleton<Flare.Api.Source.ISourceSnippetService, Flare.Api.Source.SourceSnippetService>();
+builder.Services.AddSingleton<Flare.Api.Source.ISuspectCommitService, Flare.Api.Source.SuspectCommitService>();
 builder.Services.AddSingleton<Flare.Api.SourceMaps.IStackTraceSymbolicator, Flare.Api.SourceMaps.StackTraceSymbolicator>();
 // AI actions (ADR-0103): the standard resilience handler's 10s attempt timeout and retries would
 // cut off and re-send a slow, non-idempotent LLM call, so it's removed; the service owns the timeout.

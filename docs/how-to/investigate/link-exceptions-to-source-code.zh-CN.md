@@ -45,7 +45,7 @@ Flare 的 API 会从你的仓库托管平台获取文件，因此私有仓库需
 链接图标表单中填写：
 
 - GitHub：对 **Contents** 有读取权限的细粒度令牌。
-- GitLab：具有 `read_repository` 范围的令牌。
+- GitLab：具有 `read_api` 范围的令牌（代码预览只需 `read_repository`，但嫌疑提交还会调用提交 API）。
 - Azure DevOps：具有 **Code (Read)** 权限的个人访问令牌。
 
 令牌只能写入：Flare 不会再次显示它，字段留空则保留已保存的令牌。公共仓库无需令牌。

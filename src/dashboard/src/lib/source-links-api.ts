@@ -57,3 +57,38 @@ export async function getSourceSnippet(
 	if (!res.ok) throw await failure(res, 'POST /api/source-links/snippet');
 	return (await res.json()) as SourceSnippet;
 }
+
+export interface SuspectCommit {
+	sha: string;
+	/** First line of the commit message. */
+	message: string;
+	author: string;
+	date: string | null;
+	url: string;
+	/** Which of the requested paths this commit changed, throw site first. */
+	matchedPaths: string[];
+}
+
+export interface SuspectCommits {
+	/** Best candidate first; empty when no commit in the range touched a path. */
+	commits: SuspectCommit[];
+	totalCommits: number;
+	/** The range was longer than what was inspected, so a suspect may be missing. */
+	truncated: boolean;
+	compareUrl: string;
+}
+
+/** Commits between two refs of the service's repo that changed one of `paths` (ADR-0263). Throws with the API's reason. */
+export async function getSuspectCommits(
+	request: { serviceName: string; baseRef: string; headRef: string; paths: string[] },
+	signal?: AbortSignal
+): Promise<SuspectCommits> {
+	const res = await apiFetch(`${BASE}/suspects`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request),
+		signal
+	});
+	if (!res.ok) throw await failure(res, 'POST /api/source-links/suspects');
+	return (await res.json()) as SuspectCommits;
+}

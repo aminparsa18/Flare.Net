@@ -28,6 +28,18 @@ Ouvrez **Releases** dans le menu et choisissez un service. Chaque ligne est une 
 
 Un groupe est considéré comme nouveau s'il n'avait aucune occurrence dans les 30 jours précédant le déploiement. Un groupe resté silencieux plus longtemps puis revenu apparaît comme nouveau dans la version où il est revenu.
 
+## Trouver les commits suspects
+
+À côté de chaque nouvelle erreur, **Suspect commits** liste les commits qui l'ont probablement introduite. Flare demande à votre hébergeur de dépôt les commits entre cette version et la précédente, puis garde ceux qui ont modifié un fichier de la stack trace de l'erreur, point de levée en premier. Chaque entrée indique le commit, son auteur et les fichiers de la pile qu'il a modifiés. Un lien **Compare** ouvre toute la plage chez l'hébergeur.
+
+Il faut :
+
+- un [dépôt source configuré](link-exceptions-to-source-code.fr.md) pour le service, avec un jeton d'accès si le dépôt est privé ;
+- un commit sur la version et sur la précédente : le `commit` marqué, ou le SHA après `+` dans un `service.version` comme `1.4.2+3f9c2ab` ;
+- une stack trace dont les frames correspondent à des fichiers du dépôt (définissez le préfixe de chemin dans le lien source sinon).
+
+Flare examine les 40 commits les plus récents de la plage ; une plage très longue peut donc manquer un suspect, et la page l'indique. Un commit qui a touché un fichier de la pile est un candidat, pas une preuve : c'est la liste la plus courte à lire en premier.
+
 ## Régressions
 
 Un groupe que vous avez résolu sur la [page Erreurs](triage-errors.fr.md) passe à **Regressed** quand il réapparaît dans une version où il n'avait pas été vu. Cela fonctionne avec `service.version` seul, avec ou sans marqueurs de version. La page Releases répond aux deux autres questions : quelles erreurs une version donnée a ajoutées, et quels groupes résolus y sont revenus. La colonne **Regressions** compte les seconds, et déplier une ligne les liste en premier, avec la date de résolution. Un groupe n'est compté que s'il s'est produit dans ce service sous cette version.

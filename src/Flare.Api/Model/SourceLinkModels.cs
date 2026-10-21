@@ -76,3 +76,54 @@ public sealed record SourceSnippetResponse
 
     public required IReadOnlyList<string> Lines { get; init; }
 }
+
+/// <summary>
+/// Request for <c>POST /api/source-links/suspects</c> (ADR-0263): which commits between two refs of the service's repo
+/// changed the files in a failing stack. <see cref="Paths"/> are repo-relative, throw site first.
+/// </summary>
+public sealed record SuspectCommitsRequest
+{
+    public const int MaxPaths = 30;
+
+    public required string ServiceName { get; init; }
+
+    /// <summary>The commit (or ref) of the release before the one that introduced the error.</summary>
+    public required string BaseRef { get; init; }
+
+    /// <summary>The commit (or ref) of the release that introduced it.</summary>
+    public required string HeadRef { get; init; }
+
+    public required IReadOnlyList<string> Paths { get; init; }
+}
+
+public sealed record SuspectCommit
+{
+    public required string Sha { get; init; }
+
+    /// <summary>First line of the commit message.</summary>
+    public required string Message { get; init; }
+
+    public required string Author { get; init; }
+
+    public DateTimeOffset? Date { get; init; }
+
+    public required string Url { get; init; }
+
+    /// <summary>Which of the request's paths this commit changed, throw site first.</summary>
+    public required IReadOnlyList<string> MatchedPaths { get; init; }
+}
+
+public sealed record SuspectCommitsResponse
+{
+    /// <summary>Best candidate first; empty when no commit in the range touched a path.</summary>
+    public required IReadOnlyList<SuspectCommit> Commits { get; init; }
+
+    /// <summary>Commits in the range.</summary>
+    public required int TotalCommits { get; init; }
+
+    /// <summary>True when the range was longer than what was inspected, so a suspect may be missing.</summary>
+    public bool Truncated { get; init; }
+
+    /// <summary>The host's compare page for the range.</summary>
+    public required string CompareUrl { get; init; }
+}

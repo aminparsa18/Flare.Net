@@ -9,7 +9,10 @@
 	import { safeHttpUrl } from '#lib/safe-url.ts';
 	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
-	import { deleteRelease, getReleaseErrors, listReleases, type Release, type ReleaseErrors } from '#lib/releases-api.ts';
+	import { deleteRelease, getReleaseErrors, listReleases, type Release, type ReleaseErrors, type ReleaseNewError } from '#lib/releases-api.ts';
+	import { getExceptionOccurrences } from '#lib/errors-api.ts';
+	import { getSuspectCommits, listSourceLinks, type SuspectCommits } from '#lib/source-links-api.ts';
+	import { frameRepoPaths, releaseCommit, type SourceLinkConfig } from '#lib/errors/source-links.ts';
 	import { buildServiceVersionErrorsHref } from '#lib/deep-links.ts';
 	import { formatDateTime } from '#lib/time/format.ts';
 	import { authContext } from '#lib/auth/context.ts';
@@ -27,6 +30,9 @@
 	let error = $state<string | null>(null);
 	let expanded = $state<Record<string, boolean>>({});
 	let details = $state.raw<Record<string, ReleaseErrors | 'loading' | string>>({});
+	// Suspect commits (ADR-0263), keyed like the error row they hang off.
+	let sourceLinks = $state.raw<SourceLinkConfig[]>([]);
+	let suspects = $state.raw<Record<string, SuspectCommits | 'loading' | { error: string }>>({});
 
 	const services = $derived([...new Set(all.map((r) => r.service))].sort());
 
@@ -81,11 +87,59 @@
 		}
 	}
 
+	const suspectKey = (release: Release, e: ReleaseNewError) => `${release.id}\u001f${e.exceptionType}\u001f${e.exceptionMessage}`;
+
+	/** The release's commit and the next-older release's: the range a new error must have come from. */
+	function commitRange(release: Release): { base: string; head: string } | null {
+		const head = releaseCommit(release);
+		const older = releases.slice(releases.indexOf(release) + 1).find((r) => releaseCommit(r));
+		const base = older ? releaseCommit(older) : null;
+		return head && base ? { base, head } : null;
+	}
+
+	async function findSuspects(release: Release, e: ReleaseNewError): Promise<void> {
+		const key = suspectKey(release, e);
+		const setResult = (value: SuspectCommits | { error: string }): void => {
+			suspects = { ...suspects, [key]: value };
+		};
+		const config = sourceLinks.find((c) => c.serviceName === release.service);
+		const range = commitRange(release);
+		if (!config || !range) {
+			setResult({ error: !config ? m.releases_suspectsNoSource() : m.releases_suspectsNoCommit() });
+			return;
+		}
+		suspects = { ...suspects, [key]: 'loading' };
+		try {
+			const { occurrences } = await getExceptionOccurrences({
+				filter: {
+					from: release.deployedAt,
+					to: new Date().toISOString(),
+					services: [release.service],
+					resourceAttributes: [{ key: 'service.version', value: release.version }]
+				},
+				exceptionType: e.exceptionType,
+				exceptionMessage: e.exceptionMessage
+			});
+			const paths = occurrences.map((o) => frameRepoPaths(o.stacktrace, config)).find((p) => p.length > 0);
+			if (!paths) {
+				setResult({ error: m.releases_suspectsNoFrames() });
+				return;
+			}
+			setResult(await getSuspectCommits({ serviceName: release.service, baseRef: range.base, headRef: range.head, paths }));
+		} catch (err) {
+			setResult({ error: err instanceof Error ? err.message : String(err) });
+		}
+	}
+
 	function errorsHref(release: Release, exceptionType: string): string {
 		return buildServiceVersionErrorsHref(release.service, release.version, exceptionType, new Date(release.deployedAt).getTime() - 3_600_000, Date.now());
 	}
 
-	onMount(() => void loadAll());
+	onMount(() => {
+		void loadAll();
+		// Without source-link config there is nothing to diff against; the button then explains that.
+		listSourceLinks().then((links) => (sourceLinks = links), () => {});
+	});
 </script>
 
 <svelte:head>
@@ -221,7 +275,37 @@
 													<a href={errorsHref(release, e.exceptionType)} class="font-mono font-medium underline-offset-2 hover:underline">{e.exceptionType}</a>
 													<span class="text-muted-foreground min-w-0 flex-1 truncate">{e.exceptionMessage}</span>
 													<span class="text-muted-foreground tabular-nums">{m.releases_occurrences({ count: e.occurrences })}</span>
+													<Button variant="link" size="sm" class="h-auto p-0 text-xs" onclick={() => findSuspects(release, e)}>{m.releases_suspectsButton()}</Button>
 												</li>
+												{@const found = suspects[suspectKey(release, e)]}
+												{#if found === 'loading'}
+													<li><Spinner /></li>
+												{:else if found && 'error' in found}
+													<li class="text-muted-foreground pl-4 text-xs">{found.error}</li>
+												{:else if found}
+													<li class="pl-4">
+														{#if found.commits.length === 0}
+															<p class="text-muted-foreground text-xs">{m.releases_suspectsNone()}</p>
+														{:else}
+															<ul class="space-y-1">
+																{#each found.commits as c (c.sha)}
+																	<li class="text-xs">
+																		<a href={safeHttpUrl(c.url)} target="_blank" rel="noopener noreferrer" class="font-mono underline-offset-2 hover:underline">{c.sha.slice(0, 8)}</a>
+																		<span class="font-medium">{c.message}</span>
+																		<span class="text-muted-foreground">- {c.author}{c.date ? `, ${formatDateTime(c.date)}` : ''}</span>
+																		<span class="text-muted-foreground block truncate font-mono text-[11px]">{m.releases_suspectsChanged({ paths: c.matchedPaths.join(', ') })}</span>
+																	</li>
+																{/each}
+															</ul>
+														{/if}
+														{#if found.truncated}
+															<p class="text-muted-foreground mt-1 text-[11px]">{m.releases_suspectsTruncated()}</p>
+														{/if}
+														<a href={safeHttpUrl(found.compareUrl)} target="_blank" rel="noopener noreferrer" class="text-muted-foreground text-[11px] underline-offset-2 hover:underline">
+															{m.releases_suspectsCompare({ base: commitRange(release)?.base.slice(0, 8) ?? '', head: commitRange(release)?.head.slice(0, 8) ?? '' })}
+														</a>
+													</li>
+												{/if}
 											{/each}
 										</ul>
 										<p class="text-muted-foreground mt-2 text-[11px]">{m.releases_historyNote({ days: detail.historyDays })}</p>

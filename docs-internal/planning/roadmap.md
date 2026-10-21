@@ -88,8 +88,6 @@ folders are where "what happened and why" actually lives.
     rollback.
 - **Error tracking closer to Sentry.** The scope boundary is in
   [the architecture page's non-goals](../../docs/explanation/architecture.md#non-goals). In rough priority order:
-  - **Suspect commits.** Releases carry a commit and services can have source links ([ADR-0095](../adr/0095-exception-source-links.md)),
-    but nothing maps a new error group to the commit or author that introduced it.
   - **Browser session replay**, on the pattern of the MAUI replay-lite ([ADR-0192](../adr/0192-maui-session-replay-lite.md)).
     Other client SDKs are covered by the MAUI item above; per [ADR-0012](../adr/0012-otlp-only-ingestion.md) they stay thin over OTLP.
 - **APM depth.** Flare receives OTLP and ships no agent, so these close gaps without changing that.
