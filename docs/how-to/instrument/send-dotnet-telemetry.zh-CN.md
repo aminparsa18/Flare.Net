@@ -105,6 +105,7 @@ builder.AddFlareTelemetry("http://flare:4317", apiKey);
 
 - **什么都没收到。** 检查端口与协议匹配（gRPC 为 `4317`，HTTP 为 `4318`），并确认应用能访问它。
   指标默认每 60 秒导出一次，因此第一批数据点最多要等一分钟。
+- **什么都没收到，且 Flare 前面的代理记录了 `301` 或 `308`。** OpenTelemetry .NET 1.20.1 及更高版本不会跟随 HTTP 重定向，因此把 `http://` 重定向到 `https://` 的代理会让每次导出都失败。请把端点指向最终的 `https://` 地址，或让代理在 OTLP 端口上直接提供服务而不重定向。
 - **Flare 返回 `401`。** 该实例要求摄取密钥；参见[使用摄取密钥](#使用摄取密钥)。
 - **启动时出现 `ArgumentOutOfRangeException`。** `TraceSampleRatio` 必须在 0 到 1 之间。
 - **某个 span 或日志显示"已丢弃的属性：N"。** 应用的 OpenTelemetry SDK 达到了数量上限，

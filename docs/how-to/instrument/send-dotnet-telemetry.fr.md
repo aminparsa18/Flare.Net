@@ -121,6 +121,11 @@ enregistrés.
   `4318` HTTP) et que l'application peut l'atteindre. Les métriques sont exportées
   toutes les 60 secondes par défaut : les premiers points peuvent mettre jusqu'à une
   minute à apparaître.
+- **Rien n'arrive et un proxy devant Flare journalise `301` ou `308`.** OpenTelemetry
+  .NET 1.20.1 et les versions suivantes ne suivent pas les redirections HTTP : un proxy
+  qui redirige `http://` vers `https://` fait échouer chaque export. Pointez le point
+  de terminaison vers l'adresse `https://` finale, ou faites servir le port OTLP par
+  le proxy sans redirection.
 - **`401` de Flare.** L'instance exige une clé d'ingestion ; voir
   [Utiliser une clé d'ingestion](#utiliser-une-clé-dingestion).
 - **`ArgumentOutOfRangeException` au démarrage.** `TraceSampleRatio` doit être

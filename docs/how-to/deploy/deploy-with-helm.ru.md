@@ -64,6 +64,13 @@ ingress:
 `ingress.otlpGrpc` со своими хостами. Для gRPC нужен контроллер с поддержкой
 gRPC; аннотация по умолчанию — для ingress-nginx.
 
+Не перенаправляйте OTLP с HTTP на HTTPS. Экспортёр OpenTelemetry .NET перестал
+следовать редиректам в версии 1.20.1, поэтому ответ 301 или 308 считается неудачным
+экспортом, и данные теряются. ingress-nginx по умолчанию перенаправляет обычный HTTP
+на HTTPS для хоста, который обслуживается по TLS, поэтому выдайте приложениям адрес
+`https://` хоста OTLP. Если им нужен обычный HTTP, добавьте
+`nginx.ingress.kubernetes.io/ssl-redirect: "false"` в `ingress.otlpHttp.annotations`.
+
 ### Вход через обратный прокси за Ingress
 
 При [входе через обратный прокси (доверенный заголовок)](../admin/configure-authentication.ru.md) и аутентифицирующем

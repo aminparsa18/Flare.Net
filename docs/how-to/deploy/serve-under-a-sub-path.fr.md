@@ -78,6 +78,14 @@ exactement cette valeur auprès de votre fournisseur d'identité.
 L'ingestion OTLP (ports 4317 et 4318) n'est pas concernée. Pointez vos
 applications vers ces ports comme avant.
 
+Ne redirigez pas le trafic OTLP. Flare.Ingest n'émet jamais de redirection lui-même,
+mais l'exporteur OpenTelemetry .NET a cessé de suivre les redirections HTTP à partir
+de la version 1.20.1 : un proxy qui répond à `http://` par un 301 ou un 308 vers
+`https://` fait échouer chaque export de ces clients, et les données sont perdues
+sans erreur côté Flare. Terminez le TLS sur le port OTLP (ou sur un hôte OTLP
+dédié), donnez directement aux applications l'adresse `https://` et limitez toute
+redirection HTTP vers HTTPS à l'hôte du tableau de bord.
+
 ## Dépannage
 
 - **Toutes les pages renvoient 404.** Le tableau de bord a été démarré sans

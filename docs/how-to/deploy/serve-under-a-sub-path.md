@@ -72,6 +72,13 @@ with your identity provider.
 OTLP ingestion (ports 4317 and 4318) is not affected. Point your apps at those
 ports as before.
 
+Do not redirect OTLP traffic. Flare.Ingest never issues redirects itself, but the
+OpenTelemetry .NET exporter stopped following HTTP redirects in 1.20.1, so a
+proxy that answers `http://` with a 301 or 308 to `https://` makes every export
+from those clients fail and the data is lost without an error in Flare. Terminate
+TLS on the OTLP port (or on a dedicated OTLP host), give apps the `https://`
+address directly, and keep any HTTP-to-HTTPS redirect to the dashboard host.
+
 ## Troubleshooting
 
 - **Every page 404s.** The dashboard was started without `FLARE_BASE_PATH`, or
