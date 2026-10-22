@@ -19,6 +19,58 @@ OTLP profiles est récent, donc peu d'émetteurs existent pour l'instant. L'Open
 
 Le récepteur `pprof` du Collector (v0.162, Alpha) lit des fichiers pprof et des points `/debug/pprof` Go, mais il émet pour l'instant des échantillons sans pile d'appels : un flame graph construit à partir de lui n'a que la racine. Flare vous le signale.
 
+### Profiler toute une machine avec le profileur eBPF
+
+L'émetteur pratique aujourd'hui est le **profileur eBPF** d'OpenTelemetry. Il profile chaque processus d'un hôte Linux sans modifier votre code et envoie les piles d'appels, y compris les frames Python, Java, .NET, Go et natives. Flare a été vérifié avec l'image `otel/opentelemetry-collector-ebpf-profiler` en **0.163.2**. Comme profiles est en Alpha, utilisez une version que vous avez testée et revérifiez après chaque mise à niveau.
+
+Le conteneur exige `--privileged` et `--pid=host`, ainsi qu'un noyau avec BTF (toute distribution récente). Le profileur ne connaît pas vos noms de services : la configuration ci-dessous copie le nom de l'exécutable dans `service.name` ; sans elle, les profils atterrissent sous **(aucun service)**.
+
+Enregistrez ceci sous `ebpf-profiler.yaml` :
+
+```yaml
+receivers:
+  profiling:
+    samples_per_second: 20
+processors:
+  transform/service:
+    profile_statements:
+      - context: resource
+        statements:
+          - set(attributes["service.name"], attributes["process.executable.name"]) where attributes["service.name"] == nil and attributes["process.executable.name"] != nil
+exporters:
+  otlp_grpc:
+    endpoint: localhost:4317
+    tls:
+      insecure: true
+    # headers:
+    #   Authorization: Bearer <ingest key>
+service:
+  pipelines:
+    profiles:
+      receivers: [profiling]
+      processors: [transform/service]
+      exporters: [otlp_grpc]
+```
+
+Lancez-le à côté de Flare (pointez `endpoint` vers votre hôte Flare.Ingest ; si vous utilisez des [clés d'API d'ingestion](../admin/configure-authentication.md#ingest-api-keys), décommentez `headers`) :
+
+```bash
+docker run -d --name flare-ebpf --privileged --pid=host --network host \
+  -v /sys/kernel/debug:/sys/kernel/debug -v /sys/kernel/tracing:/sys/kernel/tracing \
+  -v $PWD/ebpf-profiler.yaml:/etc/otel/config.yaml:ro \
+  otel/opentelemetry-collector-ebpf-profiler:0.163.2 \
+  --config=/etc/otel/config.yaml --feature-gates=+service.profilesSupport
+```
+
+Sur **Docker Desktop**, la VM Linux ne monte pas debugfs ni tracefs, et le profileur échoue avec `neither debugfs nor tracefs are mounted`. Montez-les une fois à chaque démarrage de la VM :
+
+```bash
+docker run --rm --privileged --pid=host alpine nsenter -t 1 -m -- sh -c \
+  'mount -t debugfs none /sys/kernel/debug; mount -t tracefs none /sys/kernel/tracing'
+```
+
+Ouvrez **Profiles**, choisissez un service comme `python3.12` et le type `samples`. Les frames des interpréteurs (Python, Java, .NET et autres) apparaissent par leur nom ; les frames natives restent `module+0xaddress`.
+
 ### Essayer avec curl
 
 Cette requête envoie un profil avec deux piles. Chaque échantillon désigne une pile par son indice, et une pile liste ses frames en commençant par la feuille. L'indice 0 de chaque table est l'entrée vide.

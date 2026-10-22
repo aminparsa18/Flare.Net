@@ -1,3 +1,4 @@
+using Flare.Api.Model;
 using Flare.Api.Query;
 using Xunit;
 
@@ -68,5 +69,35 @@ public class FlameGraphBuilderTests
         var root = FlameGraphBuilder.Build([(frames, 1L)]);
 
         Assert.Equal(1, root.Total);
+    }
+
+    [Fact]
+    public void Build_FoldsFramesBeyondMaxFramesIntoTheLastKeptFrame()
+    {
+        var frames = Enumerable.Range(0, FlameGraphBuilder.MaxFrames + 100).Select(i => $"f{i}").ToArray();
+
+        var root = FlameGraphBuilder.Build([(frames, 3L)]);
+
+        var depth = 0;
+        var node = root;
+        while (node.Children.Count > 0)
+        {
+            node = node.Children[0];
+            depth++;
+        }
+
+        Assert.Equal(FlameGraphBuilder.MaxFrames, depth);
+        Assert.Equal(3, node.Self);
+    }
+
+    [Fact]
+    public void FlameGraphResponse_AtMaxFrames_SerializesWithinTheJsonDepthLimit()
+    {
+        var frames = Enumerable.Range(0, FlameGraphBuilder.MaxFrames).Select(i => $"f{i}").ToArray();
+        var response = new FlameGraphResponse { WindowMinutes = 60, SampleUnit = "count", StackCount = 1, Truncated = false, Root = FlameGraphBuilder.Build([(frames, 1L)]) };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(response, Flare.Api.Json.ProfileJsonContext.Default.FlameGraphResponse);
+
+        Assert.Contains("\"f511\"", json);
     }
 }

@@ -29,13 +29,14 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Continuous profiling: a real sender.** Ingest, the Profiles page and the how-to are done
-  ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)), verified with hand-written OTLP/JSON.
-  The Collector's `pprof` receiver (v0.162) emits samples without a stack table, so it can't
-  feed a flame graph yet; re-check on each Collector bump, and try an eBPF profiler as the
-  practical source. `profile_samples` has no TTL, same as spans, so retention rides on the
-  "Retention policies" item above. OTLP profiles is still Alpha, so re-check the vendored
-  proto on each tag bump.
+- **Continuous profiling: retention and span links.** Ingest, the Profiles page and the how-to are done
+  ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)), and verified end to end with the
+  OpenTelemetry eBPF profiler (`otelcol-ebpf-profiler` 0.163.2, whole-host, Docker Desktop and Linux).
+  The Collector's `pprof` receiver (v0.162) still emits samples without a stack table, so skip it;
+  re-check on each Collector bump. `profile_samples` has no TTL, same as spans, so retention rides on
+  the "Retention policies" item above. OTLP profiles is still Alpha, so re-check the vendored proto
+  and the profiler version on each bump. Not yet verified: samples from a .NET/OTel-instrumented
+  process carrying `trace_id`/`span_id` (the eBPF profiler only fills them for supported SDKs).
 - **User settings page (`/settings`), starting with Appearance & layout.**
   The dashboard has outgrown the user-menu dropdown as the home for
   preferences: theme, language and display time zone live in
@@ -89,8 +90,8 @@ folders are where "what happened and why" actually lives.
 - **APM depth.** Flare receives OTLP and ships no agent, so these close gaps without changing that.
   - **A per-statement database view:** slowest normalized statements with rate and p95, from the `db.*` span attributes.
     Check first that N+1 detection and span-duration comparison don't already cover the need.
-  - **Span-to-profile links**, once a real profiling sender exists (see the continuous profiling item above). Check
-    whether profiles already carry trace and span ids before designing it.
+  - **Span-to-profile links**: the sender exists now (see the continuous profiling item above). Check
+    first that real eBPF profiles carry trace and span ids for a traced process, then design the waterfall link.
 - **Security monitoring (not a SIEM).** The audit log has a hash chain, export and forwarding
   ([ADR-0202](../adr/0202-audit-log-hash-chain-and-export.md), [ADR-0203](../adr/0203-audit-log-forwarding.md)). Two
   small items fit the existing design; correlation rules, case management and threat-intel feeds stay out of scope.
