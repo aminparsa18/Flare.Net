@@ -232,6 +232,22 @@ public class OtlpProfilesMapperTests
     }
 
     [Fact]
+    public void Map_ResolvesResourceAttributes_SentAsStringTableIndices()
+    {
+        // The eBPF profiler encodes resource attributes as key_strindex / string_value_strindex.
+        var request = Request(configureDictionary: d => d.StringTable.AddRange(["checkout-pod", "container.id"]));
+        request.ResourceProfiles[0].Resource.Attributes.Clear();
+        request.ResourceProfiles[0].Resource.Attributes.Add(new KeyValue { KeyStrindex = 9, Value = new AnyValue { StringValueStrindex = 8 } });
+        request.ResourceProfiles[0].Resource.Attributes.Add(new KeyValue { Key = "process.pid", Value = new AnyValue { IntValue = 42 } });
+
+        var record = Assert.Single(OtlpProfilesMapper.Map(request, TestIngestedAt));
+
+        Assert.Equal("checkout-pod", record.ResourceAttributes["container.id"]);
+        Assert.Equal("42", record.ResourceAttributes["process.pid"]);
+        Assert.DoesNotContain("", record.ResourceAttributes.Keys);
+    }
+
+    [Fact]
     public void Map_ProfileId_IsLowerHex_AndAllZeroMapsToNull()
     {
         var withId = Assert.Single(OtlpProfilesMapper.Map(Request(p => p.ProfileId = ByteString.CopyFrom(Convert.FromHexString("00ff"))), TestIngestedAt));

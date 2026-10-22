@@ -19,6 +19,58 @@ OTLP profiles — новый сигнал, поэтому отправителе
 
 Приёмник `pprof` в Collector (v0.162, Alpha) читает pprof-файлы и Go-эндпоинты `/debug/pprof`, но пока отдаёт выборки без стеков вызовов, поэтому flame graph по ним состоит только из корня. Flare сообщает об этом.
 
+### Профилирование всего хоста через eBPF-профайлер
+
+Практичный отправитель сегодня — **eBPF-профайлер** OpenTelemetry. Он профилирует каждый процесс на Linux-хосте без изменений в коде и отправляет стеки вызовов, включая кадры Python, Java, .NET, Go и нативные. Flare проверен с образом `otel/opentelemetry-collector-ebpf-profiler` версии **0.163.2**. Так как profiles пока в Alpha, берите версию, которую вы проверили, и перепроверяйте после каждого обновления.
+
+Контейнеру нужны `--privileged` и `--pid=host`, а также ядро с BTF (любой свежий дистрибутив). Профайлер не знает имён ваших сервисов, поэтому конфигурация ниже копирует имя исполняемого файла в `service.name`; без неё профили попадут в **(без сервиса)**.
+
+Сохраните как `ebpf-profiler.yaml`:
+
+```yaml
+receivers:
+  profiling:
+    samples_per_second: 20
+processors:
+  transform/service:
+    profile_statements:
+      - context: resource
+        statements:
+          - set(attributes["service.name"], attributes["process.executable.name"]) where attributes["service.name"] == nil and attributes["process.executable.name"] != nil
+exporters:
+  otlp_grpc:
+    endpoint: localhost:4317
+    tls:
+      insecure: true
+    # headers:
+    #   Authorization: Bearer <ingest key>
+service:
+  pipelines:
+    profiles:
+      receivers: [profiling]
+      processors: [transform/service]
+      exporters: [otlp_grpc]
+```
+
+Запустите рядом с Flare (укажите в `endpoint` хост Flare.Ingest; если используете [ключи API приёма](../admin/configure-authentication.md#ingest-api-keys), раскомментируйте `headers`):
+
+```bash
+docker run -d --name flare-ebpf --privileged --pid=host --network host \
+  -v /sys/kernel/debug:/sys/kernel/debug -v /sys/kernel/tracing:/sys/kernel/tracing \
+  -v $PWD/ebpf-profiler.yaml:/etc/otel/config.yaml:ro \
+  otel/opentelemetry-collector-ebpf-profiler:0.163.2 \
+  --config=/etc/otel/config.yaml --feature-gates=+service.profilesSupport
+```
+
+В **Docker Desktop** виртуальная машина Linux не монтирует debugfs и tracefs, и профайлер падает с `neither debugfs nor tracefs are mounted`. Смонтируйте их один раз после каждого запуска ВМ:
+
+```bash
+docker run --rm --privileged --pid=host alpine nsenter -t 1 -m -- sh -c \
+  'mount -t debugfs none /sys/kernel/debug; mount -t tracefs none /sys/kernel/tracing'
+```
+
+Откройте **Profiles**, выберите сервис, например `python3.12`, и тип `samples`. Кадры интерпретаторов (Python, Java, .NET и другие) показываются по именам; нативные кадры остаются в виде `module+0xaddress`.
+
 ### Попробуйте с curl
 
 Запрос отправляет один профиль с двумя стеками. Каждая выборка ссылается на стек по индексу, а стек перечисляет кадры начиная с листа. Индекс 0 каждой таблицы — пустая запись.

@@ -1,6 +1,7 @@
 using System.Globalization;
 using Flare.Ingest.Model;
 using OpenTelemetry.Proto.Collector.Profiles.V1Development;
+using OpenTelemetry.Proto.Common.V1;
 using OpenTelemetry.Proto.Profiles.V1Development;
 
 namespace Flare.Ingest.Otlp;
@@ -28,7 +29,7 @@ public static class OtlpProfilesMapper
 
         foreach (var resourceProfiles in request.ResourceProfiles)
         {
-            var resourceAttributes = OtlpAnyValue.Flatten(resourceProfiles.Resource?.Attributes);
+            var resourceAttributes = ResolveResourceAttributes(dictionary, resourceProfiles.Resource?.Attributes);
             var serviceName = resourceAttributes.GetValueOrDefault("service.name");
 
             foreach (var scopeProfiles in resourceProfiles.ScopeProfiles)
@@ -167,7 +168,7 @@ public static class OtlpProfilesMapper
 
             var attribute = dictionary.AttributeTable[index];
             var key = Str(dictionary, attribute.KeyStrindex);
-            var value = OtlpAnyValue.ToFlatString(attribute.Value);
+            var value = ResolveValue(dictionary, attribute.Value);
             if (key.Length > 0 && value is not null)
             {
                 result[key] = value;
@@ -175,6 +176,34 @@ public static class OtlpProfilesMapper
         }
         return result;
     }
+
+    // The eBPF profiler sends resource attributes as key_strindex / string_value_strindex into the
+    // request's string table (the profiles-only encoding in common.proto), not as plain key/string.
+    private static Dictionary<string, string> ResolveResourceAttributes(ProfilesDictionary dictionary, IEnumerable<KeyValue>? attributes)
+    {
+        var result = new Dictionary<string, string>();
+        if (attributes is null)
+        {
+            return result;
+        }
+
+        foreach (var kv in attributes)
+        {
+            var key = kv.Key.Length > 0 ? kv.Key : Str(dictionary, kv.KeyStrindex);
+            var value = ResolveValue(dictionary, kv.Value);
+            if (key.Length > 0 && value is not null)
+            {
+                result[key] = value;
+            }
+        }
+
+        return result;
+    }
+
+    private static string? ResolveValue(ProfilesDictionary dictionary, AnyValue? value) =>
+        value?.ValueCase == AnyValue.ValueOneofCase.StringValueStrindex
+            ? Str(dictionary, value.StringValueStrindex)
+            : OtlpAnyValue.ToFlatString(value);
 
     private static string Str(ProfilesDictionary dictionary, int index) =>
         index > 0 && index < dictionary.StringTable.Count ? dictionary.StringTable[index] : string.Empty;

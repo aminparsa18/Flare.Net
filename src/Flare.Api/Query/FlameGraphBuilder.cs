@@ -12,6 +12,12 @@ public static class FlameGraphBuilder
 {
     public const string RootName = "all";
 
+    /// <summary>
+    /// Frames kept per stack, root first. Deeper frames fold into the last kept one (its
+    /// <c>Self</c>), so the tree - and the JSON that carries it - has a bounded depth.
+    /// </summary>
+    public const int MaxFrames = 512;
+
     public static FlameGraphNode Build(IEnumerable<(IReadOnlyList<string> Stack, long Value)> stacks)
     {
         var root = new MutableNode(RootName);
@@ -24,7 +30,7 @@ public static class FlameGraphBuilder
 
             var node = root;
             node.Total += value;
-            foreach (var frame in stack)
+            foreach (var frame in stack.Take(MaxFrames))
             {
                 if (!node.Children.TryGetValue(frame, out var child))
                 {

@@ -19,6 +19,58 @@ OTLP profiles 还很新，目前发送端不多。OpenTelemetry Collector 可以
 
 Collector 的 `pprof` 接收器（v0.162，Alpha）可以读取 pprof 文件和 Go 的 `/debug/pprof` 端点，但目前发出的样本不带调用栈，因此据此生成的火焰图只有根节点。出现这种情况时 Flare 会提示你。
 
+### 用 eBPF profiler 分析整台主机
+
+目前实用的发送端是 OpenTelemetry 的 **eBPF profiler**。它无需改动代码即可分析 Linux 主机上的每个进程，并发送调用栈，包括 Python、Java、.NET、Go 和原生帧。Flare 已用 `otel/opentelemetry-collector-ebpf-profiler` 镜像 **0.163.2** 验证。由于 profiles 仍是 Alpha，请使用你测试过的版本，并在每次升级后重新检查。
+
+容器需要 `--privileged` 和 `--pid=host`，以及带 BTF 的内核（任何较新的发行版都可以）。profiler 不知道你的服务名，所以下面的配置把可执行文件名复制到 `service.name`；没有它，profiles 会归入 **（无服务）**。
+
+保存为 `ebpf-profiler.yaml`：
+
+```yaml
+receivers:
+  profiling:
+    samples_per_second: 20
+processors:
+  transform/service:
+    profile_statements:
+      - context: resource
+        statements:
+          - set(attributes["service.name"], attributes["process.executable.name"]) where attributes["service.name"] == nil and attributes["process.executable.name"] != nil
+exporters:
+  otlp_grpc:
+    endpoint: localhost:4317
+    tls:
+      insecure: true
+    # headers:
+    #   Authorization: Bearer <ingest key>
+service:
+  pipelines:
+    profiles:
+      receivers: [profiling]
+      processors: [transform/service]
+      exporters: [otlp_grpc]
+```
+
+在 Flare 旁边运行它（把 `endpoint` 指向你的 Flare.Ingest 主机；如果启用了[摄取 API 密钥](../admin/configure-authentication.md#ingest-api-keys)，取消 `headers` 的注释）：
+
+```bash
+docker run -d --name flare-ebpf --privileged --pid=host --network host \
+  -v /sys/kernel/debug:/sys/kernel/debug -v /sys/kernel/tracing:/sys/kernel/tracing \
+  -v $PWD/ebpf-profiler.yaml:/etc/otel/config.yaml:ro \
+  otel/opentelemetry-collector-ebpf-profiler:0.163.2 \
+  --config=/etc/otel/config.yaml --feature-gates=+service.profilesSupport
+```
+
+在 **Docker Desktop** 上，Linux 虚拟机没有挂载 debugfs 和 tracefs，profiler 会报错 `neither debugfs nor tracefs are mounted`。每次虚拟机启动后挂载一次：
+
+```bash
+docker run --rm --privileged --pid=host alpine nsenter -t 1 -m -- sh -c \
+  'mount -t debugfs none /sys/kernel/debug; mount -t tracefs none /sys/kernel/tracing'
+```
+
+打开 **Profiles**，选择例如 `python3.12` 的服务和 `samples` 类型。解释器（Python、Java、.NET 等）的帧会显示名称；原生帧仍为 `module+0xaddress`。
+
 ### 用 curl 试一试
 
 下面的请求发送一份包含两个调用栈的性能剖析数据。每个样本按索引指向一个调用栈，调用栈从叶子开始列出栈帧。每张表的索引 0 都是空条目。
