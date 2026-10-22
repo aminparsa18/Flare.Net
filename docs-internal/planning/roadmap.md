@@ -152,6 +152,3 @@ folders are where "what happened and why" actually lives.
   publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
   `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
   mention npm in the csproj `Description` while the version is bumped.
-- **Verify OpenTelemetry .NET 1.20.1 against a live instance, then bump `docs/reference/otlp-logger-versions*.md`.** The
-  package pins and install snippets moved to 1.20.1 on a green build and the MAUI tests only; the "known-good" table
-  stays at 1.19.1 until a real OTLP send (logs, traces, metrics) from the new SDK has been seen in Flare.

@@ -13,8 +13,14 @@ confirmées comme fonctionnelles.
 
 | Paquet | Version |
 |---|---|
-| `OpenTelemetry.Extensions.Hosting` | 1.19.1 |
-| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.19.1 |
+| `OpenTelemetry.Extensions.Hosting` | 1.20.1 |
+| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.20.1 |
 | `ZLogger` | 2.5.10 |
 | `Serilog.Sinks.OpenTelemetry` | 4.2.0 |
 | `NLog.Targets.OpenTelemetryProtocol` | 1.2.7 |
+
+Les deux lignes OpenTelemetry ont été revérifiées en 1.20.1 le 2026-10-22 : logs,
+traces et métriques envoyés par une application .NET en gRPC (4317) comme en
+HTTP/protobuf (4318) sont tous arrivés dans Flare. Ce SDK ne suit plus les
+redirections HTTP : n'ajoutez donc pas de
+[redirection sur le port OTLP](../how-to/deploy/serve-under-a-sub-path.fr.md).
