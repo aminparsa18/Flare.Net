@@ -114,6 +114,10 @@ start when that and a signal-specific exporter are both registered.
 - **Nothing arrives.** Check the port matches the protocol (`4317` gRPC, `4318`
   HTTP) and that the app can reach it. Metrics export every 60 seconds by
   default, so the first points take up to a minute.
+- **Nothing arrives and a proxy in front of Flare logs `301` or `308`.** OpenTelemetry
+  .NET 1.20.1 and later do not follow HTTP redirects, so a proxy that redirects
+  `http://` to `https://` makes every export fail. Point the endpoint at the final
+  `https://` address, or have the proxy serve the OTLP port without redirecting.
 - **`401` from Flare.** The instance requires an ingest key; see
   [Use an ingest key](#use-an-ingest-key).
 - **`ArgumentOutOfRangeException` at startup.** `TraceSampleRatio` must be

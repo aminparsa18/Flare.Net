@@ -66,6 +66,13 @@ Pour recevoir de l'OTLP depuis l'extérieur du cluster, activez `ingress.otlpHtt
 et/ou `ingress.otlpGrpc` avec leurs propres hôtes. Le gRPC nécessite un
 contrôleur compatible gRPC ; l'annotation par défaut est celle d'ingress-nginx.
 
+Ne redirigez pas l'OTLP de HTTP vers HTTPS. L'exporteur OpenTelemetry .NET a cessé de
+suivre les redirections à partir de la version 1.20.1 : un 301 ou un 308 compte comme
+un export échoué et les données sont perdues. ingress-nginx redirige par défaut le
+HTTP simple vers HTTPS sur un hôte servi en TLS ; donnez donc aux applications
+l'adresse `https://` de l'hôte OTLP. Si elles doivent utiliser HTTP simple, ajoutez
+`nginx.ingress.kubernetes.io/ssl-redirect: "false"` à `ingress.otlpHttp.annotations`.
+
 ### Connexion par proxy inverse derrière l'Ingress
 
 Avec la [connexion par proxy inverse (en-tête de confiance)](../admin/configure-authentication.fr.md) et un proxy

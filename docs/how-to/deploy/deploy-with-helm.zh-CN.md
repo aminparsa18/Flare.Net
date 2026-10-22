@@ -57,6 +57,8 @@ ingress:
 若要从集群外部接收 OTLP，请启用 `ingress.otlpHttp` 和/或 `ingress.otlpGrpc` 并分别指定主机。
 gRPC 需要支持 gRPC 的控制器；默认注解适用于 ingress-nginx。
 
+请勿把 OTLP 从 HTTP 重定向到 HTTPS。OpenTelemetry .NET 导出器自 1.20.1 起不再跟随重定向，301 或 308 会被视为导出失败，数据随之丢弃。ingress-nginx 默认会把通过 TLS 提供服务的主机上的明文 HTTP 重定向到 HTTPS，因此请让应用使用 OTLP 主机的 `https://` 地址。如果必须使用明文 HTTP，请在 `ingress.otlpHttp.annotations` 中添加 `nginx.ingress.kubernetes.io/ssl-redirect: "false"`。
+
 ### Ingress 之后的反向代理登录
 
 使用[反向代理（受信任标头）登录](../admin/configure-authentication.zh-CN.md)，并在集群内运行 oauth2-proxy 等认证代理时，
