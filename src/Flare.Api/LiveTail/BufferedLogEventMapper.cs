@@ -40,5 +40,6 @@ public static class BufferedLogEventMapper
         EventName = bufferedLogEvent.EventName ?? string.Empty,
         PatternId = bufferedLogEvent.PatternId ?? string.Empty,
         PatternTemplate = bufferedLogEvent.PatternTemplate ?? string.Empty,
+        DroppedAttributesCount = bufferedLogEvent.DroppedAttributesCount,
     };
 }

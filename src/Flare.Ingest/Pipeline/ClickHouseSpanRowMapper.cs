@@ -37,8 +37,8 @@ public static class ClickHouseSpanRowMapper
     /// the <c>Events</c> Nested column's three desugared array columns, then
     /// <c>IngestedAt</c> (added via <c>0011_ingest_receipt_time.sql</c>), then the
     /// <c>Links</c> Nested column's four desugared array columns (added via
-    /// <c>0013_span_links.sql</c>), then <c>SampleWeight</c> (<c>0051_span_sample_weight.sql</c>),
-    /// listed last, in migration order.
+    /// <c>0013_span_links.sql</c>), then <c>SampleWeight</c> (<c>0051_span_sample_weight.sql</c>)
+    /// and the three <c>Dropped*Count</c> columns (<c>0091_dropped_counts.sql</c>), listed last, in migration order.
     /// </summary>
     public static readonly IReadOnlyList<string> Columns =
     [
@@ -70,6 +70,9 @@ public static class ClickHouseSpanRowMapper
         "Links.TraceState",
         "Links.Attributes",
         "SampleWeight",
+        "DroppedAttributesCount",
+        "DroppedEventsCount",
+        "DroppedLinksCount",
     ];
 
     /// <summary>Maps a single <see cref="SpanRecord"/> to a row, positionally matching <see cref="Columns"/>.</summary>
@@ -105,6 +108,9 @@ public static class ClickHouseSpanRowMapper
         // Floor of 1: a zero (e.g. a payload that predates the field) would zero the
         // weighted pre-aggregations instead of counting the span once.
         Math.Max(span.SampleWeight, 1u),
+        span.DroppedAttributesCount,
+        span.DroppedEventsCount,
+        span.DroppedLinksCount,
     ];
 
     /// <summary>Maps a batch of spans to rows, in the same order.</summary>

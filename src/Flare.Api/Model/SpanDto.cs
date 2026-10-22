@@ -138,4 +138,18 @@ public sealed partial record SpanDto
     /// compatibility reason as <see cref="HasError"/>'s own remarks.
     /// </summary>
     public required IReadOnlyList<SpanLinkDto> Links { get; init; }
+
+    /// <summary>
+    /// OTLP <c>Span.dropped_attributes_count</c>: span attributes the SDK discarded because of its attribute
+    /// count limit (<c>db/clickhouse/0091_dropped_counts.sql</c>, ADR-0272). 0 for rows from before the migration.
+    /// Appended after <see cref="Links"/>, not inserted, for the same MemoryPack backward-compatibility reason as
+    /// <see cref="HasError"/>'s remarks; not <c>required</c> so existing construction sites keep compiling.
+    /// </summary>
+    public uint DroppedAttributesCount { get; init; }
+
+    /// <summary>OTLP <c>Span.dropped_events_count</c>: events the SDK discarded past its per-span event limit. See <see cref="DroppedAttributesCount"/>.</summary>
+    public uint DroppedEventsCount { get; init; }
+
+    /// <summary>OTLP <c>Span.dropped_links_count</c>: links the SDK discarded past its per-span link limit. See <see cref="DroppedAttributesCount"/>.</summary>
+    public uint DroppedLinksCount { get; init; }
 }

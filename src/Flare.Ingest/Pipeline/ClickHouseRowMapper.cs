@@ -26,7 +26,8 @@ public static class ClickHouseRowMapper
     /// order, with <c>EventId</c>, then <c>PatternId</c>/<c>PatternTemplate</c>, then
     /// <c>IngestedAt</c>, appended in that order - matching how each was added via its
     /// own <c>ALTER TABLE ... ADD COLUMN</c> migration (<c>0002_logs_event_id.sql</c>,
-    /// then <c>0010_logs_pattern.sql</c>, then <c>0011_ingest_receipt_time.sql</c>).
+    /// then <c>0010_logs_pattern.sql</c>, then <c>0011_ingest_receipt_time.sql</c>), then
+    /// <c>DroppedAttributesCount</c> (<c>0091_dropped_counts.sql</c>).
     /// </summary>
     public static readonly IReadOnlyList<string> Columns =
     [
@@ -51,6 +52,7 @@ public static class ClickHouseRowMapper
         "PatternId",
         "PatternTemplate",
         "IngestedAt",
+        "DroppedAttributesCount",
     ];
 
     /// <summary>Maps a single <see cref="LogEvent"/> to a row, positionally matching <see cref="Columns"/>.</summary>
@@ -77,6 +79,7 @@ public static class ClickHouseRowMapper
         logEvent.PatternId,
         logEvent.PatternTemplate,
         logEvent.IngestedAt.UtcDateTime,
+        logEvent.DroppedAttributesCount,
     ];
 
     /// <summary>Maps a batch of events to rows, in the same order.</summary>

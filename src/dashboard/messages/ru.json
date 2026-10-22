@@ -3904,5 +3904,9 @@
 	"checkin_runFailed": "Ошибка",
 	"checkin_runRunning": "Выполняется",
 	"checkin_runUnfinished": "Не завершился",
-	"checkin_create": "Создать"
+	"checkin_create": "Создать",
+	"droppedCounts_attributes": "Отброшено атрибутов: {count}",
+	"droppedCounts_events": "Отброшено событий: {count}",
+	"droppedCounts_links": "Отброшено ссылок: {count}",
+	"droppedCounts_hint": "SDK OpenTelemetry приложения достиг лимита количества и отбросил эти элементы до отправки, поэтому показанные данные неполные. Увеличьте соответствующую настройку OTEL_*_COUNT_LIMIT, чтобы сохранять больше."
 }

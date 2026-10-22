@@ -323,6 +323,24 @@ public class OtlpLogMapperTests
     }
 
     [Fact]
+    public void Map_CopiesDroppedAttributesCount()
+    {
+        var request = SingleRecordRequest(record => record.DroppedAttributesCount = 5);
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
+
+        Assert.Equal(5u, logEvent.DroppedAttributesCount);
+    }
+
+    [Fact]
+    public void Map_DroppedAttributesCountIsZero_WhenNothingWasDropped()
+    {
+        var logEvent = Assert.Single(OtlpLogMapper.Map(SingleRecordRequest(), TestIngestedAt));
+
+        Assert.Equal(0u, logEvent.DroppedAttributesCount);
+    }
+
+    [Fact]
     public void Map_EventNameIsNull_WhenAbsent()
     {
         var request = SingleRecordRequest();

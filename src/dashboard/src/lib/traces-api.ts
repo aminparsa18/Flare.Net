@@ -203,6 +203,10 @@ export interface SpanDto {
 	hasError?: boolean;
 	/** OTLP Span.Links - references from this span to a span in the same or a different trace. See SpanDto.Links' C# remarks. */
 	links: SpanLinkDto[];
+	/** OTLP `Span.dropped_attributes_count`/`dropped_events_count`/`dropped_links_count`: items the SDK discarded at its count limits (ADR-0272). */
+	droppedAttributesCount: number;
+	droppedEventsCount: number;
+	droppedLinksCount: number;
 }
 
 function toSpanEventDto(dto: GeneratedSpanEventDto): SpanEventDto {
@@ -246,7 +250,10 @@ function toSpanDto(dto: GeneratedSpanDto): SpanDto {
 		events: (dto.events ?? []).map((e) => toSpanEventDto(e!)),
 		spanCount: dto.spanCount == null ? undefined : Number(dto.spanCount),
 		hasError: dto.hasError ?? undefined,
-		links: (dto.links ?? []).map((l) => toSpanLinkDto(l!))
+		links: (dto.links ?? []).map((l) => toSpanLinkDto(l!)),
+		droppedAttributesCount: dto.droppedAttributesCount,
+		droppedEventsCount: dto.droppedEventsCount,
+		droppedLinksCount: dto.droppedLinksCount
 	};
 }
 

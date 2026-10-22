@@ -69,6 +69,9 @@ public static class OtlpTraceMapper
                         SpanAttributes = spanAttributes,
                         Events = MapEvents(span, spanAttributes, endTime),
                         Links = [.. span.Links.Select(MapLink)],
+                        DroppedAttributesCount = span.DroppedAttributesCount,
+                        DroppedEventsCount = span.DroppedEventsCount,
+                        DroppedLinksCount = span.DroppedLinksCount,
                         IngestedAt = ingestedAt,
                     };
                 }

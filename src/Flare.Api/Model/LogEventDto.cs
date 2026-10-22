@@ -83,4 +83,12 @@ public sealed partial record LogEventDto
     /// remarks for the general pattern this mirrors.
     /// </summary>
     public ulong? SpanDurationNano { get; init; }
+
+    /// <summary>
+    /// OTLP <c>LogRecord.dropped_attributes_count</c>: log attributes the SDK discarded because of its attribute
+    /// count limit (<c>db/clickhouse/0091_dropped_counts.sql</c>, ADR-0272). 0 for rows from before the migration.
+    /// Appended after <see cref="SpanDurationNano"/> for the same MemoryPack backward-compatibility reason as
+    /// <see cref="SpanDto.HasError"/>'s remarks; not <c>required</c> so existing construction sites keep compiling.
+    /// </summary>
+    public uint DroppedAttributesCount { get; init; }
 }

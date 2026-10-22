@@ -19,7 +19,7 @@ public class ClickHouseRowMapperTests
                 "SeverityText", "SeverityNumber", "ServiceName", "Body", "ResourceSchemaUrl",
                 "ResourceAttributes", "ScopeSchemaUrl", "ScopeName", "ScopeVersion",
                 "ScopeAttributes", "LogAttributes", "EventName", "EventId",
-                "PatternId", "PatternTemplate", "IngestedAt",
+                "PatternId", "PatternTemplate", "IngestedAt", "DroppedAttributesCount",
             ],
             ClickHouseRowMapper.Columns);
     }
@@ -144,6 +144,15 @@ public class ClickHouseRowMapperTests
 
         Assert.Equal("abc123", row[18]);
         Assert.Equal("GET /api/orders/<*>", row[19]);
+    }
+
+    [Fact]
+    public void ToRow_PassesThroughDroppedAttributesCount_AsTheLastColumn()
+    {
+        var row = ClickHouseRowMapper.ToRow(MinimalLogEvent() with { DroppedAttributesCount = 4 });
+
+        Assert.Equal("DroppedAttributesCount", ClickHouseRowMapper.Columns[^1]);
+        Assert.Equal(4u, row[^1]);
     }
 
     [Fact]

@@ -60,6 +60,7 @@ public static class OtlpLogMapper
                         ScopeAttributes = scopeAttributes,
                         LogAttributes = OtlpAnyValue.Flatten(record.Attributes),
                         EventName = EmptyToNull(record.EventName),
+                        DroppedAttributesCount = record.DroppedAttributesCount,
                         IngestedAt = ingestedAt,
                     };
                 }

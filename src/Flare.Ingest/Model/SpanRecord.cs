@@ -107,6 +107,20 @@ public sealed partial record SpanRecord
     /// payloads buffered before this field existed deserialize with the default of 1.
     /// </summary>
     public uint SampleWeight { get; init; } = 1;
+
+    /// <summary>
+    /// OTLP <c>Span.dropped_attributes_count</c>: how many span attributes the SDK discarded
+    /// because of its attribute count limit (<c>db/clickhouse/0091_dropped_counts.sql</c>, ADR-0272).
+    /// Appended after <see cref="SampleWeight"/>, same "append, don't insert" MemoryPack
+    /// convention; payloads buffered before this field existed deserialize with 0.
+    /// </summary>
+    public uint DroppedAttributesCount { get; init; }
+
+    /// <summary>OTLP <c>Span.dropped_events_count</c>: events the SDK discarded past its per-span event limit. See <see cref="DroppedAttributesCount"/>.</summary>
+    public uint DroppedEventsCount { get; init; }
+
+    /// <summary>OTLP <c>Span.dropped_links_count</c>: links the SDK discarded past its per-span link limit. See <see cref="DroppedAttributesCount"/>.</summary>
+    public uint DroppedLinksCount { get; init; }
 }
 
 /// <summary>A single OTLP Span.Event - a timestamped annotation on a span.</summary>

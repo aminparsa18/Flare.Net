@@ -229,6 +229,33 @@ public class OtlpTraceMapperTests
     }
 
     [Fact]
+    public void Map_CopiesDroppedAttributeEventAndLinkCounts()
+    {
+        var request = SingleSpanRequest(span =>
+        {
+            span.DroppedAttributesCount = 7;
+            span.DroppedEventsCount = 3;
+            span.DroppedLinksCount = 2;
+        });
+
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
+
+        Assert.Equal(7u, record.DroppedAttributesCount);
+        Assert.Equal(3u, record.DroppedEventsCount);
+        Assert.Equal(2u, record.DroppedLinksCount);
+    }
+
+    [Fact]
+    public void Map_DroppedCountsAreZero_WhenNothingWasDropped()
+    {
+        var record = Assert.Single(OtlpTraceMapper.Map(SingleSpanRequest(), TestIngestedAt));
+
+        Assert.Equal(0u, record.DroppedAttributesCount);
+        Assert.Equal(0u, record.DroppedEventsCount);
+        Assert.Equal(0u, record.DroppedLinksCount);
+    }
+
+    [Fact]
     public void Map_MapsLinks_InOrder_WithTraceIdSpanIdTraceStateAndAttributes()
     {
         var linkedTraceId = Convert.FromHexString("1102030405060708090a0b0c0d0e0f10");

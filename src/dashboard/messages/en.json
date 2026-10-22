@@ -3904,5 +3904,9 @@
 	"checkin_runFailed": "Failed",
 	"checkin_runRunning": "Running",
 	"checkin_runUnfinished": "Never finished",
-	"checkin_create": "Create"
+	"checkin_create": "Create",
+	"droppedCounts_attributes": "Dropped attributes: {count}",
+	"droppedCounts_events": "Dropped events: {count}",
+	"droppedCounts_links": "Dropped links: {count}",
+	"droppedCounts_hint": "The app's OpenTelemetry SDK hit a count limit and discarded these before sending, so what is shown here is incomplete. Raise the matching OTEL_*_COUNT_LIMIT setting to keep more."
 }

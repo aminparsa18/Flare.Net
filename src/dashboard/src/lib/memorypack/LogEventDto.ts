@@ -32,6 +32,7 @@ export class LogEventDto {
 	patternId: string | null;
 	patternTemplate: string | null;
 	spanDurationNano: bigint | null;
+	droppedAttributesCount: number;
 
 	constructor() {
 		this.eventId = '00000000-0000-0000-0000-000000000000';
@@ -56,6 +57,7 @@ export class LogEventDto {
 		this.patternId = null;
 		this.patternTemplate = null;
 		this.spanDurationNano = null;
+		this.droppedAttributesCount = 0;
 	}
 
 	static serialize(value: LogEventDto | null): Uint8Array {
@@ -70,7 +72,7 @@ export class LogEventDto {
 			return;
 		}
 
-		writer.writeObjectHeader(22);
+		writer.writeObjectHeader(23);
 		writer.writeGuid(value.eventId);
 		writeDateTimeOffset(writer, value.timestamp);
 		writeDateTimeOffset(writer, value.observedTimestamp);
@@ -93,6 +95,7 @@ export class LogEventDto {
 		writer.writeString(value.patternId);
 		writer.writeString(value.patternTemplate);
 		writer.writeNullableUint64(value.spanDurationNano);
+		writer.writeUint32(value.droppedAttributesCount);
 	}
 
 	static serializeArray(value: (LogEventDto | null)[] | null): Uint8Array {
@@ -116,7 +119,7 @@ export class LogEventDto {
 		}
 
 		const value = new LogEventDto();
-		if (count == 22) {
+		if (count == 23) {
 			value.eventId = reader.readGuid();
 			value.timestamp = readDateTimeOffset(reader);
 			value.observedTimestamp = readDateTimeOffset(reader);
@@ -139,7 +142,8 @@ export class LogEventDto {
 			value.patternId = reader.readString();
 			value.patternTemplate = reader.readString();
 			value.spanDurationNano = reader.readNullableUint64();
-		} else if (count > 22) {
+			value.droppedAttributesCount = reader.readUint32();
+		} else if (count > 23) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -187,6 +191,8 @@ export class LogEventDto {
 			if (count == 21) return value;
 			value.spanDurationNano = reader.readNullableUint64();
 			if (count == 22) return value;
+			value.droppedAttributesCount = reader.readUint32();
+			if (count == 23) return value;
 		}
 		return value;
 	}

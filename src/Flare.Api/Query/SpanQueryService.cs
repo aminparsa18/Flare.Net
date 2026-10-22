@@ -516,6 +516,9 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
             Events = events,
             IngestedAt = ReadUtc(reader, 22),
             Links = links,
+            DroppedAttributesCount = reader.GetFieldValue<uint>(27),
+            DroppedEventsCount = reader.GetFieldValue<uint>(28),
+            DroppedLinksCount = reader.GetFieldValue<uint>(29),
         };
     }
 
