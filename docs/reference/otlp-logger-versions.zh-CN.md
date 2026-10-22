@@ -11,8 +11,10 @@
 
 | 包裹 | 版本 |
 |---|---|
-| `OpenTelemetry.Extensions.Hosting` | 1.19.1 |
-| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.19.1 |
+| `OpenTelemetry.Extensions.Hosting` | 1.20.1 |
+| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.20.1 |
 | `ZLogger` | 2.5.10 |
 | `Serilog.Sinks.OpenTelemetry` | 4.2.0 |
 | `NLog.Targets.OpenTelemetryProtocol` | 1.2.7 |
+
+两行 OpenTelemetry 已于 2026-10-22 在 1.20.1 上重新验证：.NET 应用通过 gRPC（4317）和 HTTP/protobuf（4318）发送的日志、追踪和指标都已到达 Flare。该 SDK 不再跟随 HTTP 重定向，因此请不要在 [OTLP 端口上做重定向](../how-to/deploy/serve-under-a-sub-path.zh-CN.md)。

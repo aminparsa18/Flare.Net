@@ -12,8 +12,13 @@ OpenTelemetry — если что-то не компилируется прот�
 
 | Пакет | Версия |
 |---|---|
-| `OpenTelemetry.Extensions.Hosting` | 1.19.1 |
-| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.19.1 |
+| `OpenTelemetry.Extensions.Hosting` | 1.20.1 |
+| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.20.1 |
 | `ZLogger` | 2.5.10 |
 | `Serilog.Sinks.OpenTelemetry` | 4.2.0 |
 | `NLog.Targets.OpenTelemetryProtocol` | 1.2.7 |
+
+Две строки OpenTelemetry перепроверены на 1.20.1 2026-10-22: логи, трейсы и метрики
+из .NET-приложения по gRPC (4317) и HTTP/protobuf (4318) дошли до Flare. Этот SDK
+больше не следует HTTP-редиректам, поэтому не включайте
+[редиректы на порту OTLP](../how-to/deploy/serve-under-a-sub-path.ru.md).
