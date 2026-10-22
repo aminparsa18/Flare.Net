@@ -73,6 +73,7 @@ the full rule set on what goes where.
 
 - [Find where requests drop off with trace funnels](how-to/investigate/analyze-trace-funnels.md)
 - [Find N+1 queries](how-to/investigate/find-n-plus-one-queries.md)
+- [See your slowest database statements](how-to/investigate/see-slowest-database-statements.md)
 - [Explore continuous profiles](how-to/investigate/profile-with-continuous-profiling.md)
 - [Find .NET runtime health problems](how-to/investigate/find-runtime-health-problems.md)
 - [Compare two deploys of a service](how-to/investigate/compare-deploys.md)

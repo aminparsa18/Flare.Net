@@ -74,6 +74,7 @@
 
 - [使用追踪漏斗找出请求流失的环节](how-to/investigate/analyze-trace-funnels.zh-CN.md)
 - [查找 N+1 查询](how-to/investigate/find-n-plus-one-queries.zh-CN.md)
+- [查看最慢的数据库语句](how-to/investigate/see-slowest-database-statements.zh-CN.md)
 - [使用持续性能剖析](how-to/investigate/profile-with-continuous-profiling.zh-CN.md)
 - [查找 .NET 运行时健康问题](how-to/investigate/find-runtime-health-problems.zh-CN.md)
 - [对比服务的两次部署](how-to/investigate/compare-deploys.zh-CN.md)

@@ -21,7 +21,7 @@
 	type Tab = 'traces' | 'services';
 
 	interface Props {
-		activeTab: Tab | 'funnels' | 'n-plus-one';
+		activeTab: Tab | 'funnels' | 'n-plus-one' | 'database';
 		onTabChange?: (tab: Tab) => void;
 	}
 
@@ -52,5 +52,8 @@
 	</a>
 	<a class={tabClass(activeTab === 'n-plus-one')} href={withBase('/traces/n-plus-one')} aria-current={activeTab === 'n-plus-one' ? 'page' : undefined}>
 		{m.tracesPage_nPlusOneTab()}
+	</a>
+	<a class={tabClass(activeTab === 'database')} href={withBase('/traces/database')} aria-current={activeTab === 'database' ? 'page' : undefined}>
+		{m.tracesPage_databaseTab()}
 	</a>
 </div>

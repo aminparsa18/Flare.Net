@@ -74,6 +74,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 
 - [Trouver où les requêtes décrochent avec les entonnoirs de traces](how-to/investigate/analyze-trace-funnels.fr.md)
 - [Trouver les requêtes N+1](how-to/investigate/find-n-plus-one-queries.fr.md)
+- [Voir vos requêtes de base de données les plus lentes](how-to/investigate/see-slowest-database-statements.fr.md)
 - [Explorer les profils continus](how-to/investigate/profile-with-continuous-profiling.fr.md)
 - [Trouver les problèmes de santé du runtime .NET](how-to/investigate/find-runtime-health-problems.fr.md)
 - [Comparer deux déploiements d'un service](how-to/investigate/compare-deploys.fr.md)
