@@ -443,6 +443,7 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
         PatternId = reader.GetString(18),
         PatternTemplate = reader.GetString(19),
         IngestedAt = ReadUtc(reader, 20),
+        DroppedAttributesCount = reader.GetFieldValue<uint>(21),
     };
 
     /// <summary>

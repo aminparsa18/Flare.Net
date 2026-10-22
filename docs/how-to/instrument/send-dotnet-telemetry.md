@@ -118,3 +118,11 @@ start when that and a signal-specific exporter are both registered.
   [Use an ingest key](#use-an-ingest-key).
 - **`ArgumentOutOfRangeException` at startup.** `TraceSampleRatio` must be
   between 0 and 1.
+- **A span or log shows "Dropped attributes: N".** The app's OpenTelemetry SDK hit a
+  count limit and discarded N items before sending, so Flare cannot show them.
+  Raise the matching limit in the app: `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`,
+  `OTEL_SPAN_EVENT_COUNT_LIMIT`, `OTEL_SPAN_LINK_COUNT_LIMIT` or
+  `OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT` (each falls back to
+  `OTEL_ATTRIBUTE_COUNT_LIMIT`, 128 by default). The counts need
+  [migration 0091](../../../db/clickhouse/0091_dropped_counts.sql) on an existing
+  ClickHouse; rows stored before it show nothing.

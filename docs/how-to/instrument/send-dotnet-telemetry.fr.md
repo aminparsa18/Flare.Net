@@ -125,3 +125,11 @@ enregistrés.
   [Utiliser une clé d'ingestion](#utiliser-une-clé-dingestion).
 - **`ArgumentOutOfRangeException` au démarrage.** `TraceSampleRatio` doit être
   compris entre 0 et 1.
+- **Un span ou un log affiche « Attributs ignorés : N ».** Le SDK OpenTelemetry de
+  l'application a atteint une limite de nombre et a écarté N éléments avant l'envoi,
+  donc Flare ne peut pas les afficher. Augmentez la limite correspondante dans
+  l'application : `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`, `OTEL_SPAN_EVENT_COUNT_LIMIT`,
+  `OTEL_SPAN_LINK_COUNT_LIMIT` ou `OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT` (chacune
+  retombe sur `OTEL_ATTRIBUTE_COUNT_LIMIT`, 128 par défaut). Ces compteurs nécessitent la
+  [migration 0091](../../../db/clickhouse/0091_dropped_counts.sql) sur un ClickHouse
+  existant ; les lignes stockées avant n'affichent rien.

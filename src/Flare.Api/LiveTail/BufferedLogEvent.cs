@@ -84,4 +84,7 @@ public sealed partial record BufferedLogEvent
 
     /// <summary>See <see cref="PatternId"/>'s remarks.</summary>
     public string? PatternTemplate { get; init; }
+
+    /// <summary>OTLP <c>LogRecord.dropped_attributes_count</c> (ADR-0272). Appended last: payloads buffered before this field existed deserialize with 0.</summary>
+    public uint DroppedAttributesCount { get; init; }
 }

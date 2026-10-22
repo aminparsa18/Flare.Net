@@ -12,6 +12,7 @@
 	import StackTraceViewer from '#lib/components/logs/StackTraceViewer.svelte';
 	import EventHostMetrics from '#lib/components/logs/EventHostMetrics.svelte';
 	import EventPodMetrics from '#lib/components/logs/EventPodMetrics.svelte';
+	import DroppedCounts from '#lib/components/logs/DroppedCounts.svelte';
 	import { statusVariant, statusLabel, kindLabel } from '#lib/traces/status.ts';
 	import { formatDurationNano } from '#lib/traces/duration.ts';
 	import { traceDetailContext } from '#lib/traces/trace-context.ts';
@@ -227,6 +228,8 @@
 			</Sheet.Header>
 			<ScrollArea class="min-h-0 flex-1 px-4">
 				<div class="flex flex-col gap-4 pb-8">
+					<DroppedCounts attributes={span.droppedAttributesCount} events={span.droppedEventsCount} links={span.droppedLinksCount} />
+
 					{#if span.statusMessage}
 						<div class="border-destructive/50 bg-destructive/5 rounded-md border p-3">
 							<p class="text-destructive text-sm break-words">{span.statusMessage}</p>

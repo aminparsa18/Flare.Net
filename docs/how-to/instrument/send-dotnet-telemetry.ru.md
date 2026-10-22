@@ -121,3 +121,11 @@ builder.AddFlareTelemetry("http://flare:4317", apiKey);
   [Использовать ключ приёма данных](#использовать-ключ-приёма-данных).
 - **`ArgumentOutOfRangeException` при запуске.** `TraceSampleRatio` должен быть
   в диапазоне от 0 до 1.
+- **У спана или лога показано «Отброшено атрибутов: N».** OpenTelemetry SDK приложения
+  достиг лимита количества и отбросил N элементов перед отправкой, поэтому Flare не может
+  их показать. Увеличьте соответствующий лимит в приложении:
+  `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`, `OTEL_SPAN_EVENT_COUNT_LIMIT`,
+  `OTEL_SPAN_LINK_COUNT_LIMIT` или `OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT` (каждый по
+  умолчанию берёт значение `OTEL_ATTRIBUTE_COUNT_LIMIT`, 128). Для этих счётчиков в
+  существующем ClickHouse нужна [миграция 0091](../../../db/clickhouse/0091_dropped_counts.sql);
+  строки, сохранённые раньше, ничего не показывают.

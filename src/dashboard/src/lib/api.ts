@@ -187,6 +187,8 @@ export interface LogEventDto {
 	 * LogQueryService.SearchAsync's remarks).
 	 */
 	spanDurationNano?: number | null;
+	/** OTLP `LogRecord.dropped_attributes_count`: attributes the SDK discarded at its count limit (ADR-0272). Absent on an older server and 0 when nothing was dropped. */
+	droppedAttributesCount?: number;
 }
 
 function toLogEventDto(dto: GeneratedLogEventDto): LogEventDto {
@@ -211,7 +213,8 @@ function toLogEventDto(dto: GeneratedLogEventDto): LogEventDto {
 		eventName: dto.eventName ?? '',
 		patternId: dto.patternId ?? '',
 		patternTemplate: dto.patternTemplate ?? '',
-		spanDurationNano: dto.spanDurationNano == null ? null : Number(dto.spanDurationNano)
+		spanDurationNano: dto.spanDurationNano == null ? null : Number(dto.spanDurationNano),
+		droppedAttributesCount: dto.droppedAttributesCount
 	};
 }
 

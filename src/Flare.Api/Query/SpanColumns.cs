@@ -8,7 +8,8 @@ namespace Flare.Api.Query;
 /// <c>ClickHouseSpanRowMapper.Columns</c> (the write side) for readability, though
 /// nothing requires the two to agree - each is independently self-consistent with its
 /// own reader. <c>Links</c>' four desugared array columns (<c>0013_span_links.sql</c>)
-/// are listed last, after <c>IngestedAt</c>, in migration order.
+/// are listed after <c>IngestedAt</c>, in migration order, then the three <c>Dropped*Count</c>
+/// columns (<c>0091_dropped_counts.sql</c>).
 /// </summary>
 internal static class SpanColumns
 {
@@ -41,6 +42,9 @@ internal static class SpanColumns
         "`Links.SpanId`",
         "`Links.TraceState`",
         "`Links.Attributes`",
+        "DroppedAttributesCount",
+        "DroppedEventsCount",
+        "DroppedLinksCount",
     ];
 
     public static readonly string SelectList = string.Join(", ", Names);

@@ -7,6 +7,7 @@
 	import StackTraceViewer from './StackTraceViewer.svelte';
 	import EventHostMetrics from './EventHostMetrics.svelte';
 	import EventPodMetrics from './EventPodMetrics.svelte';
+	import DroppedCounts from './DroppedCounts.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import JsonTree from './JsonTree.svelte';
@@ -284,6 +285,8 @@
 				</p>
 			</div>
 		</div>
+
+		<DroppedCounts attributes={event.droppedAttributesCount ?? 0} />
 
 		{#if exceptionInfo}
 			<div class="border-destructive/50 bg-destructive/5 rounded-md border p-3">

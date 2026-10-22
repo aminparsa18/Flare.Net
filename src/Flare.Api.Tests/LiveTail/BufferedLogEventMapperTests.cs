@@ -23,6 +23,14 @@ public class BufferedLogEventMapperTests
     }
 
     [Fact]
+    public void ToDto_PassesThroughDroppedAttributesCount()
+    {
+        var dto = BufferedLogEventMapper.ToDto(MinimalBufferedLogEvent() with { DroppedAttributesCount = 6 });
+
+        Assert.Equal(6u, dto.DroppedAttributesCount);
+    }
+
+    [Fact]
     public void ToDto_FallsBackObservedTimestampToTimestamp_WhenObservedTimestampIsNull()
     {
         var timestamp = new DateTimeOffset(2026, 8, 7, 12, 0, 0, TimeSpan.Zero);

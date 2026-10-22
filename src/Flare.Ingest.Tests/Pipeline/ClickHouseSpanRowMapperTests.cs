@@ -12,7 +12,8 @@ public class ClickHouseSpanRowMapperTests
         // Mirrors db/clickhouse/0007_spans.sql's column declaration order, with the
         // Events Nested column's three desugared array columns, IngestedAt
         // (0011_ingest_receipt_time.sql), then the Links Nested column's four
-        // desugared array columns (0013_span_links.sql) listed last, in migration order.
+        // desugared array columns (0013_span_links.sql), SampleWeight (0051) and the three
+        // Dropped*Count columns (0091) listed last, in migration order.
         Assert.Equal(
             [
                 "TraceId", "SpanId", "ParentSpanId", "TraceState", "Name", "Kind",
@@ -21,7 +22,7 @@ public class ClickHouseSpanRowMapperTests
                 "ScopeName", "ScopeVersion", "ScopeAttributes", "SpanAttributes",
                 "Events.TimeUnixNano", "Events.Name", "Events.Attributes", "IngestedAt",
                 "Links.TraceId", "Links.SpanId", "Links.TraceState", "Links.Attributes",
-                "SampleWeight",
+                "SampleWeight", "DroppedAttributesCount", "DroppedEventsCount", "DroppedLinksCount",
             ],
             ClickHouseSpanRowMapper.Columns);
     }
@@ -41,13 +42,25 @@ public class ClickHouseSpanRowMapperTests
     [InlineData(1u, 1u)]
     [InlineData(50u, 50u)]
     [InlineData(0u, 1u)]
-    public void ToRow_WritesSampleWeight_AsTheLastColumn_FlooredAtOne(uint weight, uint expected)
+    public void ToRow_WritesSampleWeight_FlooredAtOne(uint weight, uint expected)
     {
         var row = ClickHouseSpanRowMapper.ToRow(MinimalSpan() with { SampleWeight = weight });
 
-        Assert.Equal(expected, row[^1]);
-        Assert.Equal("SampleWeight", ClickHouseSpanRowMapper.Columns[^1]);
+        Assert.Equal(expected, row[ColumnIndex("SampleWeight")]);
     }
+
+    [Fact]
+    public void ToRow_WritesDroppedCounts_UnderTheirOwnColumns()
+    {
+        var row = ClickHouseSpanRowMapper.ToRow(
+            MinimalSpan() with { DroppedAttributesCount = 7, DroppedEventsCount = 3, DroppedLinksCount = 2 });
+
+        Assert.Equal(7u, row[ColumnIndex("DroppedAttributesCount")]);
+        Assert.Equal(3u, row[ColumnIndex("DroppedEventsCount")]);
+        Assert.Equal(2u, row[ColumnIndex("DroppedLinksCount")]);
+    }
+
+    private static int ColumnIndex(string name) => ((List<string>)[.. ClickHouseSpanRowMapper.Columns]).IndexOf(name);
 
     [Fact]
     public void ToRow_HasOneValuePerColumn()

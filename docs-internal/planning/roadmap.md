@@ -152,11 +152,6 @@ folders are where "what happened and why" actually lives.
   publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
   `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
   mention npm in the csproj `Description` while the version is bumped.
-- **Store OTLP dropped-attribute counts.** `dropped_attributes_count` on spans and logs, and `dropped_events_count` and
-  `dropped_links_count` on spans, are not stored; only metric exemplars keep their filtered attributes. The .NET SDK 1.20
-  changed which `OTEL_*_COUNT_LIMIT` variable caps event, link and scope attributes, so truncation is easier to hit
-  silently. Add additive columns (single + cluster migration), map them in `OtlpTraceMapper` and `OtlpLogMapper`, and
-  show a "N attributes dropped" badge on the span and event detail views.
 - **Document that the OTLP receiver never redirects.** The OpenTelemetry .NET exporter stopped following HTTP redirects in
   1.20.1 (a 3xx counts as a failed export), so a reverse proxy that redirects HTTP to HTTPS in front of Flare.Ingest
   silently drops data from those clients. Flare.Ingest itself configures no HTTPS redirection and should keep it that

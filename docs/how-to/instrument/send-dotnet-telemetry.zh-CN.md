@@ -107,3 +107,9 @@ builder.AddFlareTelemetry("http://flare:4317", apiKey);
   指标默认每 60 秒导出一次，因此第一批数据点最多要等一分钟。
 - **Flare 返回 `401`。** 该实例要求摄取密钥；参见[使用摄取密钥](#使用摄取密钥)。
 - **启动时出现 `ArgumentOutOfRangeException`。** `TraceSampleRatio` 必须在 0 到 1 之间。
+- **某个 span 或日志显示"已丢弃的属性：N"。** 应用的 OpenTelemetry SDK 达到了数量上限，
+  在发送前丢弃了 N 项，因此 Flare 无法显示它们。请在应用中调高对应的上限：
+  `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`、`OTEL_SPAN_EVENT_COUNT_LIMIT`、
+  `OTEL_SPAN_LINK_COUNT_LIMIT` 或 `OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT`（未设置时都回退到
+  `OTEL_ATTRIBUTE_COUNT_LIMIT`，默认 128）。已有的 ClickHouse 需要执行
+  [迁移 0091](../../../db/clickhouse/0091_dropped_counts.sql) 才有这些计数；在此之前存储的行不显示任何内容。

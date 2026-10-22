@@ -3904,5 +3904,9 @@
 	"checkin_runFailed": "失败",
 	"checkin_runRunning": "运行中",
 	"checkin_runUnfinished": "从未结束",
-	"checkin_create": "创建"
+	"checkin_create": "创建",
+	"droppedCounts_attributes": "已丢弃的属性：{count}",
+	"droppedCounts_events": "已丢弃的事件：{count}",
+	"droppedCounts_links": "已丢弃的链接：{count}",
+	"droppedCounts_hint": "应用的 OpenTelemetry SDK 达到了数量上限，并在发送前丢弃了这些内容，因此此处显示的数据并不完整。调高对应的 OTEL_*_COUNT_LIMIT 设置即可保留更多。"
 }

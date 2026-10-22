@@ -109,4 +109,12 @@ public sealed partial record LogEvent
 
     /// <summary>The (possibly wildcarded) template text <see cref="PatternId"/> was derived from. See <see cref="PatternId"/>'s remarks.</summary>
     public string PatternTemplate { get; init; } = string.Empty;
+
+    /// <summary>
+    /// OTLP <c>LogRecord.dropped_attributes_count</c>: how many log attributes the SDK
+    /// discarded because of its attribute count limit (<c>db/clickhouse/0091_dropped_counts.sql</c>,
+    /// ADR-0272). Appended last, same "append, don't insert" MemoryPack convention as
+    /// <see cref="PatternTemplate"/>; payloads buffered before this field existed deserialize with 0.
+    /// </summary>
+    public uint DroppedAttributesCount { get; init; }
 }

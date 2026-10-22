@@ -36,6 +36,9 @@ export class SpanDto {
 	spanCount: bigint | null;
 	hasError: boolean | null;
 	links: (SpanLinkDto | null)[] | null;
+	droppedAttributesCount: number;
+	droppedEventsCount: number;
+	droppedLinksCount: number;
 
 	constructor() {
 		this.traceId = null;
@@ -62,6 +65,9 @@ export class SpanDto {
 		this.spanCount = null;
 		this.hasError = null;
 		this.links = null;
+		this.droppedAttributesCount = 0;
+		this.droppedEventsCount = 0;
+		this.droppedLinksCount = 0;
 	}
 
 	static serialize(value: SpanDto | null): Uint8Array {
@@ -76,7 +82,7 @@ export class SpanDto {
 			return;
 		}
 
-		writer.writeObjectHeader(24);
+		writer.writeObjectHeader(27);
 		writer.writeString(value.traceId);
 		writer.writeString(value.spanId);
 		writer.writeString(value.parentSpanId);
@@ -101,6 +107,9 @@ export class SpanDto {
 		writer.writeNullableUint64(value.spanCount);
 		writer.writeNullableBoolean(value.hasError);
 		writer.writeArray(value.links, (writer, x) => SpanLinkDto.serializeCore(writer, x));
+		writer.writeUint32(value.droppedAttributesCount);
+		writer.writeUint32(value.droppedEventsCount);
+		writer.writeUint32(value.droppedLinksCount);
 	}
 
 	static serializeArray(value: (SpanDto | null)[] | null): Uint8Array {
@@ -124,7 +133,7 @@ export class SpanDto {
 		}
 
 		const value = new SpanDto();
-		if (count == 24) {
+		if (count == 27) {
 			value.traceId = reader.readString();
 			value.spanId = reader.readString();
 			value.parentSpanId = reader.readString();
@@ -149,7 +158,10 @@ export class SpanDto {
 			value.spanCount = reader.readNullableUint64();
 			value.hasError = reader.readNullableBoolean();
 			value.links = reader.readArray((reader) => SpanLinkDto.deserializeCore(reader));
-		} else if (count > 24) {
+			value.droppedAttributesCount = reader.readUint32();
+			value.droppedEventsCount = reader.readUint32();
+			value.droppedLinksCount = reader.readUint32();
+		} else if (count > 27) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -201,6 +213,12 @@ export class SpanDto {
 			if (count == 23) return value;
 			value.links = reader.readArray((reader) => SpanLinkDto.deserializeCore(reader));
 			if (count == 24) return value;
+			value.droppedAttributesCount = reader.readUint32();
+			if (count == 25) return value;
+			value.droppedEventsCount = reader.readUint32();
+			if (count == 26) return value;
+			value.droppedLinksCount = reader.readUint32();
+			if (count == 27) return value;
 		}
 		return value;
 	}
