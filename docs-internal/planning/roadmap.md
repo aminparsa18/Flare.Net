@@ -87,8 +87,6 @@ folders are where "what happened and why" actually lives.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested
     rollback.
 - **APM depth.** Flare receives OTLP and ships no agent, so these close gaps without changing that.
-  - **A per-statement database view:** slowest normalized statements with rate and p95, from the `db.*` span attributes.
-    Check first that N+1 detection and span-duration comparison don't already cover the need.
   - **Span-to-profile links**, once a real profiling sender exists (see the continuous profiling item above). Check
     whether profiles already carry trace and span ids before designing it.
 - **Security monitoring (not a SIEM).** The audit log has a hash chain, export and forwarding

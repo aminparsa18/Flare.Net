@@ -74,6 +74,7 @@
 
 - [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/investigate/analyze-trace-funnels.ru.md)
 - [Как найти N+1 запросы](how-to/investigate/find-n-plus-one-queries.ru.md)
+- [Как увидеть самые медленные запросы к БД](how-to/investigate/see-slowest-database-statements.ru.md)
 - [Как изучать непрерывные профили](how-to/investigate/profile-with-continuous-profiling.ru.md)
 - [Как найти проблемы со средой выполнения .NET](how-to/investigate/find-runtime-health-problems.ru.md)
 - [Как сравнить два деплоя сервиса](how-to/investigate/compare-deploys.ru.md)
