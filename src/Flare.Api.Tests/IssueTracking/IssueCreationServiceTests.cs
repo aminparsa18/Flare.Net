@@ -104,6 +104,18 @@ public class IssueCreationServiceTests
     }
 
     [Fact]
+    public async Task AnOmittedBodyAndMessage_AreTreatedAsEmpty()
+    {
+        var handler = new CannedHandler(HttpStatusCode.Created, """{"html_url":"https://github.com/acme/shop/issues/9"}""");
+        var issues = new FakeIssues();
+
+        var outcome = await Service(handler, issues).CreateAsync(Request() with { ExceptionMessage = null!, Body = null! }, "amin", default);
+
+        Assert.Equal(200, outcome.StatusCode);
+        Assert.Equal("", Assert.Single(issues.Upserts).ExceptionMessage);
+    }
+
+    [Fact]
     public async Task AGroupThatAlreadyHasALink_IsRefused_WithoutCallingTheHost()
     {
         var handler = new CannedHandler(HttpStatusCode.Created, "{}");

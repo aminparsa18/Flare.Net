@@ -70,7 +70,7 @@ public static class IssueTrackerEndpoints
 
         // The route's service name is authoritative; any serviceName in the body is ignored.
         await store.SetAsync(
-            new IssueTrackerConfig(serviceName, request.Provider, request.SiteUrl.Trim().TrimEnd('/'), request.ProjectId, request.IssueTypeId, (request.AccountEmail ?? "").Trim(), request.ApiToken?.Trim()),
+            new IssueTrackerConfig(serviceName, request.Provider, request.SiteUrl.Trim().TrimEnd('/'), request.ProjectId, request.IssueTypeId ?? "", (request.AccountEmail ?? "").Trim(), request.ApiToken?.Trim()),
             cancellationToken);
         return Results.NoContent();
     }

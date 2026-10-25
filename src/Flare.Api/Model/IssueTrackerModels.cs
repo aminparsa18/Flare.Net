@@ -49,7 +49,8 @@ public sealed record IssueTrackerDto
             return "projectId must be the numeric Jira project id.";
         }
 
-        if (IssueTypeId.Length > 0 && !IsDigits(IssueTypeId))
+        // Omitted by an API client (Terraform, curl) it can arrive as null despite the default.
+        if (IssueTypeId is { Length: > 0 } && !IsDigits(IssueTypeId))
         {
             return "issueTypeId must be a numeric Jira issue type id.";
         }
@@ -59,7 +60,7 @@ public sealed record IssueTrackerDto
             return "siteUrl is too long.";
         }
 
-        // Omitted by an API client (Terraform, curl) it can arrive as null despite the default.
+        // Same for accountEmail.
         if (AccountEmail is { Length: > 0 } && (AccountEmail.Length > 200 || !AccountEmail.Contains('@') || AccountEmail.Any(char.IsWhiteSpace)))
         {
             return "accountEmail must be an email address.";

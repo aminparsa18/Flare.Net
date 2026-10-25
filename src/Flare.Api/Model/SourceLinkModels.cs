@@ -47,7 +47,8 @@ public sealed record SourceLinkDto
             return "provider is not recognised.";
         }
 
-        if (RepoUrl.Length > 500 || DefaultRef.Length > 200 || PathPrefix.Length > 500)
+        // Omitted by an API client (curl, CLI, Terraform) they arrive as null despite the "" defaults.
+        if (RepoUrl.Length > 500 || (DefaultRef?.Length ?? 0) > 200 || (PathPrefix?.Length ?? 0) > 500)
         {
             return "repoUrl, defaultRef, or pathPrefix is too long.";
         }
