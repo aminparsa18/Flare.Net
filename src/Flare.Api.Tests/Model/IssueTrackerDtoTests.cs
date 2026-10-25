@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.IssueTrackers;
 using Xunit;
@@ -44,4 +46,22 @@ public class IssueTrackerDtoTests
     [InlineData("not-an-email")]
     [InlineData("a b@acme.test")]
     public void Validate_WithAMalformedAccountEmail_ReturnsAnError(string email) => Assert.NotNull((Dto() with { AccountEmail = email }).Validate());
+
+    // System.Text.Json assigns every mapped init property, so a field the client omits arrives as null
+    // and overwrites the "" initializer.
+    [Fact]
+    public void Validate_WithOmittedOptionalStrings_ReturnsNull() =>
+        Assert.Null((Dto() with { IssueTypeId = null!, AccountEmail = null! }).Validate());
+
+    [Fact]
+    public void Deserialize_MinimalBody_Validates()
+    {
+        const string json = """{"serviceName":"svc","provider":"Jira","siteUrl":"https://acme.atlassian.net","projectId":"10000"}""";
+
+        var dto = JsonSerializer.Deserialize(json, IssueTrackersJsonContext.Default.IssueTrackerDto);
+
+        Assert.NotNull(dto);
+        Assert.Null(dto.Validate());
+        Assert.Null(dto.ApiToken);
+    }
 }
