@@ -97,7 +97,7 @@
 				column: 12,
 				cellHeight: 70,
 				margin: 8,
-				float: true,
+				mode: 'float',
 				staticGrid: !editing,
 				handle: '.panel-drag-handle',
 				removable: false
