@@ -12,7 +12,8 @@ appId: com.flare.exampleapp
     timeout: 3000
 - launchApp:
     stopApp: true
-- assertVisible:
-    id: "FlushButton"
+- scrollUntilVisible:
+    element:
+        id: "FlushButton"
 - tapOn:
     id: "FlushButton"

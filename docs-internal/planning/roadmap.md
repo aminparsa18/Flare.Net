@@ -64,8 +64,6 @@ folders are where "what happened and why" actually lives.
   The `Platform/` glue's trimming is verified on an iOS Release build on a device; an Android Release build is untested.
     Next for `Flare.Maui`, from the gap against Sentry's MAUI SDK (what a team would miss moving over), roughly in
   priority order:
-  - Known gap: on Android a managed crash also emits a spurious `app.hang`, because the crash handler's flush blocks
-    the UI thread for over 2 s (it does not on iOS).
   - Native crash follow-ups (ADR-0178): server-side symbolication of the raw iOS offsets against a dSYM; verify the
     MetricKit renderer on an iOS device (the tombstone one is verified on Android); Android before 11
     and iOS jetsam out-of-memory kills, which have no report to read; an exact iOS crash time (it is estimated from
