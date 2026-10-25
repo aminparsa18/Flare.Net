@@ -16,6 +16,8 @@ public enum SourceLinkProvider
 /// <see cref="AccessToken"/> is an optional read-only host token for fetching source: on
 /// <see cref="ISourceLinkStore.SetAsync"/> null keeps the stored token and empty clears it;
 /// <see cref="ISourceLinkStore.GetAllAsync"/> always returns the stored value.
+/// <see cref="IssueToken"/> is the separate write-scoped token for opening issues on the repo (ADR-0275), never
+/// the read-only <see cref="AccessToken"/>; it follows the same null-keeps / empty-clears rule.
 /// </summary>
 public sealed record SourceLinkConfig(
     string ServiceName,
@@ -23,7 +25,8 @@ public sealed record SourceLinkConfig(
     string RepoUrl,
     string DefaultRef,
     string PathPrefix,
-    string? AccessToken = null);
+    string? AccessToken = null,
+    string? IssueToken = null);
 
 /// <summary>Per-service source-repo config for exception stack-trace links - see docs-internal/adr/0095-exception-source-links.md.</summary>
 public interface ISourceLinkStore

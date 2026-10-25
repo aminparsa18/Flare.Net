@@ -65,4 +65,21 @@ public class DbSourceLinkStoreTests : IAsyncLifetime
         await _store.SetAsync(With(""));
         Assert.Null(Assert.Single(await _store.GetAllAsync()).AccessToken);
     }
+
+    [Fact]
+    public async Task SetAsync_IssueTokenIsIndependentOfAccessToken_NullKeepsEmptyClears()
+    {
+        SourceLinkConfig With(string? access, string? issue) => new("a", SourceLinkProvider.GitHub, "https://github.com/x/a", "", "", access, issue);
+
+        await _store.SetAsync(With("read", "write"));
+        await _store.SetAsync(With(null, null));
+        var kept = Assert.Single(await _store.GetAllAsync());
+        Assert.Equal("read", kept.AccessToken);
+        Assert.Equal("write", kept.IssueToken);
+
+        await _store.SetAsync(With(null, ""));
+        var cleared = Assert.Single(await _store.GetAllAsync());
+        Assert.Equal("read", cleared.AccessToken);
+        Assert.Null(cleared.IssueToken);
+    }
 }

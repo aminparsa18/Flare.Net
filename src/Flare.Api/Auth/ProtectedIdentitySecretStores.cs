@@ -1,5 +1,6 @@
 using Flare.Api.Alerting;
 using Flare.Identity.Auth;
+using Flare.Identity.IssueTrackers;
 using Flare.Identity.SourceLinks;
 
 namespace Flare.Api.Auth;
@@ -112,7 +113,7 @@ public sealed class ProtectedLdapSettingsStore(ILdapSettingsStore inner, INotifi
     private LdapSettings Reveal(LdapSettings s) => s with { BindPassword = s.BindPassword is null ? null : protector.Unprotect(s.BindPassword) };
 }
 
-/// <summary>Encrypts per-service source-repo access tokens at the store boundary (ADR-0206).</summary>
+/// <summary>Encrypts per-service source-repo access tokens and issue-creation tokens at the store boundary (ADR-0206, ADR-0275).</summary>
 public sealed class ProtectedSourceLinkStore(ISourceLinkStore inner, INotificationSecretProtector protector) : ISourceLinkStore, IIdentitySecretBackfill
 {
     public async Task<IReadOnlyList<SourceLinkConfig>> GetAllAsync(CancellationToken cancellationToken = default) =>
@@ -120,7 +121,13 @@ public sealed class ProtectedSourceLinkStore(ISourceLinkStore inner, INotificati
 
     // null keeps the stored token and "" clears it; Protect leaves both alone.
     public Task SetAsync(SourceLinkConfig config, CancellationToken cancellationToken = default) =>
-        inner.SetAsync(config with { AccessToken = config.AccessToken is null ? null : protector.Protect(config.AccessToken) }, cancellationToken);
+        inner.SetAsync(
+            config with
+            {
+                AccessToken = config.AccessToken is null ? null : protector.Protect(config.AccessToken),
+                IssueToken = config.IssueToken is null ? null : protector.Protect(config.IssueToken)
+            },
+            cancellationToken);
 
     public Task DeleteAsync(string serviceName, CancellationToken cancellationToken = default) => inner.DeleteAsync(serviceName, cancellationToken);
 
@@ -129,9 +136,18 @@ public sealed class ProtectedSourceLinkStore(ISourceLinkStore inner, INotificati
         var count = 0;
         foreach (var link in await inner.GetAllAsync(cancellationToken))
         {
-            if (protector.NeedsProtection(link.AccessToken ?? ""))
+            var protectAccess = protector.NeedsProtection(link.AccessToken ?? "");
+            var protectIssue = protector.NeedsProtection(link.IssueToken ?? "");
+            if (protectAccess || protectIssue)
             {
-                await inner.SetAsync(link with { AccessToken = protector.Protect(link.AccessToken!) }, cancellationToken);
+                // Only the token being protected is sent; null keeps the other as stored.
+                await inner.SetAsync(
+                    link with
+                    {
+                        AccessToken = protectAccess ? protector.Protect(link.AccessToken!) : null,
+                        IssueToken = protectIssue ? protector.Protect(link.IssueToken!) : null
+                    },
+                    cancellationToken);
                 count++;
             }
         }
@@ -139,7 +155,41 @@ public sealed class ProtectedSourceLinkStore(ISourceLinkStore inner, INotificati
         return count;
     }
 
-    private SourceLinkConfig Reveal(SourceLinkConfig c) => c with { AccessToken = c.AccessToken is null ? null : protector.Unprotect(c.AccessToken) };
+    private SourceLinkConfig Reveal(SourceLinkConfig c) => c with
+    {
+        AccessToken = c.AccessToken is null ? null : protector.Unprotect(c.AccessToken),
+        IssueToken = c.IssueToken is null ? null : protector.Unprotect(c.IssueToken)
+    };
+}
+
+/// <summary>Encrypts per-service Jira API tokens at the store boundary (ADR-0275); callers keep seeing plaintext.</summary>
+public sealed class ProtectedIssueTrackerStore(IIssueTrackerStore inner, INotificationSecretProtector protector) : IIssueTrackerStore, IIdentitySecretBackfill
+{
+    public async Task<IReadOnlyList<IssueTrackerConfig>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        [.. (await inner.GetAllAsync(cancellationToken)).Select(Reveal)];
+
+    // null keeps the stored token and "" clears it; Protect leaves both alone.
+    public Task SetAsync(IssueTrackerConfig config, CancellationToken cancellationToken = default) =>
+        inner.SetAsync(config with { ApiToken = config.ApiToken is null ? null : protector.Protect(config.ApiToken) }, cancellationToken);
+
+    public Task DeleteAsync(string serviceName, CancellationToken cancellationToken = default) => inner.DeleteAsync(serviceName, cancellationToken);
+
+    public async Task<int> ProtectLegacySecretsAsync(CancellationToken cancellationToken)
+    {
+        var count = 0;
+        foreach (var tracker in await inner.GetAllAsync(cancellationToken))
+        {
+            if (protector.NeedsProtection(tracker.ApiToken ?? ""))
+            {
+                await inner.SetAsync(tracker with { ApiToken = protector.Protect(tracker.ApiToken!) }, cancellationToken);
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private IssueTrackerConfig Reveal(IssueTrackerConfig c) => c with { ApiToken = c.ApiToken is null ? null : protector.Unprotect(c.ApiToken) };
 }
 
 /// <summary>
@@ -160,7 +210,7 @@ public sealed class IdentitySecretBackfillService(IEnumerable<IIdentitySecretBac
 
             if (total > 0)
             {
-                logger.LogInformation("Encrypted {Count} stored identity secret(s) (SSO/LDAP/source-link)", total);
+                logger.LogInformation("Encrypted {Count} stored identity secret(s) (SSO/LDAP/source-link/issue-tracker)", total);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

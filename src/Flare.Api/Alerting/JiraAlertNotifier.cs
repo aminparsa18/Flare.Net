@@ -33,10 +33,13 @@ public sealed class JiraAlertNotifier(HttpClient httpClient, IOptions<AlertLinkO
     }
 
     /// <summary>Atlassian Document Format: one paragraph per non-empty line (the only structure the built-in text has).</summary>
-    internal static JsonObject BuildDescription(AlertMessage message)
+    internal static JsonObject BuildDescription(AlertMessage message) => BuildAdf(message.Text);
+
+    /// <summary><see cref="BuildDescription"/> for any text; also what creating an issue from /errors sends (ADR-0275).</summary>
+    internal static JsonObject BuildAdf(string text)
     {
         var content = new JsonArray();
-        foreach (var line in message.Text.Split('\n'))
+        foreach (var line in text.Split('\n'))
         {
             if (line.Length == 0)
             {

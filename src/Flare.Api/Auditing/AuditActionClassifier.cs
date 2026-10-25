@@ -111,6 +111,8 @@ public static class AuditActionClassifier
         new("PUT", "/api/issue-trackers/{serviceName}", "issue-tracker", "update", "serviceName"),
         new("DELETE", "/api/issue-trackers/{serviceName}", "issue-tracker", "delete", "serviceName"),
 
+        new("POST", "/api/errors/issues/create", "error-issue", "create-external", null),
+
         new("POST", "/api/ai/explain-exception", "ai-explain-exception", "explain", null),
         new("POST", "/api/ai/nl-filter", "ai-nl-filter", "generate", null),
 

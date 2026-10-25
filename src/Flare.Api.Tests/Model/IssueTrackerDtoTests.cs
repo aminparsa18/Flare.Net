@@ -35,4 +35,13 @@ public class IssueTrackerDtoTests
 
     [Fact]
     public void Validate_WithANonNumericIssueType_ReturnsAnError() => Assert.NotNull(Dto(issueTypeId: "Bug").Validate());
+
+    [Fact]
+    public void Validate_AcceptsAnAccountEmailAndAToken() =>
+        Assert.Null((Dto() with { AccountEmail = "bot@acme.test", ApiToken = "tok" }).Validate());
+
+    [Theory]
+    [InlineData("not-an-email")]
+    [InlineData("a b@acme.test")]
+    public void Validate_WithAMalformedAccountEmail_ReturnsAnError(string email) => Assert.NotNull((Dto() with { AccountEmail = email }).Validate());
 }

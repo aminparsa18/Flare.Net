@@ -25,6 +25,7 @@ using Flare.Api.ResourceGraph;
 using Flare.Api.Updates;
 using Flare.Identity;
 using Flare.Identity.Auth;
+using Flare.Identity.IssueTrackers;
 using Flare.Identity.SourceLinks;
 using Flare.Identity.Users;
 using Flare.ServiceDefaults.ClickHouseMigrations;
@@ -308,14 +309,17 @@ builder.Services.AddSingleton(sp => new ProtectedEntraSettingsStore(ActivatorUti
 builder.Services.AddSingleton(sp => new ProtectedOidcSettingsStore(ActivatorUtilities.CreateInstance<DbOidcSettingsStore>(sp), sp.GetRequiredService<INotificationSecretProtector>()));
 builder.Services.AddSingleton(sp => new ProtectedLdapSettingsStore(ActivatorUtilities.CreateInstance<DbLdapSettingsStore>(sp), sp.GetRequiredService<INotificationSecretProtector>()));
 builder.Services.AddSingleton(sp => new ProtectedSourceLinkStore(ActivatorUtilities.CreateInstance<DbSourceLinkStore>(sp), sp.GetRequiredService<INotificationSecretProtector>()));
+builder.Services.AddSingleton(sp => new ProtectedIssueTrackerStore(ActivatorUtilities.CreateInstance<DbIssueTrackerStore>(sp), sp.GetRequiredService<INotificationSecretProtector>()));
 builder.Services.AddSingleton<IEntraSettingsStore>(sp => sp.GetRequiredService<ProtectedEntraSettingsStore>());
 builder.Services.AddSingleton<IOidcSettingsStore>(sp => sp.GetRequiredService<ProtectedOidcSettingsStore>());
 builder.Services.AddSingleton<ILdapSettingsStore>(sp => sp.GetRequiredService<ProtectedLdapSettingsStore>());
 builder.Services.AddSingleton<ISourceLinkStore>(sp => sp.GetRequiredService<ProtectedSourceLinkStore>());
+builder.Services.AddSingleton<IIssueTrackerStore>(sp => sp.GetRequiredService<ProtectedIssueTrackerStore>());
 builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedEntraSettingsStore>());
 builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedOidcSettingsStore>());
 builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedLdapSettingsStore>());
 builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedSourceLinkStore>());
+builder.Services.AddSingleton<IIdentitySecretBackfill>(sp => sp.GetRequiredService<ProtectedIssueTrackerStore>());
 builder.Services.AddHostedService<IdentitySecretBackfillService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
@@ -469,6 +473,10 @@ builder.Services.AddFlareMcp(builder.Configuration);
 // No redirects: the repo host token must never follow one to another host.
 builder.Services.AddHttpClient(Flare.Api.Source.SourceSnippetService.HttpClientName)
     .AddOutboundGuard(allowAutoRedirect: false);
+// Creating an issue from /errors sends a write token, so no redirects (ADR-0275); a failed send is never retried (HttpRetryScope.SingleShot in the service).
+builder.Services.AddHttpClient(Flare.Api.IssueTracking.IssueCreationService.HttpClientName)
+    .AddOutboundGuard(allowAutoRedirect: false);
+builder.Services.AddSingleton<Flare.Api.IssueTracking.IIssueCreationService, Flare.Api.IssueTracking.IssueCreationService>();
 builder.Services.AddSingleton<Flare.Api.Source.ISourceSnippetService, Flare.Api.Source.SourceSnippetService>();
 builder.Services.AddSingleton<Flare.Api.Source.ISuspectCommitService, Flare.Api.Source.SuspectCommitService>();
 builder.Services.AddSingleton<Flare.Api.SourceMaps.IStackTraceSymbolicator, Flare.Api.SourceMaps.StackTraceSymbolicator>();

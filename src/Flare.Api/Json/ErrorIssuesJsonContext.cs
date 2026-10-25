@@ -10,4 +10,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(ErrorIssueRequest))]
 [JsonSerializable(typeof(ErrorIssue))]
 [JsonSerializable(typeof(ErrorIssueListResponse))]
+[JsonSerializable(typeof(CreateTrackerIssueRequest))]
 public sealed partial class ErrorIssuesJsonContext : JsonSerializerContext;

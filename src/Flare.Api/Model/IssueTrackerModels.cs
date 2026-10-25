@@ -5,7 +5,7 @@ namespace Flare.Api.Model;
 /// <summary>
 /// One service's issue tracker config for <c>/api/issue-trackers</c> - see
 /// docs-internal/adr/0274-jira-new-issue-link.md. Plain JSON (camelCase, string enums), same call
-/// as <see cref="SourceLinkDto"/>. Holds no secret: the dashboard builds the prefilled create URL.
+/// as <see cref="SourceLinkDto"/>. The API token is write-only (never returned, <see cref="HasApiToken"/> says whether one is stored); the dashboard still builds the prefilled create URL itself.
 /// </summary>
 public sealed record IssueTrackerDto
 {
@@ -21,6 +21,15 @@ public sealed record IssueTrackerDto
 
     /// <summary>Optional numeric issue type id. Empty = Jira's default type.</summary>
     public string IssueTypeId { get; init; } = "";
+
+    /// <summary>Jira Cloud account email for creating issues from Flare (ADR-0275). Empty = a Server/Data Center personal access token (Bearer) instead of Basic auth.</summary>
+    public string AccountEmail { get; init; } = "";
+
+    /// <summary>Write-only Jira API token for creating issues from Flare: null keeps the stored one, empty clears it. Never returned.</summary>
+    public string? ApiToken { get; init; }
+
+    /// <summary>Response-only: whether an API token is stored.</summary>
+    public bool HasApiToken { get; init; }
 
     /// <summary>Returns a user-facing validation error, or null when valid.</summary>
     public string? Validate()
@@ -48,6 +57,17 @@ public sealed record IssueTrackerDto
         if (SiteUrl.Length > 500)
         {
             return "siteUrl is too long.";
+        }
+
+        // Omitted by an API client (Terraform, curl) it can arrive as null despite the default.
+        if (AccountEmail is { Length: > 0 } && (AccountEmail.Length > 200 || !AccountEmail.Contains('@') || AccountEmail.Any(char.IsWhiteSpace)))
+        {
+            return "accountEmail must be an email address.";
+        }
+
+        if ((ApiToken?.Length ?? 0) > 2000)
+        {
+            return "apiToken is too long.";
         }
 
         return null;

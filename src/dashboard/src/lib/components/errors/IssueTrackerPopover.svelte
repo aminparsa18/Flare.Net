@@ -25,6 +25,9 @@
 	let siteUrl = $state('');
 	let projectId = $state('');
 	let issueTypeId = $state('');
+	let accountEmail = $state('');
+	// Write-only: always starts blank; blank on save keeps the stored token (ADR-0275).
+	let apiToken = $state('');
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 
@@ -34,6 +37,8 @@
 			siteUrl = config?.siteUrl ?? '';
 			projectId = config?.projectId ?? '';
 			issueTypeId = config?.issueTypeId ?? '';
+			accountEmail = config?.accountEmail ?? '';
+			apiToken = '';
 			error = null;
 		}
 	});
@@ -60,7 +65,25 @@
 			error = m.issueTrackerPopover_invalidIds();
 			return Promise.resolve();
 		}
-		return run(() => onSave({ serviceName, provider: 'Jira', siteUrl: siteUrl.trim(), projectId: projectId.trim(), issueTypeId: issueTypeId.trim() }));
+		if (accountEmail.trim() && !/^\S+@\S+$/.test(accountEmail.trim())) {
+			error = m.issueTrackerPopover_invalidEmail();
+			return Promise.resolve();
+		}
+		if ((apiToken.trim() || config?.hasApiToken) && !issueTypeId.trim()) {
+			error = m.issueTrackerPopover_issueTypeRequired();
+			return Promise.resolve();
+		}
+		return run(() =>
+			onSave({
+				serviceName,
+				provider: 'Jira',
+				siteUrl: siteUrl.trim(),
+				projectId: projectId.trim(),
+				issueTypeId: issueTypeId.trim(),
+				accountEmail: accountEmail.trim(),
+				apiToken: apiToken.trim() || undefined
+			})
+		);
 	}
 </script>
 
@@ -85,6 +108,15 @@
 			<Input bind:value={siteUrl} placeholder={m.issueTrackerPopover_siteUrlPlaceholder()} class="h-8" disabled={saving} />
 			<Input bind:value={projectId} placeholder={m.issueTrackerPopover_projectIdPlaceholder()} inputmode="numeric" class="h-8" disabled={saving} />
 			<Input bind:value={issueTypeId} placeholder={m.issueTrackerPopover_issueTypeIdPlaceholder()} inputmode="numeric" class="h-8" disabled={saving} />
+			<Input bind:value={accountEmail} placeholder={m.issueTrackerPopover_emailPlaceholder()} autocomplete="off" class="h-8" disabled={saving} />
+			<Input
+				type="password"
+				autocomplete="off"
+				bind:value={apiToken}
+				placeholder={config?.hasApiToken ? m.issueTrackerPopover_apiTokenSavedPlaceholder() : m.issueTrackerPopover_apiTokenPlaceholder()}
+				class="h-8"
+				disabled={saving}
+			/>
 		</div>
 		{#if error}
 			<p class="text-destructive mt-2 text-xs">{error}</p>

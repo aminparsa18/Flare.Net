@@ -43,7 +43,8 @@ public static class SourceLinkEndpoints
                 RepoUrl = c.RepoUrl,
                 DefaultRef = c.DefaultRef,
                 PathPrefix = c.PathPrefix,
-                HasAccessToken = !string.IsNullOrEmpty(c.AccessToken)
+                HasAccessToken = !string.IsNullOrEmpty(c.AccessToken),
+                HasIssueToken = !string.IsNullOrEmpty(c.IssueToken)
             })]
         };
         return ApiSerialization.Write(http, response, SourceLinksJsonContext.Default.SourceLinkListResponse);
@@ -124,7 +125,7 @@ public static class SourceLinkEndpoints
 
         // The route's service name is authoritative; any serviceName in the body is ignored.
         await store.SetAsync(
-            new SourceLinkConfig(serviceName, request.Provider, request.RepoUrl.Trim().TrimEnd('/'), request.DefaultRef.Trim(), request.PathPrefix.Trim(), request.AccessToken?.Trim()),
+            new SourceLinkConfig(serviceName, request.Provider, request.RepoUrl.Trim().TrimEnd('/'), request.DefaultRef.Trim(), request.PathPrefix.Trim(), request.AccessToken?.Trim(), request.IssueToken?.Trim()),
             cancellationToken);
         return Results.NoContent();
     }
