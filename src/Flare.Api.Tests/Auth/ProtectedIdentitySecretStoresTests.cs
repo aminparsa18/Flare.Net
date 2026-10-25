@@ -1,6 +1,7 @@
 using Flare.Api.Alerting;
 using Flare.Api.Auth;
 using Flare.Identity.Auth;
+using Flare.Identity.IssueTrackers;
 using Flare.Identity.SourceLinks;
 using Microsoft.AspNetCore.DataProtection;
 using Xunit;
@@ -93,5 +94,65 @@ public class ProtectedIdentitySecretStoresTests
 
         await store.SetAsync(inner.Rows[0] with { AccessToken = "" });
         Assert.Equal("", inner.Rows[0].AccessToken);
+    }
+
+    [Fact]
+    public async Task SourceLink_IssueTokenEncryptedSeparatelyFromTheReadToken()
+    {
+        var inner = new FakeSourceLinkStore();
+        var store = new ProtectedSourceLinkStore(inner, Protector());
+
+        await store.SetAsync(new SourceLinkConfig("svc", SourceLinkProvider.GitHub, "https://github.com/a/b", "main", "/src/", "read", "write"));
+
+        Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Rows[0].IssueToken);
+        Assert.DoesNotContain("write", inner.Rows[0].IssueToken);
+        var revealed = (await store.GetAllAsync())[0];
+        Assert.Equal("read", revealed.AccessToken);
+        Assert.Equal("write", revealed.IssueToken);
+    }
+
+    [Fact]
+    public async Task SourceLink_BackfillEncryptsOnlyThePlaintextToken()
+    {
+        var inner = new FakeSourceLinkStore();
+        inner.Rows.Add(new SourceLinkConfig("svc", SourceLinkProvider.GitHub, "https://github.com/a/b", "main", "", null, "legacy-write"));
+        var store = new ProtectedSourceLinkStore(inner, Protector());
+
+        Assert.Equal(1, await store.ProtectLegacySecretsAsync(default));
+        Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Rows[0].IssueToken);
+        Assert.Equal(0, await store.ProtectLegacySecretsAsync(default));
+    }
+
+    private sealed class FakeIssueTrackerStore : IIssueTrackerStore
+    {
+        public List<IssueTrackerConfig> Rows { get; } = [];
+
+        public Task<IReadOnlyList<IssueTrackerConfig>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<IssueTrackerConfig>>([.. Rows]);
+
+        public Task SetAsync(IssueTrackerConfig config, CancellationToken cancellationToken = default)
+        {
+            Rows.RemoveAll(r => r.ServiceName == config.ServiceName);
+            Rows.Add(config);
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteAsync(string serviceName, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task IssueTracker_ApiTokenEncryptedAtRest_AndBackfilledOnce()
+    {
+        var inner = new FakeIssueTrackerStore();
+        var store = new ProtectedIssueTrackerStore(inner, Protector());
+
+        await store.SetAsync(new IssueTrackerConfig("svc", IssueTrackerProvider.Jira, "https://x.atlassian.net", "1", "2", "bot@x.test", "jira-tok"));
+
+        Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Rows[0].ApiToken);
+        Assert.Equal("jira-tok", (await store.GetAllAsync())[0].ApiToken);
+
+        inner.Rows[0] = inner.Rows[0] with { ApiToken = "legacy" };
+        Assert.Equal(1, await store.ProtectLegacySecretsAsync(default));
+        Assert.Equal(0, await store.ProtectLegacySecretsAsync(default));
+        Assert.Equal("legacy", (await store.GetAllAsync())[0].ApiToken);
     }
 }

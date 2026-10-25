@@ -16,6 +16,10 @@ export interface SourceLinkConfig {
 	accessToken?: string;
 	/** Response-only: whether a token is stored. */
 	hasAccessToken?: boolean;
+	/** Write-only token that can open issues on the repo (GitHub / GitLab), for "Create issue" (ADR-0275). Same keep/clear rule as `accessToken`; never returned. */
+	issueToken?: string;
+	/** Response-only: whether an issue-creation token is stored. */
+	hasIssueToken?: boolean;
 }
 
 export interface FrameLocation {

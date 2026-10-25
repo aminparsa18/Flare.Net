@@ -16,10 +16,10 @@ import { listOwnershipRules, replaceOwnershipRules } from '#lib/error-ownership-
 import { getErrorGrouping, replaceErrorGrouping, type ErrorGroupingDocument } from '#lib/error-grouping-api.ts';
 import { listSourceLinks } from '#lib/source-links-api.ts';
 import { listIssueTrackers } from '#lib/issue-trackers-api.ts';
-import type { IssueTrackerConfig } from '#lib/errors/issue-links.ts';
+import type { CreateIssueOption, IssueTrackerConfig } from '#lib/errors/issue-links.ts';
 import { ownerFromRules, type OwnershipRule } from '#lib/errors/ownership.ts';
 import type { SourceLinkConfig } from '#lib/errors/source-links.ts';
-import { issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '#lib/error-issues-api.ts';
+import { createTrackerIssue, issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '#lib/error-issues-api.ts';
 import type { ResourceAttributeFilter } from '#lib/services-api.ts';
 import { browser } from '$app/env';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '#lib/logs/time-range.ts';
@@ -89,6 +89,9 @@ export class ErrorsExplorerState {
 	currentUsername = $state('');
 	/** Last failed triage write (e.g. a Viewer's 403), shown above the table. */
 	issueError = $state<string | null>(null);
+
+	/** Groups with a "Create issue" request in flight (by `issueKey`); the menu entries disable while a group is here, so a double click can't open two issues (ADR-0275). */
+	creatingIssue = $state.raw<ReadonlySet<string>>(new Set());
 
 	/** Ownership rules (ADR-0195) in match order; best-effort like `issues`. */
 	ownershipRules = $state.raw<OwnershipRule[]>([]);
@@ -312,6 +315,33 @@ export class ErrorsExplorerState {
 			this.issues = next;
 		} catch (err) {
 			this.issueError = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/**
+	 * Creates the group's issue in the tracker `option` names (the API makes the call with the stored write token) and links it.
+	 * The API refuses with 409 when the group already has a link; the reason lands in `issueError` like any failed triage write.
+	 */
+	async createIssue(group: ExceptionGroup, option: CreateIssueOption, text: { title: string; body: string }): Promise<void> {
+		const key = issueKey(group.exceptionType, group.exceptionMessage);
+		if (this.creatingIssue.has(key)) return;
+		this.creatingIssue = new Set(this.creatingIssue).add(key);
+		this.issueError = null;
+		try {
+			const updated = await createTrackerIssue({
+				target: option.target,
+				serviceName: option.serviceName,
+				exceptionType: group.exceptionType,
+				exceptionMessage: group.exceptionMessage,
+				...text
+			});
+			this.issues = new Map(this.issues).set(key, updated);
+		} catch (err) {
+			this.issueError = err instanceof Error ? err.message : String(err);
+		} finally {
+			const next = new Set(this.creatingIssue);
+			next.delete(key);
+			this.creatingIssue = next;
 		}
 	}
 

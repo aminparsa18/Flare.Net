@@ -28,6 +28,12 @@ public sealed record SourceLinkDto
     /// <summary>Response-only: whether a token is stored.</summary>
     public bool HasAccessToken { get; init; }
 
+    /// <summary>Write-only token with permission to open issues on the repo (GitHub / GitLab), for creating issues from Flare (ADR-0275). Separate from the read-only <see cref="AccessToken"/>: null keeps the stored one, empty clears it. Never returned.</summary>
+    public string? IssueToken { get; init; }
+
+    /// <summary>Response-only: whether an issue-creation token is stored.</summary>
+    public bool HasIssueToken { get; init; }
+
     /// <summary>Returns a user-facing validation error, or null when valid.</summary>
     public string? Validate()
     {
@@ -44,6 +50,11 @@ public sealed record SourceLinkDto
         if (RepoUrl.Length > 500 || DefaultRef.Length > 200 || PathPrefix.Length > 500)
         {
             return "repoUrl, defaultRef, or pathPrefix is too long.";
+        }
+
+        if ((IssueToken?.Length ?? 0) > 500)
+        {
+            return "issueToken is too long.";
         }
 
         return null;

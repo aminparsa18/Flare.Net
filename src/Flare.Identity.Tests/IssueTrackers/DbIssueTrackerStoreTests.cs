@@ -53,4 +53,19 @@ public class DbIssueTrackerStoreTests : IAsyncLifetime
 
         Assert.Equal("b", Assert.Single(await _store.GetAllAsync()).ServiceName);
     }
+
+    [Fact]
+    public async Task SetAsync_RoundTripsAccountEmail_AndApiTokenNullKeepsEmptyClears()
+    {
+        IssueTrackerConfig With(string? token) => new("a", IssueTrackerProvider.Jira, "https://x.atlassian.net", "1", "2", "bot@acme.test", token);
+
+        await _store.SetAsync(With("secret"));
+        await _store.SetAsync(With(null));
+        var kept = Assert.Single(await _store.GetAllAsync());
+        Assert.Equal("secret", kept.ApiToken);
+        Assert.Equal("bot@acme.test", kept.AccountEmail);
+
+        await _store.SetAsync(With(""));
+        Assert.Null(Assert.Single(await _store.GetAllAsync()).ApiToken);
+    }
 }

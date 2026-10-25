@@ -8,7 +8,7 @@ public sealed class DbSourceLinkStore(IdentityDbConnectionFactory connectionFact
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT ServiceName, Provider, RepoUrl, DefaultRef, PathPrefix, AccessToken FROM SourceLinks ORDER BY ServiceName";
+        command.CommandText = "SELECT ServiceName, Provider, RepoUrl, DefaultRef, PathPrefix, AccessToken, IssueToken FROM SourceLinks ORDER BY ServiceName";
 
         var result = new List<SourceLinkConfig>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -20,7 +20,7 @@ public sealed class DbSourceLinkStore(IdentityDbConnectionFactory connectionFact
                 continue;
             }
 
-            result.Add(new SourceLinkConfig(reader.GetString(0), provider, reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
+            result.Add(new SourceLinkConfig(reader.GetString(0), provider, reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6)));
         }
 
         return result;
@@ -32,14 +32,15 @@ public sealed class DbSourceLinkStore(IdentityDbConnectionFactory connectionFact
         await using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO SourceLinks (ServiceName, Provider, RepoUrl, DefaultRef, PathPrefix, AccessToken, UpdatedAt)
-            VALUES (@serviceName, @provider, @repoUrl, @defaultRef, @pathPrefix, @accessToken, @updatedAt)
+            INSERT INTO SourceLinks (ServiceName, Provider, RepoUrl, DefaultRef, PathPrefix, AccessToken, IssueToken, UpdatedAt)
+            VALUES (@serviceName, @provider, @repoUrl, @defaultRef, @pathPrefix, @accessToken, @issueToken, @updatedAt)
             ON CONFLICT(ServiceName) DO UPDATE SET
                 Provider = excluded.Provider,
                 RepoUrl = excluded.RepoUrl,
                 DefaultRef = excluded.DefaultRef,
                 PathPrefix = excluded.PathPrefix,
                 AccessToken = CASE WHEN @clearToken = 1 THEN NULL ELSE COALESCE(excluded.AccessToken, SourceLinks.AccessToken) END,
+                IssueToken = CASE WHEN @clearIssueToken = 1 THEN NULL ELSE COALESCE(excluded.IssueToken, SourceLinks.IssueToken) END,
                 UpdatedAt = excluded.UpdatedAt
             """;
         command.AddParameter("@serviceName", config.ServiceName);
@@ -49,6 +50,8 @@ public sealed class DbSourceLinkStore(IdentityDbConnectionFactory connectionFact
         command.AddParameter("@pathPrefix", config.PathPrefix);
         command.AddParameter("@accessToken", string.IsNullOrEmpty(config.AccessToken) ? DBNull.Value : config.AccessToken);
         command.AddParameter("@clearToken", config.AccessToken == "" ? 1 : 0);
+        command.AddParameter("@issueToken", string.IsNullOrEmpty(config.IssueToken) ? DBNull.Value : config.IssueToken);
+        command.AddParameter("@clearIssueToken", config.IssueToken == "" ? 1 : 0);
         command.AddParameter("@updatedAt", timeProvider.GetUtcNow().ToString("O"));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

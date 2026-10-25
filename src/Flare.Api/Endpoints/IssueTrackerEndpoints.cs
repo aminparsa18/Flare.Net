@@ -38,7 +38,9 @@ public static class IssueTrackerEndpoints
                 Provider = c.Provider,
                 SiteUrl = c.SiteUrl,
                 ProjectId = c.ProjectId,
-                IssueTypeId = c.IssueTypeId
+                IssueTypeId = c.IssueTypeId,
+                AccountEmail = c.AccountEmail,
+                HasApiToken = !string.IsNullOrEmpty(c.ApiToken)
             })]
         };
         return ApiSerialization.Write(http, response, IssueTrackersJsonContext.Default.IssueTrackerListResponse);
@@ -68,7 +70,7 @@ public static class IssueTrackerEndpoints
 
         // The route's service name is authoritative; any serviceName in the body is ignored.
         await store.SetAsync(
-            new IssueTrackerConfig(serviceName, request.Provider, request.SiteUrl.Trim().TrimEnd('/'), request.ProjectId, request.IssueTypeId),
+            new IssueTrackerConfig(serviceName, request.Provider, request.SiteUrl.Trim().TrimEnd('/'), request.ProjectId, request.IssueTypeId, (request.AccountEmail ?? "").Trim(), request.ApiToken?.Trim()),
             cancellationToken);
         return Results.NoContent();
     }

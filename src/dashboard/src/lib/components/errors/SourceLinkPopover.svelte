@@ -28,6 +28,8 @@
 	let pathPrefix = $state('');
 	// Write-only: always starts blank; blank on save keeps the stored token.
 	let accessToken = $state('');
+	// Write-only too: a separate token that can open issues, for "Create issue" (ADR-0275).
+	let issueToken = $state('');
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 
@@ -39,6 +41,7 @@
 			defaultRef = config?.defaultRef ?? '';
 			pathPrefix = config?.pathPrefix ?? '';
 			accessToken = '';
+			issueToken = '';
 			error = null;
 		}
 	});
@@ -61,7 +64,7 @@
 			error = m.sourceLinkPopover_invalidUrl();
 			return Promise.resolve();
 		}
-		return run(() => onSave({ serviceName, provider, repoUrl: repoUrl.trim(), defaultRef: defaultRef.trim(), pathPrefix: pathPrefix.trim(), accessToken: accessToken.trim() || undefined }));
+		return run(() => onSave({ serviceName, provider, repoUrl: repoUrl.trim(), defaultRef: defaultRef.trim(), pathPrefix: pathPrefix.trim(), accessToken: accessToken.trim() || undefined, issueToken: issueToken.trim() || undefined }));
 	}
 </script>
 
@@ -99,6 +102,16 @@
 				class="h-8"
 				disabled={saving}
 			/>
+			{#if provider !== 'AzureDevOps'}
+				<Input
+					type="password"
+					autocomplete="off"
+					bind:value={issueToken}
+					placeholder={config?.hasIssueToken ? m.sourceLinkPopover_issueTokenSavedPlaceholder() : m.sourceLinkPopover_issueTokenPlaceholder()}
+					class="h-8"
+					disabled={saving}
+				/>
+			{/if}
 		</div>
 		{#if error}
 			<p class="text-destructive mt-2 text-xs">{error}</p>

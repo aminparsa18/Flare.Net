@@ -81,9 +81,6 @@ folders are where "what happened and why" actually lives.
   - Other client SDKs on the same server pieces (sessions, release health, scoped keys): Android native, iOS native,
     React Native and Flutter, each thin over OTLP.
 - **Issue workflow, alert integrations and hosted-service parity.** Platform-wide, not specific to any one app or SDK.
-  - Issue workflow follow-ups (ADR-0195, ADR-0196, ADR-0197, ADR-0273, ADR-0274): creating an issue from Flare for
-    GitHub, GitLab and Jira, instead of a prefilled link (needs a write-scoped token; the ADR-0096 source token is
-    read-only).
   - Alert integrations beyond webhook/Slack/Telegram/email/PagerDuty: Teams, Opsgenie, Discord, and a Jira ticket on
     first occurrence.
   - Hosted-service parity items a self-hoster still expects: SSO group mapping and an upgrade guide with tested

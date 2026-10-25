@@ -74,3 +74,27 @@ export async function upsertErrorIssue(request: ErrorIssueRequest): Promise<Erro
 	await expectOk(res, 'PUT /api/errors/issues');
 	return res.status === 204 ? null : ((await res.json()) as ErrorIssue);
 }
+
+export type CreateIssueTarget = 'GitHub' | 'GitLab' | 'Jira';
+
+/**
+ * Asks the API to create the group's issue in the tracker configured for `serviceName` and link it
+ * (ADR-0275). Returns the group's new state. Throws with the API's reason: no token, host refused,
+ * the group is already linked (409).
+ */
+export async function createTrackerIssue(request: {
+	target: CreateIssueTarget;
+	serviceName: string;
+	exceptionType: string;
+	exceptionMessage: string;
+	title: string;
+	body: string;
+}): Promise<ErrorIssue> {
+	const res = await apiFetch(`${API_BASE_URL}/api/errors/issues/create`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: JSON.stringify(request)
+	});
+	await expectOk(res, 'POST /api/errors/issues/create');
+	return (await res.json()) as ErrorIssue;
+}

@@ -16,6 +16,9 @@ public interface IErrorIssueQueryService
     /// <summary>Applies <paramref name="request"/> to the group's state and returns the effective result, or null when it ends up Open and unassigned (the row is tombstoned).</summary>
     Task<ErrorIssue?> UpsertAsync(ErrorIssueRequest request, string changedBy, CancellationToken cancellationToken);
 
+    /// <summary>The tracker issue URL stored for the group ("" when none), without evaluating its status.</summary>
+    Task<string> GetIssueUrlAsync(string exceptionType, string exceptionMessage, CancellationToken cancellationToken);
+
     /// <summary><see cref="ErrorIssueFingerprint.Key"/> of every group that is effectively Ignored right now - what exception-count alert rules skip.</summary>
     Task<IReadOnlyList<string>> ListIgnoredKeysAsync(CancellationToken cancellationToken);
 
@@ -101,6 +104,12 @@ public sealed class ErrorIssueQueryService(IClickHouseClient client, IOptions<Qu
 
         await InsertVersionAsync(issue, isDeleted: cleared, cancellationToken);
         return cleared ? null : (await EvaluateAsync([issue], cancellationToken))[0];
+    }
+
+    public async Task<string> GetIssueUrlAsync(string exceptionType, string exceptionMessage, CancellationToken cancellationToken)
+    {
+        var canonical = (await CanonicalMessagesAsync([(exceptionType, exceptionMessage)], cancellationToken)).GetValueOrDefault((exceptionType, exceptionMessage), exceptionMessage);
+        return (await GetStoredAsync(ErrorIssueFingerprint.Compute(exceptionType, canonical), cancellationToken))?.IssueUrl ?? "";
     }
 
     private async Task<IReadOnlyList<ErrorIssue>> EvaluateAsync(IReadOnlyList<ErrorIssue> stored, CancellationToken cancellationToken)

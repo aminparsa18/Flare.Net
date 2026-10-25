@@ -9,7 +9,8 @@
 	import { authContext } from '#lib/auth/context.ts';
 	import LinkIssueDialog from './LinkIssueDialog.svelte';
 	import MergeGroupDialog from './MergeGroupDialog.svelte';
-	import { buildJiraIssueUrl, buildNewIssueLink } from '#lib/errors/issue-links.ts';
+	import { buildJiraIssueUrl, buildNewIssueLink, createIssueOptions, markdownIssueText, plainIssueText, type CreateIssueOption } from '#lib/errors/issue-links.ts';
+	import { issueKey } from '#lib/error-issues-api.ts';
 	import type { ExceptionGroup } from '#lib/errors-api.ts';
 	import * as m from '#lib/paraglide/messages.js';
 
@@ -41,6 +42,13 @@
 	const newIssue = $derived(buildNewIssueLink(draft, errors.sourceLinks));
 	// The prefilled Jira create page of the first affected service with a Jira tracker configured (ADR-0274).
 	const newJiraIssueUrl = $derived(buildJiraIssueUrl(draft, errors.issueTrackers));
+
+	// "Create issue" entries (ADR-0275): trackers with a write token stored, only while the group has no linked issue.
+	const createOptions = $derived(issueUrl ? [] : createIssueOptions(draft, errors.sourceLinks, errors.issueTrackers));
+	const creating = $derived(errors.creatingIssue.has(issueKey(group.exceptionType, group.exceptionMessage)));
+	const createLabel = (option: CreateIssueOption) =>
+		option.target === 'GitLab' ? m.errorIssue_createGitLabIssue() : option.target === 'Jira' ? m.errorIssue_createJiraIssue() : m.errorIssue_createGitHubIssue();
+	const createIssue = (option: CreateIssueOption) => errors.createIssue(group, option, option.target === 'Jira' ? plainIssueText(draft) : markdownIssueText(draft));
 
 	const DAY_MS = 24 * 60 * 60 * 1000;
 	const ignoreUntil = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
@@ -76,6 +84,9 @@
 		{#if newJiraIssueUrl}
 			<DropdownMenu.Item onclick={() => window.open(newJiraIssueUrl, '_blank', 'noopener,noreferrer')}>{m.errorIssue_newJiraIssue()}</DropdownMenu.Item>
 		{/if}
+		{#each createOptions as option (option.target)}
+			<DropdownMenu.Item disabled={creating} onclick={() => createIssue(option)}>{creating ? m.errorIssue_creating() : createLabel(option)}</DropdownMenu.Item>
+		{/each}
 		<DropdownMenu.Item onclick={() => (linkOpen = true)}>{issueUrl ? m.errorIssue_changeLink() : m.errorIssue_linkIssue()}</DropdownMenu.Item>
 		{#if issueUrl}
 			<DropdownMenu.Item onclick={() => errors.updateIssue(group, { issueUrl: '' })}>{m.errorIssue_removeLink()}</DropdownMenu.Item>

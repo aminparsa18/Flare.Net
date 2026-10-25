@@ -24,14 +24,10 @@ export interface NewIssueLink {
 	url: string;
 }
 
-/** The new-issue URL for the first affected service whose source link is a GitHub or GitLab repo, or null. */
-export function buildNewIssueLink(draft: IssueDraft, configs: readonly SourceLinkConfig[]): NewIssueLink | null {
-	const config = draft.services
-		.map((s) => configs.find((c) => c.serviceName === s && (c.provider === 'GitHub' || c.provider === 'GitLab')))
-		.find((c) => c);
-	if (!config) return null;
+const titleOf = (draft: IssueDraft): string => `${draft.exceptionType}${draft.exceptionMessage ? `: ${draft.exceptionMessage}` : ''}`.slice(0, 200);
 
-	const title = `${draft.exceptionType}${draft.exceptionMessage ? `: ${draft.exceptionMessage}` : ''}`.slice(0, 200);
+/** The issue's title and body as Markdown (GitHub, GitLab). Used by both the prefilled link and "Create issue". */
+export function markdownIssueText(draft: IssueDraft): { title: string; body: string } {
 	const body = [
 		`**Exception:** \`${draft.exceptionType}\``,
 		draft.exceptionMessage && `**Message:** ${draft.exceptionMessage}`,
@@ -42,7 +38,32 @@ export function buildNewIssueLink(draft: IssueDraft, configs: readonly SourceLin
 		.filter(Boolean)
 		.join('\n\n')
 		.slice(0, MAX_BODY);
+	return { title: titleOf(draft), body };
+}
 
+/** The issue's title and body as plain/wiki text (Jira has no Markdown); the Flare link stays bare for Jira to auto-link. */
+export function plainIssueText(draft: IssueDraft): { title: string; body: string } {
+	const body = [
+		`Exception: ${draft.exceptionType}`,
+		draft.exceptionMessage && `Message: ${draft.exceptionMessage}`,
+		`Services: ${draft.services.join(', ')}`,
+		`Occurrences: ${draft.occurrenceCount} (first ${draft.firstSeen}, last ${draft.lastSeen})`,
+		`Open in Flare: ${draft.flareUrl}`
+	]
+		.filter(Boolean)
+		.join('\n\n')
+		.slice(0, MAX_BODY);
+	return { title: titleOf(draft), body };
+}
+
+/** The new-issue URL for the first affected service whose source link is a GitHub or GitLab repo, or null. */
+export function buildNewIssueLink(draft: IssueDraft, configs: readonly SourceLinkConfig[]): NewIssueLink | null {
+	const config = draft.services
+		.map((s) => configs.find((c) => c.serviceName === s && (c.provider === 'GitHub' || c.provider === 'GitLab')))
+		.find((c) => c);
+	if (!config) return null;
+
+	const { title, body } = markdownIssueText(draft);
 	const repo = config.repoUrl.replace(/\/+$/, '').replace(/\.git$/, '');
 	const t = encodeURIComponent(title);
 	const b = encodeURIComponent(body);
@@ -60,8 +81,14 @@ export interface IssueTrackerConfig {
 	siteUrl: string;
 	/** Numeric project id (not the key). */
 	projectId: string;
-	/** Optional numeric issue type id; empty = Jira's default. */
+	/** Optional numeric issue type id; empty = Jira's default. Required to create issues from Flare (ADR-0275). */
 	issueTypeId: string;
+	/** Jira Cloud account email for "Create Jira issue"; empty = a Server/Data Center personal access token. */
+	accountEmail?: string;
+	/** Write-only: sent on save (omit = keep the stored token, '' = clear), never returned. */
+	apiToken?: string;
+	/** Response-only: whether an API token is stored. */
+	hasApiToken?: boolean;
 }
 
 /**
@@ -73,17 +100,7 @@ export function buildJiraIssueUrl(draft: IssueDraft, trackers: readonly IssueTra
 	const config = draft.services.map((s) => trackers.find((t) => t.serviceName === s && t.provider === 'Jira')).find((t) => t);
 	if (!config) return null;
 
-	const summary = `${draft.exceptionType}${draft.exceptionMessage ? `: ${draft.exceptionMessage}` : ''}`.slice(0, 200);
-	const description = [
-		`Exception: ${draft.exceptionType}`,
-		draft.exceptionMessage && `Message: ${draft.exceptionMessage}`,
-		`Services: ${draft.services.join(', ')}`,
-		`Occurrences: ${draft.occurrenceCount} (first ${draft.firstSeen}, last ${draft.lastSeen})`,
-		`Open in Flare: ${draft.flareUrl}`
-	]
-		.filter(Boolean)
-		.join('\n\n')
-		.slice(0, MAX_BODY);
+	const { title: summary, body: description } = plainIssueText(draft);
 
 	const params = [`pid=${encodeURIComponent(config.projectId)}`];
 	if (config.issueTypeId) params.push(`issuetype=${encodeURIComponent(config.issueTypeId)}`);
@@ -100,4 +117,30 @@ export function issueLinkLabel(url: string): string {
 	} catch {
 		return url;
 	}
+}
+
+/** One "Create <tracker> issue" menu entry: which tracker, and the service whose stored config (and write token) it uses. */
+export interface CreateIssueOption {
+	target: 'GitHub' | 'GitLab' | 'Jira';
+	serviceName: string;
+}
+
+/**
+ * The trackers a group's issue can be created in from Flare (ADR-0275): for each tracker, the first affected service with
+ * a write token stored (GitHub/GitLab: issue token on its source link; Jira: API token plus an issue type id on its tracker
+ * config). Empty when none is set up, which hides the menu entries.
+ */
+export function createIssueOptions(
+	draft: IssueDraft,
+	configs: readonly SourceLinkConfig[],
+	trackers: readonly IssueTrackerConfig[]
+): CreateIssueOption[] {
+	const options: CreateIssueOption[] = [];
+	for (const target of ['GitHub', 'GitLab'] as const) {
+		const service = draft.services.find((s) => configs.some((c) => c.serviceName === s && c.provider === target && c.hasIssueToken));
+		if (service) options.push({ target, serviceName: service });
+	}
+	const jira = draft.services.find((s) => trackers.some((t) => t.serviceName === s && t.provider === 'Jira' && t.hasApiToken && t.issueTypeId));
+	if (jira) options.push({ target: 'Jira', serviceName: jira });
+	return options;
 }
