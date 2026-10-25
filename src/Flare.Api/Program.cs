@@ -653,6 +653,7 @@ authenticatedRoutes.MapTempoEndpoints();
 authenticatedRoutes.MapLokiEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSourceLinkReadEndpoints();
+authenticatedRoutes.MapIssueTrackerReadEndpoints();
 authenticatedRoutes.MapSourceMapReadEndpoints();
 authenticatedRoutes.MapAiEndpoints();
 authenticatedRoutes.MapCheckInMonitorReadEndpoints();
@@ -771,6 +772,8 @@ adminRoutes.MapTelemetryExportAdminEndpoints();
 // Same reasoning for source-repo links - they change where every user's stack-trace links
 // point. Reading stays on authenticatedRoutes (ADR-0095).
 adminRoutes.MapSourceLinkWriteEndpoints();
+// Issue tracker config (ADR-0274) likewise changes where every user's "new issue" link points.
+adminRoutes.MapIssueTrackerWriteEndpoints();
 // Source-map upload/delete (ADR-0152): changes what every user sees on /errors, and is what CI calls.
 adminRoutes.MapSourceMapWriteEndpoints();
 // Projects (ADR-0123): admin-managed service boundaries + per-project member roles.

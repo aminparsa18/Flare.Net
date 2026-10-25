@@ -17,7 +17,9 @@ Changing status needs the Member or Admin role. Viewers see the status but not t
 
 Open the **⋯** menu and choose **Link issue…** to paste the URL of the issue that tracks the group (GitHub, GitLab, Jira or anything with an http(s) address). The status cell then shows a link such as "Issue #42"; **Remove issue link** clears it.
 
-If the group's service has a GitHub repository configured for [stack-trace source links](link-exceptions-to-source-code.md), the menu also offers **New GitHub issue**. It opens GitHub's new-issue page with the title and a short description (exception, services, counts and a link back to Flare) already filled in. Flare doesn't call GitHub itself, so you file the issue as yourself and then paste its URL into **Link issue…**.
+If the group's service has a GitHub or GitLab repository configured for [stack-trace source links](link-exceptions-to-source-code.md), the menu also offers **New GitHub issue** or **New GitLab issue**. It opens the host's new-issue page with the title and a short description (exception, services, counts and a link back to Flare) already filled in. Flare doesn't call the host itself, so you file the issue as yourself and then paste its URL into **Link issue…**.
+
+For Jira, an admin configures the service once: open an occurrence of one of its errors and use the ticket icon next to the source-link icon to enter the Jira site URL (for example `https://acme.atlassian.net`), the numeric **project id** and, optionally, the numeric **issue type id**. The project id is the number in the project's settings URL, or the `id` returned by `/rest/api/2/project/<KEY>` on your site. The menu then offers **New Jira issue**, which opens Jira's create page with the summary and description filled in. As with GitHub and GitLab, Flare doesn't call Jira, so you file the issue as yourself and paste its URL into **Link issue…**.
 
 ## Assign owners automatically
 

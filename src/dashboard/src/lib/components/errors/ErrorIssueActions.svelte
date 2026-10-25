@@ -9,7 +9,7 @@
 	import { authContext } from '#lib/auth/context.ts';
 	import LinkIssueDialog from './LinkIssueDialog.svelte';
 	import MergeGroupDialog from './MergeGroupDialog.svelte';
-	import { buildGitHubIssueUrl } from '#lib/errors/issue-links.ts';
+	import { buildJiraIssueUrl, buildNewIssueLink } from '#lib/errors/issue-links.ts';
 	import type { ExceptionGroup } from '#lib/errors-api.ts';
 	import * as m from '#lib/paraglide/messages.js';
 
@@ -27,21 +27,20 @@
 	let linkOpen = $state(false);
 	let mergeOpen = $state(false);
 
-	// The prefilled new-issue page of the first affected service whose source repo is on GitHub (ADR-0195).
-	const newGitHubIssueUrl = $derived(
-		buildGitHubIssueUrl(
-			{
-				exceptionType: group.exceptionType,
-				exceptionMessage: group.exceptionMessage,
-				services: group.affectedServices,
-				occurrenceCount: Number(group.occurrenceCount),
-				firstSeen: group.firstSeen,
-				lastSeen: group.lastSeen,
-				flareUrl: new URL(errors.groupHref(group) ?? '/errors', window.location.origin).toString()
-			},
-			errors.sourceLinks
-		)
-	);
+	// What both prefilled new-issue links carry about the group (ADR-0195, ADR-0274).
+	const draft = $derived({
+		exceptionType: group.exceptionType,
+		exceptionMessage: group.exceptionMessage,
+		services: group.affectedServices,
+		occurrenceCount: Number(group.occurrenceCount),
+		firstSeen: group.firstSeen,
+		lastSeen: group.lastSeen,
+		flareUrl: new URL(errors.groupHref(group) ?? '/errors', window.location.origin).toString()
+	});
+	// The prefilled new-issue page of the first affected service whose source repo is on GitHub or GitLab (ADR-0195).
+	const newIssue = $derived(buildNewIssueLink(draft, errors.sourceLinks));
+	// The prefilled Jira create page of the first affected service with a Jira tracker configured (ADR-0274).
+	const newJiraIssueUrl = $derived(buildJiraIssueUrl(draft, errors.issueTrackers));
 
 	const DAY_MS = 24 * 60 * 60 * 1000;
 	const ignoreUntil = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
@@ -69,8 +68,13 @@
 		<DropdownMenu.Item onclick={() => errors.updateIssue(group, { status: 'Ignored', ignoreUntil: ignoreUntil(7) })}>{m.errorIssue_ignore7d()}</DropdownMenu.Item>
 		<DropdownMenu.Item onclick={() => errors.updateIssue(group, { status: 'Ignored', ignoreUntilOccurrences: 100 })}>{m.errorIssue_ignore100()}</DropdownMenu.Item>
 		<DropdownMenu.Separator />
-		{#if newGitHubIssueUrl}
-			<DropdownMenu.Item onclick={() => window.open(newGitHubIssueUrl, '_blank', 'noopener,noreferrer')}>{m.errorIssue_newGitHubIssue()}</DropdownMenu.Item>
+		{#if newIssue}
+			<DropdownMenu.Item onclick={() => window.open(newIssue.url, '_blank', 'noopener,noreferrer')}>
+				{newIssue.provider === 'GitLab' ? m.errorIssue_newGitLabIssue() : m.errorIssue_newGitHubIssue()}
+			</DropdownMenu.Item>
+		{/if}
+		{#if newJiraIssueUrl}
+			<DropdownMenu.Item onclick={() => window.open(newJiraIssueUrl, '_blank', 'noopener,noreferrer')}>{m.errorIssue_newJiraIssue()}</DropdownMenu.Item>
 		{/if}
 		<DropdownMenu.Item onclick={() => (linkOpen = true)}>{issueUrl ? m.errorIssue_changeLink() : m.errorIssue_linkIssue()}</DropdownMenu.Item>
 		{#if issueUrl}
