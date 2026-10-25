@@ -16,6 +16,7 @@
 	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import StackTraceViewer from '#lib/components/logs/StackTraceViewer.svelte';
 	import SourceLinkPopover from './SourceLinkPopover.svelte';
+	import IssueTrackerPopover from './IssueTrackerPopover.svelte';
 	import SourceSnippet from './SourceSnippet.svelte';
 	import ExplainException from './ExplainException.svelte';
 	import { getAiEnabled } from '#lib/ai-api.ts';
@@ -23,6 +24,8 @@
 	import { authContext } from '#lib/auth/context.ts';
 	import { createFrameLinker, firstFrameTarget, type SourceLinkConfig } from '#lib/errors/source-links.ts';
 	import { deleteSourceLink, listSourceLinks, setSourceLink } from '#lib/source-links-api.ts';
+	import { deleteIssueTracker, listIssueTrackers, setIssueTracker } from '#lib/issue-trackers-api.ts';
+	import type { IssueTrackerConfig } from '#lib/errors/issue-links.ts';
 	import * as m from '#lib/paraglide/messages.js';
 	import { formatTimestamp } from '#lib/time/format.ts';
 
@@ -67,6 +70,33 @@
 	async function removeSourceLink(serviceName: string): Promise<void> {
 		await deleteSourceLink(serviceName);
 		sourceLinks = sourceLinks.filter((l) => l.serviceName !== serviceName);
+	}
+
+	// Per-service Jira config (ADR-0274) behind "New Jira issue"; same load-on-open and Admin-only rules.
+	let issueTrackers = $state<IssueTrackerConfig[]>([]);
+	let issueTrackersLoaded = false;
+
+	$effect(() => {
+		if (!open || issueTrackersLoaded) return;
+		issueTrackersLoaded = true;
+		listIssueTrackers()
+			.then((trackers) => (issueTrackers = trackers))
+			.catch(() => (issueTrackersLoaded = false));
+	});
+
+	const trackerFor = (serviceName: string): IssueTrackerConfig | undefined => issueTrackers.find((t) => t.serviceName === serviceName);
+
+	async function saveIssueTracker(config: IssueTrackerConfig): Promise<void> {
+		await setIssueTracker(config);
+		issueTrackers = await listIssueTrackers();
+		// The row menu reads the explorer's copy, so refresh it too.
+		errors.issueTrackers = issueTrackers;
+	}
+
+	async function removeIssueTracker(serviceName: string): Promise<void> {
+		await deleteIssueTracker(serviceName);
+		issueTrackers = issueTrackers.filter((t) => t.serviceName !== serviceName);
+		errors.issueTrackers = issueTrackers;
 	}
 
 	function handleOpenChange(next: boolean): void {
@@ -176,6 +206,12 @@
 													config={configFor(occurrence.serviceName)}
 													onSave={saveSourceLink}
 													onRemove={() => removeSourceLink(occurrence.serviceName)}
+												/>
+												<IssueTrackerPopover
+													serviceName={occurrence.serviceName}
+													config={trackerFor(occurrence.serviceName)}
+													onSave={saveIssueTracker}
+													onRemove={() => removeIssueTracker(occurrence.serviceName)}
 												/>
 											{/if}
 										</div>

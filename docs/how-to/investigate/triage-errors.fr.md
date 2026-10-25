@@ -17,7 +17,9 @@ Changer le statut exige le rôle Member ou Admin. Les Viewers voient le statut m
 
 Ouvrez le menu **⋯** et choisissez **Lier un ticket…** pour coller l'URL du ticket qui suit le groupe (GitHub, GitLab, Jira ou toute adresse http(s)). La cellule de statut affiche alors un lien comme « Ticket #42 » ; **Retirer le lien du ticket** l'efface.
 
-Si le service du groupe a un dépôt GitHub configuré pour les [liens source des traces de pile](link-exceptions-to-source-code.md), le menu propose aussi **Nouveau ticket GitHub**. Il ouvre la page de création de GitHub avec le titre et une courte description (exception, services, compteurs et un lien vers Flare) déjà remplis. Flare n'appelle pas GitHub lui-même : vous créez le ticket sous votre identité, puis collez son URL dans **Lier un ticket…**.
+Si le service du groupe a un dépôt GitHub ou GitLab configuré pour les [liens source des traces de pile](link-exceptions-to-source-code.md), le menu propose aussi **Nouveau ticket GitHub** ou **Nouveau ticket GitLab**. Il ouvre la page de création de ticket de l'hébergeur avec le titre et une courte description (exception, services, compteurs et un lien vers Flare) déjà remplis. Flare n'appelle pas l'hébergeur lui-même : vous créez le ticket sous votre identité, puis collez son URL dans **Lier un ticket…**.
+
+Pour Jira, un administrateur configure le service une fois : ouvrez une occurrence d'une de ses erreurs et, avec l'icône de ticket à côté de l'icône du lien source, saisissez l'URL du site Jira (par exemple `https://acme.atlassian.net`), l'**ID de projet** numérique et, au besoin, l'**ID de type de ticket** numérique. L'ID de projet est le nombre de l'URL des paramètres du projet, ou le champ `id` renvoyé par `/rest/api/2/project/<KEY>` sur votre site. Le menu propose alors **Nouveau ticket Jira**, qui ouvre la page de création de Jira avec le résumé et la description déjà remplis. Comme pour GitHub et GitLab, Flare n'appelle pas Jira : vous créez le ticket sous votre identité, puis collez son URL dans **Lier un ticket…**.
 
 ## Attribuer des responsables automatiquement
 

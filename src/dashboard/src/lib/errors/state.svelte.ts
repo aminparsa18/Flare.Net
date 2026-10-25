@@ -15,6 +15,8 @@ import {
 import { listOwnershipRules, replaceOwnershipRules } from '#lib/error-ownership-api.ts';
 import { getErrorGrouping, replaceErrorGrouping, type ErrorGroupingDocument } from '#lib/error-grouping-api.ts';
 import { listSourceLinks } from '#lib/source-links-api.ts';
+import { listIssueTrackers } from '#lib/issue-trackers-api.ts';
+import type { IssueTrackerConfig } from '#lib/errors/issue-links.ts';
 import { ownerFromRules, type OwnershipRule } from '#lib/errors/ownership.ts';
 import type { SourceLinkConfig } from '#lib/errors/source-links.ts';
 import { issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '#lib/error-issues-api.ts';
@@ -97,6 +99,9 @@ export class ErrorsExplorerState {
 	/** Per-service source repos (ADR-0095), read to offer "new GitHub issue" for a group; best-effort. */
 	sourceLinks = $state.raw<SourceLinkConfig[]>([]);
 
+	/** Per-service issue trackers (ADR-0274), read to offer "new Jira issue" for a group; best-effort. */
+	issueTrackers = $state.raw<IssueTrackerConfig[]>([]);
+
 	/** The window `groups` was fetched over - pinned per search (a relative preset's "now" moves on), so a row's new-tab link (`groupHref`) reopens exactly what the table shows. */
 	searchedRange = $state.raw<ResolvedTimeRange | null>(null);
 
@@ -157,16 +162,18 @@ export class ErrorsExplorerState {
 			const range = this.currentRange();
 			// Triage state is best-effort: a failed read leaves every group looking Open
 			// rather than failing the whole page.
-			const [res, issues, rules, links, grouping] = await Promise.all([
+			const [res, issues, rules, links, trackers, grouping] = await Promise.all([
 				getExceptionGroups({ filter: this.buildFilter(range), topN }, abort.signal),
 				listErrorIssues(abort.signal).catch(() => null),
 				listOwnershipRules(abort.signal).catch(() => null),
 				listSourceLinks(abort.signal).catch(() => null),
+				listIssueTrackers(abort.signal).catch(() => null),
 				getErrorGrouping(abort.signal).catch(() => null)
 			]);
 			if (abort.signal.aborted) return;
 			if (rules) this.ownershipRules = rules;
 			if (links) this.sourceLinks = links;
+			if (trackers) this.issueTrackers = trackers;
 			if (grouping) this.grouping = grouping;
 			if (issues) this.issues = new Map(issues.map((i) => [issueKey(i.exceptionType, i.exceptionMessage), i]));
 			this.groups = res.groups;
