@@ -15,6 +15,7 @@ export class ExceptionGroup {
 	lastSeen: Date;
 	affectedServices: (string | null)[] | null;
 	samplePaths: (string | null)[] | null;
+	owner: string | null;
 
 	constructor() {
 		this.exceptionType = null;
@@ -24,6 +25,7 @@ export class ExceptionGroup {
 		this.lastSeen = new Date(0);
 		this.affectedServices = null;
 		this.samplePaths = null;
+		this.owner = null;
 	}
 
 	static serialize(value: ExceptionGroup | null): Uint8Array {
@@ -38,7 +40,7 @@ export class ExceptionGroup {
 			return;
 		}
 
-		writer.writeObjectHeader(7);
+		writer.writeObjectHeader(8);
 		writer.writeString(value.exceptionType);
 		writer.writeString(value.exceptionMessage);
 		writer.writeUint64(value.occurrenceCount);
@@ -46,6 +48,7 @@ export class ExceptionGroup {
 		writeDateTimeOffset(writer, value.lastSeen);
 		writer.writeArray(value.affectedServices, (writer, x) => writer.writeString(x));
 		writer.writeArray(value.samplePaths, (writer, x) => writer.writeString(x));
+		writer.writeString(value.owner);
 	}
 
 	static serializeArray(value: (ExceptionGroup | null)[] | null): Uint8Array {
@@ -69,7 +72,7 @@ export class ExceptionGroup {
 		}
 
 		const value = new ExceptionGroup();
-		if (count == 7) {
+		if (count == 8) {
 			value.exceptionType = reader.readString();
 			value.exceptionMessage = reader.readString();
 			value.occurrenceCount = reader.readUint64();
@@ -77,7 +80,8 @@ export class ExceptionGroup {
 			value.lastSeen = readDateTimeOffset(reader);
 			value.affectedServices = reader.readArray((reader) => reader.readString());
 			value.samplePaths = reader.readArray((reader) => reader.readString());
-		} else if (count > 7) {
+			value.owner = reader.readString();
+		} else if (count > 8) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -95,6 +99,8 @@ export class ExceptionGroup {
 			if (count == 6) return value;
 			value.samplePaths = reader.readArray((reader) => reader.readString());
 			if (count == 7) return value;
+			value.owner = reader.readString();
+			if (count == 8) return value;
 		}
 		return value;
 	}
