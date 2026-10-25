@@ -43,6 +43,8 @@ public sealed class IssueCreationService(
 
     public async Task<IssueCreateOutcome> CreateAsync(CreateTrackerIssueRequest request, string changedBy, CancellationToken cancellationToken)
     {
+        // The two optional strings arrive as null when an API client omits them.
+        request = request with { ExceptionMessage = request.ExceptionMessage ?? "", Body = request.Body ?? "" };
         var groupId = ErrorIssueFingerprint.Compute(request.ExceptionType, request.ExceptionMessage);
         if (!_inFlight.TryAdd(groupId, 0))
         {

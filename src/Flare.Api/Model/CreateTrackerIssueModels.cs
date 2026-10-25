@@ -50,7 +50,8 @@ public sealed record CreateTrackerIssueRequest
             return $"title is required and at most {MaxTitleLength} characters.";
         }
 
-        if (Body.Length > MaxBodyLength)
+        // Omitted by an API client it arrives as null despite the default.
+        if ((Body?.Length ?? 0) > MaxBodyLength)
         {
             return $"body must be at most {MaxBodyLength} characters.";
         }
