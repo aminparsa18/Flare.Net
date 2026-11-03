@@ -145,3 +145,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## License
 
 [MIT](LICENSE)
+
+## Support
+
+If Flare is useful to you, you can support its development with a donation via [PayPal](https://www.paypal.com/paypalme/aminparsa18).

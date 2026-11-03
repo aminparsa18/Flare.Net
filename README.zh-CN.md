@@ -142,3 +142,7 @@ Flare正在积极开发中，目前提供：
 ## 许可证
 
 [MIT](LICENSE)
+
+## 支持项目
+
+如果 Flare 对你有帮助，欢迎通过 [PayPal](https://www.paypal.com/paypalme/aminparsa18) 捐赠，支持它的开发。

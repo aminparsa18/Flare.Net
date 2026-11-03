@@ -13,6 +13,10 @@
       "headers": {
         "x-api-key": "${API_KEY_21ST}"
       }
+    },
+    "agensi": {
+      "type": "http",
+      "url": "https://mcp.agensi.io/mcp/auth"
     }
   }
 }
