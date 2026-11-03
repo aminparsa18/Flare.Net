@@ -53,6 +53,8 @@ export function buildDashboardUrlSearch(
 	defaultRange: TimeRangePreset | null = null
 ): string {
 	const next = new URLSearchParams(current.toString());
+	// Snapshot the keys: deleting from URLSearchParams while iterating its live iterator skips entries.
+	// oxlint-disable-next-line unicorn/no-useless-spread
 	for (const key of [...next.keys()]) {
 		if (key === RANGE_PARAM || key.startsWith(VAR_PREFIX)) next.delete(key);
 	}

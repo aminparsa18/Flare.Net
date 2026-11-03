@@ -1,0 +1,14 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc"],
+	"categories": { "correctness": "error" },
+	"ignorePatterns": ["src/lib/paraglide/**", "src/lib/generated/**", "build/**", "build-runtime/**", ".svelte-kit/**"],
+	"rules": {
+		// `({ services: _, ...rest }) => rest` is how filters drop one key; `_` is the deliberate throwaway.
+		"no-unused-vars": ["error", { "varsIgnorePattern": "^_", "argsIgnorePattern": "^_", "ignoreRestSiblings": true }],
+		// `new Array<T>(n).fill(x)` is the typed-array-of-length idiom here; the single-argument ambiguity the rule guards against doesn't arise.
+		"unicorn/no-new-array": "off",
+		// markdown.ts uses NUL as a placeholder marker on purpose.
+		"no-control-regex": "off"
+	}
+}

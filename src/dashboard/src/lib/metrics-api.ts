@@ -9,7 +9,7 @@
 // members) or `MetricSeriesPoint` (`DateTimeOffset`) is hand-written (`#lib/memorypack/`).
 // `type` converts through `#lib/memorypack/enums.ts`'s `metricPointTypeToString`/`FromString`.
 
-import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
+import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import {
 	metricPointTypeFromString,
 	metricPointTypeToString,
