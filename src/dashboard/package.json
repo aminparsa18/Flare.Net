@@ -17,6 +17,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"precheck": "npm run codegen",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"lint": "oxlint --deny-warnings",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"dependencies": {
@@ -45,6 +46,7 @@
 		"@tailwindcss/vite": "^4.3.0",
 		"@types/node": "^22.20.5",
 		"bits-ui": "^2.20.2",
+		"oxlint": "^1.90.0",
 		"shadcn-svelte": "^1.7.1",
 		"svelte-check": "^4.7.7",
 		"tailwindcss": "^4.3.0",

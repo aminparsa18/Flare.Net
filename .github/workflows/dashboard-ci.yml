@@ -1,0 +1,45 @@
+# Lints (oxlint) and type-checks (svelte-check) the SvelteKit dashboard (src/dashboard).
+# It has its own package.json and is outside Flare.slnx, so ci.yml never touches it.
+#
+# .NET is needed because `npm run check` runs `precheck` -> `codegen`, which builds
+# Flare.Api to emit the MemoryPack TypeScript output the dashboard imports.
+
+name: Dashboard CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/dashboard/**'
+      - 'src/Flare.Api/**'
+      - '.github/workflows/dashboard-ci.yml'
+  pull_request:
+    paths:
+      - 'src/dashboard/**'
+      - 'src/Flare.Api/**'
+      - '.github/workflows/dashboard-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: dashboard-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check

@@ -58,6 +58,7 @@ npm install
 npm run dev -- --open    # requires Flare.Api running first; PUBLIC_API_URL in .env (copy .env.example)
 npm run build && npm run preview
 npm run check             # svelte-check type checking
+npm run lint              # oxlint (.oxlintrc.json), --deny-warnings; also runs in CI (.github/workflows/dashboard-ci.yml)
 ```
 Uses `@sveltejs/adapter-node` (not `adapter-static`) — required because `PUBLIC_API_URL` is a runtime (non-static) variable declared in `src/env.ts` and read via `$app/env/public`, not baked in at build time.
 

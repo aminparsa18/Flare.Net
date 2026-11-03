@@ -214,10 +214,6 @@ interface MetricRef {
 	type: MetricPointType;
 }
 
-function isHistogram(type: MetricPointType): boolean {
-	return type === 'Histogram' || type === 'ExponentialHistogram';
-}
-
 /** What one Flare metric query becomes in PromQL, plus how it should be drawn. */
 interface PromSeriesQuery {
 	/** One or more targets - a histogram's percentiles are three. */

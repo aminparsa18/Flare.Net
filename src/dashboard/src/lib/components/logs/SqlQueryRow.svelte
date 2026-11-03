@@ -326,7 +326,7 @@
 	const BASELINE_Y = CHART_HEIGHT - 2;
 	const PEAK_Y = 3;
 
-	const peakBucketCount = $derived(Math.max(0, ...[...bucketTotals.values()]));
+	const peakBucketCount = $derived(Math.max(0, ...bucketTotals.values()));
 	const maxBucketCount = $derived(Math.max(1, peakBucketCount));
 	const barWidth = $derived(CHART_WIDTH / Math.max(1, bucketStarts.length));
 
