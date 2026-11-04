@@ -1,11 +1,10 @@
 using Flare.Api.Model;
 
-namespace Flare.Benchmarks.TestData;
+namespace Flare.Benchmarks.Fixtures.Synthetic;
 
 /// <summary>
 /// Deterministic, representative <see cref="LogEventDto"/>/<see cref="LogSearchResponse"/>
-/// generators for the API-response serialization benchmarks
-/// (<see cref="Benchmarks.ApiResponseSerializationBenchmarks"/>). Same attribute-bag
+/// generators for the <c>logs-page.synthetic</c> scenario (<see cref="Scenarios"/>). Same attribute-bag
 /// modeling as <see cref="LogEventFixtures"/> (they deliberately don't share a builder -
 /// <see cref="Flare.Ingest.Model.LogEvent"/> and <see cref="LogEventDto"/> are independent
 /// types on purpose, see this repo's CLAUDE.md), re-shaped for <see cref="LogEventDto"/>'s
@@ -27,7 +26,7 @@ public static class LogEventDtoFixtures
 
         return new LogEventDto
         {
-            EventId = Guid.NewGuid(),
+            EventId = SeededGuid(random),
             Timestamp = now,
             ObservedTimestamp = now.AddMilliseconds(random.Next(0, 50)),
             IngestedAt = now.AddMilliseconds(random.Next(50, 150)),
@@ -68,7 +67,7 @@ public static class LogEventDtoFixtures
     {
         ["service.name"] = serviceName,
         ["service.version"] = $"{random.Next(1, 6)}.{random.Next(0, 20)}.{random.Next(0, 20)}",
-        ["service.instance.id"] = Guid.NewGuid().ToString(),
+        ["service.instance.id"] = SeededGuid(random).ToString(),
         ["deployment.environment"] = random.Next(0, 2) == 0 ? "production" : "staging",
         ["cloud.region"] = "us-east-1",
         ["host.name"] = $"ip-10-0-{random.Next(0, 255)}-{random.Next(0, 255)}",
@@ -79,11 +78,19 @@ public static class LogEventDtoFixtures
         ["http.request.method"] = Pick(random, HttpMethods),
         ["http.route"] = Pick(random, HttpRoutes),
         ["http.response.status_code"] = (200 + random.Next(0, 5) * 100 + random.Next(0, 5)).ToString(),
-        ["user.id"] = Guid.NewGuid().ToString(),
-        ["request.id"] = Guid.NewGuid().ToString(),
+        ["user.id"] = SeededGuid(random).ToString(),
+        ["request.id"] = SeededGuid(random).ToString(),
     };
 
     private static string Pick(Random random, string[] values) => values[random.Next(values.Length)];
+
+    /// <summary>A GUID drawn from <paramref name="random"/>, so every run produces byte-identical fixtures (and compression ratios).</summary>
+    internal static Guid SeededGuid(Random random)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        random.NextBytes(bytes);
+        return new Guid(bytes);
+    }
 
     private static string RandomHex(Random random, int length)
     {

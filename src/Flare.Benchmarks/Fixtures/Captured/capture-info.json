@@ -1,0 +1,35 @@
+{
+ "capturedAt": "2026-11-04T09:14:12.528Z",
+ "api": "http://localhost:8080",
+ "dataSource": "examples/ExampleApp.Seeder scenarios: overview structure cardinality funnel external messaging",
+ "requests": {
+  "logs": {
+   "filter": {
+    "from": "2026-11-04T08:14:12.528Z",
+    "to": "2026-11-04T09:14:12.528Z"
+   },
+   "pageSize": 200
+  },
+  "roots": {
+   "filter": {
+    "from": "2026-11-04T08:14:12.528Z",
+    "to": "2026-11-04T09:14:12.528Z",
+    "rootSpansOnly": true
+   },
+   "pageSize": 200,
+   "sortBy": "SpanCount"
+  },
+  "metrics": {
+   "metricName": "http.server.request.duration",
+   "type": "Histogram",
+   "filter": {
+    "from": "2026-11-04T08:14:12.528Z",
+    "to": "2026-11-04T09:14:12.528Z"
+   },
+   "bucketWidthSeconds": 30,
+   "groupByAttributeKey": "url.path",
+   "topN": 10
+  },
+  "trace": "GET /api/traces/fff7613f2e1b9d105cca74db6bcf81c3"
+ }
+}

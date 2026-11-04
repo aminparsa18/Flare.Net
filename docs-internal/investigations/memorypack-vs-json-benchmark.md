@@ -1,5 +1,14 @@
 # Investigation: Flare-specific JSON-vs-MemoryPack benchmark
 
+> **Findings 1, 2 and 4 are superseded** by
+> [serialization-end-to-end-benchmark.md](serialization-end-to-end-benchmark.md) (2026-11-04).
+> That investigation re-measures with real captured payloads, uses the JSON that System.Text.Json
+> actually sends (this run's TypeScript JSON side used `JSON.stringify` of TypeScript objects),
+> decodes and maps both formats into the same UI types, and adds compression and an end-to-end
+> model. The benchmark code described below has been reorganized; see
+> `src/Flare.Benchmarks/README.md`. Findings 3 and 5 (`DateTimeOffset` support and wire layout)
+> still stand.
+
 Date: 2026-09-05
 Related: [SerializerBenchmark](https://github.com/aminparsa18/SerializerBenchmark)
 (external repo - generic payload-shape numbers that originally motivated adopting

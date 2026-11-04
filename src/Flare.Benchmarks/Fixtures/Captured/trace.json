@@ -1,0 +1,147 @@
+{
+ "traceId": "fff7613f2e1b9d105cca74db6bcf81c3",
+ "spans": [
+  {
+   "traceId": "fff7613f2e1b9d105cca74db6bcf81c3",
+   "spanId": "1cf53e47b5b40072",
+   "parentSpanId": "",
+   "traceState": "",
+   "name": "GET /cart",
+   "kind": 2,
+   "startTime": "2026-11-04T08:43:43.369+00:00",
+   "endTime": "2026-11-04T08:43:43.466+00:00",
+   "ingestedAt": "2026-11-04T09:12:11.361752+00:00",
+   "durationNano": 97000000,
+   "statusCode": "STATUS_CODE_OK",
+   "statusMessage": "",
+   "serviceName": "storefront",
+   "resourceSchemaUrl": "",
+   "resourceAttributes": {
+    "service.name": "storefront",
+    "flare.seed": "funnel"
+   },
+   "scopeSchemaUrl": "",
+   "scopeName": "Microsoft.AspNetCore",
+   "scopeVersion": "",
+   "scopeAttributes": {},
+   "spanAttributes": {
+    "http.route": "/cart",
+    "http.response.status_code": "200"
+   },
+   "events": [],
+   "spanCount": null,
+   "hasError": null,
+   "links": [],
+   "droppedAttributesCount": 0,
+   "droppedEventsCount": 0,
+   "droppedLinksCount": 0
+  },
+  {
+   "traceId": "fff7613f2e1b9d105cca74db6bcf81c3",
+   "spanId": "85fafc5514c39c10",
+   "parentSpanId": "1cf53e47b5b40072",
+   "traceState": "",
+   "name": "POST /checkout",
+   "kind": 2,
+   "startTime": "2026-11-04T08:43:43.4808476+00:00",
+   "endTime": "2026-11-04T08:43:43.6958476+00:00",
+   "ingestedAt": "2026-11-04T09:12:11.8621308+00:00",
+   "durationNano": 215000000,
+   "statusCode": "STATUS_CODE_OK",
+   "statusMessage": "",
+   "serviceName": "checkout-api",
+   "resourceSchemaUrl": "",
+   "resourceAttributes": {
+    "service.name": "checkout-api",
+    "flare.seed": "funnel"
+   },
+   "scopeSchemaUrl": "",
+   "scopeName": "Microsoft.AspNetCore",
+   "scopeVersion": "",
+   "scopeAttributes": {},
+   "spanAttributes": {
+    "http.route": "/checkout",
+    "http.response.status_code": "200"
+   },
+   "events": [],
+   "spanCount": null,
+   "hasError": null,
+   "links": [],
+   "droppedAttributesCount": 0,
+   "droppedEventsCount": 0,
+   "droppedLinksCount": 0
+  },
+  {
+   "traceId": "fff7613f2e1b9d105cca74db6bcf81c3",
+   "spanId": "a2484b59881138c6",
+   "parentSpanId": "85fafc5514c39c10",
+   "traceState": "",
+   "name": "POST /payments/charge",
+   "kind": 2,
+   "startTime": "2026-11-04T08:43:43.6855087+00:00",
+   "endTime": "2026-11-04T08:43:43.8715087+00:00",
+   "ingestedAt": "2026-11-04T09:12:12.1812066+00:00",
+   "durationNano": 186000000,
+   "statusCode": "STATUS_CODE_OK",
+   "statusMessage": "",
+   "serviceName": "payment-service",
+   "resourceSchemaUrl": "",
+   "resourceAttributes": {
+    "service.name": "payment-service",
+    "flare.seed": "funnel"
+   },
+   "scopeSchemaUrl": "",
+   "scopeName": "Microsoft.AspNetCore",
+   "scopeVersion": "",
+   "scopeAttributes": {},
+   "spanAttributes": {
+    "http.route": "/payments/charge",
+    "http.response.status_code": "200"
+   },
+   "events": [],
+   "spanCount": null,
+   "hasError": null,
+   "links": [],
+   "droppedAttributesCount": 0,
+   "droppedEventsCount": 0,
+   "droppedLinksCount": 0
+  },
+  {
+   "traceId": "fff7613f2e1b9d105cca74db6bcf81c3",
+   "spanId": "cdbd0493c757d956",
+   "parentSpanId": "a2484b59881138c6",
+   "traceState": "",
+   "name": "POST /orders/confirm",
+   "kind": 2,
+   "startTime": "2026-11-04T08:43:44.0302624+00:00",
+   "endTime": "2026-11-04T08:43:44.2502624+00:00",
+   "ingestedAt": "2026-11-04T09:12:12.456435+00:00",
+   "durationNano": 220000000,
+   "statusCode": "STATUS_CODE_OK",
+   "statusMessage": "",
+   "serviceName": "order-service",
+   "resourceSchemaUrl": "",
+   "resourceAttributes": {
+    "service.name": "order-service",
+    "flare.seed": "funnel"
+   },
+   "scopeSchemaUrl": "",
+   "scopeName": "Microsoft.AspNetCore",
+   "scopeVersion": "",
+   "scopeAttributes": {},
+   "spanAttributes": {
+    "http.route": "/orders/confirm",
+    "http.response.status_code": "200"
+   },
+   "events": [],
+   "spanCount": null,
+   "hasError": null,
+   "links": [],
+   "droppedAttributesCount": 0,
+   "droppedEventsCount": 0,
+   "droppedLinksCount": 0
+  }
+ ],
+ "truncated": false,
+ "partialSpanIds": []
+}

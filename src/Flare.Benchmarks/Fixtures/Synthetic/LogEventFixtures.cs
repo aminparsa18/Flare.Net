@@ -1,16 +1,16 @@
 using Flare.Ingest.Model;
 
-namespace Flare.Benchmarks.TestData;
+namespace Flare.Benchmarks.Fixtures.Synthetic;
 
 /// <summary>
 /// Deterministic, representative <see cref="LogEvent"/> generators for the Redis-buffer
-/// serialization benchmarks (<see cref="Benchmarks.RedisBufferSerializationBenchmarks"/>).
+/// serialization benchmarks (<see cref="Component.RedisBufferCodecBenchmarks"/>).
 /// </summary>
 /// <remarks>
 /// Attribute keys/cardinality are modeled on common OpenTelemetry semantic-convention
 /// resource/log attributes (<c>service.*</c>, <c>host.*</c>, <c>k8s.*</c>, <c>http.*</c>) -
 /// not lifted from a captured production payload (none was available), so treat the
-/// absolute numbers as directionally representative rather than exact. <see cref="Seeded"/>
+/// absolute numbers as directionally representative rather than exact. A seeded <see cref="Random"/>
 /// keeps every run/iteration byte-identical so the two codecs are compared on the exact
 /// same input.
 /// </remarks>
@@ -39,24 +39,6 @@ public static class LogEventFixtures
     /// </summary>
     public static LogEvent AttributeHeavy(Random random) => Build(random, resourceAttributeCount: 24, logAttributeCount: 20, longValues: true);
 
-    /// <summary>
-    /// <paramref name="count"/> independent <see cref="Typical"/> events. Not how
-    /// <see cref="Pipeline.RedisEventPayload"/> is actually invoked in production (one
-    /// call per Redis Stream entry, one entry per event) - this exists purely to
-    /// characterize how each codec's cost scales with payload size, per the roadmap
-    /// item's explicit "batch-sized payloads" ask.
-    /// </summary>
-    public static List<LogEvent> Batch(Random random, int count)
-    {
-        var events = new List<LogEvent>(count);
-        for (var i = 0; i < count; i++)
-        {
-            events.Add(Typical(random));
-        }
-
-        return events;
-    }
-
     private static LogEvent Build(Random random, int resourceAttributeCount, int logAttributeCount, bool longValues)
     {
         var now = new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero).AddSeconds(random.Next(0, 86_400));
@@ -64,14 +46,14 @@ public static class LogEventFixtures
 
         return new LogEvent
         {
-            EventId = Guid.NewGuid(),
+            EventId = LogEventDtoFixtures.SeededGuid(random),
             Timestamp = now,
             ObservedTimestamp = now.AddMilliseconds(random.Next(0, 50)),
             IngestedAt = now.AddMilliseconds(random.Next(50, 150)),
             SeverityNumber = random.Next(1, 25),
             SeverityText = Pick(random, SeverityTexts),
             Body = longValues
-                ? $"Request to {Pick(random, HttpRoutes)} failed after {random.Next(1, 30)} retries: connection reset by peer while calling downstream dependency; correlation-id={Guid.NewGuid()}"
+                ? $"Request to {Pick(random, HttpRoutes)} failed after {random.Next(1, 30)} retries: connection reset by peer while calling downstream dependency; correlation-id={LogEventDtoFixtures.SeededGuid(random)}"
                 : $"Handled {Pick(random, HttpMethods)} {Pick(random, HttpRoutes)} in {random.Next(1, 500)}ms",
             TraceId = RandomHex(random, 32),
             SpanId = RandomHex(random, 16),
@@ -94,7 +76,7 @@ public static class LogEventFixtures
         {
             ("service.name", serviceName),
             ("service.version", $"{random.Next(1, 6)}.{random.Next(0, 20)}.{random.Next(0, 20)}"),
-            ("service.instance.id", Guid.NewGuid().ToString()),
+            ("service.instance.id", LogEventDtoFixtures.SeededGuid(random).ToString()),
             ("service.namespace", "flare-demo"),
             ("deployment.environment", Pick(random, Environments)),
             ("cloud.region", Pick(random, Regions)),
@@ -136,8 +118,8 @@ public static class LogEventFixtures
             ("http.route", () => Pick(random, HttpRoutes)),
             ("http.response.status_code", () => (200 + random.Next(0, 5) * 100 + random.Next(0, 5)).ToString()),
             ("http.request.duration_ms", () => random.Next(1, 2000).ToString()),
-            ("user.id", () => Guid.NewGuid().ToString()),
-            ("request.id", () => Guid.NewGuid().ToString()),
+            ("user.id", () => LogEventDtoFixtures.SeededGuid(random).ToString()),
+            ("request.id", () => LogEventDtoFixtures.SeededGuid(random).ToString()),
             ("client.address", () => $"203.0.113.{random.Next(0, 255)}"),
             ("network.peer.address", () => $"10.0.{random.Next(0, 255)}.{random.Next(0, 255)}"),
             ("error.type", () => "System.TimeoutException"),
@@ -152,7 +134,7 @@ public static class LogEventFixtures
             ("cache.hit", () => (random.Next(0, 2) == 0).ToString()),
             ("upstream.name", () => "payments-gateway"),
             ("upstream.duration_ms", () => random.Next(1, 800).ToString()),
-            ("correlation.id", () => Guid.NewGuid().ToString()),
+            ("correlation.id", () => LogEventDtoFixtures.SeededGuid(random).ToString()),
         };
 
         for (var i = 0; i < count && i < candidates.Length; i++)

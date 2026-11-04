@@ -296,7 +296,8 @@ function toMetricSeriesPoint(dto: GeneratedMetricSeriesPoint): MetricSeriesPoint
 	};
 }
 
-function toMetricSeries(dto: GeneratedMetricSeries): MetricSeries {
+/** Exported for `bench/` (the MemoryPack decode-and-map benchmark); not used outside this module otherwise. */
+export function toMetricSeries(dto: GeneratedMetricSeries): MetricSeries {
 	return {
 		serviceName: dto.serviceName ?? '',
 		attributes: dto.attributes ?? {},
