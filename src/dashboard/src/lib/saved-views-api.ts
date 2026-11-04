@@ -3,7 +3,8 @@
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
 // to MemoryPack - see `auth-api.ts`'s header comment for the general shape. Every type here
-// is hand-written (`#lib/memorypack/`): `SavedView`/`SavedViewRequest` carry the opaque
+// is hand-written (`#lib/memorypack/`, the only wire classes left that the generator can't
+// emit): `SavedView`/`SavedViewRequest` carry the opaque
 // `JsonElement State` blob MemoryPack has no native mapping for at all (see
 // `#lib/memorypack/SavedView.ts`'s header comment) on top of `DateTimeOffset`
 // `createdAt`/`updatedAt`. `pageType` converts through `#lib/memorypack/enums.ts`'s

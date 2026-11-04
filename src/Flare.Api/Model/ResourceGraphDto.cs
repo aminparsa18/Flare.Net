@@ -44,6 +44,7 @@ public enum ResourceHealth
 /// (Docker's graph is flat).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ResourceNodeDto
 {
     /// <summary>
@@ -129,6 +130,7 @@ public sealed partial record ResourceEdgeDto
 /// has no image/state/health/urls to report.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ProducerServiceDto
 {
     /// <summary><c>"service:" + </c><see cref="ServiceName"/> - namespaced so a producer can never collide with a Docker <see cref="ResourceNodeDto.Role"/> value (e.g. a producer literally named <c>"api"</c>).</summary>
@@ -145,6 +147,7 @@ public sealed partial record ProducerServiceDto
 /// for how it's built and broadcast.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ResourceGraphSnapshot
 {
     /// <summary>

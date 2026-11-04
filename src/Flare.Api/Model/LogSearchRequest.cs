@@ -4,6 +4,7 @@ namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/logs/search</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LogSearchRequest
 {
     /// <summary>
@@ -44,6 +45,7 @@ public sealed partial record LogSearchRequest
 
 /// <summary>Response body for <c>POST /api/logs/search</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LogSearchResponse
 {
     /// <summary>Most-recent-first (<c>Timestamp DESC</c>).</summary>

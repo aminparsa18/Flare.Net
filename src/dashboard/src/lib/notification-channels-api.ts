@@ -3,19 +3,15 @@
 // a destination inline. See `docs-internal/adr/0021-reusable-notification-channels.md`.
 //
 // MemoryPack over the wire, same shape as `alerts-api.ts`'s header comment describes.
-// `NotificationChannelRequest` has no `DateTimeOffset`/nested generator-ineligible member
-// (flat strings + the plain `type` enum) so it's a real generated class, reused here
-// directly - `NotificationChannel` itself has `createdAt`/`updatedAt`, so it (and the list
-// response nesting it) are hand-written (`#lib/memorypack/`), same reasoning `AlertRule.ts`
-// documents. `type` converts through `#lib/memorypack/enums.ts`'s
+// Every wire class is generated (`#lib/generated/memorypack/`). `type` converts through `#lib/memorypack/enums.ts`'s
 // `notificationChannelTypeToString`/`FromString`, same pattern `alerts-api.ts` uses for
 // `conditionKind`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { notificationChannelTypeFromString, notificationChannelTypeToString, type NotificationChannelTypeName } from '#lib/memorypack/enums.ts';
 import { NotificationChannelRequest as GeneratedNotificationChannelRequest } from '#lib/generated/memorypack/NotificationChannelRequest.ts';
-import { NotificationChannel as GeneratedNotificationChannel } from '#lib/memorypack/NotificationChannel.ts';
-import { NotificationChannelListResponse as GeneratedNotificationChannelListResponse } from '#lib/memorypack/NotificationChannelListResponse.ts';
+import { NotificationChannel as GeneratedNotificationChannel } from '#lib/generated/memorypack/NotificationChannel.ts';
+import { NotificationChannelListResponse as GeneratedNotificationChannelListResponse } from '#lib/generated/memorypack/NotificationChannelListResponse.ts';
 import { AlertNotificationTestResult as GeneratedAlertNotificationTestResult } from '#lib/generated/memorypack/AlertNotificationTestResult.ts';
 import type { AlertNotificationTestResult } from './alerts-api';
 

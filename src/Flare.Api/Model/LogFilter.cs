@@ -77,6 +77,7 @@ public enum AttributeFilterOperator
 /// <c>db/clickhouse/0001_logs.sql</c>, selected via <see cref="Bag"/>.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record AttributeFilter
 {
     public AttributeBag Bag { get; init; } = AttributeBag.Log;
@@ -164,6 +165,7 @@ public enum BodyJsonFilterOperator
 /// compilation and <c>Query.LogFilterMatcher</c> for live-tail's in-memory equivalent.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record BodyJsonFilter
 {
     /// <summary>
@@ -195,6 +197,7 @@ public sealed partial record BodyJsonFilter
 /// unbounded scan (see <c>Flare.Api</c>'s README, "Time range defaults").
 /// </remarks>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LogFilter
 {
     public DateTimeOffset? From { get; init; }

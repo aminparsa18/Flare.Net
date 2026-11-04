@@ -8,6 +8,7 @@ namespace Flare.Api.Model;
 /// docs-internal/adr/0069-structural-trace-queries.md.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record TraceSpanCondition
 {
     /// <summary>The letter the expression refers to this condition by, <c>A</c>-<c>Z</c>, case-insensitive, unique within the filter.</summary>
@@ -89,6 +90,7 @@ public enum SpanNameMatch
 /// <see cref="Query.TraceStructureExpression"/>.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record TraceStructureFilter
 {
     /// <summary>

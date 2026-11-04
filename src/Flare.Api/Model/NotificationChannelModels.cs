@@ -39,6 +39,7 @@ public enum NotificationChannelType
 /// rule's inline destination.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record NotificationChannel
 {
     public required Guid Id { get; init; }
@@ -201,6 +202,7 @@ public sealed partial record NotificationChannelRequest
 
 /// <summary>Response body for <c>GET /api/notification-channels</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record NotificationChannelListResponse
 {
     public required IReadOnlyList<NotificationChannel> Channels { get; init; }

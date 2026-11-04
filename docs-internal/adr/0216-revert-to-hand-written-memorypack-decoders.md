@@ -1,6 +1,6 @@
 # ADR-0216: Revert to hand-written MemoryPack TypeScript decoders
 
-Status: Accepted
+Status: Superseded by [ADR-0276](0276-generated-memorypack-decoders-with-record-dictionaries.md)
 
 Date: 2026-10-13
 

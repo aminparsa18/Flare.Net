@@ -8,8 +8,8 @@
 // shape (see `src/lib/api.ts`'s own header comment and its `toISOString()`/`new Date()`
 // conversions).
 
-import type { LogEventDto } from '#lib/memorypack/LogEventDto.ts';
-import type { LogSearchResponse } from '#lib/memorypack/LogSearchResponse.ts';
+import type { LogEventDto } from '#lib/generated/memorypack/LogEventDto.ts';
+import type { LogSearchResponse } from '#lib/generated/memorypack/LogSearchResponse.ts';
 
 export interface LogEventDtoJson {
 	eventId: string;
