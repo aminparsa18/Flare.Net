@@ -12,7 +12,7 @@
 		"dev": "vite dev",
 		"prebuild": "npm run codegen",
 		"build": "vite build",
-		"bench": "npm run codegen && tsx bench/memorypack-vs-json.bench.ts",
+		"bench": "tsx --import ./bench/support/register.mjs",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"precheck": "npm run codegen",

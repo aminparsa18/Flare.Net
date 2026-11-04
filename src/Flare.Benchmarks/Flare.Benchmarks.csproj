@@ -4,9 +4,8 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>Flare.Benchmarks</RootNamespace>
     <!-- BenchmarkDotNet builds/runs isolated copies of this project per benchmark job -
-         it needs a real, non-dev build, not a design-time one, so this project is
-         deliberately excluded from Flare.slnx's default `dotnet test`/CI build story
-         (see this project's own README) the same way examples/ is. -->
+         it needs a real, non-dev build, not a design-time one. Run it through
+         scripts/bench.sh (see this project's README), not `dotnet test`. -->
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -15,11 +14,22 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Real production types on both sides of both migrated boundaries (ADR-0016/
-         ADR-0017), not re-declared shapes - see docs-internal/planning/roadmap.md's
-         "Flare-specific JSON-vs-MemoryPack benchmark" item. -->
+    <!-- DefaultHttpContext/IResult for Workflow/ServerStageBenchmarks, which runs the real
+         ApiSerialization.Write response path. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real production types on both sides of both migrated boundaries (ADR-0015/
+         ADR-0017), not re-declared shapes. -->
     <ProjectReference Include="..\Flare.Ingest\Flare.Ingest.csproj" />
     <ProjectReference Include="..\Flare.Api\Flare.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Responses recorded from a running stack (see README "Captured fixtures"). Embedded,
+         not copied, so BenchmarkDotNet's out-of-process copies find them too. -->
+    <EmbeddedResource Include="Fixtures\Captured\*.json" LogicalName="captured/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

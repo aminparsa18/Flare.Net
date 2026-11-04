@@ -1,0 +1,130 @@
+{
+  "codecs": [
+    "none",
+    "gzip-1",
+    "gzip-6",
+    "brotli-4"
+  ],
+  "scenarios": [
+    {
+      "name": "logs-page.synthetic",
+      "source": "synthetic",
+      "description": "Log search page, modeled OTel attribute bags (Typical shape)",
+      "endpoint": "POST /api/logs/search",
+      "shape": "200 rows",
+      "sizes": {
+        "json": {
+          "none": 234095,
+          "gzip-1": 63043,
+          "gzip-6": 36974,
+          "brotli-4": 35918
+        },
+        "memorypack": {
+          "none": 185935,
+          "gzip-1": 53938,
+          "gzip-6": 37339,
+          "brotli-4": 37186
+        }
+      }
+    },
+    {
+      "name": "logs-page.captured",
+      "source": "captured",
+      "description": "Log search page recorded from the seeded example stack",
+      "endpoint": "POST /api/logs/search",
+      "shape": "200 rows",
+      "sizes": {
+        "json": {
+          "none": 156982,
+          "gzip-1": 16925,
+          "gzip-6": 9632,
+          "brotli-4": 8287
+        },
+        "memorypack": {
+          "none": 88545,
+          "gzip-1": 10799,
+          "gzip-6": 8175,
+          "brotli-4": 7382
+        }
+      }
+    },
+    {
+      "name": "trace.captured",
+      "source": "captured",
+      "description": "Trace detail (waterfall) recorded from the seeded example stack",
+      "endpoint": "GET /api/traces/{traceId}",
+      "shape": "4 spans",
+      "sizes": {
+        "json": {
+          "none": 3296,
+          "gzip-1": 890,
+          "gzip-6": 696,
+          "brotli-4": 687
+        },
+        "memorypack": {
+          "none": 1887,
+          "gzip-1": 673,
+          "gzip-6": 578,
+          "brotli-4": 537
+        }
+      }
+    },
+    {
+      "name": "trace-large.synthetic",
+      "source": "synthetic",
+      "description": "Trace detail: 200 captured spans re-parented into one trace (seeded traces have \u003C= 4 spans)",
+      "endpoint": "GET /api/traces/{traceId}",
+      "shape": "200 spans",
+      "sizes": {
+        "json": {
+          "none": 158737,
+          "gzip-1": 14082,
+          "gzip-6": 7996,
+          "brotli-4": 6907
+        },
+        "memorypack": {
+          "none": 91371,
+          "gzip-1": 11595,
+          "gzip-6": 7836,
+          "brotli-4": 7331
+        }
+      }
+    },
+    {
+      "name": "metrics.captured",
+      "source": "captured",
+      "description": "Metric query (grouped series) recorded from the seeded example stack",
+      "endpoint": "POST /api/metrics/query",
+      "shape": "10 series, 484 points",
+      "sizes": {
+        "json": {
+          "none": 137337,
+          "gzip-1": 31584,
+          "gzip-6": 19058,
+          "brotli-4": 18576
+        },
+        "memorypack": {
+          "none": 84332,
+          "gzip-1": 22537,
+          "gzip-6": 18203,
+          "brotli-4": 18750
+        }
+      }
+    }
+  ],
+  "request": {
+    "name": "logs-request.synthetic",
+    "source": "synthetic",
+    "description": "Log search request body with a typical filter",
+    "endpoint": "POST /api/logs/search (request)",
+    "shape": "1 filter",
+    "sizes": {
+      "json": {
+        "none": 479
+      },
+      "memorypack": {
+        "none": 215
+      }
+    }
+  }
+}

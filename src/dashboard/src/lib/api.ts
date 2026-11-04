@@ -189,7 +189,8 @@ export interface LogEventDto {
 	droppedAttributesCount?: number;
 }
 
-function toLogEventDto(dto: GeneratedLogEventDto): LogEventDto {
+/** Exported for `bench/` (the MemoryPack decode-and-map benchmark); not used outside this module otherwise. */
+export function toLogEventDto(dto: GeneratedLogEventDto): LogEventDto {
 	return {
 		eventId: dto.eventId,
 		timestamp: dto.timestamp.toISOString(),

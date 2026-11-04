@@ -323,7 +323,8 @@ export interface TraceDto {
 	partialSpanIds: string[];
 }
 
-function toTraceDto(dto: GeneratedTraceDto): TraceDto {
+/** Exported for `bench/` (the MemoryPack decode-and-map benchmark); not used outside this module otherwise. */
+export function toTraceDto(dto: GeneratedTraceDto): TraceDto {
 	return {
 		traceId: dto.traceId ?? '',
 		spans: (dto.spans ?? []).map((s) => toSpanDto(s!)),

@@ -9,6 +9,7 @@ or `/diataxis write <type>` when authoring anything under `docs/`).
 ```text
 docs-internal/
 ├── adr/            architecture decisions — what we decided, and why
+├── benchmarks/     dated benchmark runs (HTML report + raw data) — see benchmarks/README.md
 ├── investigations/ technical investigations — what we discovered, and the evidence
 └── planning/       forward-looking roadmap — no diary, no history
 ```

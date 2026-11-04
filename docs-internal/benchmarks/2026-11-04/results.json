@@ -1,0 +1,5260 @@
+{
+ "schema": 1,
+ "run": "2026-11-04",
+ "env": {
+  "date": "2026-11-04T10:50:33.582Z",
+  "cpu": "Intel(R) Core(TM) i5-1038NG7 CPU @ 2.00GHz",
+  "cores": 8,
+  "memoryGb": 16,
+  "arch": "x64",
+  "os": "macOS 26.5.2 (25.5.0)",
+  "dotnetSdk": "10.0.100",
+  "node": "26.5.0",
+  "v8": "14.6.202.34-node.24",
+  "gitCommit": "141af05196fc7022222c10dc737929b522cd32f5",
+  "gitBranch": "feature/serialization-benchmarks",
+  "gitDirty": true,
+  "suites": "redis-buffer api-codec request-codec compression server-stage decode decompress request-encode client-stage",
+  "quick": "false",
+  "benchmarkDotNet": {
+   "version": "0.15.8",
+   "runtime": ".NET 10.0.0 (10.0.0, 10.0.25.52411)",
+   "cpu": "Intel Core i5-1038NG7 CPU 2.00GHz"
+  },
+  "tinybench": {
+   "node": "26.5.0",
+   "v8": "14.6.202.34-node.24",
+   "tinybench": "6.2.2",
+   "time": 500
+  }
+ },
+ "links": [
+  {
+   "id": "1gbps",
+   "label": "1 Gbps",
+   "bps": 1000000000
+  },
+  {
+   "id": "100mbps",
+   "label": "100 Mbps",
+   "bps": 100000000
+  },
+  {
+   "id": "20mbps",
+   "label": "20 Mbps",
+   "bps": 20000000
+  },
+  {
+   "id": "5mbps",
+   "label": "5 Mbps",
+   "bps": 5000000
+  }
+ ],
+ "scenarios": [
+  {
+   "name": "logs-page.synthetic",
+   "source": "synthetic",
+   "description": "Log search page, modeled OTel attribute bags (Typical shape)",
+   "endpoint": "POST /api/logs/search",
+   "shape": "200 rows",
+   "sizes": {
+    "json": {
+     "none": 234095,
+     "gzip-1": 63043,
+     "gzip-6": 36974,
+     "brotli-4": 35918
+    },
+    "memorypack": {
+     "none": 185935,
+     "gzip-1": 53938,
+     "gzip-6": 37339,
+     "brotli-4": 37186
+    }
+   }
+  },
+  {
+   "name": "logs-page.captured",
+   "source": "captured",
+   "description": "Log search page recorded from the seeded example stack",
+   "endpoint": "POST /api/logs/search",
+   "shape": "200 rows",
+   "sizes": {
+    "json": {
+     "none": 156982,
+     "gzip-1": 16925,
+     "gzip-6": 9632,
+     "brotli-4": 8287
+    },
+    "memorypack": {
+     "none": 88545,
+     "gzip-1": 10799,
+     "gzip-6": 8175,
+     "brotli-4": 7382
+    }
+   }
+  },
+  {
+   "name": "trace.captured",
+   "source": "captured",
+   "description": "Trace detail (waterfall) recorded from the seeded example stack",
+   "endpoint": "GET /api/traces/{traceId}",
+   "shape": "4 spans",
+   "sizes": {
+    "json": {
+     "none": 3296,
+     "gzip-1": 890,
+     "gzip-6": 696,
+     "brotli-4": 687
+    },
+    "memorypack": {
+     "none": 1887,
+     "gzip-1": 673,
+     "gzip-6": 578,
+     "brotli-4": 537
+    }
+   }
+  },
+  {
+   "name": "trace-large.synthetic",
+   "source": "synthetic",
+   "description": "Trace detail: 200 captured spans re-parented into one trace (seeded traces have <= 4 spans)",
+   "endpoint": "GET /api/traces/{traceId}",
+   "shape": "200 spans",
+   "sizes": {
+    "json": {
+     "none": 158737,
+     "gzip-1": 14082,
+     "gzip-6": 7996,
+     "brotli-4": 6907
+    },
+    "memorypack": {
+     "none": 91371,
+     "gzip-1": 11595,
+     "gzip-6": 7836,
+     "brotli-4": 7331
+    }
+   }
+  },
+  {
+   "name": "metrics.captured",
+   "source": "captured",
+   "description": "Metric query (grouped series) recorded from the seeded example stack",
+   "endpoint": "POST /api/metrics/query",
+   "shape": "10 series, 484 points",
+   "sizes": {
+    "json": {
+     "none": 137337,
+     "gzip-1": 31584,
+     "gzip-6": 19058,
+     "brotli-4": 18576
+    },
+    "memorypack": {
+     "none": 84332,
+     "gzip-1": 22537,
+     "gzip-6": 18203,
+     "brotli-4": 18750
+    }
+   }
+  }
+ ],
+ "request": {
+  "name": "logs-request.synthetic",
+  "source": "synthetic",
+  "description": "Log search request body with a typical filter",
+  "endpoint": "POST /api/logs/search (request)",
+  "shape": "1 filter",
+  "sizes": {
+   "json": {
+    "none": 479
+   },
+   "memorypack": {
+    "none": 215
+   }
+  }
+ },
+ "dotnet": [
+  {
+   "suite": "api-codec",
+   "method": "Json_Encode",
+   "params": {
+    "Scenario": "logs-page.captured"
+   },
+   "key": "api-codec/Json_Encode?Scenario=logs-page.captured",
+   "medianMs": 0.30354208544921873,
+   "meanMs": 0.3025822508370536,
+   "ciMarginMs": 0.004202716389465939,
+   "allocatedBytes": 179472
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Encode",
+   "params": {
+    "Scenario": "logs-page.captured"
+   },
+   "key": "api-codec/MemoryPack_Encode?Scenario=logs-page.captured",
+   "medianMs": 0.11730171667480468,
+   "meanMs": 0.11759862625122071,
+   "ciMarginMs": 0.002233575110809901,
+   "allocatedBytes": 88613
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Decode",
+   "params": {
+    "Scenario": "logs-page.captured"
+   },
+   "key": "api-codec/Json_Decode?Scenario=logs-page.captured",
+   "medianMs": 0.6221587978515625,
+   "meanMs": 0.6242959579067888,
+   "ciMarginMs": 0.012193329847125655,
+   "allocatedBytes": 370720
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Decode",
+   "params": {
+    "Scenario": "logs-page.captured"
+   },
+   "key": "api-codec/MemoryPack_Decode?Scenario=logs-page.captured",
+   "medianMs": 0.1262717166748047,
+   "meanMs": 0.1268796759176815,
+   "ciMarginMs": 0.002501346393406209,
+   "allocatedBytes": 303520
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Encode",
+   "params": {
+    "Scenario": "logs-page.synthetic"
+   },
+   "key": "api-codec/Json_Encode?Scenario=logs-page.synthetic",
+   "medianMs": 0.4125062919921875,
+   "meanMs": 0.41330361770833335,
+   "ciMarginMs": 0.0068342568542293005,
+   "allocatedBytes": 256616
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Encode",
+   "params": {
+    "Scenario": "logs-page.synthetic"
+   },
+   "key": "api-codec/MemoryPack_Encode?Scenario=logs-page.synthetic",
+   "medianMs": 0.16536837255859374,
+   "meanMs": 0.16537488102839543,
+   "ciMarginMs": 0.0008292901287675283,
+   "allocatedBytes": 186014
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Decode",
+   "params": {
+    "Scenario": "logs-page.synthetic"
+   },
+   "key": "api-codec/Json_Decode?Scenario=logs-page.synthetic",
+   "medianMs": 0.8336607651367187,
+   "meanMs": 0.8372031011439732,
+   "ciMarginMs": 0.016363696761321662,
+   "allocatedBytes": 701368
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Decode",
+   "params": {
+    "Scenario": "logs-page.synthetic"
+   },
+   "key": "api-codec/MemoryPack_Decode?Scenario=logs-page.synthetic",
+   "medianMs": 0.28800818994140626,
+   "meanMs": 0.28806366337316175,
+   "ciMarginMs": 0.005647824315376669,
+   "allocatedBytes": 631576
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Encode",
+   "params": {
+    "Scenario": "metrics.captured"
+   },
+   "key": "api-codec/Json_Encode?Scenario=metrics.captured",
+   "medianMs": 0.6613988564453125,
+   "meanMs": 0.661620908342634,
+   "ciMarginMs": 0.009877184912723946,
+   "allocatedBytes": 137986
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Encode",
+   "params": {
+    "Scenario": "metrics.captured"
+   },
+   "key": "api-codec/MemoryPack_Encode?Scenario=metrics.captured",
+   "medianMs": 0.02907965155029297,
+   "meanMs": 0.0290623660736084,
+   "ciMarginMs": 0.0005493000665026998,
+   "allocatedBytes": 84360
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Decode",
+   "params": {
+    "Scenario": "metrics.captured"
+   },
+   "key": "api-codec/Json_Decode?Scenario=metrics.captured",
+   "medianMs": 0.8108896826171875,
+   "meanMs": 0.8106287756778493,
+   "ciMarginMs": 0.01573119936978771,
+   "allocatedBytes": 278240
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Decode",
+   "params": {
+    "Scenario": "metrics.captured"
+   },
+   "key": "api-codec/MemoryPack_Decode?Scenario=metrics.captured",
+   "medianMs": 0.026068544982910155,
+   "meanMs": 0.026220173947241996,
+   "ciMarginMs": 0.0005215217840327794,
+   "allocatedBytes": 105184
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Encode",
+   "params": {
+    "Scenario": "trace-large.synthetic"
+   },
+   "key": "api-codec/Json_Encode?Scenario=trace-large.synthetic",
+   "medianMs": 0.32714164111328126,
+   "meanMs": 0.3287713442871094,
+   "ciMarginMs": 0.006306537572953344,
+   "allocatedBytes": 181235
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Encode",
+   "params": {
+    "Scenario": "trace-large.synthetic"
+   },
+   "key": "api-codec/MemoryPack_Encode?Scenario=trace-large.synthetic",
+   "medianMs": 0.13572091333007813,
+   "meanMs": 0.1361745198625837,
+   "ciMarginMs": 0.0017137962493093324,
+   "allocatedBytes": 91438
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Decode",
+   "params": {
+    "Scenario": "trace-large.synthetic"
+   },
+   "key": "api-codec/Json_Decode?Scenario=trace-large.synthetic",
+   "medianMs": 0.6977459609375,
+   "meanMs": 0.6975487113932292,
+   "ciMarginMs": 0.006883702170203416,
+   "allocatedBytes": 395224
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Decode",
+   "params": {
+    "Scenario": "trace-large.synthetic"
+   },
+   "key": "api-codec/MemoryPack_Decode?Scenario=trace-large.synthetic",
+   "medianMs": 0.15429887524414063,
+   "meanMs": 0.15464036591448102,
+   "ciMarginMs": 0.0025695996737403874,
+   "allocatedBytes": 324800
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Encode",
+   "params": {
+    "Scenario": "trace.captured"
+   },
+   "key": "api-codec/Json_Encode?Scenario=trace.captured",
+   "medianMs": 0.004460074073791504,
+   "meanMs": 0.004468404818943569,
+   "ciMarginMs": 0.00007384156172263565,
+   "allocatedBytes": 3768
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Encode",
+   "params": {
+    "Scenario": "trace.captured"
+   },
+   "key": "api-codec/MemoryPack_Encode?Scenario=trace.captured",
+   "medianMs": 0.0016947479190826415,
+   "meanMs": 0.0017186287325286864,
+   "ciMarginMs": 0.000031521128000131916,
+   "allocatedBytes": 1912
+  },
+  {
+   "suite": "api-codec",
+   "method": "Json_Decode",
+   "params": {
+    "Scenario": "trace.captured"
+   },
+   "key": "api-codec/Json_Decode?Scenario=trace.captured",
+   "medianMs": 0.013009539474487304,
+   "meanMs": 0.012982128362867567,
+   "ciMarginMs": 0.0002531611693624342,
+   "allocatedBytes": 8696
+  },
+  {
+   "suite": "api-codec",
+   "method": "MemoryPack_Decode",
+   "params": {
+    "Scenario": "trace.captured"
+   },
+   "key": "api-codec/MemoryPack_Decode?Scenario=trace.captured",
+   "medianMs": 0.0026983158683776855,
+   "meanMs": 0.002716109915669759,
+   "ciMarginMs": 0.00005121164085614479,
+   "allocatedBytes": 6736
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=json&Scenario=logs-page.captured&Codec=brotli-4",
+   "medianMs": 0.5397400673828125,
+   "meanMs": 0.5396975833050273,
+   "ciMarginMs": 0.010629563621239093,
+   "allocatedBytes": 87022
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=json&Scenario=logs-page.captured&Codec=gzip-1",
+   "medianMs": 0.12255844885253907,
+   "meanMs": 0.12282278174641928,
+   "ciMarginMs": 0.0018342988645208337,
+   "allocatedBytes": 95768
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=json&Scenario=logs-page.captured&Codec=gzip-6",
+   "medianMs": 0.42510157934570314,
+   "meanMs": 0.4234073027038574,
+   "ciMarginMs": 0.00844834546717084,
+   "allocatedBytes": 88472
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=json&Scenario=logs-page.synthetic&Codec=brotli-4",
+   "medianMs": 1.6733561279296876,
+   "meanMs": 1.6887629927455357,
+   "ciMarginMs": 0.033075077897078475,
+   "allocatedBytes": 153256
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=json&Scenario=logs-page.synthetic&Codec=gzip-1",
+   "medianMs": 0.6572903818359375,
+   "meanMs": 0.661024649609375,
+   "ciMarginMs": 0.01291053291732481,
+   "allocatedBytes": 180489
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=json&Scenario=logs-page.synthetic&Codec=gzip-6",
+   "medianMs": 1.6738948134765625,
+   "meanMs": 1.679186605533854,
+   "ciMarginMs": 0.03229197932831011,
+   "allocatedBytes": 154415
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "metrics.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=json&Scenario=metrics.captured&Codec=brotli-4",
+   "medianMs": 1.0177064326171874,
+   "meanMs": 1.0199989916294643,
+   "ciMarginMs": 0.019822340899251042,
+   "allocatedBytes": 87487
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "metrics.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=json&Scenario=metrics.captured&Codec=gzip-1",
+   "medianMs": 0.28392066650390624,
+   "meanMs": 0.2857687297337582,
+   "ciMarginMs": 0.005750679387192353,
+   "allocatedBytes": 100600
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "metrics.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=json&Scenario=metrics.captured&Codec=gzip-6",
+   "medianMs": 1.330277263671875,
+   "meanMs": 1.346059631656569,
+   "ciMarginMs": 0.026882304487671628,
+   "allocatedBytes": 88080
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=json&Scenario=trace-large.synthetic&Codec=brotli-4",
+   "medianMs": 0.5255890693359375,
+   "meanMs": 0.5252088751302083,
+   "ciMarginMs": 0.010344569044427038,
+   "allocatedBytes": 86518
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=json&Scenario=trace-large.synthetic&Codec=gzip-1",
+   "medianMs": 0.11178925183105469,
+   "meanMs": 0.11212280323204628,
+   "ciMarginMs": 0.0016767142843646821,
+   "allocatedBytes": 93800
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=json&Scenario=trace-large.synthetic&Codec=gzip-6",
+   "medianMs": 0.40817740454101564,
+   "meanMs": 0.40851113274274553,
+   "ciMarginMs": 0.007330253393967156,
+   "allocatedBytes": 87712
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=json&Scenario=trace.captured&Codec=brotli-4",
+   "medianMs": 0.0489736298828125,
+   "meanMs": 0.04860694673213252,
+   "ciMarginMs": 0.0009409725285759242,
+   "allocatedBytes": 2568
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=json&Scenario=trace.captured&Codec=gzip-1",
+   "medianMs": 0.010543931625366211,
+   "meanMs": 0.010549357131958008,
+   "ciMarginMs": 0.000191754812663716,
+   "allocatedBytes": 2888
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=json&Scenario=trace.captured&Codec=gzip-6",
+   "medianMs": 0.022732018524169922,
+   "meanMs": 0.022742815559895834,
+   "ciMarginMs": 0.00032100564687419827,
+   "allocatedBytes": 2688
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=logs-page.captured&Codec=brotli-4",
+   "medianMs": 0.38166484204101564,
+   "meanMs": 0.38198979174804687,
+   "ciMarginMs": 0.005897454923811384,
+   "allocatedBytes": 51892
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=logs-page.captured&Codec=gzip-1",
+   "medianMs": 0.07961658013916016,
+   "meanMs": 0.07964113110351563,
+   "ciMarginMs": 0.0011088277118781248,
+   "allocatedBytes": 55416
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=logs-page.captured&Codec=gzip-6",
+   "medianMs": 0.3773604294433594,
+   "meanMs": 0.3797040775878906,
+   "ciMarginMs": 0.00734171056602555,
+   "allocatedBytes": 52792
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=logs-page.synthetic&Codec=brotli-4",
+   "medianMs": 1.685123845703125,
+   "meanMs": 1.682401380045573,
+   "ciMarginMs": 0.02062760479914962,
+   "allocatedBytes": 130438
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=logs-page.synthetic&Codec=gzip-1",
+   "medianMs": 0.5791951518554688,
+   "meanMs": 0.5802394370814732,
+   "ciMarginMs": 0.006534231531532873,
+   "allocatedBytes": 147295
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=logs-page.synthetic&Codec=gzip-6",
+   "medianMs": 1.71719431640625,
+   "meanMs": 1.715241818080357,
+   "ciMarginMs": 0.023493949998695463,
+   "allocatedBytes": 130693
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "metrics.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=metrics.captured&Codec=brotli-4",
+   "medianMs": 0.7539553129882812,
+   "meanMs": 0.7545711033063616,
+   "ciMarginMs": 0.013734347492664757,
+   "allocatedBytes": 61156
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "metrics.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=metrics.captured&Codec=gzip-1",
+   "medianMs": 0.168304078125,
+   "meanMs": 0.16863339573451452,
+   "ciMarginMs": 0.0017522833827592474,
+   "allocatedBytes": 65056
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "metrics.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=metrics.captured&Codec=gzip-6",
+   "medianMs": 0.7944511943359375,
+   "meanMs": 0.7959916038411459,
+   "ciMarginMs": 0.011504479580547611,
+   "allocatedBytes": 60720
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=trace-large.synthetic&Codec=brotli-4",
+   "medianMs": 0.4176402705078125,
+   "meanMs": 0.4205226662434896,
+   "ciMarginMs": 0.006798668209710358,
+   "allocatedBytes": 53260
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=trace-large.synthetic&Codec=gzip-1",
+   "medianMs": 0.08328282849121094,
+   "meanMs": 0.08318254530436198,
+   "ciMarginMs": 0.001039880101259044,
+   "allocatedBytes": 57632
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=trace-large.synthetic&Codec=gzip-6",
+   "medianMs": 0.38937749609375,
+   "meanMs": 0.39172742550223216,
+   "ciMarginMs": 0.007019542820996042,
+   "allocatedBytes": 53872
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=trace.captured&Codec=brotli-4",
+   "medianMs": 0.040023759765625,
+   "meanMs": 0.040129486928839435,
+   "ciMarginMs": 0.0007691621305501376,
+   "allocatedBytes": 1720
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=trace.captured&Codec=gzip-1",
+   "medianMs": 0.00891897615814209,
+   "meanMs": 0.008910615724836079,
+   "ciMarginMs": 0.00008274105359698111,
+   "allocatedBytes": 1968
+  },
+  {
+   "suite": "compression",
+   "method": "Compress",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "compression/Compress?Format=memorypack&Scenario=trace.captured&Codec=gzip-6",
+   "medianMs": 0.023862940002441407,
+   "meanMs": 0.023909692069498698,
+   "ciMarginMs": 0.0003523329157087799,
+   "allocatedBytes": 1872
+  },
+  {
+   "suite": "redis-buffer",
+   "method": "MemoryPack_Encode_Typical",
+   "params": {},
+   "key": "redis-buffer/MemoryPack_Encode_Typical",
+   "medianMs": 0.0006708558888435364,
+   "meanMs": 0.0006747616073063442,
+   "ciMarginMs": 0.000013488979534338424,
+   "allocatedBytes": 920
+  },
+  {
+   "suite": "redis-buffer",
+   "method": "Json_Encode_Typical",
+   "params": {},
+   "key": "redis-buffer/Json_Encode_Typical",
+   "medianMs": 0.0013711304216384888,
+   "meanMs": 0.0013721987959997993,
+   "ciMarginMs": 0.000006964214839758413,
+   "allocatedBytes": 1256
+  },
+  {
+   "suite": "redis-buffer",
+   "method": "MemoryPack_Decode_Typical",
+   "params": {},
+   "key": "redis-buffer/MemoryPack_Decode_Typical",
+   "medianMs": 0.0011810392150878907,
+   "meanMs": 0.0011771973678882306,
+   "ciMarginMs": 0.000012519671265145252,
+   "allocatedBytes": 3096
+  },
+  {
+   "suite": "redis-buffer",
+   "method": "Json_Decode_Typical",
+   "params": {},
+   "key": "redis-buffer/Json_Decode_Typical",
+   "medianMs": 0.0038040781860351563,
+   "meanMs": 0.003824590730086617,
+   "ciMarginMs": 0.00006572579259467323,
+   "allocatedBytes": 3888
+  },
+  {
+   "suite": "redis-buffer",
+   "method": "MemoryPack_Encode_AttributeHeavy",
+   "params": {},
+   "key": "redis-buffer/MemoryPack_Encode_AttributeHeavy",
+   "medianMs": 0.002004794006347656,
+   "meanMs": 0.0020044103282292683,
+   "ciMarginMs": 0.000018108956559341953,
+   "allocatedBytes": 2560
+  },
+  {
+   "suite": "redis-buffer",
+   "method": "Json_Encode_AttributeHeavy",
+   "params": {},
+   "key": "redis-buffer/Json_Encode_AttributeHeavy",
+   "medianMs": 0.00290328303527832,
+   "meanMs": 0.002914156276702881,
+   "ciMarginMs": 0.00005603200908838145,
+   "allocatedBytes": 2576
+  },
+  {
+   "suite": "redis-buffer",
+   "method": "MemoryPack_Decode_AttributeHeavy",
+   "params": {},
+   "key": "redis-buffer/MemoryPack_Decode_AttributeHeavy",
+   "medianMs": 0.003462135160446167,
+   "meanMs": 0.0034671085240500317,
+   "ciMarginMs": 0.00005815806556397862,
+   "allocatedBytes": 10192
+  },
+  {
+   "suite": "redis-buffer",
+   "method": "Json_Decode_AttributeHeavy",
+   "params": {},
+   "key": "redis-buffer/Json_Decode_AttributeHeavy",
+   "medianMs": 0.008021733703613282,
+   "meanMs": 0.007980034956307247,
+   "ciMarginMs": 0.00015529449181398246,
+   "allocatedBytes": 10984
+  },
+  {
+   "suite": "request-codec",
+   "method": "Json_Decode",
+   "params": {},
+   "key": "request-codec/Json_Decode",
+   "medianMs": 0.003007226005554199,
+   "meanMs": 0.003002169536336263,
+   "ciMarginMs": 0.000023864902336026808,
+   "allocatedBytes": 1808
+  },
+  {
+   "suite": "request-codec",
+   "method": "MemoryPack_Decode",
+   "params": {},
+   "key": "request-codec/MemoryPack_Decode",
+   "medianMs": 0.00036218614721298217,
+   "meanMs": 0.0003628925863334111,
+   "ciMarginMs": 0.000006982502362827471,
+   "allocatedBytes": 848
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=logs-page.captured&Codec=brotli-4",
+   "medianMs": 1.13679319921875,
+   "meanMs": 1.1389525700520833,
+   "ciMarginMs": 0.021567897901429944,
+   "allocatedBytes": 25364
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=logs-page.captured&Codec=gzip-1",
+   "medianMs": 0.4565827333984375,
+   "meanMs": 0.4567762740542763,
+   "ciMarginMs": 0.005373152600421235,
+   "allocatedBytes": 25474
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=logs-page.captured&Codec=gzip-6",
+   "medianMs": 0.8966562861328125,
+   "meanMs": 0.8967431829927885,
+   "ciMarginMs": 0.010346914423650232,
+   "allocatedBytes": 25474
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.captured",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=logs-page.captured&Codec=none",
+   "medianMs": 0.27245174731445315,
+   "meanMs": 0.2767085461425781,
+   "ciMarginMs": 0.005273352429343927,
+   "allocatedBytes": 25242
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=logs-page.synthetic&Codec=brotli-4",
+   "medianMs": 2.4709118046875,
+   "meanMs": 2.456219639122596,
+   "ciMarginMs": 0.03873455944592348,
+   "allocatedBytes": 25365
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=logs-page.synthetic&Codec=gzip-1",
+   "medianMs": 0.985700521484375,
+   "meanMs": 0.9803933197380515,
+   "ciMarginMs": 0.019247402058330556,
+   "allocatedBytes": 25474
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=logs-page.synthetic&Codec=gzip-6",
+   "medianMs": 2.204387234375,
+   "meanMs": 2.2044345694839014,
+   "ciMarginMs": 0.04385192093759663,
+   "allocatedBytes": 25475
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=logs-page.synthetic&Codec=none",
+   "medianMs": 0.3566762580566406,
+   "meanMs": 0.3600227585560192,
+   "ciMarginMs": 0.007145382063673315,
+   "allocatedBytes": 25242
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "metrics.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=metrics.captured&Codec=brotli-4",
+   "medianMs": 1.8486271484375,
+   "meanMs": 1.8502625237630208,
+   "ciMarginMs": 0.03695741117068113,
+   "allocatedBytes": 4522
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "metrics.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=metrics.captured&Codec=gzip-1",
+   "medianMs": 0.8640389267578125,
+   "meanMs": 0.8678344803427419,
+   "ciMarginMs": 0.014588033205146561,
+   "allocatedBytes": 4632
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "metrics.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=metrics.captured&Codec=gzip-6",
+   "medianMs": 1.991684953125,
+   "meanMs": 2.00021856328125,
+   "ciMarginMs": 0.03924666611497678,
+   "allocatedBytes": 4633
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "metrics.captured",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=metrics.captured&Codec=none",
+   "medianMs": 0.5341506811523438,
+   "meanMs": 0.5337731774495443,
+   "ciMarginMs": 0.008498783913721547,
+   "allocatedBytes": 4400
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=trace-large.synthetic&Codec=brotli-4",
+   "medianMs": 1.02688175,
+   "meanMs": 1.0358453721976901,
+   "ciMarginMs": 0.020565952309111873,
+   "allocatedBytes": 25364
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=trace-large.synthetic&Codec=gzip-1",
+   "medianMs": 0.4291212666015625,
+   "meanMs": 0.42922906982421877,
+   "ciMarginMs": 0.006426521260298202,
+   "allocatedBytes": 25474
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=trace-large.synthetic&Codec=gzip-6",
+   "medianMs": 0.8999600913085938,
+   "meanMs": 0.8858161339623235,
+   "ciMarginMs": 0.01750303338101958,
+   "allocatedBytes": 25474
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=trace-large.synthetic&Codec=none",
+   "medianMs": 0.32198051611328127,
+   "meanMs": 0.32232790585937504,
+   "ciMarginMs": 0.003620676044676252,
+   "allocatedBytes": 25242
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=trace.captured&Codec=brotli-4",
+   "medianMs": 0.06173379254150391,
+   "meanMs": 0.06187116588483538,
+   "ciMarginMs": 0.001063348156058895,
+   "allocatedBytes": 2632
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=trace.captured&Codec=gzip-1",
+   "medianMs": 0.01636474853515625,
+   "meanMs": 0.016383855460030693,
+   "ciMarginMs": 0.00015818273079244838,
+   "allocatedBytes": 2744
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=trace.captured&Codec=gzip-6",
+   "medianMs": 0.029602670471191406,
+   "meanMs": 0.02955024083251953,
+   "ciMarginMs": 0.0005462966406033653,
+   "allocatedBytes": 2744
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "json",
+    "Scenario": "trace.captured",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=json&Scenario=trace.captured&Codec=none",
+   "medianMs": 0.005369820026397705,
+   "meanMs": 0.005390604777908326,
+   "ciMarginMs": 0.000103076010091655,
+   "allocatedBytes": 2512
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=logs-page.captured&Codec=brotli-4",
+   "medianMs": 0.5423750961914062,
+   "meanMs": 0.545655854422433,
+   "ciMarginMs": 0.008299200646548143,
+   "allocatedBytes": 90555
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=logs-page.captured&Codec=gzip-1",
+   "medianMs": 0.23237681005859376,
+   "meanMs": 0.23426769692382812,
+   "ciMarginMs": 0.004503095839752435,
+   "allocatedBytes": 90661
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=logs-page.captured&Codec=gzip-6",
+   "medianMs": 0.544778697265625,
+   "meanMs": 0.545919848046875,
+   "ciMarginMs": 0.006762177732032514,
+   "allocatedBytes": 90661
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.captured",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=logs-page.captured&Codec=none",
+   "medianMs": 0.14358853295898438,
+   "meanMs": 0.1430831174641927,
+   "ciMarginMs": 0.0015133677238625934,
+   "allocatedBytes": 90429
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=logs-page.synthetic&Codec=brotli-4",
+   "medianMs": 1.862861759765625,
+   "meanMs": 1.8622772588641827,
+   "ciMarginMs": 0.019397515680794453,
+   "allocatedBytes": 188400
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=logs-page.synthetic&Codec=gzip-1",
+   "medianMs": 0.734516490234375,
+   "meanMs": 0.7347848559895833,
+   "ciMarginMs": 0.006796352212397572,
+   "allocatedBytes": 188391
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=logs-page.synthetic&Codec=gzip-6",
+   "medianMs": 1.851797505859375,
+   "meanMs": 1.8569724768629807,
+   "ciMarginMs": 0.026218771641315263,
+   "allocatedBytes": 188479
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "logs-page.synthetic",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=logs-page.synthetic&Codec=none",
+   "medianMs": 0.18921818310546876,
+   "meanMs": 0.18933614562988282,
+   "ciMarginMs": 0.0020645215296622613,
+   "allocatedBytes": 187992
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "metrics.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=metrics.captured&Codec=brotli-4",
+   "medianMs": 0.7784952412109375,
+   "meanMs": 0.7815949088040866,
+   "ciMarginMs": 0.01160518606858998,
+   "allocatedBytes": 86302
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "metrics.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=metrics.captured&Codec=gzip-1",
+   "medianMs": 0.20355922509765625,
+   "meanMs": 0.20346372641225963,
+   "ciMarginMs": 0.002796946170614074,
+   "allocatedBytes": 86408
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "metrics.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=metrics.captured&Codec=gzip-6",
+   "medianMs": 0.839494060546875,
+   "meanMs": 0.8377490865885416,
+   "ciMarginMs": 0.01260244361657197,
+   "allocatedBytes": 86408
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "metrics.captured",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=metrics.captured&Codec=none",
+   "medianMs": 0.03884057064819336,
+   "meanMs": 0.03884760817173549,
+   "ciMarginMs": 0.0005012148457031022,
+   "allocatedBytes": 86176
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=trace-large.synthetic&Codec=brotli-4",
+   "medianMs": 0.5967020439453125,
+   "meanMs": 0.5960356404296875,
+   "ciMarginMs": 0.00750177482881152,
+   "allocatedBytes": 93381
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=trace-large.synthetic&Codec=gzip-1",
+   "medianMs": 0.25042255834960936,
+   "meanMs": 0.25109976212565105,
+   "ciMarginMs": 0.004906945002098837,
+   "allocatedBytes": 93486
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=trace-large.synthetic&Codec=gzip-6",
+   "medianMs": 0.5631767651367188,
+   "meanMs": 0.5653307270507812,
+   "ciMarginMs": 0.010133996458183246,
+   "allocatedBytes": 93486
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace-large.synthetic",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=trace-large.synthetic&Codec=none",
+   "medianMs": 0.15823914965820313,
+   "meanMs": 0.1581362340611049,
+   "ciMarginMs": 0.00135490281672205,
+   "allocatedBytes": 93254
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace.captured",
+    "Codec": "brotli-4"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=trace.captured&Codec=brotli-4",
+   "medianMs": 0.043256337493896485,
+   "meanMs": 0.04330278500366211,
+   "ciMarginMs": 0.0005755565435428341,
+   "allocatedBytes": 3848
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace.captured",
+    "Codec": "gzip-1"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=trace.captured&Codec=gzip-1",
+   "medianMs": 0.012482195678710938,
+   "meanMs": 0.012546396188354493,
+   "ciMarginMs": 0.0001715552026365513,
+   "allocatedBytes": 3960
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace.captured",
+    "Codec": "gzip-6"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=trace.captured&Codec=gzip-6",
+   "medianMs": 0.0278281339263916,
+   "meanMs": 0.027838879202706474,
+   "ciMarginMs": 0.00031496486590709336,
+   "allocatedBytes": 3960
+  },
+  {
+   "suite": "server-stage",
+   "method": "Respond",
+   "params": {
+    "Format": "memorypack",
+    "Scenario": "trace.captured",
+    "Codec": "none"
+   },
+   "key": "server-stage/Respond?Format=memorypack&Scenario=trace.captured&Codec=none",
+   "medianMs": 0.003181996728897095,
+   "meanMs": 0.0031793910217285154,
+   "ciMarginMs": 0.000026786789172453684,
+   "allocatedBytes": 3728
+  }
+ ],
+ "node": [
+  {
+   "suite": "client-stage",
+   "name": "logs-page.synthetic/json/none",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 0.740803568888913,
+   "p50Ms": 0.7325030000001789,
+   "p99Ms": 1.1656318999995707,
+   "rmePercent": 2.3559144900306634,
+   "samples": 675,
+   "key": "client-stage/logs-page.synthetic/json/none",
+   "medianMs": 0.7325030000001789
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.synthetic/json/gzip-1",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 1.4379084252873713,
+   "p50Ms": 1.355491499999971,
+   "p99Ms": 3.5597023299999244,
+   "rmePercent": 5.098261489242999,
+   "samples": 348,
+   "key": "client-stage/logs-page.synthetic/json/gzip-1",
+   "medianMs": 1.355491499999971
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.synthetic/json/gzip-6",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 1.3296239151193285,
+   "p50Ms": 1.3096470000000409,
+   "p99Ms": 1.8103995200001743,
+   "rmePercent": 1.645320997819514,
+   "samples": 377,
+   "key": "client-stage/logs-page.synthetic/json/gzip-6",
+   "medianMs": 1.3096470000000409
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.synthetic/json/brotli-4",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 1.385532376731301,
+   "p50Ms": 1.352799000000232,
+   "p99Ms": 2.3937741999999753,
+   "rmePercent": 1.8431110447286687,
+   "samples": 361,
+   "key": "client-stage/logs-page.synthetic/json/brotli-4",
+   "medianMs": 1.352799000000232
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.synthetic/memorypack/none",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 2.1106398818565517,
+   "p50Ms": 2.0346920000001774,
+   "p99Ms": 2.818259639999741,
+   "rmePercent": 1.1844022417001845,
+   "samples": 237,
+   "key": "client-stage/logs-page.synthetic/memorypack/none",
+   "medianMs": 2.0346920000001774
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.synthetic/memorypack/gzip-1",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 2.5566906938775773,
+   "p50Ms": 2.4888685000000805,
+   "p99Ms": 3.461172449999868,
+   "rmePercent": 1.3800714839658275,
+   "samples": 196,
+   "key": "client-stage/logs-page.synthetic/memorypack/gzip-1",
+   "medianMs": 2.4888685000000805
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.synthetic/memorypack/gzip-6",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 2.57535469743588,
+   "p50Ms": 2.490987999999561,
+   "p99Ms": 3.492618499999717,
+   "rmePercent": 1.3555188545566617,
+   "samples": 195,
+   "key": "client-stage/logs-page.synthetic/memorypack/gzip-6",
+   "medianMs": 2.490987999999561
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.synthetic/memorypack/brotli-4",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 2.6665185053191265,
+   "p50Ms": 2.598152999999911,
+   "p99Ms": 3.65866229999965,
+   "rmePercent": 1.538172008676826,
+   "samples": 188,
+   "key": "client-stage/logs-page.synthetic/memorypack/brotli-4",
+   "medianMs": 2.598152999999911
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.captured/json/none",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 0.4642590352832131,
+   "p50Ms": 0.44467900000017835,
+   "p99Ms": 0.6886909200005904,
+   "rmePercent": 0.7767531902984802,
+   "samples": 1077,
+   "key": "client-stage/logs-page.captured/json/none",
+   "medianMs": 0.44467900000017835
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.captured/json/gzip-1",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 0.7484074245142368,
+   "p50Ms": 0.7360130000015488,
+   "p99Ms": 1.033737880000263,
+   "rmePercent": 0.8985913565598963,
+   "samples": 669,
+   "key": "client-stage/logs-page.captured/json/gzip-1",
+   "medianMs": 0.7360130000015488
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.captured/json/gzip-6",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 0.7266533396226222,
+   "p50Ms": 0.7164490000013757,
+   "p99Ms": 1.005804479999206,
+   "rmePercent": 0.8897754510586457,
+   "samples": 689,
+   "key": "client-stage/logs-page.captured/json/gzip-6",
+   "medianMs": 0.7164490000013757
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.captured/json/brotli-4",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 0.7468871507462372,
+   "p50Ms": 0.7314010000000053,
+   "p99Ms": 1.0744725499993812,
+   "rmePercent": 0.9950703754064588,
+   "samples": 670,
+   "key": "client-stage/logs-page.captured/json/brotli-4",
+   "medianMs": 0.7314010000000053
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.captured/memorypack/none",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 1.3243789999999842,
+   "p50Ms": 1.2621814999993148,
+   "p99Ms": 1.9007450600004092,
+   "rmePercent": 1.0500349719288575,
+   "samples": 378,
+   "key": "client-stage/logs-page.captured/memorypack/none",
+   "medianMs": 1.2621814999993148
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.captured/memorypack/gzip-1",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 1.4683217272727689,
+   "p50Ms": 1.40973699999995,
+   "p99Ms": 2.2303645999993034,
+   "rmePercent": 1.310222405069233,
+   "samples": 341,
+   "key": "client-stage/logs-page.captured/memorypack/gzip-1",
+   "medianMs": 1.40973699999995
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.captured/memorypack/gzip-6",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 1.4596619329445493,
+   "p50Ms": 1.4108950000008917,
+   "p99Ms": 2.243462400000135,
+   "rmePercent": 1.2372390856361153,
+   "samples": 343,
+   "key": "client-stage/logs-page.captured/memorypack/gzip-6",
+   "medianMs": 1.4108950000008917
+  },
+  {
+   "suite": "client-stage",
+   "name": "logs-page.captured/memorypack/brotli-4",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 1.4820795266272901,
+   "p50Ms": 1.4176594999989902,
+   "p99Ms": 2.4051975800001673,
+   "rmePercent": 1.4542501899990496,
+   "samples": 338,
+   "key": "client-stage/logs-page.captured/memorypack/brotli-4",
+   "medianMs": 1.4176594999989902
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace.captured/json/none",
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 0.012664715932120903,
+   "p50Ms": 0.01177800000004936,
+   "p99Ms": 0.03883947000051193,
+   "rmePercent": 0.5422876656588526,
+   "samples": 39480,
+   "key": "client-stage/trace.captured/json/none",
+   "medianMs": 0.01177800000004936
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace.captured/json/gzip-1",
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 0.02545170574162868,
+   "p50Ms": 0.021755500000836037,
+   "p99Ms": 0.0558558499998071,
+   "rmePercent": 4.66535678642331,
+   "samples": 19646,
+   "key": "client-stage/trace.captured/json/gzip-1",
+   "medianMs": 0.021755500000836037
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace.captured/json/gzip-6",
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 0.026380080352437805,
+   "p50Ms": 0.023390999998810003,
+   "p99Ms": 0.05633194999914859,
+   "rmePercent": 1.9167813633371396,
+   "samples": 18954,
+   "key": "client-stage/trace.captured/json/gzip-6",
+   "medianMs": 0.023390999998810003
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace.captured/json/brotli-4",
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 0.029765491010839508,
+   "p50Ms": 0.02567099999942002,
+   "p99Ms": 0.062143779999187215,
+   "rmePercent": 3.9965298837386865,
+   "samples": 16798,
+   "key": "client-stage/trace.captured/json/brotli-4",
+   "medianMs": 0.02567099999942002
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace.captured/memorypack/none",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 0.026134927817273796,
+   "p50Ms": 0.024815999999191263,
+   "p99Ms": 0.05785980000060587,
+   "rmePercent": 0.7133677082289878,
+   "samples": 19132,
+   "key": "client-stage/trace.captured/memorypack/none",
+   "medianMs": 0.024815999999191263
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace.captured/memorypack/gzip-1",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 0.037830156365842964,
+   "p50Ms": 0.03388300000005984,
+   "p99Ms": 0.08409350000005349,
+   "rmePercent": 1.641383387872392,
+   "samples": 13219,
+   "key": "client-stage/trace.captured/memorypack/gzip-1",
+   "medianMs": 0.03388300000005984
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace.captured/memorypack/gzip-6",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 0.0396904193522739,
+   "p50Ms": 0.03598899999997229,
+   "p99Ms": 0.08124847999943093,
+   "rmePercent": 1.5389105685487725,
+   "samples": 12598,
+   "key": "client-stage/trace.captured/memorypack/gzip-6",
+   "medianMs": 0.03598899999997229
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace.captured/memorypack/brotli-4",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 0.04303322471812001,
+   "p50Ms": 0.03866399999969872,
+   "p99Ms": 0.08918283999955727,
+   "rmePercent": 1.2295058409441153,
+   "samples": 11619,
+   "key": "client-stage/trace.captured/memorypack/brotli-4",
+   "medianMs": 0.03866399999969872
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace-large.synthetic/json/none",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 0.5426100249457707,
+   "p50Ms": 0.5089200000002165,
+   "p99Ms": 0.8459550300011307,
+   "rmePercent": 1.0094566852573625,
+   "samples": 922,
+   "key": "client-stage/trace-large.synthetic/json/none",
+   "medianMs": 0.5089200000002165
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace-large.synthetic/json/gzip-1",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 0.8195212225859554,
+   "p50Ms": 0.7910940000001574,
+   "p99Ms": 1.281315799999718,
+   "rmePercent": 2.3810367255252594,
+   "samples": 611,
+   "key": "client-stage/trace-large.synthetic/json/gzip-1",
+   "medianMs": 0.7910940000001574
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace-large.synthetic/json/gzip-6",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 0.8042204324758604,
+   "p50Ms": 0.7782769999994343,
+   "p99Ms": 1.1828946500007802,
+   "rmePercent": 2.6266813670263645,
+   "samples": 622,
+   "key": "client-stage/trace-large.synthetic/json/gzip-6",
+   "medianMs": 0.7782769999994343
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace-large.synthetic/json/brotli-4",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 0.8141587121952351,
+   "p50Ms": 0.7901290000008885,
+   "p99Ms": 1.3589658399995106,
+   "rmePercent": 2.4625322898684674,
+   "samples": 615,
+   "key": "client-stage/trace-large.synthetic/json/brotli-4",
+   "medianMs": 0.7901290000008885
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace-large.synthetic/memorypack/none",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 1.297313681347106,
+   "p50Ms": 1.2473504999998113,
+   "p99Ms": 1.8383250999990193,
+   "rmePercent": 0.9650296407811658,
+   "samples": 386,
+   "key": "client-stage/trace-large.synthetic/memorypack/none",
+   "medianMs": 1.2473504999998113
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace-large.synthetic/memorypack/gzip-1",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 1.786572167857203,
+   "p50Ms": 1.4661139999989246,
+   "p99Ms": 4.4902274500013934,
+   "rmePercent": 5.089669938451269,
+   "samples": 280,
+   "key": "client-stage/trace-large.synthetic/memorypack/gzip-1",
+   "medianMs": 1.4661139999989246
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace-large.synthetic/memorypack/gzip-6",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 1.4463212687861138,
+   "p50Ms": 1.4029734999985521,
+   "p99Ms": 2.0757438000002373,
+   "rmePercent": 1.0968546493305462,
+   "samples": 346,
+   "key": "client-stage/trace-large.synthetic/memorypack/gzip-6",
+   "medianMs": 1.4029734999985521
+  },
+  {
+   "suite": "client-stage",
+   "name": "trace-large.synthetic/memorypack/brotli-4",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 1.46937310850448,
+   "p50Ms": 1.4252620000006573,
+   "p99Ms": 2.1483594000004818,
+   "rmePercent": 1.1203704840113855,
+   "samples": 341,
+   "key": "client-stage/trace-large.synthetic/memorypack/brotli-4",
+   "medianMs": 1.4252620000006573
+  },
+  {
+   "suite": "client-stage",
+   "name": "metrics.captured/json/none",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 0.5029473638191163,
+   "p50Ms": 0.48134700000082375,
+   "p99Ms": 0.8835475600012411,
+   "rmePercent": 0.9017998019178054,
+   "samples": 995,
+   "key": "client-stage/metrics.captured/json/none",
+   "medianMs": 0.48134700000082375
+  },
+  {
+   "suite": "client-stage",
+   "name": "metrics.captured/json/gzip-1",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 0.9202530606616941,
+   "p50Ms": 0.8751505000000179,
+   "p99Ms": 1.3782042000009849,
+   "rmePercent": 3.511979848364798,
+   "samples": 544,
+   "key": "client-stage/metrics.captured/json/gzip-1",
+   "medianMs": 0.8751505000000179
+  },
+  {
+   "suite": "client-stage",
+   "name": "metrics.captured/json/gzip-6",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 0.916415391941399,
+   "p50Ms": 0.8472240000010061,
+   "p99Ms": 2.693643850000433,
+   "rmePercent": 5.631263172740519,
+   "samples": 546,
+   "key": "client-stage/metrics.captured/json/gzip-6",
+   "medianMs": 0.8472240000010061
+  },
+  {
+   "suite": "client-stage",
+   "name": "metrics.captured/json/brotli-4",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 0.9159212820512554,
+   "p50Ms": 0.9042484999990847,
+   "p99Ms": 1.1569566000005553,
+   "rmePercent": 0.6958634793671237,
+   "samples": 546,
+   "key": "client-stage/metrics.captured/json/brotli-4",
+   "medianMs": 0.9042484999990847
+  },
+  {
+   "suite": "client-stage",
+   "name": "metrics.captured/memorypack/none",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "op": "client",
+   "meanMs": 0.7569606520424028,
+   "p50Ms": 0.6868660000000091,
+   "p99Ms": 4.128792599998996,
+   "rmePercent": 4.437410565335885,
+   "samples": 661,
+   "key": "client-stage/metrics.captured/memorypack/none",
+   "medianMs": 0.6868660000000091
+  },
+  {
+   "suite": "client-stage",
+   "name": "metrics.captured/memorypack/gzip-1",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "client",
+   "meanMs": 0.9462752362949118,
+   "p50Ms": 0.8567999999977474,
+   "p99Ms": 4.040882439999116,
+   "rmePercent": 4.172623185338238,
+   "samples": 529,
+   "key": "client-stage/metrics.captured/memorypack/gzip-1",
+   "medianMs": 0.8567999999977474
+  },
+  {
+   "suite": "client-stage",
+   "name": "metrics.captured/memorypack/gzip-6",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "client",
+   "meanMs": 0.9206767481616944,
+   "p50Ms": 0.8342000000011467,
+   "p99Ms": 4.251858350000126,
+   "rmePercent": 4.431385238466532,
+   "samples": 544,
+   "key": "client-stage/metrics.captured/memorypack/gzip-6",
+   "medianMs": 0.8342000000011467
+  },
+  {
+   "suite": "client-stage",
+   "name": "metrics.captured/memorypack/brotli-4",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "client",
+   "meanMs": 0.9834803457030148,
+   "p50Ms": 0.9050624999999854,
+   "p99Ms": 3.9822202599995924,
+   "rmePercent": 5.256027110717114,
+   "samples": 512,
+   "key": "client-stage/metrics.captured/memorypack/brotli-4",
+   "medianMs": 0.9050624999999854
+  },
+  {
+   "suite": "decode",
+   "name": "logs-page.synthetic/json/decode",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "op": "decode",
+   "meanMs": 0.7299783620437869,
+   "p50Ms": 0.6566100000000006,
+   "p99Ms": 1.5480790400000841,
+   "rmePercent": 2.005719192938445,
+   "samples": 685,
+   "key": "decode/logs-page.synthetic/json/decode",
+   "medianMs": 0.6566100000000006
+  },
+  {
+   "suite": "decode",
+   "name": "logs-page.synthetic/json/decode+map",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "op": "decode+map",
+   "meanMs": 0.6944280374479815,
+   "p50Ms": 0.6395430000002307,
+   "p99Ms": 1.1352058000000393,
+   "rmePercent": 1.3246334145892598,
+   "samples": 721,
+   "key": "decode/logs-page.synthetic/json/decode+map",
+   "medianMs": 0.6395430000002307
+  },
+  {
+   "suite": "decode",
+   "name": "logs-page.synthetic/memorypack/decode",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "op": "decode",
+   "meanMs": 2.0057935519999828,
+   "p50Ms": 1.819913999999926,
+   "p99Ms": 4.172647960000073,
+   "rmePercent": 3.3046225936044475,
+   "samples": 250,
+   "key": "decode/logs-page.synthetic/memorypack/decode",
+   "medianMs": 1.819913999999926
+  },
+  {
+   "suite": "decode",
+   "name": "logs-page.synthetic/memorypack/decode+map",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "op": "decode+map",
+   "meanMs": 2.254514103603598,
+   "p50Ms": 2.1174320000004627,
+   "p99Ms": 3.9805681900001852,
+   "rmePercent": 2.3122600909808604,
+   "samples": 222,
+   "key": "decode/logs-page.synthetic/memorypack/decode+map",
+   "medianMs": 2.1174320000004627
+  },
+  {
+   "suite": "decode",
+   "name": "logs-page.captured/json/decode",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "op": "decode",
+   "meanMs": 0.4799016621881117,
+   "p50Ms": 0.4460729999996147,
+   "p99Ms": 0.8847821800005475,
+   "rmePercent": 1.429922112659086,
+   "samples": 1042,
+   "key": "decode/logs-page.captured/json/decode",
+   "medianMs": 0.4460729999996147
+  },
+  {
+   "suite": "decode",
+   "name": "logs-page.captured/json/decode+map",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "op": "decode+map",
+   "meanMs": 0.4691311810506628,
+   "p50Ms": 0.44447799999989,
+   "p99Ms": 0.7216119000001521,
+   "rmePercent": 1.0196889291242368,
+   "samples": 1066,
+   "key": "decode/logs-page.captured/json/decode+map",
+   "medianMs": 0.44447799999989
+  },
+  {
+   "suite": "decode",
+   "name": "logs-page.captured/memorypack/decode",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "op": "decode",
+   "meanMs": 1.0024382865731767,
+   "p50Ms": 0.942497000000003,
+   "p99Ms": 1.921368679999904,
+   "rmePercent": 2.2556887604698694,
+   "samples": 499,
+   "key": "decode/logs-page.captured/memorypack/decode",
+   "medianMs": 0.942497000000003
+  },
+  {
+   "suite": "decode",
+   "name": "logs-page.captured/memorypack/decode+map",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "op": "decode+map",
+   "meanMs": 1.3541907864864686,
+   "p50Ms": 1.3158619999999246,
+   "p99Ms": 1.9621118699997442,
+   "rmePercent": 1.0436795263521061,
+   "samples": 370,
+   "key": "decode/logs-page.captured/memorypack/decode+map",
+   "medianMs": 1.3158619999999246
+  },
+  {
+   "suite": "decode",
+   "name": "trace.captured/json/decode",
+   "scenario": "trace.captured",
+   "format": "json",
+   "op": "decode",
+   "meanMs": 0.011925460050562517,
+   "p50Ms": 0.01135100000010425,
+   "p99Ms": 0.033386410000102895,
+   "rmePercent": 0.48235901417534954,
+   "samples": 41928,
+   "key": "decode/trace.captured/json/decode",
+   "medianMs": 0.01135100000010425
+  },
+  {
+   "suite": "decode",
+   "name": "trace.captured/json/decode+map",
+   "scenario": "trace.captured",
+   "format": "json",
+   "op": "decode+map",
+   "meanMs": 0.012226790604981391,
+   "p50Ms": 0.011583999999857042,
+   "p99Ms": 0.03485706999967078,
+   "rmePercent": 0.568638326302975,
+   "samples": 40894,
+   "key": "decode/trace.captured/json/decode+map",
+   "medianMs": 0.011583999999857042
+  },
+  {
+   "suite": "decode",
+   "name": "trace.captured/memorypack/decode",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "op": "decode",
+   "meanMs": 0.01952631436717007,
+   "p50Ms": 0.01855500000056054,
+   "p99Ms": 0.049122679999254584,
+   "rmePercent": 0.6336006403527151,
+   "samples": 25607,
+   "key": "decode/trace.captured/memorypack/decode",
+   "medianMs": 0.01855500000056054
+  },
+  {
+   "suite": "decode",
+   "name": "trace.captured/memorypack/decode+map",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "op": "decode+map",
+   "meanMs": 0.02661202634520315,
+   "p50Ms": 0.025180000000545988,
+   "p99Ms": 0.058420560000304086,
+   "rmePercent": 0.6018763432491618,
+   "samples": 18789,
+   "key": "decode/trace.captured/memorypack/decode+map",
+   "medianMs": 0.025180000000545988
+  },
+  {
+   "suite": "decode",
+   "name": "trace-large.synthetic/json/decode",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "op": "decode",
+   "meanMs": 0.5244798322850358,
+   "p50Ms": 0.4943219999995563,
+   "p99Ms": 0.7547647399999373,
+   "rmePercent": 1.1334400767544897,
+   "samples": 954,
+   "key": "decode/trace-large.synthetic/json/decode",
+   "medianMs": 0.4943219999995563
+  },
+  {
+   "suite": "decode",
+   "name": "trace-large.synthetic/json/decode+map",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "op": "decode+map",
+   "meanMs": 0.5241394937107005,
+   "p50Ms": 0.5029920000006314,
+   "p99Ms": 0.8010003100004183,
+   "rmePercent": 0.8541535946383624,
+   "samples": 954,
+   "key": "decode/trace-large.synthetic/json/decode+map",
+   "medianMs": 0.5029920000006314
+  },
+  {
+   "suite": "decode",
+   "name": "trace-large.synthetic/memorypack/decode",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "op": "decode",
+   "meanMs": 0.9472000378787492,
+   "p50Ms": 0.9046525000003385,
+   "p99Ms": 1.478691190000937,
+   "rmePercent": 1.005841458216985,
+   "samples": 528,
+   "key": "decode/trace-large.synthetic/memorypack/decode",
+   "medianMs": 0.9046525000003385
+  },
+  {
+   "suite": "decode",
+   "name": "trace-large.synthetic/memorypack/decode+map",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "op": "decode+map",
+   "meanMs": 1.3026709869790898,
+   "p50Ms": 1.245824999999968,
+   "p99Ms": 1.8936144699997206,
+   "rmePercent": 1.1450141959497777,
+   "samples": 384,
+   "key": "decode/trace-large.synthetic/memorypack/decode+map",
+   "medianMs": 1.245824999999968
+  },
+  {
+   "suite": "decode",
+   "name": "metrics.captured/json/decode",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "op": "decode",
+   "meanMs": 0.5007188698698399,
+   "p50Ms": 0.47625800000059826,
+   "p99Ms": 0.7114964399996094,
+   "rmePercent": 1.1646326252199626,
+   "samples": 999,
+   "key": "decode/metrics.captured/json/decode",
+   "medianMs": 0.47625800000059826
+  },
+  {
+   "suite": "decode",
+   "name": "metrics.captured/json/decode+map",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "op": "decode+map",
+   "meanMs": 0.5075540527383514,
+   "p50Ms": 0.49232649999976275,
+   "p99Ms": 0.725864349999756,
+   "rmePercent": 0.7538609156986931,
+   "samples": 986,
+   "key": "decode/metrics.captured/json/decode+map",
+   "medianMs": 0.49232649999976275
+  },
+  {
+   "suite": "decode",
+   "name": "metrics.captured/memorypack/decode",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "op": "decode",
+   "meanMs": 0.22986519577205283,
+   "p50Ms": 0.21670200000062323,
+   "p99Ms": 0.5474577500003761,
+   "rmePercent": 1.008416542349185,
+   "samples": 2176,
+   "key": "decode/metrics.captured/memorypack/decode",
+   "medianMs": 0.21670200000062323
+  },
+  {
+   "suite": "decode",
+   "name": "metrics.captured/memorypack/decode+map",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "op": "decode+map",
+   "meanMs": 0.6283782587940094,
+   "p50Ms": 0.6065085000009276,
+   "p99Ms": 0.9947511000013035,
+   "rmePercent": 0.8724502811730537,
+   "samples": 796,
+   "key": "decode/metrics.captured/memorypack/decode+map",
+   "medianMs": 0.6065085000009276
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.synthetic/json/gzip-1",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.5801566461716996,
+   "p50Ms": 0.5551135000000613,
+   "p99Ms": 0.9578356500000608,
+   "rmePercent": 1.7871001879114075,
+   "samples": 862,
+   "key": "decompress/logs-page.synthetic/json/gzip-1",
+   "medianMs": 0.5551135000000613
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.synthetic/json/gzip-6",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.5360591318328081,
+   "p50Ms": 0.5193260000005466,
+   "p99Ms": 0.9061404400003805,
+   "rmePercent": 1.7445966827756187,
+   "samples": 933,
+   "key": "decompress/logs-page.synthetic/json/gzip-6",
+   "medianMs": 0.5193260000005466
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.synthetic/json/brotli-4",
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.6408072330345853,
+   "p50Ms": 0.574638999999479,
+   "p99Ms": 1.7302730000003077,
+   "rmePercent": 6.2499457894963975,
+   "samples": 781,
+   "key": "decompress/logs-page.synthetic/json/brotli-4",
+   "medianMs": 0.574638999999479
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.synthetic/memorypack/gzip-1",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.49961788311688404,
+   "p50Ms": 0.44136900000012247,
+   "p99Ms": 0.8102819999994608,
+   "rmePercent": 6.557233882415082,
+   "samples": 1001,
+   "key": "decompress/logs-page.synthetic/memorypack/gzip-1",
+   "medianMs": 0.44136900000012247
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.synthetic/memorypack/gzip-6",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.5134692577001987,
+   "p50Ms": 0.4677884999996422,
+   "p99Ms": 0.8423001999999812,
+   "rmePercent": 5.126015615327292,
+   "samples": 974,
+   "key": "decompress/logs-page.synthetic/memorypack/gzip-6",
+   "medianMs": 0.4677884999996422
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.synthetic/memorypack/brotli-4",
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.5631460439189301,
+   "p50Ms": 0.5146589999999378,
+   "p99Ms": 0.9153747100001683,
+   "rmePercent": 5.434842206487253,
+   "samples": 888,
+   "key": "decompress/logs-page.synthetic/memorypack/brotli-4",
+   "medianMs": 0.5146589999999378
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.captured/json/gzip-1",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.27394296714129185,
+   "p50Ms": 0.23923849999937374,
+   "p99Ms": 0.6098804999999174,
+   "rmePercent": 7.710943173223956,
+   "samples": 1826,
+   "key": "decompress/logs-page.captured/json/gzip-1",
+   "medianMs": 0.23923849999937374
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.captured/json/gzip-6",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.2627869190751622,
+   "p50Ms": 0.22946200000023964,
+   "p99Ms": 0.47876248000027827,
+   "rmePercent": 7.835487745501482,
+   "samples": 1903,
+   "key": "decompress/logs-page.captured/json/gzip-6",
+   "medianMs": 0.22946200000023964
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.captured/json/brotli-4",
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.26621631985099137,
+   "p50Ms": 0.24201700000048731,
+   "p99Ms": 0.5089776000000168,
+   "rmePercent": 7.059014180345698,
+   "samples": 1879,
+   "key": "decompress/logs-page.captured/json/brotli-4",
+   "medianMs": 0.24201700000048731
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.captured/memorypack/gzip-1",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.16515291479523495,
+   "p50Ms": 0.14138150000007954,
+   "p99Ms": 0.2746539000006125,
+   "rmePercent": 8.300441175040929,
+   "samples": 3028,
+   "key": "decompress/logs-page.captured/memorypack/gzip-1",
+   "medianMs": 0.14138150000007954
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.captured/memorypack/gzip-6",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.1571705993086038,
+   "p50Ms": 0.13805299999967247,
+   "p99Ms": 0.26487152000008796,
+   "rmePercent": 7.613542137574061,
+   "samples": 3182,
+   "key": "decompress/logs-page.captured/memorypack/gzip-6",
+   "medianMs": 0.13805299999967247
+  },
+  {
+   "suite": "decompress",
+   "name": "logs-page.captured/memorypack/brotli-4",
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.1717644373067765,
+   "p50Ms": 0.14668300000084855,
+   "p99Ms": 0.26239639999985265,
+   "rmePercent": 8.752280420875913,
+   "samples": 2911,
+   "key": "decompress/logs-page.captured/memorypack/brotli-4",
+   "medianMs": 0.14668300000084855
+  },
+  {
+   "suite": "decompress",
+   "name": "trace.captured/json/gzip-1",
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.012593294479149612,
+   "p50Ms": 0.009162000000287662,
+   "p99Ms": 0.03780997000161733,
+   "rmePercent": 9.205579854303348,
+   "samples": 39704,
+   "key": "decompress/trace.captured/json/gzip-1",
+   "medianMs": 0.009162000000287662
+  },
+  {
+   "suite": "decompress",
+   "name": "trace.captured/json/gzip-6",
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.014416285240591306,
+   "p50Ms": 0.010555999999269261,
+   "p99Ms": 0.03854070000030334,
+   "rmePercent": 9.463222935480433,
+   "samples": 34683,
+   "key": "decompress/trace.captured/json/gzip-6",
+   "medianMs": 0.010555999999269261
+  },
+  {
+   "suite": "decompress",
+   "name": "trace.captured/json/brotli-4",
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.016235718771300634,
+   "p50Ms": 0.012171999998827232,
+   "p99Ms": 0.0409180399999605,
+   "rmePercent": 9.141878676782689,
+   "samples": 30797,
+   "key": "decompress/trace.captured/json/brotli-4",
+   "medianMs": 0.012171999998827232
+  },
+  {
+   "suite": "decompress",
+   "name": "trace.captured/memorypack/gzip-1",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.01140729624475008,
+   "p50Ms": 0.007743999999547668,
+   "p99Ms": 0.03283542000055608,
+   "rmePercent": 10.578380958439206,
+   "samples": 43832,
+   "key": "decompress/trace.captured/memorypack/gzip-1",
+   "medianMs": 0.007743999999547668
+  },
+  {
+   "suite": "decompress",
+   "name": "trace.captured/memorypack/gzip-6",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.014414336802347712,
+   "p50Ms": 0.010033999998995569,
+   "p99Ms": 0.03913329000071818,
+   "rmePercent": 11.25969981859409,
+   "samples": 34688,
+   "key": "decompress/trace.captured/memorypack/gzip-6",
+   "medianMs": 0.010033999998995569
+  },
+  {
+   "suite": "decompress",
+   "name": "trace.captured/memorypack/brotli-4",
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.015817906959825972,
+   "p50Ms": 0.011597499999879801,
+   "p99Ms": 0.046260559999846004,
+   "rmePercent": 9.30214688349012,
+   "samples": 31610,
+   "key": "decompress/trace.captured/memorypack/brotli-4",
+   "medianMs": 0.011597499999879801
+  },
+  {
+   "suite": "decompress",
+   "name": "trace-large.synthetic/json/gzip-1",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.2712199994594366,
+   "p50Ms": 0.23292450000008103,
+   "p99Ms": 0.4385251599997172,
+   "rmePercent": 8.517836787511587,
+   "samples": 1850,
+   "key": "decompress/trace-large.synthetic/json/gzip-1",
+   "medianMs": 0.23292450000008103
+  },
+  {
+   "suite": "decompress",
+   "name": "trace-large.synthetic/json/gzip-6",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.26846097745572833,
+   "p50Ms": 0.22699199999988195,
+   "p99Ms": 0.8937961799995837,
+   "rmePercent": 7.88128688222728,
+   "samples": 1863,
+   "key": "decompress/trace-large.synthetic/json/gzip-6",
+   "medianMs": 0.22699199999988195
+  },
+  {
+   "suite": "decompress",
+   "name": "trace-large.synthetic/json/brotli-4",
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.27128098429033864,
+   "p50Ms": 0.2319774999996298,
+   "p99Ms": 0.49731060000021665,
+   "rmePercent": 8.7559370196306,
+   "samples": 1846,
+   "key": "decompress/trace-large.synthetic/json/brotli-4",
+   "medianMs": 0.2319774999996298
+  },
+  {
+   "suite": "decompress",
+   "name": "trace-large.synthetic/memorypack/gzip-1",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.17206418719888866,
+   "p50Ms": 0.14920100000108505,
+   "p99Ms": 0.2720150999994068,
+   "rmePercent": 8.789433927198012,
+   "samples": 2906,
+   "key": "decompress/trace-large.synthetic/memorypack/gzip-1",
+   "medianMs": 0.14920100000108505
+  },
+  {
+   "suite": "decompress",
+   "name": "trace-large.synthetic/memorypack/gzip-6",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.1800324672426241,
+   "p50Ms": 0.15023800000017218,
+   "p99Ms": 0.2856423200002064,
+   "rmePercent": 9.489639179211835,
+   "samples": 2778,
+   "key": "decompress/trace-large.synthetic/memorypack/gzip-6",
+   "medianMs": 0.15023800000017218
+  },
+  {
+   "suite": "decompress",
+   "name": "trace-large.synthetic/memorypack/brotli-4",
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.1954832494136147,
+   "p50Ms": 0.1617790000000241,
+   "p99Ms": 0.36079988000032226,
+   "rmePercent": 9.241399195005743,
+   "samples": 2558,
+   "key": "decompress/trace-large.synthetic/memorypack/brotli-4",
+   "medianMs": 0.1617790000000241
+  },
+  {
+   "suite": "decompress",
+   "name": "metrics.captured/json/gzip-1",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.34654306375607474,
+   "p50Ms": 0.3076820000005682,
+   "p99Ms": 0.5486398399987588,
+   "rmePercent": 6.44245770462252,
+   "samples": 1443,
+   "key": "decompress/metrics.captured/json/gzip-1",
+   "medianMs": 0.3076820000005682
+  },
+  {
+   "suite": "decompress",
+   "name": "metrics.captured/json/gzip-6",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.32704335055588035,
+   "p50Ms": 0.28100199999971665,
+   "p99Ms": 0.5010373999995501,
+   "rmePercent": 7.595719756061148,
+   "samples": 1529,
+   "key": "decompress/metrics.captured/json/gzip-6",
+   "medianMs": 0.28100199999971665
+  },
+  {
+   "suite": "decompress",
+   "name": "metrics.captured/json/brotli-4",
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.3712714669635974,
+   "p50Ms": 0.32910700000138604,
+   "p99Ms": 0.5983816199990533,
+   "rmePercent": 7.008978031017266,
+   "samples": 1347,
+   "key": "decompress/metrics.captured/json/brotli-4",
+   "medianMs": 0.32910700000138604
+  },
+  {
+   "suite": "decompress",
+   "name": "metrics.captured/memorypack/gzip-1",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "op": "decompress",
+   "meanMs": 0.20869012061768138,
+   "p50Ms": 0.18496550000054413,
+   "p99Ms": 0.3562120499989763,
+   "rmePercent": 7.676182938814335,
+   "samples": 2396,
+   "key": "decompress/metrics.captured/memorypack/gzip-1",
+   "medianMs": 0.18496550000054413
+  },
+  {
+   "suite": "decompress",
+   "name": "metrics.captured/memorypack/gzip-6",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "op": "decompress",
+   "meanMs": 0.20768864202658466,
+   "p50Ms": 0.17818649999935587,
+   "p99Ms": 0.33297087000017167,
+   "rmePercent": 8.533861046782848,
+   "samples": 2408,
+   "key": "decompress/metrics.captured/memorypack/gzip-6",
+   "medianMs": 0.17818649999935587
+  },
+  {
+   "suite": "decompress",
+   "name": "metrics.captured/memorypack/brotli-4",
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "op": "decompress",
+   "meanMs": 0.26524102386004594,
+   "p50Ms": 0.23380550000183575,
+   "p99Ms": 0.46888009999893543,
+   "rmePercent": 6.581609202101964,
+   "samples": 1886,
+   "key": "decompress/metrics.captured/memorypack/brotli-4",
+   "medianMs": 0.23380550000183575
+  },
+  {
+   "suite": "request-encode",
+   "name": "logs-request.synthetic/json/encode",
+   "scenario": "logs-request.synthetic",
+   "format": "json",
+   "op": "encode",
+   "meanMs": 0.002048714196741767,
+   "p50Ms": 0.0014570000000730943,
+   "p99Ms": 0.00848490000000768,
+   "rmePercent": 1.4450496137178273,
+   "samples": 244056,
+   "key": "request-encode/logs-request.synthetic/json/encode",
+   "medianMs": 0.0014570000000730943
+  },
+  {
+   "suite": "request-encode",
+   "name": "logs-request.synthetic/memorypack/encode",
+   "scenario": "logs-request.synthetic",
+   "format": "memorypack",
+   "op": "encode",
+   "meanMs": 0.0021668438533308503,
+   "p50Ms": 0.0016610000000127911,
+   "p99Ms": 0.0069280000000162545,
+   "rmePercent": 2.668769430695534,
+   "samples": 230751,
+   "key": "request-encode/logs-request.synthetic/memorypack/encode",
+   "medianMs": 0.0016610000000127911
+  }
+ ],
+ "workflow": [
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 234095,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 0,
+    "transfer": 1.87276,
+    "decompress": 0,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 2.9619392580568196
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 234095,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 0,
+    "transfer": 18.7276,
+    "decompress": 0,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 19.81677925805682
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 234095,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 0,
+    "transfer": 93.638,
+    "decompress": 0,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 94.72717925805682
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 234095,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 0,
+    "transfer": 374.552,
+    "decompress": 0,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 375.64117925805687
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 63043,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 0.6290242634277344,
+    "transfer": 0.504344,
+    "decompress": 0.6229884999997921,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 2.845536021484346
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 63043,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 0.6290242634277344,
+    "transfer": 5.0434399999999995,
+    "decompress": 0.6229884999997921,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 7.384632021484346
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 63043,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 0.6290242634277344,
+    "transfer": 25.2172,
+    "decompress": 0.6229884999997921,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 27.558392021484345
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 63043,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 0.6290242634277344,
+    "transfer": 100.8688,
+    "decompress": 0.6229884999997921,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 103.20999202148434
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 36974,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 1.8477109763183592,
+    "transfer": 0.295792,
+    "decompress": 0.577143999999862,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 3.809826234375041
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 36974,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 1.8477109763183592,
+    "transfer": 2.95792,
+    "decompress": 0.577143999999862,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 6.4719542343750405
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 36974,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 1.8477109763183592,
+    "transfer": 14.7896,
+    "decompress": 0.577143999999862,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 18.30363423437504
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 36974,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 1.8477109763183592,
+    "transfer": 59.1584,
+    "decompress": 0.577143999999862,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 62.67243423437504
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 35918,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 2.114235546630859,
+    "transfer": 0.287344,
+    "decompress": 0.620296000000053,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 4.111054804687732
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 35918,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 2.114235546630859,
+    "transfer": 2.87344,
+    "decompress": 0.620296000000053,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 6.697150804687732
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 35918,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 2.114235546630859,
+    "transfer": 14.3672,
+    "decompress": 0.620296000000053,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 18.190910804687732
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 35918,
+   "stages": {
+    "encode": 0.3566762580566406,
+    "compress": 2.114235546630859,
+    "transfer": 57.4688,
+    "decompress": 0.620296000000053,
+    "decodeMap": 0.7325030000001789
+   },
+   "totalMs": 61.29251080468774
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 185935,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 0,
+    "transfer": 1.48748,
+    "decompress": 0,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 3.711390183105646
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 185935,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 0,
+    "transfer": 14.8748,
+    "decompress": 0,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 17.098710183105645
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 185935,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 0,
+    "transfer": 74.374,
+    "decompress": 0,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 76.59791018310564
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 185935,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 0,
+    "transfer": 297.496,
+    "decompress": 0,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 299.71991018310564
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 53938,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 0.5452983071289063,
+    "transfer": 0.431504,
+    "decompress": 0.45417649999990317,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 3.6548889902344555
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 53938,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 0.5452983071289063,
+    "transfer": 4.31504,
+    "decompress": 0.45417649999990317,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 7.538424990234455
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 53938,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 0.5452983071289063,
+    "transfer": 21.5752,
+    "decompress": 0.45417649999990317,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 24.798584990234453
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 53938,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 0.5452983071289063,
+    "transfer": 86.3008,
+    "decompress": 0.45417649999990317,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 89.52418499023445
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 37339,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 1.6625793227539063,
+    "transfer": 0.29871200000000003,
+    "decompress": 0.45629599999938364,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 4.641497505858936
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 37339,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 1.6625793227539063,
+    "transfer": 2.98712,
+    "decompress": 0.45629599999938364,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 7.329905505858936
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 37339,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 1.6625793227539063,
+    "transfer": 14.9356,
+    "decompress": 0.45629599999938364,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 19.278385505858935
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 37339,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 1.6625793227539063,
+    "transfer": 59.7424,
+    "decompress": 0.45629599999938364,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 64.08518550585893
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 37186,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 1.6736435766601563,
+    "transfer": 0.297488,
+    "decompress": 0.5634609999997338,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 4.758502759765536
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 37186,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 1.6736435766601563,
+    "transfer": 2.97488,
+    "decompress": 0.5634609999997338,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 7.435894759765536
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 37186,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 1.6736435766601563,
+    "transfer": 14.8744,
+    "decompress": 0.5634609999997338,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 19.335414759765534
+  },
+  {
+   "scenario": "logs-page.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 37186,
+   "stages": {
+    "encode": 0.18921818310546876,
+    "compress": 1.6736435766601563,
+    "transfer": 59.4976,
+    "decompress": 0.5634609999997338,
+    "decodeMap": 2.0346920000001774
+   },
+   "totalMs": 63.95861475976553
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 156982,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0,
+    "transfer": 1.255856,
+    "decompress": 0,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 1.9729867473146316
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 156982,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0,
+    "transfer": 12.55856,
+    "decompress": 0,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 13.27569074731463
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 156982,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0,
+    "transfer": 62.79279999999999,
+    "decompress": 0,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 63.50993074731463
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 156982,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0,
+    "transfer": 251.17119999999997,
+    "decompress": 0,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 251.8883307473146
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 16925,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.18413098608398437,
+    "transfer": 0.13540000000000002,
+    "decompress": 0.29133400000137044,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 1.3279957333999863
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 16925,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.18413098608398437,
+    "transfer": 1.3539999999999999,
+    "decompress": 0.29133400000137044,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 2.546595733399986
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 16925,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.18413098608398437,
+    "transfer": 6.77,
+    "decompress": 0.29133400000137044,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 7.9625957333999855
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 16925,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.18413098608398437,
+    "transfer": 27.08,
+    "decompress": 0.29133400000137044,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 28.272595733399985
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 9632,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.6242045388183592,
+    "transfer": 0.077056,
+    "decompress": 0.27177000000119733,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 1.6901612861341881
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 9632,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.6242045388183592,
+    "transfer": 0.77056,
+    "decompress": 0.27177000000119733,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 2.383665286134188
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 9632,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.6242045388183592,
+    "transfer": 3.8528,
+    "decompress": 0.27177000000119733,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 5.465905286134188
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 9632,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.6242045388183592,
+    "transfer": 15.4112,
+    "decompress": 0.27177000000119733,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 17.024305286134187
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 8287,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.8643414519042969,
+    "transfer": 0.06629600000000001,
+    "decompress": 0.28672199999982695,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 1.9344901992187553
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 8287,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.8643414519042969,
+    "transfer": 0.66296,
+    "decompress": 0.28672199999982695,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 2.531154199218755
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 8287,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.8643414519042969,
+    "transfer": 3.3148,
+    "decompress": 0.28672199999982695,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 5.182994199218755
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 8287,
+   "stages": {
+    "encode": 0.27245174731445315,
+    "compress": 0.8643414519042969,
+    "transfer": 13.2592,
+    "decompress": 0.28672199999982695,
+    "decodeMap": 0.44467900000017835
+   },
+   "totalMs": 15.127394199218756
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 88545,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0,
+    "transfer": 0.70836,
+    "decompress": 0,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 2.1141300329582995
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 88545,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0,
+    "transfer": 7.0836,
+    "decompress": 0,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 8.489370032958298
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 88545,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0,
+    "transfer": 35.418,
+    "decompress": 0,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 36.8237700329583
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 88545,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0,
+    "transfer": 141.672,
+    "decompress": 0,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 143.07777003295828
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 10799,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.08878827709960938,
+    "transfer": 0.086392,
+    "decompress": 0.14755550000063522,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 1.7285058100585438
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 10799,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.08878827709960938,
+    "transfer": 0.86392,
+    "decompress": 0.14755550000063522,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 2.5060338100585438
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 10799,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.08878827709960938,
+    "transfer": 4.319599999999999,
+    "decompress": 0.14755550000063522,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 5.961713810058543
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 10799,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.08878827709960938,
+    "transfer": 17.278399999999998,
+    "decompress": 0.14755550000063522,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 18.92051381005854
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 8175,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.4011901643066406,
+    "transfer": 0.0654,
+    "decompress": 0.1487135000015769,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 2.021073697266517
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 8175,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.4011901643066406,
+    "transfer": 0.6539999999999999,
+    "decompress": 0.1487135000015769,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 2.6096736972665164
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 8175,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.4011901643066406,
+    "transfer": 3.27,
+    "decompress": 0.1487135000015769,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 5.225673697266517
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 8175,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.4011901643066406,
+    "transfer": 13.08,
+    "decompress": 0.1487135000015769,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 15.035673697266517
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 7382,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.39878656323242184,
+    "transfer": 0.059056,
+    "decompress": 0.15547799999967538,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 2.0190905961903964
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 7382,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.39878656323242184,
+    "transfer": 0.59056,
+    "decompress": 0.15547799999967538,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 2.5505945961903964
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 7382,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.39878656323242184,
+    "transfer": 2.9528000000000003,
+    "decompress": 0.15547799999967538,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 4.912834596190397
+  },
+  {
+   "scenario": "logs-page.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 7382,
+   "stages": {
+    "encode": 0.14358853295898438,
+    "compress": 0.39878656323242184,
+    "transfer": 11.811200000000001,
+    "decompress": 0.15547799999967538,
+    "decodeMap": 1.2621814999993148
+   },
+   "totalMs": 13.771234596190398
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 3296,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0,
+    "transfer": 0.026368,
+    "decompress": 0,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.043515820026447063
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 3296,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0,
+    "transfer": 0.26368,
+    "decompress": 0,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.2808278200264471
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 3296,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0,
+    "transfer": 1.3184,
+    "decompress": 0,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 1.335547820026447
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 3296,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0,
+    "transfer": 5.2736,
+    "decompress": 0,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 5.290747820026447
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 890,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.010994928508758547,
+    "transfer": 0.00712,
+    "decompress": 0.009977500000786677,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.04524024853599229
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 890,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.010994928508758547,
+    "transfer": 0.0712,
+    "decompress": 0.009977500000786677,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.10932024853599229
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 890,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.010994928508758547,
+    "transfer": 0.356,
+    "decompress": 0.009977500000786677,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.39412024853599226
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 890,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.010994928508758547,
+    "transfer": 1.424,
+    "decompress": 0.009977500000786677,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 1.4621202485359923
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 696,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.024232850444793702,
+    "transfer": 0.005568,
+    "decompress": 0.011612999998760642,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.05856167047000141
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 696,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.024232850444793702,
+    "transfer": 0.05568,
+    "decompress": 0.011612999998760642,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.10867367047000141
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 696,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.024232850444793702,
+    "transfer": 0.2784,
+    "decompress": 0.011612999998760642,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.3313936704700014
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 696,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.024232850444793702,
+    "transfer": 1.1136,
+    "decompress": 0.011612999998760642,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 1.1665936704700013
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 687,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.0563639725151062,
+    "transfer": 0.005496,
+    "decompress": 0.013892999999370659,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.09290079254092393
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 687,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.0563639725151062,
+    "transfer": 0.05496,
+    "decompress": 0.013892999999370659,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.14236479254092393
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 687,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.0563639725151062,
+    "transfer": 0.2748,
+    "decompress": 0.013892999999370659,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 0.3622047925409239
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 687,
+   "stages": {
+    "encode": 0.005369820026397705,
+    "compress": 0.0563639725151062,
+    "transfer": 1.0992,
+    "decompress": 0.013892999999370659,
+    "decodeMap": 0.01177800000004936
+   },
+   "totalMs": 1.186604792540924
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 1887,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0,
+    "transfer": 0.015096,
+    "decompress": 0,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.043093996728088356
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 1887,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0,
+    "transfer": 0.15096,
+    "decompress": 0,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.17895799672808838
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 1887,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0,
+    "transfer": 0.7548,
+    "decompress": 0,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.7827979967280884
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 1887,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0,
+    "transfer": 3.0192,
+    "decompress": 0,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 3.0471979967280887
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 673,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.009300198949813843,
+    "transfer": 0.005384,
+    "decompress": 0.009067000000868575,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.051749195678770774
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 673,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.009300198949813843,
+    "transfer": 0.05384,
+    "decompress": 0.009067000000868575,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.10020519567877077
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 673,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.009300198949813843,
+    "transfer": 0.2692,
+    "decompress": 0.009067000000868575,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.3155651956787708
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 673,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.009300198949813843,
+    "transfer": 1.0768,
+    "decompress": 0.009067000000868575,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 1.1231651956787707
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 578,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.024646137197494505,
+    "transfer": 0.0046240000000000005,
+    "decompress": 0.01117300000078103,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.06844113392636389
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 578,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.024646137197494505,
+    "transfer": 0.046239999999999996,
+    "decompress": 0.01117300000078103,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.11005713392636389
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 578,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.024646137197494505,
+    "transfer": 0.23120000000000002,
+    "decompress": 0.01117300000078103,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.2950171339263639
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 578,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.024646137197494505,
+    "transfer": 0.9248000000000001,
+    "decompress": 0.01117300000078103,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.988617133926364
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 537,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.04007434076499939,
+    "transfer": 0.004296,
+    "decompress": 0.013848000000507454,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.0862163374935952
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 537,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.04007434076499939,
+    "transfer": 0.042960000000000005,
+    "decompress": 0.013848000000507454,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.1248803374935952
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 537,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.04007434076499939,
+    "transfer": 0.2148,
+    "decompress": 0.013848000000507454,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.29672033749359517
+  },
+  {
+   "scenario": "trace.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 537,
+   "stages": {
+    "encode": 0.003181996728897095,
+    "compress": 0.04007434076499939,
+    "transfer": 0.8592,
+    "decompress": 0.013848000000507454,
+    "decodeMap": 0.024815999999191263
+   },
+   "totalMs": 0.9411203374935951
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 158737,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0,
+    "transfer": 1.269896,
+    "decompress": 0,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 2.1007965161134976
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 158737,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0,
+    "transfer": 12.69896,
+    "decompress": 0,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 13.529860516113498
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 158737,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0,
+    "transfer": 63.494800000000005,
+    "decompress": 0,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 64.3257005161135
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 158737,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0,
+    "transfer": 253.97920000000002,
+    "decompress": 0,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 254.81010051611352
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 14082,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.10714075048828126,
+    "transfer": 0.112656,
+    "decompress": 0.28217399999994086,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 1.33287126660172
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 14082,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.10714075048828126,
+    "transfer": 1.12656,
+    "decompress": 0.28217399999994086,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 2.34677526660172
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 14082,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.10714075048828126,
+    "transfer": 5.6328000000000005,
+    "decompress": 0.28217399999994086,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 6.85301526660172
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 14082,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.10714075048828126,
+    "transfer": 22.531200000000002,
+    "decompress": 0.28217399999994086,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 23.75141526660172
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 7996,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.5779795751953125,
+    "transfer": 0.063968,
+    "decompress": 0.2693569999992178,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 1.742205091308028
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 7996,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.5779795751953125,
+    "transfer": 0.63968,
+    "decompress": 0.2693569999992178,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 2.3179170913080283
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 7996,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.5779795751953125,
+    "transfer": 3.1984,
+    "decompress": 0.2693569999992178,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 4.876637091308028
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 7996,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.5779795751953125,
+    "transfer": 12.7936,
+    "decompress": 0.2693569999992178,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 14.471837091308029
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 6907,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.7049012338867188,
+    "transfer": 0.055256,
+    "decompress": 0.28120900000067195,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 1.8722667500008885
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 6907,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.7049012338867188,
+    "transfer": 0.55256,
+    "decompress": 0.28120900000067195,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 2.3695707500008885
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 6907,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.7049012338867188,
+    "transfer": 2.7628000000000004,
+    "decompress": 0.28120900000067195,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 4.579810750000889
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 6907,
+   "stages": {
+    "encode": 0.32198051611328127,
+    "compress": 0.7049012338867188,
+    "transfer": 11.051200000000001,
+    "decompress": 0.28120900000067195,
+    "decodeMap": 0.5089200000002165
+   },
+   "totalMs": 12.86821075000089
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 91371,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0,
+    "transfer": 0.7309680000000001,
+    "decompress": 0,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 2.1365576496580143
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 91371,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0,
+    "transfer": 7.30968,
+    "decompress": 0,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 8.715269649658016
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 91371,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0,
+    "transfer": 36.5484,
+    "decompress": 0,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 37.95398964965801
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 91371,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0,
+    "transfer": 146.1936,
+    "decompress": 0,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 147.59918964965803
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 11595,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.09218340869140623,
+    "transfer": 0.09276,
+    "decompress": 0.21876349999911326,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 1.8092965583485339
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 11595,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.09218340869140623,
+    "transfer": 0.9276,
+    "decompress": 0.21876349999911326,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 2.644136558348534
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 11595,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.09218340869140623,
+    "transfer": 4.638,
+    "decompress": 0.21876349999911326,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 6.354536558348534
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 11595,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.09218340869140623,
+    "transfer": 18.552,
+    "decompress": 0.21876349999911326,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 20.268536558348533
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 7836,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.40493761547851564,
+    "transfer": 0.062688,
+    "decompress": 0.15562299999874085,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 2.028838265135271
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 7836,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.40493761547851564,
+    "transfer": 0.62688,
+    "decompress": 0.15562299999874085,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 2.593030265135271
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 7836,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.40493761547851564,
+    "transfer": 3.1344,
+    "decompress": 0.15562299999874085,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 5.10055026513527
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 7836,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.40493761547851564,
+    "transfer": 12.5376,
+    "decompress": 0.15562299999874085,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 14.50375026513527
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 7331,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.43846289428710933,
+    "transfer": 0.058648,
+    "decompress": 0.177911500000846,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 2.08061204394597
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 7331,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.43846289428710933,
+    "transfer": 0.58648,
+    "decompress": 0.177911500000846,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 2.60844404394597
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 7331,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.43846289428710933,
+    "transfer": 2.9324,
+    "decompress": 0.177911500000846,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 4.9543640439459695
+  },
+  {
+   "scenario": "trace-large.synthetic",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 7331,
+   "stages": {
+    "encode": 0.15823914965820313,
+    "compress": 0.43846289428710933,
+    "transfer": 11.7296,
+    "decompress": 0.177911500000846,
+    "decodeMap": 1.2473504999998113
+   },
+   "totalMs": 13.751564043945969
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 137337,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 0,
+    "transfer": 1.098696,
+    "decompress": 0,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 2.1141936811531674
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 137337,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 0,
+    "transfer": 10.98696,
+    "decompress": 0,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 12.002457681153167
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 137337,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 0,
+    "transfer": 54.934799999999996,
+    "decompress": 0,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 55.95029768115316
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 137337,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 0,
+    "transfer": 219.73919999999998,
+    "decompress": 0,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 220.75469768115315
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 31584,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 0.3298882456054687,
+    "transfer": 0.252672,
+    "decompress": 0.3938034999991942,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 1.9918614267578305
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 31584,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 0.3298882456054687,
+    "transfer": 2.52672,
+    "decompress": 0.3938034999991942,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 4.265909426757831
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 31584,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 0.3298882456054687,
+    "transfer": 12.6336,
+    "decompress": 0.3938034999991942,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 14.37278942675783
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 31584,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 0.3298882456054687,
+    "transfer": 50.5344,
+    "decompress": 0.3938034999991942,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 52.27358942675783
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 19058,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 1.4575342719726563,
+    "transfer": 0.152464,
+    "decompress": 0.3658770000001823,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 2.9913729531260063
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 19058,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 1.4575342719726563,
+    "transfer": 1.52464,
+    "decompress": 0.3658770000001823,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 4.363548953126006
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 19058,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 1.4575342719726563,
+    "transfer": 7.6232,
+    "decompress": 0.3658770000001823,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 10.462108953126005
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 19058,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 1.4575342719726563,
+    "transfer": 30.4928,
+    "decompress": 0.3658770000001823,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 33.331708953126004
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 18576,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 1.3144764672851563,
+    "transfer": 0.148608,
+    "decompress": 0.422901499998261,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 2.901483648436585
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 18576,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 1.3144764672851563,
+    "transfer": 1.48608,
+    "decompress": 0.422901499998261,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 4.238955648436585
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 18576,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 1.3144764672851563,
+    "transfer": 7.430400000000001,
+    "decompress": 0.422901499998261,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 10.183275648436585
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "json",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 18576,
+   "stages": {
+    "encode": 0.5341506811523438,
+    "compress": 1.3144764672851563,
+    "transfer": 29.721600000000002,
+    "decompress": 0.422901499998261,
+    "decodeMap": 0.48134700000082375
+   },
+   "totalMs": 32.47447564843659
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "1gbps",
+   "bytes": 84332,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0,
+    "transfer": 0.674656,
+    "decompress": 0,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 1.4003625706482024
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "100mbps",
+   "bytes": 84332,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0,
+    "transfer": 6.746560000000001,
+    "decompress": 0,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 7.472266570648203
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "20mbps",
+   "bytes": 84332,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0,
+    "transfer": 33.7328,
+    "decompress": 0,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 34.4585065706482
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "none",
+   "link": "5mbps",
+   "bytes": 84332,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0,
+    "transfer": 134.9312,
+    "decompress": 0,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 135.6569065706482
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "1gbps",
+   "bytes": 22537,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.1647186544494629,
+    "transfer": 0.180296,
+    "decompress": 0.16993399999773828,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 1.2406552250954035
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "100mbps",
+   "bytes": 22537,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.1647186544494629,
+    "transfer": 1.80296,
+    "decompress": 0.16993399999773828,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 2.8633192250954034
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "20mbps",
+   "bytes": 22537,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.1647186544494629,
+    "transfer": 9.0148,
+    "decompress": 0.16993399999773828,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 10.075159225095403
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-1",
+   "link": "5mbps",
+   "bytes": 22537,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.1647186544494629,
+    "transfer": 36.0592,
+    "decompress": 0.16993399999773828,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 37.1195592250954
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "1gbps",
+   "bytes": 18203,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.8006534898986817,
+    "transfer": 0.14562399999999998,
+    "decompress": 0.1473340000011376,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 1.8193180605480217
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "100mbps",
+   "bytes": 18203,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.8006534898986817,
+    "transfer": 1.45624,
+    "decompress": 0.1473340000011376,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 3.1299340605480217
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "20mbps",
+   "bytes": 18203,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.8006534898986817,
+    "transfer": 7.2812,
+    "decompress": 0.1473340000011376,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 8.954894060548021
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "gzip-6",
+   "link": "5mbps",
+   "bytes": 18203,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.8006534898986817,
+    "transfer": 29.1248,
+    "decompress": 0.1473340000011376,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 30.798494060548023
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "1gbps",
+   "bytes": 18750,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.7396546705627441,
+    "transfer": 0.15,
+    "decompress": 0.21819649999997637,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 1.833557741210923
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "100mbps",
+   "bytes": 18750,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.7396546705627441,
+    "transfer": 1.5,
+    "decompress": 0.21819649999997637,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 3.183557741210923
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "20mbps",
+   "bytes": 18750,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.7396546705627441,
+    "transfer": 7.5,
+    "decompress": 0.21819649999997637,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 9.183557741210922
+  },
+  {
+   "scenario": "metrics.captured",
+   "format": "memorypack",
+   "codec": "brotli-4",
+   "link": "5mbps",
+   "bytes": 18750,
+   "stages": {
+    "encode": 0.03884057064819336,
+    "compress": 0.7396546705627441,
+    "transfer": 30,
+    "decompress": 0.21819649999997637,
+    "decodeMap": 0.6868660000000091
+   },
+   "totalMs": 31.683557741210922
+  }
+ ],
+ "previousRun": null
+}
