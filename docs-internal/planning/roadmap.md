@@ -149,3 +149,13 @@ folders are where "what happened and why" actually lives.
   publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
   `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
   mention npm in the csproj `Description` while the version is bumped.
+- **Evaluate HTTP response compression in Flare.Api.** Flare.Api compresses nothing today, and compression was the largest
+  effect in the [end-to-end serialization benchmark](../investigations/serialization-end-to-end-benchmark.md): uncompressed
+  MemoryPack is 2.6–3.8x slower than the best option at 100 Mbps and up to 11.5x at 5 Mbps, for about 0.2 ms of gzip-1 CPU
+  per page. Decide in an ADR, and settle in it:
+  - which codec and level to use, since brotli-4 and gzip-6 only pay off below about 20 Mbps;
+  - adding `application/x-memorypack` to `UseResponseCompression`'s `MimeTypes`;
+  - `EnableForHttps`, given the BREACH risk for authenticated responses;
+  - whether the proxy or ingress should do it instead.
+
+  Then re-run `scripts/bench.sh`.

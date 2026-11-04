@@ -164,6 +164,45 @@ the result:
 
 The margins are much smaller than the gap between compressed and uncompressed (Finding 1).
 
+## Finding 5: on the real response path, MemoryPack allocates far more server memory than JSON
+
+BenchmarkDotNet's MemoryDiagnoser counts bytes allocated and garbage collections. GCs are counted per
+1,000 operations. On `ServerStageBenchmarks`, the production write path, uncompressed:
+
+| Scenario | Body (JSON / MP) | JSON allocated | JSON gen2 / 1k | MemoryPack allocated | MemoryPack gen2 / 1k |
+|---|---|---:|---:|---:|---:|
+| logs-page.captured | 157 / 89 kB | 25.2 kB | 0 | 90.4 kB | 113 |
+| logs-page.synthetic | 234 / 186 kB | 25.2 kB | 0 | 188.0 kB | 181 |
+| trace-large.synthetic | 159 / 91 kB | 25.2 kB | 0 | 93.3 kB | 117 |
+| metrics.captured | 137 / 84 kB | 4.4 kB | 0 | 86.2 kB | 0 |
+| trace.captured | 3.3 / 1.9 kB | 2.5 kB | 0 | 3.7 kB | 0 |
+
+The two formats write the response differently:
+
+- **JSON** (`Results.Json`) serializes straight into the response through pooled buffers. Its allocation
+  stays at or below ~25 kB however large the body is.
+- **MemoryPack** (`Results.Bytes(MemoryPackSerializer.Serialize(value))`) builds the whole body as one
+  new `byte[]` first.
+
+Once that array reaches 85,000 bytes, it goes on the Large Object Heap, which only gen2 collects. So every
+full-size log or trace page costs a gen2 collection share: 113–181 per 1,000 responses, against 0 for
+JSON. The metrics body is 84 kB, just under the threshold, so it avoids gen2.
+
+Gen2 collections are the expensive kind. They are a common source of p99 latency spikes and of steady
+memory growth on a busy server. Compression barely changes these numbers: it adds about 0.1–0.2 kB,
+because it also streams.
+
+The isolated codec benchmark (`ApiCodecBenchmarks`) points the other way. It encodes both formats into
+a fresh `byte[]`, where MemoryPack allocates about half as much as JSON. Only the production path shows
+that JSON never materializes the body. Decoding allocates broadly similar amounts in both formats, for
+example 371 kB vs 304 kB on the captured logs page. The dashboard is the client, so those numbers matter
+for .NET clients such as the CLI and MCP, not for the browser.
+
+Browser memory was not measured: tinybench has no per-operation allocation counter.
+
+The MemoryPack write path could stream too, by serializing into the response's `PipeWriter`, which
+`MemoryPackSerializer.Serialize` supports. That would be a production change and was not tried here.
+
 ## Caveats
 
 - **Seeded data is light.** Captured log rows carry 3 resource attributes and 1 log attribute.
@@ -188,6 +227,9 @@ The margins are much smaller than the gap between compressed and uncompressed (F
     compressed: it is better for metrics and worse for log and trace pages on fast links. Separately,
     upstream Cysharp has said the MemoryPack TypeScript generator will be removed and that MemoryPack
     is for trusted data only.
+- MemoryPack responses of 85 kB or more cost a gen2 collection share each (Finding 5). If MemoryPack
+  stays, writing it into the response `PipeWriter` instead of a fresh `byte[]` would remove that cost
+  without changing the format.
 - If compression is enabled through `UseResponseCompression`:
   - its default `MimeTypes` do not include `application/x-memorypack`, so MemoryPack responses would
     stay uncompressed unless that type is added;

@@ -67,7 +67,11 @@ for (const f of listJson(path.join(runDir, 'raw/dotnet'))) {
 			medianMs: b.Statistics.Median / 1e6,
 			meanMs: b.Statistics.Mean / 1e6,
 			ciMarginMs: (b.Statistics.ConfidenceInterval?.Margin ?? 0) / 1e6,
-			allocatedBytes: b.Memory?.BytesAllocatedPerOperation ?? null
+			allocatedBytes: b.Memory?.BytesAllocatedPerOperation ?? null,
+			// BenchmarkDotNet reports GC counts per 1,000 operations.
+			gen0Per1k: b.Memory?.Gen0Collections ?? null,
+			gen1Per1k: b.Memory?.Gen1Collections ?? null,
+			gen2Per1k: b.Memory?.Gen2Collections ?? null
 		});
 	}
 }
@@ -271,6 +275,14 @@ const sizeBullet = ['none', 'gzip-6', 'brotli-4']
 	.filter((c) => sizes.codecs.includes(c))
 	.map((c) => `${c === 'none' ? 'uncompressed' : c}: ${fmtRange(range(sizeRatio(c)), pct)}`)
 	.join('; ');
+const respondNone = dotnet.filter((d) => d.suite === 'server-stage' && d.params.Codec === 'none');
+if (respondNone.length) {
+	const per = (format, f) => respondNone.filter((d) => d.params.Format === format).map(f);
+	bullets.push(
+		`<b>Server memory per response</b> (production write path, uncompressed): JSON allocates ${fmtRange(range(per('json', (d) => d.allocatedBytes)), fmtBytes)} and triggers ${fmtRange(range(per('json', (d) => d.gen2Per1k)), (x) => x.toFixed(0))} gen2 GCs per 1,000 responses; MemoryPack allocates ${fmtRange(range(per('memorypack', (d) => d.allocatedBytes)), fmtBytes)} and triggers ${fmtRange(range(per('memorypack', (d) => d.gen2Per1k)), (x) => x.toFixed(0))}. JSON streams through pooled buffers; MemoryPack builds the whole body as one array, which lands on the Large Object Heap once it reaches 85,000 bytes.`
+	);
+}
+
 bullets.push(`<b>Payload size, MemoryPack vs JSON</b> (negative = MemoryPack smaller): ${sizeBullet}.`);
 
 if (workflow.length) {
@@ -427,6 +439,45 @@ function componentChart(title, note, rows, head, tableRows) {
 		)
 	);
 	if (parts.some(Boolean)) sections.push(`<section><h2>Server components (.NET, BenchmarkDotNet)</h2>${formatLegend}${parts.join('')}</section>`);
+}
+
+{
+	const respond = dotnet.filter((d) => d.suite === 'server-stage' && d.allocatedBytes != null);
+	const codecRows = dotnet.filter((d) => d.suite === 'api-codec' && d.allocatedBytes != null);
+	if (respond.length || codecRows.length) {
+		const gcCell = (d) => `${d.gen0Per1k ?? '-'} / ${d.gen1Per1k ?? '-'} / <b>${d.gen2Per1k ?? '-'}</b>`;
+		const byScenario = (a, b) => scenarioNames.indexOf(a.params.Scenario) - scenarioNames.indexOf(b.params.Scenario) || FORMATS.indexOf(a.params.Format) - FORMATS.indexOf(b.params.Format);
+		const none = respond.filter((d) => d.params.Codec === 'none').sort(byScenario);
+		const parts = [];
+		if (none.length) {
+			parts.push(
+				`<h3>Per response, production write path (ServerStageBenchmarks)</h3><p class="muted"><code>ApiSerialization.Write</code> → <code>IResult.ExecuteAsync</code>, uncompressed. Hover for GC counts. Compression adds only ~0.1–0.2 kB here because it streams; see the table.</p>${barChart(
+					none.map((d) => ({
+						group: d.params.Scenario,
+						label: FORMAT_LABEL[d.params.Format],
+						value: d.allocatedBytes,
+						color: FORMAT_COLOR[d.params.Format],
+						tip: `${FORMAT_LABEL[d.params.Format]}: ${fmtBytes(d.allocatedBytes)} allocated; GCs per 1,000 responses gen0/gen1/gen2 = ${d.gen0Per1k}/${d.gen1Per1k}/${d.gen2Per1k}`
+					})),
+					fmtBytes
+				)}${tableView(
+					['Scenario', 'Format · codec', 'Allocated', 'GCs per 1,000 (gen0 / gen1 / gen2)'],
+					respond.map((d) => [esc(d.params.Scenario), esc(label(d.params.Format, d.params.Codec)), fmtBytes(d.allocatedBytes), gcCell(d)])
+				)}`
+			);
+		}
+		if (codecRows.length) {
+			parts.push(
+				`<h3>Codec alone (ApiCodecBenchmarks)</h3><p class="muted">Encode to a fresh <code>byte[]</code> and decode into objects. Encode here is not what production does for JSON (it streams), which is why it differs from the per-response numbers above.</p>${table(
+					['Scenario', 'Method', 'Allocated', 'GCs per 1,000 (gen0 / gen1 / gen2)'],
+					codecRows.map((d) => [esc(d.params.Scenario), esc(d.method), fmtBytes(d.allocatedBytes), gcCell(d)])
+				)}`
+			);
+		}
+		sections.push(
+			`<section><h2>Server memory (.NET allocations)</h2><p class="muted">Bytes allocated per operation and garbage collections per 1,000 operations, from BenchmarkDotNet's MemoryDiagnoser. Gen2 collections are the expensive, stop-the-world kind; arrays of 85,000 bytes or more go straight to the Large Object Heap, which only gen2 collects. Client (browser) memory is not measured: tinybench has no per-operation allocation counter.</p>${formatLegend}${parts.join('')}</section>`
+		);
+	}
 }
 
 {

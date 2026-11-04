@@ -183,7 +183,10 @@
    "medianMs": 0.30354208544921873,
    "meanMs": 0.3025822508370536,
    "ciMarginMs": 0.004202716389465939,
-   "allocatedBytes": 179472
+   "allocatedBytes": 179472,
+   "gen0Per1k": 97,
+   "gen1Per1k": 97,
+   "gen2Per1k": 97
   },
   {
    "suite": "api-codec",
@@ -195,7 +198,10 @@
    "medianMs": 0.11730171667480468,
    "meanMs": 0.11759862625122071,
    "ciMarginMs": 0.002233575110809901,
-   "allocatedBytes": 88613
+   "allocatedBytes": 88613,
+   "gen0Per1k": 113,
+   "gen1Per1k": 113,
+   "gen2Per1k": 113
   },
   {
    "suite": "api-codec",
@@ -207,7 +213,10 @@
    "medianMs": 0.6221587978515625,
    "meanMs": 0.6242959579067888,
    "ciMarginMs": 0.012193329847125655,
-   "allocatedBytes": 370720
+   "allocatedBytes": 370720,
+   "gen0Per1k": 92,
+   "gen1Per1k": 32,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -219,7 +228,10 @@
    "medianMs": 0.1262717166748047,
    "meanMs": 0.1268796759176815,
    "ciMarginMs": 0.002501346393406209,
-   "allocatedBytes": 303520
+   "allocatedBytes": 303520,
+   "gen0Per1k": 298,
+   "gen1Per1k": 90,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -231,7 +243,10 @@
    "medianMs": 0.4125062919921875,
    "meanMs": 0.41330361770833335,
    "ciMarginMs": 0.0068342568542293005,
-   "allocatedBytes": 256616
+   "allocatedBytes": 256616,
+   "gen0Per1k": 146,
+   "gen1Per1k": 146,
+   "gen2Per1k": 146
   },
   {
    "suite": "api-codec",
@@ -243,7 +258,10 @@
    "medianMs": 0.16536837255859374,
    "meanMs": 0.16537488102839543,
    "ciMarginMs": 0.0008292901287675283,
-   "allocatedBytes": 186014
+   "allocatedBytes": 186014,
+   "gen0Per1k": 179,
+   "gen1Per1k": 179,
+   "gen2Per1k": 179
   },
   {
    "suite": "api-codec",
@@ -255,7 +273,10 @@
    "medianMs": 0.8336607651367187,
    "meanMs": 0.8372031011439732,
    "ciMarginMs": 0.016363696761321662,
-   "allocatedBytes": 701368
+   "allocatedBytes": 701368,
+   "gen0Per1k": 125,
+   "gen1Per1k": 62,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -267,7 +288,10 @@
    "medianMs": 0.28800818994140626,
    "meanMs": 0.28806366337316175,
    "ciMarginMs": 0.005647824315376669,
-   "allocatedBytes": 631576
+   "allocatedBytes": 631576,
+   "gen0Per1k": 241,
+   "gen1Per1k": 107,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -279,7 +303,10 @@
    "medianMs": 0.6613988564453125,
    "meanMs": 0.661620908342634,
    "ciMarginMs": 0.009877184912723946,
-   "allocatedBytes": 137986
+   "allocatedBytes": 137986,
+   "gen0Per1k": 44,
+   "gen1Per1k": 44,
+   "gen2Per1k": 44
   },
   {
    "suite": "api-codec",
@@ -291,7 +318,10 @@
    "medianMs": 0.02907965155029297,
    "meanMs": 0.0290623660736084,
    "ciMarginMs": 0.0005493000665026998,
-   "allocatedBytes": 84360
+   "allocatedBytes": 84360,
+   "gen0Per1k": 862,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -303,7 +333,10 @@
    "medianMs": 0.8108896826171875,
    "meanMs": 0.8106287756778493,
    "ciMarginMs": 0.01573119936978771,
-   "allocatedBytes": 278240
+   "allocatedBytes": 278240,
+   "gen0Per1k": 90,
+   "gen1Per1k": 3,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -315,7 +348,10 @@
    "medianMs": 0.026068544982910155,
    "meanMs": 0.026220173947241996,
    "ciMarginMs": 0.0005215217840327794,
-   "allocatedBytes": 105184
+   "allocatedBytes": 105184,
+   "gen0Per1k": 549,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -327,7 +363,10 @@
    "medianMs": 0.32714164111328126,
    "meanMs": 0.3287713442871094,
    "ciMarginMs": 0.006306537572953344,
-   "allocatedBytes": 181235
+   "allocatedBytes": 181235,
+   "gen0Per1k": 102,
+   "gen1Per1k": 102,
+   "gen2Per1k": 102
   },
   {
    "suite": "api-codec",
@@ -339,7 +378,10 @@
    "medianMs": 0.13572091333007813,
    "meanMs": 0.1361745198625837,
    "ciMarginMs": 0.0017137962493093324,
-   "allocatedBytes": 91438
+   "allocatedBytes": 91438,
+   "gen0Per1k": 117,
+   "gen1Per1k": 117,
+   "gen2Per1k": 117
   },
   {
    "suite": "api-codec",
@@ -351,7 +393,10 @@
    "medianMs": 0.6977459609375,
    "meanMs": 0.6975487113932292,
    "ciMarginMs": 0.006883702170203416,
-   "allocatedBytes": 395224
+   "allocatedBytes": 395224,
+   "gen0Per1k": 99,
+   "gen1Per1k": 26,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -363,7 +408,10 @@
    "medianMs": 0.15429887524414063,
    "meanMs": 0.15464036591448102,
    "ciMarginMs": 0.0025695996737403874,
-   "allocatedBytes": 324800
+   "allocatedBytes": 324800,
+   "gen0Per1k": 300,
+   "gen1Per1k": 114,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -375,7 +423,10 @@
    "medianMs": 0.004460074073791504,
    "meanMs": 0.004468404818943569,
    "ciMarginMs": 0.00007384156172263565,
-   "allocatedBytes": 3768
+   "allocatedBytes": 3768,
+   "gen0Per1k": 157,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -387,7 +438,10 @@
    "medianMs": 0.0016947479190826415,
    "meanMs": 0.0017186287325286864,
    "ciMarginMs": 0.000031521128000131916,
-   "allocatedBytes": 1912
+   "allocatedBytes": 1912,
+   "gen0Per1k": 319,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -399,7 +453,10 @@
    "medianMs": 0.013009539474487304,
    "meanMs": 0.012982128362867567,
    "ciMarginMs": 0.0002531611693624342,
-   "allocatedBytes": 8696
+   "allocatedBytes": 8696,
+   "gen0Per1k": 181,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "api-codec",
@@ -411,7 +468,10 @@
    "medianMs": 0.0026983158683776855,
    "meanMs": 0.002716109915669759,
    "ciMarginMs": 0.00005121164085614479,
-   "allocatedBytes": 6736
+   "allocatedBytes": 6736,
+   "gen0Per1k": 562,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -425,7 +485,10 @@
    "medianMs": 0.5397400673828125,
    "meanMs": 0.5396975833050273,
    "ciMarginMs": 0.010629563621239093,
-   "allocatedBytes": 87022
+   "allocatedBytes": 87022,
+   "gen0Per1k": 27,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -439,7 +502,10 @@
    "medianMs": 0.12255844885253907,
    "meanMs": 0.12282278174641928,
    "ciMarginMs": 0.0018342988645208337,
-   "allocatedBytes": 95768
+   "allocatedBytes": 95768,
+   "gen0Per1k": 248,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -453,7 +519,10 @@
    "medianMs": 0.42510157934570314,
    "meanMs": 0.4234073027038574,
    "ciMarginMs": 0.00844834546717084,
-   "allocatedBytes": 88472
+   "allocatedBytes": 88472,
+   "gen0Per1k": 56,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -467,7 +536,10 @@
    "medianMs": 1.6733561279296876,
    "meanMs": 1.6887629927455357,
    "ciMarginMs": 0.033075077897078475,
-   "allocatedBytes": 153256
+   "allocatedBytes": 153256,
+   "gen0Per1k": 18,
+   "gen1Per1k": 18,
+   "gen2Per1k": 18
   },
   {
    "suite": "compression",
@@ -481,7 +553,10 @@
    "medianMs": 0.6572903818359375,
    "meanMs": 0.661024649609375,
    "ciMarginMs": 0.01291053291732481,
-   "allocatedBytes": 180489
+   "allocatedBytes": 180489,
+   "gen0Per1k": 37,
+   "gen1Per1k": 37,
+   "gen2Per1k": 37
   },
   {
    "suite": "compression",
@@ -495,7 +570,10 @@
    "medianMs": 1.6738948134765625,
    "meanMs": 1.679186605533854,
    "ciMarginMs": 0.03229197932831011,
-   "allocatedBytes": 154415
+   "allocatedBytes": 154415,
+   "gen0Per1k": 18,
+   "gen1Per1k": 18,
+   "gen2Per1k": 18
   },
   {
    "suite": "compression",
@@ -509,7 +587,10 @@
    "medianMs": 1.0177064326171874,
    "meanMs": 1.0199989916294643,
    "ciMarginMs": 0.019822340899251042,
-   "allocatedBytes": 87487
+   "allocatedBytes": 87487,
+   "gen0Per1k": 14,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -523,7 +604,10 @@
    "medianMs": 0.28392066650390624,
    "meanMs": 0.2857687297337582,
    "ciMarginMs": 0.005750679387192353,
-   "allocatedBytes": 100600
+   "allocatedBytes": 100600,
+   "gen0Per1k": 65,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -537,7 +621,10 @@
    "medianMs": 1.330277263671875,
    "meanMs": 1.346059631656569,
    "ciMarginMs": 0.026882304487671628,
-   "allocatedBytes": 88080
+   "allocatedBytes": 88080,
+   "gen0Per1k": 14,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -551,7 +638,10 @@
    "medianMs": 0.5255890693359375,
    "meanMs": 0.5252088751302083,
    "ciMarginMs": 0.010344569044427038,
-   "allocatedBytes": 86518
+   "allocatedBytes": 86518,
+   "gen0Per1k": 27,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -565,7 +655,10 @@
    "medianMs": 0.11178925183105469,
    "meanMs": 0.11212280323204628,
    "ciMarginMs": 0.0016767142843646821,
-   "allocatedBytes": 93800
+   "allocatedBytes": 93800,
+   "gen0Per1k": 240,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -579,7 +672,10 @@
    "medianMs": 0.40817740454101564,
    "meanMs": 0.40851113274274553,
    "ciMarginMs": 0.007330253393967156,
-   "allocatedBytes": 87712
+   "allocatedBytes": 87712,
+   "gen0Per1k": 56,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -593,7 +689,10 @@
    "medianMs": 0.0489736298828125,
    "meanMs": 0.04860694673213252,
    "ciMarginMs": 0.0009409725285759242,
-   "allocatedBytes": 2568
+   "allocatedBytes": 2568,
+   "gen0Per1k": 13,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -607,7 +706,10 @@
    "medianMs": 0.010543931625366211,
    "meanMs": 0.010549357131958008,
    "ciMarginMs": 0.000191754812663716,
-   "allocatedBytes": 2888
+   "allocatedBytes": 2888,
+   "gen0Per1k": 60,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -621,7 +723,10 @@
    "medianMs": 0.022732018524169922,
    "meanMs": 0.022742815559895834,
    "ciMarginMs": 0.00032100564687419827,
-   "allocatedBytes": 2688
+   "allocatedBytes": 2688,
+   "gen0Per1k": 28,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -635,7 +740,10 @@
    "medianMs": 0.38166484204101564,
    "meanMs": 0.38198979174804687,
    "ciMarginMs": 0.005897454923811384,
-   "allocatedBytes": 51892
+   "allocatedBytes": 51892,
+   "gen0Per1k": 33,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -649,7 +757,10 @@
    "medianMs": 0.07961658013916016,
    "meanMs": 0.07964113110351563,
    "ciMarginMs": 0.0011088277118781248,
-   "allocatedBytes": 55416
+   "allocatedBytes": 55416,
+   "gen0Per1k": 143,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -663,7 +774,10 @@
    "medianMs": 0.3773604294433594,
    "meanMs": 0.3797040775878906,
    "ciMarginMs": 0.00734171056602555,
-   "allocatedBytes": 52792
+   "allocatedBytes": 52792,
+   "gen0Per1k": 34,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -677,7 +791,10 @@
    "medianMs": 1.685123845703125,
    "meanMs": 1.682401380045573,
    "ciMarginMs": 0.02062760479914962,
-   "allocatedBytes": 130438
+   "allocatedBytes": 130438,
+   "gen0Per1k": 15,
+   "gen1Per1k": 15,
+   "gen2Per1k": 15
   },
   {
    "suite": "compression",
@@ -691,7 +808,10 @@
    "medianMs": 0.5791951518554688,
    "meanMs": 0.5802394370814732,
    "ciMarginMs": 0.006534231531532873,
-   "allocatedBytes": 147295
+   "allocatedBytes": 147295,
+   "gen0Per1k": 30,
+   "gen1Per1k": 30,
+   "gen2Per1k": 30
   },
   {
    "suite": "compression",
@@ -705,7 +825,10 @@
    "medianMs": 1.71719431640625,
    "meanMs": 1.715241818080357,
    "ciMarginMs": 0.023493949998695463,
-   "allocatedBytes": 130693
+   "allocatedBytes": 130693,
+   "gen0Per1k": 7,
+   "gen1Per1k": 7,
+   "gen2Per1k": 7
   },
   {
    "suite": "compression",
@@ -719,7 +842,10 @@
    "medianMs": 0.7539553129882812,
    "meanMs": 0.7545711033063616,
    "ciMarginMs": 0.013734347492664757,
-   "allocatedBytes": 61156
+   "allocatedBytes": 61156,
+   "gen0Per1k": 19,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -733,7 +859,10 @@
    "medianMs": 0.168304078125,
    "meanMs": 0.16863339573451452,
    "ciMarginMs": 0.0017522833827592474,
-   "allocatedBytes": 65056
+   "allocatedBytes": 65056,
+   "gen0Per1k": 84,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -747,7 +876,10 @@
    "medianMs": 0.7944511943359375,
    "meanMs": 0.7959916038411459,
    "ciMarginMs": 0.011504479580547611,
-   "allocatedBytes": 60720
+   "allocatedBytes": 60720,
+   "gen0Per1k": 19,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -761,7 +893,10 @@
    "medianMs": 0.4176402705078125,
    "meanMs": 0.4205226662434896,
    "ciMarginMs": 0.006798668209710358,
-   "allocatedBytes": 53260
+   "allocatedBytes": 53260,
+   "gen0Per1k": 34,
+   "gen1Per1k": 1,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -775,7 +910,10 @@
    "medianMs": 0.08328282849121094,
    "meanMs": 0.08318254530436198,
    "ciMarginMs": 0.001039880101259044,
-   "allocatedBytes": 57632
+   "allocatedBytes": 57632,
+   "gen0Per1k": 148,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -789,7 +927,10 @@
    "medianMs": 0.38937749609375,
    "meanMs": 0.39172742550223216,
    "ciMarginMs": 0.007019542820996042,
-   "allocatedBytes": 53872
+   "allocatedBytes": 53872,
+   "gen0Per1k": 34,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -803,7 +944,10 @@
    "medianMs": 0.040023759765625,
    "meanMs": 0.040129486928839435,
    "ciMarginMs": 0.0007691621305501376,
-   "allocatedBytes": 1720
+   "allocatedBytes": 1720,
+   "gen0Per1k": 8,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -817,7 +961,10 @@
    "medianMs": 0.00891897615814209,
    "meanMs": 0.008910615724836079,
    "ciMarginMs": 0.00008274105359698111,
-   "allocatedBytes": 1968
+   "allocatedBytes": 1968,
+   "gen0Per1k": 41,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "compression",
@@ -831,7 +978,10 @@
    "medianMs": 0.023862940002441407,
    "meanMs": 0.023909692069498698,
    "ciMarginMs": 0.0003523329157087799,
-   "allocatedBytes": 1872
+   "allocatedBytes": 1872,
+   "gen0Per1k": 19,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "redis-buffer",
@@ -841,7 +991,10 @@
    "medianMs": 0.0006708558888435364,
    "meanMs": 0.0006747616073063442,
    "ciMarginMs": 0.000013488979534338424,
-   "allocatedBytes": 920
+   "allocatedBytes": 920,
+   "gen0Per1k": 307,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "redis-buffer",
@@ -851,7 +1004,10 @@
    "medianMs": 0.0013711304216384888,
    "meanMs": 0.0013721987959997993,
    "ciMarginMs": 0.000006964214839758413,
-   "allocatedBytes": 1256
+   "allocatedBytes": 1256,
+   "gen0Per1k": 209,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "redis-buffer",
@@ -861,7 +1017,10 @@
    "medianMs": 0.0011810392150878907,
    "meanMs": 0.0011771973678882306,
    "ciMarginMs": 0.000012519671265145252,
-   "allocatedBytes": 3096
+   "allocatedBytes": 3096,
+   "gen0Per1k": 517,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "redis-buffer",
@@ -871,7 +1030,10 @@
    "medianMs": 0.0038040781860351563,
    "meanMs": 0.003824590730086617,
    "ciMarginMs": 0.00006572579259467323,
-   "allocatedBytes": 3888
+   "allocatedBytes": 3888,
+   "gen0Per1k": 40,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "redis-buffer",
@@ -881,7 +1043,10 @@
    "medianMs": 0.002004794006347656,
    "meanMs": 0.0020044103282292683,
    "ciMarginMs": 0.000018108956559341953,
-   "allocatedBytes": 2560
+   "allocatedBytes": 2560,
+   "gen0Per1k": 213,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "redis-buffer",
@@ -891,7 +1056,10 @@
    "medianMs": 0.00290328303527832,
    "meanMs": 0.002914156276702881,
    "ciMarginMs": 0.00005603200908838145,
-   "allocatedBytes": 2576
+   "allocatedBytes": 2576,
+   "gen0Per1k": 215,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "redis-buffer",
@@ -901,7 +1069,10 @@
    "medianMs": 0.003462135160446167,
    "meanMs": 0.0034671085240500317,
    "ciMarginMs": 0.00005815806556397862,
-   "allocatedBytes": 10192
+   "allocatedBytes": 10192,
+   "gen0Per1k": 851,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "redis-buffer",
@@ -911,7 +1082,10 @@
    "medianMs": 0.008021733703613282,
    "meanMs": 0.007980034956307247,
    "ciMarginMs": 0.00015529449181398246,
-   "allocatedBytes": 10984
+   "allocatedBytes": 10984,
+   "gen0Per1k": 57,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "request-codec",
@@ -921,7 +1095,10 @@
    "medianMs": 0.003007226005554199,
    "meanMs": 0.003002169536336263,
    "ciMarginMs": 0.000023864902336026808,
-   "allocatedBytes": 1808
+   "allocatedBytes": 1808,
+   "gen0Per1k": 151,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "request-codec",
@@ -931,7 +1108,10 @@
    "medianMs": 0.00036218614721298217,
    "meanMs": 0.0003628925863334111,
    "ciMarginMs": 0.000006982502362827471,
-   "allocatedBytes": 848
+   "allocatedBytes": 848,
+   "gen0Per1k": 566,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -945,7 +1125,10 @@
    "medianMs": 1.13679319921875,
    "meanMs": 1.1389525700520833,
    "ciMarginMs": 0.021567897901429944,
-   "allocatedBytes": 25364
+   "allocatedBytes": 25364,
+   "gen0Per1k": 4,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -959,7 +1142,10 @@
    "medianMs": 0.4565827333984375,
    "meanMs": 0.4567762740542763,
    "ciMarginMs": 0.005373152600421235,
-   "allocatedBytes": 25474
+   "allocatedBytes": 25474,
+   "gen0Per1k": 8,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -973,7 +1159,10 @@
    "medianMs": 0.8966562861328125,
    "meanMs": 0.8967431829927885,
    "ciMarginMs": 0.010346914423650232,
-   "allocatedBytes": 25474
+   "allocatedBytes": 25474,
+   "gen0Per1k": 8,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -987,7 +1176,10 @@
    "medianMs": 0.27245174731445315,
    "meanMs": 0.2767085461425781,
    "ciMarginMs": 0.005273352429343927,
-   "allocatedBytes": 25242
+   "allocatedBytes": 25242,
+   "gen0Per1k": 16,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1001,7 +1193,10 @@
    "medianMs": 2.4709118046875,
    "meanMs": 2.456219639122596,
    "ciMarginMs": 0.03873455944592348,
-   "allocatedBytes": 25365
+   "allocatedBytes": 25365,
+   "gen0Per1k": 2,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1015,7 +1210,10 @@
    "medianMs": 0.985700521484375,
    "meanMs": 0.9803933197380515,
    "ciMarginMs": 0.019247402058330556,
-   "allocatedBytes": 25474
+   "allocatedBytes": 25474,
+   "gen0Per1k": 4,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1029,7 +1227,10 @@
    "medianMs": 2.204387234375,
    "meanMs": 2.2044345694839014,
    "ciMarginMs": 0.04385192093759663,
-   "allocatedBytes": 25475
+   "allocatedBytes": 25475,
+   "gen0Per1k": 2,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1043,7 +1244,10 @@
    "medianMs": 0.3566762580566406,
    "meanMs": 0.3600227585560192,
    "ciMarginMs": 0.007145382063673315,
-   "allocatedBytes": 25242
+   "allocatedBytes": 25242,
+   "gen0Per1k": 16,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1057,7 +1261,10 @@
    "medianMs": 1.8486271484375,
    "meanMs": 1.8502625237630208,
    "ciMarginMs": 0.03695741117068113,
-   "allocatedBytes": 4522
+   "allocatedBytes": 4522,
+   "gen0Per1k": 0,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1071,7 +1278,10 @@
    "medianMs": 0.8640389267578125,
    "meanMs": 0.8678344803427419,
    "ciMarginMs": 0.014588033205146561,
-   "allocatedBytes": 4632
+   "allocatedBytes": 4632,
+   "gen0Per1k": 1,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1085,7 +1295,10 @@
    "medianMs": 1.991684953125,
    "meanMs": 2.00021856328125,
    "ciMarginMs": 0.03924666611497678,
-   "allocatedBytes": 4633
+   "allocatedBytes": 4633,
+   "gen0Per1k": 0,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1099,7 +1312,10 @@
    "medianMs": 0.5341506811523438,
    "meanMs": 0.5337731774495443,
    "ciMarginMs": 0.008498783913721547,
-   "allocatedBytes": 4400
+   "allocatedBytes": 4400,
+   "gen0Per1k": 1,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1113,7 +1329,10 @@
    "medianMs": 1.02688175,
    "meanMs": 1.0358453721976901,
    "ciMarginMs": 0.020565952309111873,
-   "allocatedBytes": 25364
+   "allocatedBytes": 25364,
+   "gen0Per1k": 4,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1127,7 +1346,10 @@
    "medianMs": 0.4291212666015625,
    "meanMs": 0.42922906982421877,
    "ciMarginMs": 0.006426521260298202,
-   "allocatedBytes": 25474
+   "allocatedBytes": 25474,
+   "gen0Per1k": 16,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1141,7 +1363,10 @@
    "medianMs": 0.8999600913085938,
    "meanMs": 0.8858161339623235,
    "ciMarginMs": 0.01750303338101958,
-   "allocatedBytes": 25474
+   "allocatedBytes": 25474,
+   "gen0Per1k": 8,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1155,7 +1380,10 @@
    "medianMs": 0.32198051611328127,
    "meanMs": 0.32232790585937504,
    "ciMarginMs": 0.003620676044676252,
-   "allocatedBytes": 25242
+   "allocatedBytes": 25242,
+   "gen0Per1k": 16,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1169,7 +1397,10 @@
    "medianMs": 0.06173379254150391,
    "meanMs": 0.06187116588483538,
    "ciMarginMs": 0.001063348156058895,
-   "allocatedBytes": 2632
+   "allocatedBytes": 2632,
+   "gen0Per1k": 6,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1183,7 +1414,10 @@
    "medianMs": 0.01636474853515625,
    "meanMs": 0.016383855460030693,
    "ciMarginMs": 0.00015818273079244838,
-   "allocatedBytes": 2744
+   "allocatedBytes": 2744,
+   "gen0Per1k": 28,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1197,7 +1431,10 @@
    "medianMs": 0.029602670471191406,
    "meanMs": 0.02955024083251953,
    "ciMarginMs": 0.0005462966406033653,
-   "allocatedBytes": 2744
+   "allocatedBytes": 2744,
+   "gen0Per1k": 14,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1211,7 +1448,10 @@
    "medianMs": 0.005369820026397705,
    "meanMs": 0.005390604777908326,
    "ciMarginMs": 0.000103076010091655,
-   "allocatedBytes": 2512
+   "allocatedBytes": 2512,
+   "gen0Per1k": 104,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1225,7 +1465,10 @@
    "medianMs": 0.5423750961914062,
    "meanMs": 0.545655854422433,
    "ciMarginMs": 0.008299200646548143,
-   "allocatedBytes": 90555
+   "allocatedBytes": 90555,
+   "gen0Per1k": 28,
+   "gen1Per1k": 28,
+   "gen2Per1k": 28
   },
   {
    "suite": "server-stage",
@@ -1239,7 +1482,10 @@
    "medianMs": 0.23237681005859376,
    "meanMs": 0.23426769692382812,
    "ciMarginMs": 0.004503095839752435,
-   "allocatedBytes": 90661
+   "allocatedBytes": 90661,
+   "gen0Per1k": 113,
+   "gen1Per1k": 113,
+   "gen2Per1k": 113
   },
   {
    "suite": "server-stage",
@@ -1253,7 +1499,10 @@
    "medianMs": 0.544778697265625,
    "meanMs": 0.545919848046875,
    "ciMarginMs": 0.006762177732032514,
-   "allocatedBytes": 90661
+   "allocatedBytes": 90661,
+   "gen0Per1k": 28,
+   "gen1Per1k": 28,
+   "gen2Per1k": 28
   },
   {
    "suite": "server-stage",
@@ -1267,7 +1516,10 @@
    "medianMs": 0.14358853295898438,
    "meanMs": 0.1430831174641927,
    "ciMarginMs": 0.0015133677238625934,
-   "allocatedBytes": 90429
+   "allocatedBytes": 90429,
+   "gen0Per1k": 113,
+   "gen1Per1k": 113,
+   "gen2Per1k": 113
   },
   {
    "suite": "server-stage",
@@ -1281,7 +1533,10 @@
    "medianMs": 1.862861759765625,
    "meanMs": 1.8622772588641827,
    "ciMarginMs": 0.019397515680794453,
-   "allocatedBytes": 188400
+   "allocatedBytes": 188400,
+   "gen0Per1k": 28,
+   "gen1Per1k": 28,
+   "gen2Per1k": 28
   },
   {
    "suite": "server-stage",
@@ -1295,7 +1550,10 @@
    "medianMs": 0.734516490234375,
    "meanMs": 0.7347848559895833,
    "ciMarginMs": 0.006796352212397572,
-   "allocatedBytes": 188391
+   "allocatedBytes": 188391,
+   "gen0Per1k": 53,
+   "gen1Per1k": 53,
+   "gen2Per1k": 53
   },
   {
    "suite": "server-stage",
@@ -1309,7 +1567,10 @@
    "medianMs": 1.851797505859375,
    "meanMs": 1.8569724768629807,
    "ciMarginMs": 0.026218771641315263,
-   "allocatedBytes": 188479
+   "allocatedBytes": 188479,
+   "gen0Per1k": 28,
+   "gen1Per1k": 28,
+   "gen2Per1k": 28
   },
   {
    "suite": "server-stage",
@@ -1323,7 +1584,10 @@
    "medianMs": 0.18921818310546876,
    "meanMs": 0.18933614562988282,
    "ciMarginMs": 0.0020645215296622613,
-   "allocatedBytes": 187992
+   "allocatedBytes": 187992,
+   "gen0Per1k": 184,
+   "gen1Per1k": 181,
+   "gen2Per1k": 181
   },
   {
    "suite": "server-stage",
@@ -1337,7 +1601,10 @@
    "medianMs": 0.7784952412109375,
    "meanMs": 0.7815949088040866,
    "ciMarginMs": 0.01160518606858998,
-   "allocatedBytes": 86302
+   "allocatedBytes": 86302,
+   "gen0Per1k": 27,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1351,7 +1618,10 @@
    "medianMs": 0.20355922509765625,
    "meanMs": 0.20346372641225963,
    "ciMarginMs": 0.002796946170614074,
-   "allocatedBytes": 86408
+   "allocatedBytes": 86408,
+   "gen0Per1k": 110,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1365,7 +1635,10 @@
    "medianMs": 0.839494060546875,
    "meanMs": 0.8377490865885416,
    "ciMarginMs": 0.01260244361657197,
-   "allocatedBytes": 86408
+   "allocatedBytes": 86408,
+   "gen0Per1k": 27,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1379,7 +1652,10 @@
    "medianMs": 0.03884057064819336,
    "meanMs": 0.03884760817173549,
    "ciMarginMs": 0.0005012148457031022,
-   "allocatedBytes": 86176
+   "allocatedBytes": 86176,
+   "gen0Per1k": 442,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1393,7 +1669,10 @@
    "medianMs": 0.5967020439453125,
    "meanMs": 0.5960356404296875,
    "ciMarginMs": 0.00750177482881152,
-   "allocatedBytes": 93381
+   "allocatedBytes": 93381,
+   "gen0Per1k": 29,
+   "gen1Per1k": 29,
+   "gen2Per1k": 29
   },
   {
    "suite": "server-stage",
@@ -1407,7 +1686,10 @@
    "medianMs": 0.25042255834960936,
    "meanMs": 0.25109976212565105,
    "ciMarginMs": 0.004906945002098837,
-   "allocatedBytes": 93486
+   "allocatedBytes": 93486,
+   "gen0Per1k": 58,
+   "gen1Per1k": 58,
+   "gen2Per1k": 58
   },
   {
    "suite": "server-stage",
@@ -1421,7 +1703,10 @@
    "medianMs": 0.5631767651367188,
    "meanMs": 0.5653307270507812,
    "ciMarginMs": 0.010133996458183246,
-   "allocatedBytes": 93486
+   "allocatedBytes": 93486,
+   "gen0Per1k": 29,
+   "gen1Per1k": 29,
+   "gen2Per1k": 29
   },
   {
    "suite": "server-stage",
@@ -1435,7 +1720,10 @@
    "medianMs": 0.15823914965820313,
    "meanMs": 0.1581362340611049,
    "ciMarginMs": 0.00135490281672205,
-   "allocatedBytes": 93254
+   "allocatedBytes": 93254,
+   "gen0Per1k": 117,
+   "gen1Per1k": 117,
+   "gen2Per1k": 117
   },
   {
    "suite": "server-stage",
@@ -1449,7 +1737,10 @@
    "medianMs": 0.043256337493896485,
    "meanMs": 0.04330278500366211,
    "ciMarginMs": 0.0005755565435428341,
-   "allocatedBytes": 3848
+   "allocatedBytes": 3848,
+   "gen0Per1k": 20,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1463,7 +1754,10 @@
    "medianMs": 0.012482195678710938,
    "meanMs": 0.012546396188354493,
    "ciMarginMs": 0.0001715552026365513,
-   "allocatedBytes": 3960
+   "allocatedBytes": 3960,
+   "gen0Per1k": 82,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1477,7 +1771,10 @@
    "medianMs": 0.0278281339263916,
    "meanMs": 0.027838879202706474,
    "ciMarginMs": 0.00031496486590709336,
-   "allocatedBytes": 3960
+   "allocatedBytes": 3960,
+   "gen0Per1k": 41,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   },
   {
    "suite": "server-stage",
@@ -1491,7 +1788,10 @@
    "medianMs": 0.003181996728897095,
    "meanMs": 0.0031793910217285154,
    "ciMarginMs": 0.000026786789172453684,
-   "allocatedBytes": 3728
+   "allocatedBytes": 3728,
+   "gen0Per1k": 311,
+   "gen1Per1k": 0,
+   "gen2Per1k": 0
   }
  ],
  "node": [

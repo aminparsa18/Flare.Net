@@ -1,8 +1,10 @@
 # Benchmark runs
 
 One folder per run of `scripts/bench.sh`, named `<yyyy-mm-dd>` (`-2`, `-3`, ... for a second run that
-day). Each folder is a dated record that later runs are compared against, so it is never edited
-after the fact. A newer run goes in its own folder. How to run the benchmarks and add new ones is
+day). Each folder is a dated record that later runs are compared against, so its measured data
+(`raw/`, `env.json`) is never edited after the fact. A newer run goes in its own folder.
+`report.html` and `results.json` are derived from `raw/`; after the report builder gains a chart or
+field, you may rebuild them with `scripts/bench.sh --report <folder>`. How to run the benchmarks and add new ones is
 in [src/Flare.Benchmarks/README.md](../../src/Flare.Benchmarks/README.md). What the numbers *mean*
 belongs in an investigation under [investigations/](../investigations/), which links to the run it
 draws on.
