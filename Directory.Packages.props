@@ -87,6 +87,14 @@
          docs-internal/adr/0017-memorypack-ingest-redis-buffer.md) - one centrally-pinned
          version for both. Latest stable per nuget.org's flatcontainer index. -->
     <PackageVersion Include="MemoryPack" Version="1.21.4" />
+    <!-- TODO: unofficial patched MemoryPack source generator (github.com/aminparsa18/MemoryPack),
+         used by Flare.Api in place of the meta package's own MemoryPack.Generator. Adds to the
+         TypeScript generator: DateTimeOffset, IReadOnlyList/IReadOnlyCollection/IReadOnlyDictionary,
+         nullable readers that check only the HasValue byte, and
+         MemoryPackGenerator_TypeScriptDictionaryAsRecord (ADR-0276). When Cysharp ships
+         equivalents, drop this entry and the matching PackageReference/ExcludeAssets in
+         Flare.Api.csproj and go back to the stock generator. -->
+    <PackageVersion Include="MemoryPack.Generator.Patched" Version="1.21.4.3" />
     <!-- src/Flare.Benchmarks: project-local JSON-vs-MemoryPack numbers for both migrated
          boundaries above (ADR-0015/0016/0017) - see
          docs-internal/planning/roadmap.md's "Flare-specific JSON-vs-MemoryPack benchmark"

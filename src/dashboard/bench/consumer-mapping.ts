@@ -3,7 +3,7 @@
 // `$app/env/public` (SvelteKit-only, not resolvable under tsx), so the function is mirrored
 // here verbatim - keep it in sync with `toLogEventDto` in `src/lib/api.ts`.
 
-import type { LogEventDto as GeneratedLogEventDto } from '#lib/memorypack/LogEventDto.ts';
+import type { LogEventDto as GeneratedLogEventDto } from '#lib/generated/memorypack/LogEventDto.ts';
 
 export interface PlainLogEvent {
 	eventId: string;

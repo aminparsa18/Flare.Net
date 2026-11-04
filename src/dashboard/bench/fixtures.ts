@@ -5,8 +5,8 @@
 // JSON-vs-MemoryPack benchmark" item) - not lifted from a captured production payload,
 // so treat absolute numbers as directionally representative rather than exact.
 
-import { LogEventDto } from '#lib/memorypack/LogEventDto.ts';
-import { LogSearchResponse } from '#lib/memorypack/LogSearchResponse.ts';
+import { LogEventDto } from '#lib/generated/memorypack/LogEventDto.ts';
+import { LogSearchResponse } from '#lib/generated/memorypack/LogSearchResponse.ts';
 
 /** A tiny seeded PRNG (mulberry32) - deterministic across runs, unlike `Math.random()`. */
 function mulberry32(seed: number): () => number {

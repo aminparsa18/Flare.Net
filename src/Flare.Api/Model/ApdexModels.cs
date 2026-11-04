@@ -22,12 +22,10 @@ public sealed partial record ApdexThresholdDto
 /// <summary>
 /// Response body for <c>GET /api/services/apdex-thresholds</c>: the system default plus
 /// every service with a configured override (services with no override aren't listed -
-/// see <see cref="Flare.Identity.Apdex.IApdexThresholdStore.GetAllAsync"/>). Deliberately
-/// hand-written on the MemoryPack TS side (not <c>[GenerateTypeScript]</c>) - an
-/// <c>IReadOnlyList&lt;ApdexThresholdDto&gt;</c> member blocks the generator, same
-/// precedent as <c>ServiceOverviewResponse</c>.
+/// see <see cref="Flare.Identity.Apdex.IApdexThresholdStore.GetAllAsync"/>).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ApdexThresholdsResponse
 {
     /// <summary>See <see cref="Query.ServiceApdexQueryBuilder.DefaultThresholdMs"/>.</summary>

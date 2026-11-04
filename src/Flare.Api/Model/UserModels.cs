@@ -7,6 +7,7 @@ namespace Flare.Api.Model;
 /// <see cref="AuthUserDto"/> plus what an Admin actually needs to act on -
 /// <c>IsDisabled</c> and <c>CreatedAt</c> - deliberately still never a password hash.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record UserSummaryDto
 {
     public required Guid Id { get; init; }
@@ -24,6 +25,7 @@ public sealed partial record UserSummaryDto
 
 /// <summary>Response body for <c>GET /api/users</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record UserListResponse
 {
     public required IReadOnlyList<UserSummaryDto> Users { get; init; }

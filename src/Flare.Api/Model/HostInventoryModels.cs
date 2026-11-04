@@ -36,6 +36,7 @@ public sealed partial record HostListRequest
 /// which metric each column is derived from.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record HostSummary
 {
     public required string HostName { get; init; }
@@ -58,6 +59,7 @@ public sealed partial record HostSummary
 
 /// <summary>Response body for <c>POST /api/hosts</c>, sorted by <see cref="HostSummary.HostName"/>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record HostListResponse
 {
     public required int WindowMinutes { get; init; }
@@ -92,6 +94,7 @@ public sealed partial record HostMetricsRequest
 
 /// <summary>One time bucket of <see cref="HostMetricsResponse"/> - same per-column meaning and null semantics as <see cref="HostSummary"/>, scoped to the bucket instead of the whole window.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record HostMetricsPoint
 {
     public required DateTimeOffset BucketStart { get; init; }
@@ -107,6 +110,7 @@ public sealed partial record HostMetricsPoint
 
 /// <summary>Response body for <c>POST /api/hosts/metrics</c>, <see cref="Points"/> ascending by bucket. Buckets with no data in any column are absent, not zero-filled.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record HostMetricsResponse
 {
     public required string HostName { get; init; }

@@ -7,27 +7,26 @@
 // KubernetesWorkloadQueryBuilder.cs for which metric feeds which field. A pod's drill-down is
 // `pods-api.ts`' getPodMetrics.
 //
-// MemoryPack over the wire, same shape as `hosts-api.ts`: the requests are generated
-// classes; the responses carry a DateTimeOffset inside an IReadOnlyList, so they're
-// hand-written under `#lib/memorypack/`.
+// MemoryPack over the wire, same shape as `hosts-api.ts`: every request and
+// response class is generated (`#lib/generated/memorypack/`).
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { KubernetesNodeListRequest as GeneratedNodeListRequest } from '#lib/generated/memorypack/KubernetesNodeListRequest.ts';
 import { KubernetesNodeMetricsRequest as GeneratedNodeMetricsRequest } from '#lib/generated/memorypack/KubernetesNodeMetricsRequest.ts';
 import { KubernetesPodListRequest as GeneratedPodListRequest } from '#lib/generated/memorypack/KubernetesPodListRequest.ts';
-import { KubernetesNodeListResponse as GeneratedNodeListResponse } from '#lib/memorypack/KubernetesNodeListResponse.ts';
-import { KubernetesNodeMetricsResponse as GeneratedNodeMetricsResponse } from '#lib/memorypack/KubernetesNodeMetricsResponse.ts';
-import { KubernetesPodListResponse as GeneratedPodListResponse } from '#lib/memorypack/KubernetesPodListResponse.ts';
+import { KubernetesNodeListResponse as GeneratedNodeListResponse } from '#lib/generated/memorypack/KubernetesNodeListResponse.ts';
+import { KubernetesNodeMetricsResponse as GeneratedNodeMetricsResponse } from '#lib/generated/memorypack/KubernetesNodeMetricsResponse.ts';
+import { KubernetesPodListResponse as GeneratedPodListResponse } from '#lib/generated/memorypack/KubernetesPodListResponse.ts';
 import { KubernetesWorkloadListRequest as GeneratedWorkloadListRequest } from '#lib/generated/memorypack/KubernetesWorkloadListRequest.ts';
 import { KubernetesWorkloadMetricsRequest as GeneratedWorkloadMetricsRequest } from '#lib/generated/memorypack/KubernetesWorkloadMetricsRequest.ts';
 import { KubernetesNamespaceListRequest as GeneratedNamespaceListRequest } from '#lib/generated/memorypack/KubernetesNamespaceListRequest.ts';
 import { KubernetesVolumeListRequest as GeneratedVolumeListRequest } from '#lib/generated/memorypack/KubernetesVolumeListRequest.ts';
 import { KubernetesVolumeMetricsRequest as GeneratedVolumeMetricsRequest } from '#lib/generated/memorypack/KubernetesVolumeMetricsRequest.ts';
-import { KubernetesWorkloadListResponse as GeneratedWorkloadListResponse } from '#lib/memorypack/KubernetesWorkloadListResponse.ts';
-import { KubernetesWorkloadMetricsResponse as GeneratedWorkloadMetricsResponse } from '#lib/memorypack/KubernetesWorkloadMetricsResponse.ts';
-import { KubernetesNamespaceListResponse as GeneratedNamespaceListResponse } from '#lib/memorypack/KubernetesNamespaceListResponse.ts';
-import { KubernetesVolumeListResponse as GeneratedVolumeListResponse } from '#lib/memorypack/KubernetesVolumeListResponse.ts';
-import { KubernetesVolumeMetricsResponse as GeneratedVolumeMetricsResponse } from '#lib/memorypack/KubernetesVolumeMetricsResponse.ts';
+import { KubernetesWorkloadListResponse as GeneratedWorkloadListResponse } from '#lib/generated/memorypack/KubernetesWorkloadListResponse.ts';
+import { KubernetesWorkloadMetricsResponse as GeneratedWorkloadMetricsResponse } from '#lib/generated/memorypack/KubernetesWorkloadMetricsResponse.ts';
+import { KubernetesNamespaceListResponse as GeneratedNamespaceListResponse } from '#lib/generated/memorypack/KubernetesNamespaceListResponse.ts';
+import { KubernetesVolumeListResponse as GeneratedVolumeListResponse } from '#lib/generated/memorypack/KubernetesVolumeListResponse.ts';
+import { KubernetesVolumeMetricsResponse as GeneratedVolumeMetricsResponse } from '#lib/generated/memorypack/KubernetesVolumeMetricsResponse.ts';
 
 /** Usage figures are window averages; null = no data for that metric (never 0). */
 export interface KubernetesNodeSummary {
@@ -245,7 +244,7 @@ export async function listKubernetesNodes(windowMinutes: number, filter: Kuberne
 		nodes: (dto.nodes ?? [])
 			.filter((n) => n != null)
 			.map((n) => ({
-				nodeName: n.nodeName,
+				nodeName: n.nodeName ?? '',
 				clusterName: n.clusterName,
 				ready: n.ready,
 				cpuCores: n.cpuCores,
@@ -268,7 +267,7 @@ export async function getKubernetesNodeMetrics(nodeName: string, windowMinutes: 
 		throw new Error('Empty response body decoding KubernetesNodeMetricsResponse.');
 	}
 	return {
-		nodeName: dto.nodeName,
+		nodeName: dto.nodeName ?? '',
 		windowMinutes: dto.windowMinutes,
 		bucketWidthSeconds: dto.bucketWidthSeconds,
 		allocatableCpuCores: dto.allocatableCpuCores,
@@ -303,8 +302,8 @@ export async function listKubernetesPods(windowMinutes: number, filter: Kubernet
 		pods: (dto.pods ?? [])
 			.filter((p) => p != null)
 			.map((p) => ({
-				podName: p.podName,
-				namespace: p.namespace,
+				podName: p.podName ?? '',
+				namespace: p.namespace ?? '',
 				nodeName: p.nodeName,
 				workloadKind: p.workloadKind,
 				workloadName: p.workloadName,
@@ -340,14 +339,14 @@ export async function listKubernetesWorkloads(
 		throw new Error('Empty response body decoding KubernetesWorkloadListResponse.');
 	}
 	return {
-		kind: dto.kind,
+		kind: dto.kind ?? '',
 		windowMinutes: dto.windowMinutes,
 		truncated: dto.truncated,
 		workloads: (dto.workloads ?? [])
 			.filter((w) => w != null)
 			.map((w) => ({
-				name: w.name,
-				namespace: w.namespace,
+				name: w.name ?? '',
+				namespace: w.namespace ?? '',
 				...counts(w),
 				podCount: w.podCount,
 				cpuCores: w.cpuCores,
@@ -403,7 +402,7 @@ export async function listKubernetesNamespaces(windowMinutes: number, search: st
 		namespaces: (dto.namespaces ?? [])
 			.filter((n) => n != null)
 			.map((n) => ({
-				namespace: n.namespace,
+				namespace: n.namespace ?? '',
 				phase: n.phase,
 				podCount: n.podCount,
 				cpuCores: n.cpuCores,
@@ -429,9 +428,9 @@ export async function listKubernetesVolumes(windowMinutes: number, filter: Kuber
 		volumes: (dto.volumes ?? [])
 			.filter((v) => v != null)
 			.map((v) => ({
-				volumeName: v.volumeName,
-				namespace: v.namespace,
-				podName: v.podName,
+				volumeName: v.volumeName ?? '',
+				namespace: v.namespace ?? '',
+				podName: v.podName ?? '',
 				volumeType: v.volumeType,
 				claimName: v.claimName,
 				capacityBytes: v.capacityBytes,

@@ -34,6 +34,7 @@ public sealed partial record PodMetricsRequest
 /// are opt-in <c>kubeletstats</c> metrics and are usually null.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record PodMetricsPoint
 {
     public required DateTimeOffset BucketStart { get; init; }
@@ -53,6 +54,7 @@ public sealed partial record PodMetricsPoint
 
 /// <summary>Response body for <c>POST /api/pods/metrics</c>, <see cref="Points"/> ascending by bucket. Buckets with no data are absent, not zero-filled.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record PodMetricsResponse
 {
     public required string PodName { get; init; }

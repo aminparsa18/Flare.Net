@@ -4,16 +4,14 @@
 // SessionAuthenticationHandler every cookie-based call already goes through.
 //
 // MemoryPack throughout (see `ingest-keys-api.ts`'s header comment for the general
-// shape): `CreateAccessTokenRequest` has no DateTimeOffset/JsonElement member, so it uses
-// a real generated class (`#lib/generated/memorypack/CreateAccessTokenRequest.ts`); every
-// response nests `AccessTokenDto` (`CreatedAt`/`ExpiresAt`/`LastUsedAt`/`RevokedAt` are
-// `DateTimeOffset`/`DateTimeOffset?`), so those are hand-written under `#lib/memorypack/`.
+// shape): every wire class is
+// generated (`#lib/generated/memorypack/`), including `AccessTokenDto`'s `DateTimeOffset` members.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { CreateAccessTokenRequest as GeneratedCreateAccessTokenRequest } from '#lib/generated/memorypack/CreateAccessTokenRequest.ts';
-import { CreateAccessTokenResponse as GeneratedCreateAccessTokenResponse } from '#lib/memorypack/CreateAccessTokenResponse.ts';
-import { AccessTokenListResponse as GeneratedAccessTokenListResponse } from '#lib/memorypack/AccessTokenListResponse.ts';
-import type { AccessTokenDto as GeneratedAccessTokenDto } from '#lib/memorypack/AccessTokenDto.ts';
+import { CreateAccessTokenResponse as GeneratedCreateAccessTokenResponse } from '#lib/generated/memorypack/CreateAccessTokenResponse.ts';
+import { AccessTokenListResponse as GeneratedAccessTokenListResponse } from '#lib/generated/memorypack/AccessTokenListResponse.ts';
+import type { AccessTokenDto as GeneratedAccessTokenDto } from '#lib/generated/memorypack/AccessTokenDto.ts';
 
 export interface AccessToken {
 	id: string;
@@ -40,7 +38,7 @@ export interface CreateAccessTokenResponse {
 function toAccessToken(dto: GeneratedAccessTokenDto): AccessToken {
 	return {
 		id: dto.id,
-		name: dto.name,
+		name: dto.name ?? '',
 		createdAt: dto.createdAt.toISOString(),
 		expiresAt: dto.expiresAt?.toISOString() ?? null,
 		lastUsedAt: dto.lastUsedAt?.toISOString() ?? null,

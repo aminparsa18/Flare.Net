@@ -8,6 +8,7 @@ namespace Flare.Api.Model;
 /// panel. See <c>HostStats.HostStatsPoller</c> for how it's sampled and broadcast.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record HostStatsSnapshot
 {
     /// <summary>
