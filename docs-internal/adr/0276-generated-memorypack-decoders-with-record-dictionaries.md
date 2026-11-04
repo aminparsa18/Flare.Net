@@ -1,6 +1,6 @@
 # ADR-0276: Generated MemoryPack TypeScript decoders with Record dictionaries
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-11-04
 
