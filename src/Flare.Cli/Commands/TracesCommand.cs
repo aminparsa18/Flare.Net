@@ -96,7 +96,7 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         public bool Asc { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
 

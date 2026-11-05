@@ -25,7 +25,7 @@ internal sealed class DestroyCommand : AsyncCommand<DestroyCommand.Settings>
         public bool PurgeConfig { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
 

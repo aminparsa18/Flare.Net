@@ -21,7 +21,7 @@ internal sealed class AlertsListCommand : AsyncCommand<AlertsListCommand.Setting
     {
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
 
@@ -157,7 +157,7 @@ internal sealed class AlertsTestCommand : AsyncCommand<AlertsTestCommand.Setting
         public required Guid Id { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
 
@@ -241,7 +241,7 @@ internal sealed class AlertsSendTestCommand : AsyncCommand<AlertsSendTestCommand
         public required Guid Id { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
 
@@ -314,7 +314,7 @@ internal sealed class AlertsHistoryCommand : AsyncCommand<AlertsHistoryCommand.S
         public int Limit { get; init; } = 20;
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
 
@@ -401,7 +401,7 @@ internal sealed class AlertsExportCommand : AsyncCommand<AlertsExportCommand.Set
         public string? Output { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -461,7 +461,7 @@ internal sealed class AlertsImportCommand : AsyncCommand<AlertsImportCommand.Set
         public bool DryRun { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)

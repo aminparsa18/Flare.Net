@@ -18,7 +18,7 @@ internal sealed class StatusSubscribersListCommand : AsyncCommand<StatusSubscrib
         public required Guid PageId { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var (response, exit) = await StatusIncidentCli.SendAsync<StatusSubscriberListResponseWire>(
             settings.InstanceName, HttpMethod.Get, $"/api/status-pages/{settings.PageId}/subscribers", null, cancellationToken);
@@ -75,7 +75,7 @@ internal sealed class StatusSubscribersRemoveCommand : AsyncCommand<StatusSubscr
         public bool Yes { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (!settings.Yes)
         {

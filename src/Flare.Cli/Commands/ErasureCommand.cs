@@ -98,7 +98,7 @@ internal class ErasureSubjectSettings : InstanceSettings
 
 internal sealed class ErasurePreviewCommand : AsyncCommand<ErasureSubjectSettings>
 {
-    protected override async Task<int> ExecuteAsync(CommandContext context, ErasureSubjectSettings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, ErasureSubjectSettings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -154,7 +154,7 @@ internal sealed class ErasureRunCommand : AsyncCommand<ErasureRunCommand.Setting
         public bool NoWait { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -198,7 +198,7 @@ internal sealed class ErasureStatusCommand : AsyncCommand<ErasureStatusCommand.S
         public Guid? Id { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -250,7 +250,7 @@ internal sealed class ErasureExportCommand : AsyncCommand<ErasureExportCommand.S
         public string? Output { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)

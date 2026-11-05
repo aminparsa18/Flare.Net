@@ -13,7 +13,7 @@ namespace Flare.Cli.Commands;
 /// </summary>
 internal sealed class InstancesListCommand : AsyncCommand
 {
-    protected override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         var instances = new List<FlareInstance>();
         var defaultInstance = FlareHome.Resolve(null);
