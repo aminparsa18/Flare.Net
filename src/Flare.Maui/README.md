@@ -79,7 +79,7 @@ Needs the MAUI workloads (`dotnet workload install maui`), so it is not in `Flar
 
 ```bash
 dotnet build Flare.Maui.slnx
-dotnet test src/Flare.Maui.Tests
+dotnet test --project src/Flare.Maui.Tests
 ```
 
 ## Tests

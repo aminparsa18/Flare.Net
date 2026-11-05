@@ -43,8 +43,9 @@ Solution file is **`Flare.slnx`** (not `.sln`).
 **.NET** (targets `net10.0`, SDK pinned via `global.json` to `10.0.100`, Aspire SDK `13.6.4`):
 ```bash
 dotnet build Flare.slnx
-dotnet test                          # run from repo root, or inside a specific src/*.Tests project
-dotnet test --filter "FullyQualifiedName~OtlpLogMapper"   # single test/class
+dotnet test --solution Flare.slnx    # all tests (xUnit v3 on Microsoft.Testing.Platform, set in global.json)
+dotnet test --project src/Flare.Ingest.Tests --filter-class "*OtlpLogMapperTests"   # single class; --filter-method / --filter-not-class also exist
+dotnet run --project src/Flare.Ingest.Tests   # test projects are executables; -? lists the xUnit switches
 dotnet run --project src/Flare.AppHost   # whole stack via Aspire (recommended dev inner loop)
 dotnet run --project src/Flare.Ingest    # or standalone, per-project
 ```
