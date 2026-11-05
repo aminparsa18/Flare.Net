@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using MemoryPack;
@@ -96,6 +97,44 @@ public class ApiSerializationTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status201Created, context.Response.StatusCode);
+    }
+
+    /// <summary>
+    /// The MemoryPack body is streamed rather than built as one array up front, so a
+    /// serializer failure must still happen before any byte reaches the response, leaving it
+    /// unstarted so exception handling can turn it into a 500.
+    /// </summary>
+    [Fact]
+    public async Task Write_MemoryPackAccept_SerializerFailure_WritesNothing()
+    {
+        var context = CreateContext(accept: ApiSerialization.MemoryPackContentType);
+        var jsonTypeInfo = (JsonTypeInfo<NotMemoryPackable>)JsonSerializerOptions.Default.GetTypeInfo(typeof(NotMemoryPackable));
+
+        var result = ApiSerialization.Write(context, new NotMemoryPackable(), jsonTypeInfo);
+
+        await Assert.ThrowsAsync<MemoryPackSerializationException>(() => result.ExecuteAsync(context));
+        Assert.Equal(0, context.Response.Body.Length);
+        Assert.False(context.Response.HasStarted);
+    }
+
+    [Fact]
+    public async Task Write_MemoryPackAccept_LargeBody_RoundTrips()
+    {
+        var context = CreateContext(accept: ApiSerialization.MemoryPackContentType);
+        // Well past the 85 kB LOH threshold and past one pooled buffer segment.
+        var response = new LoginRequest { Username = "alice", Password = string.Concat(Enumerable.Range(0, 30_000).Select(i => i.ToString("D6"))) };
+
+        var result = ApiSerialization.Write(context, response, AuthJsonContext.Default.LoginRequest);
+        await result.ExecuteAsync(context);
+
+        var bytes = ((MemoryStream)context.Response.Body).ToArray();
+        Assert.True(bytes.Length > 150_000);
+        Assert.Equal(MemoryPackSerializer.Serialize(response), bytes);
+    }
+
+    private sealed class NotMemoryPackable
+    {
+        public int Value { get; set; }
     }
 
     [Fact]

@@ -279,7 +279,7 @@ const respondNone = dotnet.filter((d) => d.suite === 'server-stage' && d.params.
 if (respondNone.length) {
 	const per = (format, f) => respondNone.filter((d) => d.params.Format === format).map(f);
 	bullets.push(
-		`<b>Server memory per response</b> (production write path, uncompressed): JSON allocates ${fmtRange(range(per('json', (d) => d.allocatedBytes)), fmtBytes)} and triggers ${fmtRange(range(per('json', (d) => d.gen2Per1k)), (x) => x.toFixed(0))} gen2 GCs per 1,000 responses; MemoryPack allocates ${fmtRange(range(per('memorypack', (d) => d.allocatedBytes)), fmtBytes)} and triggers ${fmtRange(range(per('memorypack', (d) => d.gen2Per1k)), (x) => x.toFixed(0))}. JSON streams through pooled buffers; MemoryPack builds the whole body as one array, which lands on the Large Object Heap once it reaches 85,000 bytes.`
+		`<b>Server memory per response</b> (production write path, uncompressed): JSON allocates ${fmtRange(range(per('json', (d) => d.allocatedBytes)), fmtBytes)} and triggers ${fmtRange(range(per('json', (d) => d.gen2Per1k)), (x) => x.toFixed(0))} gen2 GCs per 1,000 responses; MemoryPack allocates ${fmtRange(range(per('memorypack', (d) => d.allocatedBytes)), fmtBytes)} and triggers ${fmtRange(range(per('memorypack', (d) => d.gen2Per1k)), (x) => x.toFixed(0))}. Both stream through pooled buffers, so neither puts the body on the Large Object Heap (MemoryPack built it as one array until 2026-11-05).`
 	);
 }
 
@@ -468,7 +468,7 @@ function componentChart(title, note, rows, head, tableRows) {
 		}
 		if (codecRows.length) {
 			parts.push(
-				`<h3>Codec alone (ApiCodecBenchmarks)</h3><p class="muted">Encode to a fresh <code>byte[]</code> and decode into objects. Encode here is not what production does for JSON (it streams), which is why it differs from the per-response numbers above.</p>${table(
+				`<h3>Codec alone (ApiCodecBenchmarks)</h3><p class="muted">Encode to a fresh <code>byte[]</code> and decode into objects. Encode here is not what production does (both formats stream into the response), which is why it differs from the per-response numbers above.</p>${table(
 					['Scenario', 'Method', 'Allocated', 'GCs per 1,000 (gen0 / gen1 / gen2)'],
 					codecRows.map((d) => [esc(d.params.Scenario), esc(d.method), fmtBytes(d.allocatedBytes), gcCell(d)])
 				)}`

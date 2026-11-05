@@ -188,6 +188,15 @@ Once that array reaches 85,000 bytes, it goes on the Large Object Heap, which on
 full-size log or trace page costs a gen2 collection share: 113–181 per 1,000 responses, against 0 for
 JSON. The metrics body is 84 kB, just under the threshold, so it avoids gen2.
 
+**Follow-up (2026-11-05, fixed).** `ApiSerialization.Write` now returns a small `IResult` that calls
+`MemoryPackSerializer.SerializeAsync(Response.Body, value)`. That serializes into pooled, linked
+segments and then copies them to the stream. Writing into `Response.BodyWriter` directly was the
+alternative. It was not chosen because the whole value would no longer be serialized before the first
+byte reaches the response, so a serializer failure would stop being a clean 500. A `--quick`
+`ServerStageBenchmarks` run, uncompressed, now shows MemoryPack at 1.65 kB allocated for every
+scenario, with zero gen1 and gen2 collections in any case. JSON allocates 2.5–25 kB. MemoryPack also
+encodes faster than JSON, for example 137 µs against 374 µs for logs-page.synthetic.
+
 Gen2 collections are the expensive kind. They are a common source of p99 latency spikes and of steady
 memory growth on a busy server. Compression barely changes these numbers: it adds about 0.1–0.2 kB,
 because it also streams.
@@ -227,9 +236,8 @@ The MemoryPack write path could stream too, by serializing into the response's `
     compressed: it is better for metrics and worse for log and trace pages on fast links. Separately,
     upstream Cysharp has said the MemoryPack TypeScript generator will be removed and that MemoryPack
     is for trusted data only.
-- MemoryPack responses of 85 kB or more cost a gen2 collection share each (Finding 5). If MemoryPack
-  stays, writing it into the response `PipeWriter` instead of a fresh `byte[]` would remove that cost
-  without changing the format.
+- MemoryPack responses of 85 kB or more used to cost a gen2 collection share each (Finding 5). The
+  response is now streamed through pooled buffers, which removed that cost without changing the format.
 - If compression is enabled through `UseResponseCompression`:
   - its default `MimeTypes` do not include `application/x-memorypack`, so MemoryPack responses would
     stay uncompressed unless that type is added;
