@@ -148,4 +148,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Support
 
-If Flare is useful to you, you can support its development with a donation via [PayPal](https://www.paypal.com/paypalme/aminparsa18).
+If Flare is useful to you, you can support its development with a donation.
+
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/paypalme/aminparsa18)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V6E42A47XM)
