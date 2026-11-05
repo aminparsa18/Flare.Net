@@ -1,0 +1,33 @@
+{
+ "suite": "request-encode",
+ "node": "26.5.0",
+ "v8": "14.6.202.34-node.24",
+ "tinybench": "6.2.2",
+ "time": 500,
+ "rows": [
+  {
+   "suite": "request-encode",
+   "name": "logs-request.synthetic/json/encode",
+   "scenario": "logs-request.synthetic",
+   "format": "json",
+   "op": "encode",
+   "meanMs": 0.0019283804427476128,
+   "p50Ms": 0.0014619999999467836,
+   "p99Ms": 0.006285329999984086,
+   "rmePercent": 1.6427860386657227,
+   "samples": 259290
+  },
+  {
+   "suite": "request-encode",
+   "name": "logs-request.synthetic/memorypack/encode",
+   "scenario": "logs-request.synthetic",
+   "format": "memorypack",
+   "op": "encode",
+   "meanMs": 0.001990249234749454,
+   "p50Ms": 0.0016490000000430882,
+   "p99Ms": 0.006293759999998665,
+   "rmePercent": 0.6541909091540785,
+   "samples": 251225
+  }
+ ]
+}

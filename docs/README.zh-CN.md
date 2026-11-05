@@ -45,6 +45,7 @@
 - [Run in cluster mode](how-to/deploy/run-cluster-mode.zh-CN.md)
 - [在子路径下提供服务](how-to/deploy/serve-under-a-sub-path.zh-CN.md)
 - [配置安全响应头](how-to/deploy/security-response-headers.zh-CN.md)
+- [配置 API 响应压缩](how-to/deploy/response-compression.zh-CN.md)
 - [使用 Helm 部署](how-to/deploy/deploy-with-helm.zh-CN.md)
 
 *管理*
