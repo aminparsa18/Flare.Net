@@ -99,7 +99,7 @@ internal sealed class AlertsAckCommand : AsyncCommand<AlertsAckCommand.Settings>
         public string? Note { get; init; }
     }
 
-    protected override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
+    public override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
         AlertsAckRunner.RunAsync(settings, HttpMethod.Post, $"/api/alerts/{settings.Id}/ack", new { note = settings.Note }, _ => "Acknowledged. Re-notifications and escalation stop until the rule resolves.", cancellationToken);
 }
 
@@ -120,7 +120,7 @@ internal sealed class AlertsSnoozeCommand : AsyncCommand<AlertsSnoozeCommand.Set
         public string? Note { get; init; }
     }
 
-    protected override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
+    public override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
         AlertsAckRunner.RunAsync(
             settings,
             HttpMethod.Post,
@@ -138,6 +138,6 @@ internal sealed class AlertsSnoozeCommand : AsyncCommand<AlertsSnoozeCommand.Set
 /// </summary>
 internal sealed class AlertsUnackCommand : AsyncCommand<AlertsAckSettings>
 {
-    protected override Task<int> ExecuteAsync(CommandContext context, AlertsAckSettings settings, CancellationToken cancellationToken) =>
+    public override Task<int> ExecuteAsync(CommandContext context, AlertsAckSettings settings, CancellationToken cancellationToken) =>
         AlertsAckRunner.RunAsync(settings, HttpMethod.Delete, $"/api/alerts/{settings.Id}/ack", null, _ => "Cleared. The incident notifies and can escalate again.", cancellationToken);
 }

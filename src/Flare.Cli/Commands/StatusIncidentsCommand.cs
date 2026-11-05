@@ -84,7 +84,7 @@ internal sealed class StatusIncidentsListCommand : AsyncCommand<StatusIncidentsL
         public required Guid PageId { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var (response, exit) = await StatusIncidentCli.SendAsync<StatusIncidentListResponseWire>(
             settings.InstanceName, HttpMethod.Get, $"/api/status-pages/{settings.PageId}/incidents", null, cancellationToken);
@@ -147,7 +147,7 @@ internal sealed class StatusIncidentsOpenCommand : AsyncCommand<StatusIncidentsO
         public Guid[]? Components { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(settings.Title) || string.IsNullOrWhiteSpace(settings.Message))
         {
@@ -205,7 +205,7 @@ internal sealed class StatusIncidentsUpdateCommand : AsyncCommand<StatusIncident
         public bool ClearComponents { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var status = StatusIncidentCli.NormalizeStatus(settings.Status);
         if (status is null || string.IsNullOrWhiteSpace(settings.Message))
@@ -252,7 +252,7 @@ internal sealed class StatusIncidentsDeleteCommand : AsyncCommand<StatusIncident
         public bool Yes { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (!settings.Yes)
         {

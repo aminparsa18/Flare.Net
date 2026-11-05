@@ -42,7 +42,7 @@ internal sealed class ApiKeyCreateCommand : AsyncCommand<ApiKeyCreateCommand.Set
             ExpiresInDays is <= 0 ? ValidationResult.Error("--expires-in-days must be a positive number of days.") : ValidationResult.Success();
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
 
@@ -148,7 +148,7 @@ internal sealed class ApiKeyScopeCommand : AsyncCommand<ApiKeyScopeCommand.Setti
         public bool ClearServices { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)

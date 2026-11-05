@@ -14,7 +14,7 @@ internal sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         public bool Cluster { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         var topology = settings.Cluster ? FlareTopology.Cluster : FlareTopology.Standalone;

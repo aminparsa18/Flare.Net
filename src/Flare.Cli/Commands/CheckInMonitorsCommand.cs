@@ -20,7 +20,7 @@ internal sealed class CheckInMonitorsListCommand : AsyncCommand<CheckInMonitorsL
     {
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -129,7 +129,7 @@ internal sealed class CheckInMonitorsCreateCommand : AsyncCommand<CheckInMonitor
         public bool? Enabled { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -243,7 +243,7 @@ internal sealed class CheckInMonitorsUpdateCommand : AsyncCommand<CheckInMonitor
         public bool? Enabled { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -319,7 +319,7 @@ internal sealed class CheckInMonitorsDeleteCommand : AsyncCommand<CheckInMonitor
         public bool Yes { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)

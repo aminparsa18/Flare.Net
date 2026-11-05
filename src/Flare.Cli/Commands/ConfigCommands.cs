@@ -83,7 +83,7 @@ internal sealed class ConfigExportCommand : AsyncCommand<ConfigExportCommand.Set
         public string? Output { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -186,7 +186,7 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
         ConfigSync.ArchiveSection,
     ];
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (settings.File.Length == 0)
         {

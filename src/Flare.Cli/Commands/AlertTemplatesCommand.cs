@@ -21,7 +21,7 @@ internal sealed class AlertTemplatesListCommand : AsyncCommand<AlertTemplatesLis
     {
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -115,7 +115,7 @@ internal sealed class AlertTemplatesCreateCommand : AsyncCommand<AlertTemplatesC
         public bool? IsDefault { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -219,7 +219,7 @@ internal sealed class AlertTemplatesUpdateCommand : AsyncCommand<AlertTemplatesU
         public bool? IsDefault { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)
@@ -306,7 +306,7 @@ internal sealed class AlertTemplatesDeleteCommand : AsyncCommand<AlertTemplatesD
         public bool Yes { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var instance = FlareHome.ResolveTarget(settings.InstanceName);
         if (!instance.IsInitialized)

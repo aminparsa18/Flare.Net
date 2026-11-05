@@ -79,7 +79,7 @@ internal sealed class SourceMapsUploadCommand : AsyncCommand<SourceMapsUploadCom
         public required string[] Paths { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(settings.Service) || string.IsNullOrWhiteSpace(settings.Release))
         {
@@ -192,7 +192,7 @@ internal sealed class SourceMapsUploadDotnetCommand : AsyncCommand<SourceMapsUpl
         public required string[] Paths { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(settings.Service) || string.IsNullOrWhiteSpace(settings.Release))
         {
@@ -309,7 +309,7 @@ internal sealed class SourceMapsUploadNativeCommand : AsyncCommand<SourceMapsUpl
         public string[]? Managed { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(settings.Service) || string.IsNullOrWhiteSpace(settings.Release))
         {
@@ -388,7 +388,7 @@ internal sealed class SourceMapsUploadNativeCommand : AsyncCommand<SourceMapsUpl
 /// <summary><c>flare sourcemaps list</c> - the uploaded maps, optionally narrowed by --service/--release.</summary>
 internal sealed class SourceMapsListCommand : AsyncCommand<SourceMapsSettings>
 {
-    protected override async Task<int> ExecuteAsync(CommandContext context, SourceMapsSettings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, SourceMapsSettings settings, CancellationToken cancellationToken)
     {
         using var http = settings.CreateClient();
         if (http is null)
@@ -439,7 +439,7 @@ internal sealed class SourceMapsDeleteCommand : AsyncCommand<SourceMapsDeleteCom
         public string? Bundle { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(settings.Service) || string.IsNullOrWhiteSpace(settings.Release))
         {

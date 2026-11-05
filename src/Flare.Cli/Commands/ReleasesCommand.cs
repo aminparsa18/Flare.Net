@@ -61,7 +61,7 @@ internal sealed class ReleasesListCommand : AsyncCommand<ReleasesListCommand.Set
         public string? Service { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = ReleasesClient.TryCreate(settings.InstanceName, out var failure);
         if (http is null)
@@ -148,7 +148,7 @@ internal sealed class ReleasesMarkCommand : AsyncCommand<ReleasesMarkCommand.Set
         public DateTimeOffset? DeployedAt { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = ReleasesClient.TryCreate(settings.InstanceName, out var failure);
         if (http is null)
@@ -196,7 +196,7 @@ internal sealed class ReleasesDeleteCommand : AsyncCommand<ReleasesDeleteCommand
         public required string Version { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = ReleasesClient.TryCreate(settings.InstanceName, out var failure);
         if (http is null)

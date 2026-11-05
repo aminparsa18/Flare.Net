@@ -141,7 +141,7 @@ internal sealed class ForwardingListCommand : AsyncCommand<ForwardingListCommand
     {
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = TelemetryExportClient.Create(settings.InstanceName);
         if (http is null)
@@ -221,7 +221,7 @@ internal sealed class ForwardingCreateCommand : AsyncCommand<ForwardingCreateCom
         public bool Disabled { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(settings.Endpoint))
         {
@@ -325,7 +325,7 @@ internal sealed class ForwardingUpdateCommand : AsyncCommand<ForwardingUpdateCom
         public bool? Enabled { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var newHeaders = TelemetryExportClient.ParseHeaders(settings.Headers);
         var newSignals = TelemetryExportClient.ParseSignals(settings.Signals);
@@ -395,7 +395,7 @@ internal sealed class ForwardingDeleteCommand : AsyncCommand<ForwardingDeleteCom
         public bool Yes { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = TelemetryExportClient.Create(settings.InstanceName);
         if (http is null)
@@ -425,7 +425,7 @@ internal sealed class ForwardingStatusCommand : AsyncCommand<ForwardingStatusCom
     {
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = TelemetryExportClient.Create(settings.InstanceName);
         if (http is null)
@@ -476,7 +476,7 @@ internal sealed class ArchiveShowCommand : AsyncCommand<ArchiveShowCommand.Setti
     {
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = TelemetryExportClient.Create(settings.InstanceName);
         if (http is null)
@@ -549,7 +549,7 @@ internal sealed class ArchiveSetCommand : AsyncCommand<ArchiveSetCommand.Setting
         public bool? Enabled { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var signals = TelemetryExportClient.ParseSignals(settings.Signals);
         if (signals is null)
@@ -623,7 +623,7 @@ internal sealed class ArchiveResetCommand : AsyncCommand<ArchiveResetCommand.Set
         public bool Yes { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = TelemetryExportClient.Create(settings.InstanceName);
         if (http is null)
@@ -653,7 +653,7 @@ internal sealed class ArchiveStatusCommand : AsyncCommand<ArchiveStatusCommand.S
     {
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         using var http = TelemetryExportClient.Create(settings.InstanceName);
         if (http is null)
