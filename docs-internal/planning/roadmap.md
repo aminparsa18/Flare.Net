@@ -149,16 +149,3 @@ folders are where "what happened and why" actually lives.
   publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
   `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
   mention npm in the csproj `Description` while the version is bumped.
-- **Stream MemoryPack responses instead of building a `byte[]`.** `ApiSerialization.Write` returns
-  `Results.Bytes(MemoryPackSerializer.Serialize(value))`, so every MemoryPack response first becomes one new array of the
-  whole body. At 85 kB or more that array lands on the Large Object Heap. Full-size log and trace pages (89–186 kB) cost
-  53–181 gen2 collections per 1,000 responses, while JSON, which streams through pooled buffers, costs 0
-  ([Finding 5](../investigations/serialization-end-to-end-benchmark.md#finding-5-on-the-real-response-path-memorypack-allocates-far-more-server-memory-than-json),
-  re-confirmed in the [2026-11-05 run](../benchmarks/2026-11-05/report.html)). Serialize into `Response.BodyWriter`
-  instead (`MemoryPackSerializer.Serialize(IBufferWriter<byte>, value)`), wrapped in a small custom `IResult` so the
-  endpoints calling `Write` don't change. The wire format is unchanged. Check:
-  - status codes still apply;
-  - a failure after the first byte is written can no longer become a 500, so test it;
-  - there is no `Content-Length`, which compression (ADR-0277) already drops.
-
-  Done when `ServerStageBenchmarks` shows MemoryPack allocating about what JSON does, with gen2 at 0.

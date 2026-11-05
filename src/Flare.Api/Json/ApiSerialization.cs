@@ -95,12 +95,45 @@ public static class ApiSerialization
             return Results.Json(value, jsonTypeInfo, statusCode: statusCode);
         }
 
-        if (statusCode.HasValue)
-        {
-            http.Response.StatusCode = statusCode.Value;
-        }
+        return new MemoryPackResult<T>(value, statusCode);
+    }
 
-        return Results.Bytes(MemoryPackSerializer.Serialize(value), MemoryPackContentType);
+    /// <summary>
+    /// Streams a MemoryPack body instead of materializing it as one <c>byte[]</c>.
+    /// </summary>
+    /// <remarks>
+    /// This replaced <c>Results.Bytes(MemoryPackSerializer.Serialize(value))</c>. That allocated a
+    /// new array the size of the whole body for each response. At 85 kB or more the array lands on
+    /// the Large Object Heap, so full log and trace pages cost 53-181 gen2 collections per 1,000
+    /// responses where JSON cost 0 (docs-internal/investigations/serialization-end-to-end-benchmark.md,
+    /// Finding 5).
+    /// <para/>
+    /// <see cref="MemoryPackSerializer.SerializeAsync{T}(Stream,T,MemoryPackSerializerOptions?,CancellationToken)"/>
+    /// serializes into pooled, linked buffer segments and copies them to the stream afterwards.
+    /// It is used here instead of serializing straight into <c>Response.BodyWriter</c> for one
+    /// reason: the whole value is serialized before the first byte reaches the response. A
+    /// serializer failure therefore throws while the response has not started, and the usual
+    /// exception handling still produces a clean 500, not a truncated 200. The wire format is
+    /// identical. No <c>Content-Length</c> is sent, which response compression (ADR-0277) drops
+    /// anyway.
+    /// </remarks>
+    private sealed class MemoryPackResult<T>(T value, int? statusCode) : IResult, IStatusCodeHttpResult, IContentTypeHttpResult
+    {
+        public int? StatusCode => statusCode;
+
+        public string ContentType => MemoryPackContentType;
+
+        public Task ExecuteAsync(HttpContext httpContext)
+        {
+            var response = httpContext.Response;
+            if (statusCode.HasValue)
+            {
+                response.StatusCode = statusCode.Value;
+            }
+
+            response.ContentType = MemoryPackContentType;
+            return MemoryPackSerializer.SerializeAsync(response.Body, value, cancellationToken: httpContext.RequestAborted).AsTask();
+        }
     }
 
     /// <summary>
