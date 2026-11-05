@@ -7,7 +7,7 @@ JSON vs MemoryPack, measured where Flare actually uses MemoryPack:
 | Ingest's Redis Streams buffer (.NET ↔ .NET) | [0017](../../docs-internal/adr/0017-memorypack-ingest-redis-buffer.md) | `redis-buffer` |
 | Flare.Api request/response content negotiation | [0015](../../docs-internal/adr/0015-memorypack-content-negotiation-for-flare-api.md) | `api-codec`, `request-codec`, `server-stage` |
 | Dashboard decoding with the generated TypeScript decoders | [0016](../../docs-internal/adr/0016-memorypack-dashboard-typescript-adoption.md), [0276](../../docs-internal/adr/0276-generated-memorypack-decoders-with-record-dictionaries.md) | `decode`, `request-encode`, `client-stage` |
-| HTTP compression of API responses (not enabled in Flare today) | - | `compression`, `decompress`, `server-stage`, `client-stage` |
+| HTTP compression of API responses (gzip-1) | [0277](../../docs-internal/adr/0277-api-response-compression.md) | `compression`, `decompress`, `server-stage`, `client-stage` |
 
 This project holds the .NET half (BenchmarkDotNet) and the fixtures; the TypeScript half lives in
 [`src/dashboard/bench/`](../dashboard/bench/) (tinybench, run under Node/V8). One script drives both
@@ -60,7 +60,7 @@ Steps the script runs:
 
 | Suite | Where | What |
 |---|---|---|
-| `server-stage` | `Workflow/ServerStageBenchmarks` | query result object → production `ApiSerialization.Write` → `IResult.ExecuteAsync` into an in-memory response, optionally through a `GZipStream`/`BrotliStream` (the same wrapping `UseResponseCompression` does) |
+| `server-stage` | `Workflow/ServerStageBenchmarks` | query result object → production `ApiSerialization.Write` → `IResult.ExecuteAsync` into an in-memory response; compressed cases run inside the real `ResponseCompressionMiddleware` (gzip-1 is Flare.Api's registration, gzip-6 its `Level=Optimal`, brotli-4 the framework's Brotli provider for comparison) |
 | `client-stage` | `dashboard/bench/workflow/client-stage.bench.ts` | received bytes → decompress → decode → the UI types `searchLogs`/`getTrace`/`queryMetric` return |
 
 The report adds a modeled transfer time between the two halves (`bytes × 8 ÷ bandwidth` at 1 Gbps,

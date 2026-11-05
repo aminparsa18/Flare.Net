@@ -26,3 +26,6 @@ smoke-testing changes to the benchmarks themselves.
 
 - [2026-11-04](2026-11-04/report.html): first run. Its findings are in
   [investigations/serialization-end-to-end-benchmark.md](../investigations/serialization-end-to-end-benchmark.md).
+- [2026-11-05](2026-11-05/report.html): re-run after gzip-1 response compression shipped
+  ([ADR-0277](../adr/0277-api-response-compression.md)); the server stage now runs through the real
+  `ResponseCompressionMiddleware`. What changed against 2026-11-04 is in the ADR's "Re-run" section.

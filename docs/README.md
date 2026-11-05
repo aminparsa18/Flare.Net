@@ -43,6 +43,7 @@ the full rule set on what goes where.
 - [Run in cluster mode](how-to/deploy/run-cluster-mode.md)
 - [Serve under a sub-path](how-to/deploy/serve-under-a-sub-path.md)
 - [Configure security response headers](how-to/deploy/security-response-headers.md)
+- [Configure API response compression](how-to/deploy/response-compression.md)
 - [Deploy with Helm](how-to/deploy/deploy-with-helm.md)
 
 *Administration*

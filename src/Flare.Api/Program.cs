@@ -549,6 +549,11 @@ builder.Services.AddSingleton<IReleaseQueryService, ReleaseQueryService>();
 
 builder.Services.AddOpenApi();
 
+// gzip-1 response compression (ADR-0277); ResponseCompression__Enabled=false when a proxy compresses instead.
+var responseCompression = builder.Configuration.GetSection(ResponseCompressionSettings.SectionName).Get<ResponseCompressionSettings>()
+    ?? new ResponseCompressionSettings();
+builder.Services.AddFlareResponseCompression(responseCompression);
+
 // Auth landed - AllowAnyOrigin() is no longer safe now that requests carry a session
 // cookie (AllowCredentials() and AllowAnyOrigin() are mutually exclusive by the CORS
 // spec/ASP.NET Core's own enforcement anyway, so this couldn't stay permissive even
@@ -600,6 +605,10 @@ await AdminProvisioner.ApplyAsync(
 // Sub-path hosting (Flare:BasePath / Flare__BasePath, e.g. /flare) - first, so every later
 // middleware and endpoint sees the request already split into PathBase + Path. No-op unset.
 app.UseFlareBasePath(BasePath.Normalize(builder.Configuration[BasePath.ConfigurationKey]));
+
+// Before everything that writes a body, so error, auth and rate-limit responses are compressed too.
+// Responses without a Content-Type (WebSocket 101 upgrades) are never compressed.
+app.UseFlareResponseCompression(responseCompression);
 
 // Baseline security headers (ADR-0200) - early so error and CORS-preflight responses carry them too.
 app.UseFlareSecurityHeaders(
