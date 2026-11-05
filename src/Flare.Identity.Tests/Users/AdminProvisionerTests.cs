@@ -11,13 +11,13 @@ public class AdminProvisionerTests : IAsyncLifetime
     private readonly IdentityTestDatabase _database = new();
     private DbUserStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbUserStore(_database.ConnectionFactory, new AspNetPasswordHasher(), TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     private Task Apply(AdminProvisioningOptions o) => AdminProvisioner.ApplyAsync(_store, o, NullLogger.Instance);
 

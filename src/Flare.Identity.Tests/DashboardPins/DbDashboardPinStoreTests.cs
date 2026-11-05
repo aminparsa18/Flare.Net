@@ -10,13 +10,13 @@ public class DbDashboardPinStoreTests : IAsyncLifetime
     private readonly FakeClock _clock = new();
     private DbDashboardPinStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbDashboardPinStore(_database.ConnectionFactory, _clock);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task ListAsync_ReturnsMostRecentlyPinnedFirst()

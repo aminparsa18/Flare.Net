@@ -11,14 +11,14 @@ public class DbSessionStoreTests : IAsyncLifetime
     private DbSessionStore _store = null!;
     private DbUserStore _userStore = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbSessionStore(_database.ConnectionFactory, TimeProvider.System);
         _userStore = new DbUserStore(_database.ConnectionFactory, new AspNetPasswordHasher(), TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     // Sessions.UserId REFERENCES Users(Id) (Migrations/0001_identity.sql) and
     // Microsoft.Data.Sqlite enables PRAGMA foreign_keys=ON by default - every session in

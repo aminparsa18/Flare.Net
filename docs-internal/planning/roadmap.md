@@ -149,3 +149,31 @@ folders are where "what happened and why" actually lives.
   publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
   `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
   mention npm in the csproj `Description` while the version is bumped.
+- **Migrate the unit tests from xUnit v2 to xUnit v3 (`xunit.v3`), one step per PR.**
+  Today all six `src/*.Tests` projects use `xunit` 2.9.3 + `xunit.runner.visualstudio` on
+  VSTest. v3 gives native Microsoft Testing Platform (MTP), `Assert.Skip`/`SkipUnless`,
+  `TestContext.Current` (cancellation token, timeouts on sync tests), and `AssemblyFixture`.
+  Breaking changes to expect: test projects need `<OutputType>Exe</OutputType>`, `async void`
+  tests fail, `IAsyncDisposable` wins over `IDisposable`, `ITestOutputHelper` and other types
+  moved namespaces. Coverlet is unsupported under MTP (no coverage tooling is configured in the
+  repo today, so nothing to replace). Reference: [what's new in v3](https://xunit.net/docs/getting-started/v3/whats-new),
+  [migration guide](https://xunit.net/docs/getting-started/v3/migration). Scan (done): no `async void`, no `IDisposable`+`IAsyncLifetime` classes, no custom
+  extensibility. The only mechanical change is `IAsyncLifetime` returning `ValueTask` instead of
+  `Task` (25 classes, all in `Flare.Identity.Tests`). **Constraint found:** on SDK 10 an `xunit.v3`
+  project fails under VSTest `dotnet test` ("Testing with VSTest target is no longer supported"),
+  and v2 projects cannot run under MTP, so `dotnet test Flare.slnx` cannot mix v2 and v3. Land the
+  per-project conversions on a branch (verify each with `dotnet run --project`), and merge them
+  together with the MTP switch. Steps:
+  1. **Pilot: `Flare.Identity.Tests`.** Swap to `xunit.v3` (central versions in
+     `Directory.Packages.props`), add `OutputType Exe`, `NoWarn xUnit1051` until step 4, `IAsyncLifetime` to `ValueTask`. Convert the
+     `FLARE_TEST_POSTGRES`-gated tests to `Assert.SkipUnless` so they report as skipped, not green.
+  2. **Remaining projects, one PR each:** `Flare.Ingest.Tests`, `Flare.Api.Tests`,
+     `Flare.Cli.Tests`, `Flare.OpenTelemetry.Tests`, then `Flare.Maui.Tests` last (separate
+     `maui-ci.yml` and MAUI-specific wiring).
+  3. **Switch to MTP.** Add the `"test": { "runner": "Microsoft.Testing.Platform" }` entry to
+     `global.json`, update both `ci.yml` and `maui-ci.yml` `dotnet test` invocations (VSTest
+     `--logger` flags become MTP report switches), and update the test commands in `CLAUDE.md`
+     and the per-project READMEs.
+  4. **Adopt v3 features where they pay off.** Pass `TestContext.Current.CancellationToken` to
+     async calls (enable the xUnit1051 analyzer), use `AssemblyFixture` for shared setup that is
+     currently duplicated per class, and add a `Dynamic skip` for real-service end-to-end tests.

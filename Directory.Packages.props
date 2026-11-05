@@ -178,6 +178,8 @@
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
+    <!-- xUnit v3 migration is per-project (see docs-internal/planning/roadmap.md); remove "xunit" above once the last project moves. -->
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
   </ItemGroup>
 </Project>
