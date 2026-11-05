@@ -9,13 +9,13 @@ public class DbApdexThresholdStoreTests : IAsyncLifetime
     private readonly IdentityTestDatabase _database = new();
     private DbApdexThresholdStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbApdexThresholdStore(_database.ConnectionFactory, TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task GetAllAsync_WithNoOverrides_ReturnsEmpty()

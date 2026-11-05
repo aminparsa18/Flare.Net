@@ -7,24 +7,21 @@ namespace Flare.Identity.Tests;
 /// <summary>
 /// Postgres-only twin of the SQLite concurrency tests in <see cref="IdentityMigrationRunnerTests"/>.
 /// Runs only when <c>FLARE_TEST_POSTGRES</c> is set (see <see cref="IdentityTestDatabase"/>);
-/// otherwise each test returns immediately, since xunit v2 has no runtime skip.
+/// otherwise each test reports as skipped.
 /// </summary>
 public class PostgresMigrationRunnerTests : IAsyncLifetime
 {
     private readonly bool _enabled = Environment.GetEnvironmentVariable("FLARE_TEST_POSTGRES") is { Length: > 0 };
     private readonly IdentityTestDatabase _database = new();
 
-    public Task InitializeAsync() => _enabled ? _database.InitializeAsync() : Task.CompletedTask;
+    public ValueTask InitializeAsync() => _enabled ? _database.InitializeAsync() : ValueTask.CompletedTask;
 
-    public Task DisposeAsync() => _enabled ? _database.DisposeAsync() : Task.CompletedTask;
+    public ValueTask DisposeAsync() => _enabled ? _database.DisposeAsync() : ValueTask.CompletedTask;
 
     [Fact]
     public async Task ApplyAsync_ConcurrentCallers_NeitherThrows_AndEachMigrationIsRecordedOnce()
     {
-        if (!_enabled)
-        {
-            return;
-        }
+        Assert.SkipUnless(_enabled, "FLARE_TEST_POSTGRES is not set.");
 
         // The throwaway database is already migrated once; race four more callers (Ingest +
         // several Api replicas) over it - the advisory lock serialises them.
@@ -40,10 +37,7 @@ public class PostgresMigrationRunnerTests : IAsyncLifetime
     [Fact]
     public async Task ApplyAsync_OnFreshDatabase_SeedsAuthSettingsDisabled()
     {
-        if (!_enabled)
-        {
-            return;
-        }
+        Assert.SkipUnless(_enabled, "FLARE_TEST_POSTGRES is not set.");
 
         await using var connection = await _database.ConnectionFactory.OpenAsync();
         await using var command = connection.CreateCommand();

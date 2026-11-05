@@ -2,11 +2,14 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <!-- xUnit1051 (pass TestContext.Current.CancellationToken) is adopted in the roadmap's last xUnit v3 step. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
   </ItemGroup>

@@ -12,14 +12,14 @@ public class DbProjectStoreTests : IAsyncLifetime
     private DbProjectStore _store = null!;
     private DbUserStore _users = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbProjectStore(_database.ConnectionFactory, TimeProvider.System);
         _users = new DbUserStore(_database.ConnectionFactory, new AspNetPasswordHasher(), TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task CreateAsync_RoundTripsPatternsSortedAndDeduplicated()

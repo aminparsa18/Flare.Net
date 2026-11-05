@@ -13,7 +13,7 @@ public class DbPasswordSetTokenStoreTests : IAsyncLifetime
     private DbUserStore _users = null!;
     private DbSessionStore _sessions = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _tokens = new DbPasswordSetTokenStore(_database.ConnectionFactory, TimeProvider.System);
@@ -21,7 +21,7 @@ public class DbPasswordSetTokenStoreTests : IAsyncLifetime
         _sessions = new DbSessionStore(_database.ConnectionFactory, TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task Consume_ReturnsUserOnce()

@@ -12,13 +12,13 @@ public class DbAuditEventStoreTests : IAsyncLifetime
     private readonly IdentityTestDatabase _database = new();
     private DbAuditEventStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbAuditEventStore(_database.ConnectionFactory);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     private static NewAuditEvent Event(DateTimeOffset at, string resourceType = "alert", string action = "update", Guid? actor = null, string? resourceId = "r1") =>
         new(at, actor, "admin", "session", action, resourceType, resourceId, "PUT /api/alerts/{id:guid}", 204, "10.0.0.1");

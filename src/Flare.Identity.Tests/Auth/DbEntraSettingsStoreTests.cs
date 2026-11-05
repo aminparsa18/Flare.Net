@@ -9,13 +9,13 @@ public class DbEntraSettingsStoreTests : IAsyncLifetime
     private readonly IdentityTestDatabase _database = new();
     private DbEntraSettingsStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbEntraSettingsStore(_database.ConnectionFactory, TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task GetAsync_ReturnsNotConfigured_WhenNoRowExistsYet()

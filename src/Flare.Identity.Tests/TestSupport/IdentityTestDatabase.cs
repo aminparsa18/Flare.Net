@@ -36,7 +36,7 @@ public sealed class IdentityTestDatabase : IAsyncLifetime
 
     public IdentityDbConnectionFactory ConnectionFactory { get; private set; } = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         IdentityOptions identityOptions;
         if (_provider == IdentityProvider.Postgres)
@@ -62,7 +62,7 @@ public sealed class IdentityTestDatabase : IAsyncLifetime
         await IdentityMigrationRunner.ApplyAsync(ConnectionFactory, NullLogger.Instance);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider == IdentityProvider.Postgres)
         {

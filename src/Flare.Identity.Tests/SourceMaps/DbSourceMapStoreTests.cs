@@ -9,13 +9,13 @@ public class DbSourceMapStoreTests : IAsyncLifetime
     private readonly IdentityTestDatabase _database = new();
     private DbSourceMapStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbSourceMapStore(_database.ConnectionFactory, TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task UpsertAsync_ThenGetAsync_RoundTripsContent()

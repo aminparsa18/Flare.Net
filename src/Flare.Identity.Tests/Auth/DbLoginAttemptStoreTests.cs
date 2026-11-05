@@ -12,7 +12,7 @@ public class DbLoginAttemptStoreTests : IAsyncLifetime
     private readonly ManualTimeProvider _timeProvider = new(DateTimeOffset.UtcNow);
     private DbLoginAttemptStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbLoginAttemptStore(_database.ConnectionFactory, _timeProvider, Options.Create(new AuthOptions
@@ -23,7 +23,7 @@ public class DbLoginAttemptStoreTests : IAsyncLifetime
         }));
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task GetLockedUntilAsync_ReturnsNull_ForAPairThatHasNeverFailed()

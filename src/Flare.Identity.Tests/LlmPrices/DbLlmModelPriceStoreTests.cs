@@ -9,13 +9,13 @@ public class DbLlmModelPriceStoreTests : IAsyncLifetime
     private readonly IdentityTestDatabase _database = new();
     private DbLlmModelPriceStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbLlmModelPriceStore(_database.ConnectionFactory, TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task GetAllAsync_WithNoOverrides_ReturnsEmpty()

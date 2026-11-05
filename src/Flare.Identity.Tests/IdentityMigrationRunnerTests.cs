@@ -19,9 +19,9 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
         .GetManifestResourceNames()
         .Count(n => n.StartsWith("Flare.Identity.Migrations.Sqlite.", StringComparison.Ordinal));
 
-    public Task InitializeAsync() => _database.InitializeAsync();
+    public ValueTask InitializeAsync() => _database.InitializeAsync();
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task ApplyAsync_RunningTwice_DoesNotThrow_AndDoesNotDuplicateMigrationRecords()

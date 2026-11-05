@@ -9,13 +9,13 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
     private readonly IdentityTestDatabase _database = new();
     private DbIngestApiKeyStore _store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbIngestApiKeyStore(_database.ConnectionFactory, TimeProvider.System);
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task CreateAsync_ReturnsARawKeyThatHashesToTheStoredHash()

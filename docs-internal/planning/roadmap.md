@@ -149,3 +149,8 @@ folders are where "what happened and why" actually lives.
   publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
   `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
   mention npm in the csproj `Description` while the version is bumped.
+- **Adopt xUnit v3 features in the tests.** The projects run on xUnit v3 and Microsoft.Testing.Platform;
+  what is left is using it. Pass `TestContext.Current.CancellationToken` to async calls and drop the
+  `NoWarn xUnit1051` from each `src/*.Tests` csproj (about 500 call sites in `Flare.Identity.Tests`
+  alone), move shared setup that is duplicated per class into `[assembly: AssemblyFixture]`, and add
+  dynamic skips for tests that need real services. Reference: [what's new in v3](https://xunit.net/docs/getting-started/v3/whats-new).

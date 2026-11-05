@@ -18,7 +18,7 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     // and Microsoft.Data.Sqlite enables PRAGMA foreign_keys=ON by default - every token in
     // these tests needs a real Users row behind it, not an arbitrary Guid (same discipline
     // as DbSessionStoreTests).
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _store = new DbPersonalAccessTokenStore(_database.ConnectionFactory, _timeProvider);
@@ -26,7 +26,7 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
         _userId = (await _userStore.CreateAsync("alice", "correct horse battery staple", UserRole.Viewer)).Id;
     }
 
-    public Task DisposeAsync() => _database.DisposeAsync();
+    public ValueTask DisposeAsync() => _database.DisposeAsync();
 
     [Fact]
     public async Task CreateAsync_ReturnsARawTokenThatHashesToTheStoredHashAndValidates()
