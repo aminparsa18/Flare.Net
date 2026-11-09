@@ -26,6 +26,7 @@
 	import { browserTimeZone, timeZoneOptions } from '#lib/time/time-zone.ts';
 	import { formatUtcOffset } from '#lib/time/format.ts';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
+	import LogInIcon from '@lucide/svelte/icons/log-in';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { updateNotice } from '#lib/version/update-notice.svelte.ts';
@@ -209,7 +210,16 @@
 
 		<DropdownMenu.Separator />
 
-		{#if auth.authEnabled}
+		{#if auth.isDemo}
+			<DropdownMenu.Item>
+				{#snippet child({ props })}
+					<a href={withBase('/login')} {...props}>
+						<LogInIcon />
+						{m.demo_signIn()}
+					</a>
+				{/snippet}
+			</DropdownMenu.Item>
+		{:else if auth.authEnabled}
 			<DropdownMenu.Item variant="destructive" onSelect={handleLogout} disabled={auth.loading}>
 				<LogOutIcon />
 				{m.nav_logOut()}

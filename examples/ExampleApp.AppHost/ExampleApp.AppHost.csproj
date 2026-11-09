@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- AddKubernetesEnvironment - the demo's deployment target (.github/workflows/deploy-demo.yml).
+    <!-- AddKubernetesEnvironment - the optional k3s publish target (see examples/README.md).
          Registering it has no effect on the default `aspire run`/`dotnet run` inner loop. -->
     <PackageReference Include="Aspire.Hosting.Kubernetes" />
     <!-- The shop demo's backing services (see Program.cs): Kafka for the Message queues

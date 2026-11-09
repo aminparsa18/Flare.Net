@@ -1,0 +1,19 @@
+# TLS termination and routing for the public demo (see docker-compose.yml). Caddy gets and renews
+# the Let's Encrypt certificate for DEMO_DOMAIN by itself; ports 80 and 443 must be reachable.
+#
+# One origin for everything: the dashboard's PUBLIC_API_URL is this same domain, so the session
+# cookie and the live-tail WebSocket need no cross-origin setup.
+{$DEMO_DOMAIN} {
+	# Flare.Api: the REST API (and the Prometheus API under /api/v1), the Loki and Tempo
+	# compatible APIs. /health, /alive and /mcp are deliberately not routed.
+	@api path /api/* /loki/* /tempo/*
+	handle @api {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		reverse_proxy dashboard:3000
+	}
+
+	header -Server
+}

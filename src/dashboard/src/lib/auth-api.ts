@@ -29,6 +29,9 @@ export interface AuthUser {
 	username: string;
 	role: UserRole;
 	authProvider: AuthProvider;
+	/** The shared read-only account of a public demo instance (ADR-0278): a visitor without a
+	 *  session browses as it. Shows the demo banner and a Sign in link instead of Log out. */
+	isDemo: boolean;
 }
 
 function toAuthUser(dto: AuthUserDto): AuthUser {
@@ -36,7 +39,8 @@ function toAuthUser(dto: AuthUserDto): AuthUser {
 		id: dto.id,
 		username: dto.username ?? '',
 		role: userRoleToString(dto.role),
-		authProvider: dto.authProvider as AuthProvider
+		authProvider: dto.authProvider as AuthProvider,
+		isDemo: dto.isDemo
 	};
 }
 

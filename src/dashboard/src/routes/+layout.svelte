@@ -15,6 +15,7 @@
 	import CommandPalette from '#lib/components/nav/CommandPalette.svelte';
 	import GlobalShortcuts from '#lib/components/nav/GlobalShortcuts.svelte';
 	import UpdateNotice from '#lib/components/nav/UpdateNotice.svelte';
+	import DemoBanner from '#lib/components/nav/DemoBanner.svelte';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import { Alert, AlertTitle, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
@@ -123,7 +124,11 @@
 		}
 
 		if (auth.currentUser) {
-			if (onAuthRoute) void goto(withBase('/'));
+			// The public demo's shared account (ADR-0278) stays on /login - that's where a real
+			// account signs in from it.
+			if (onAuthRoute) {
+				if (!auth.currentUser.isDemo) void goto(withBase('/'));
+			}
 			else if (onAdminOnlyRoute && auth.currentUser.role !== 'Admin') void goto(withBase('/'));
 			return;
 		}
@@ -202,7 +207,10 @@
 		{/if}
 		<!-- Sidebar layout: the notice banner sits above the page, beside the sidebar. -->
 		<div class="flex min-h-0 min-w-0 flex-1 flex-col">
-			{#if showChrome}<UpdateNotice />{/if}
+			{#if showChrome}
+				{#if auth.isDemo}<DemoBanner />{/if}
+				<UpdateNotice />
+			{/if}
 			<div class="app-content min-h-0 flex-1">
 				{@render children()}
 			</div>

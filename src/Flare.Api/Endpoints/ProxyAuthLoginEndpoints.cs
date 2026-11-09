@@ -1,4 +1,5 @@
 using Flare.Api.Auth;
+using Flare.Api.Demo;
 using Flare.Api.Json;
 using Flare.Identity.Auth;
 using Flare.Identity.Users;
@@ -25,7 +26,7 @@ public static class ProxyAuthLoginEndpoints
 {
     public static IEndpointRouteBuilder MapProxyAuthLoginEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/auth/proxy/login", HandleLoginAsync);
+        endpoints.MapPost("/api/auth/proxy/login", HandleLoginAsync).AllowInDemo();
         return endpoints;
     }
 

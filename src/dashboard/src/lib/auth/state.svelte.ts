@@ -13,9 +13,26 @@ import {
 	logout as logoutRequest,
 	type AuthUser
 } from '#lib/auth-api.ts';
+import { setPrefsSyncReadOnly } from '#lib/prefs-sync.ts';
 
 export class AuthState {
-	currentUser = $state.raw<AuthUser | null>(null);
+	#currentUser = $state.raw<AuthUser | null>(null);
+
+	get currentUser(): AuthUser | null {
+		return this.#currentUser;
+	}
+
+	set currentUser(user: AuthUser | null) {
+		this.#currentUser = user;
+		setPrefsSyncReadOnly(user?.isDemo === true);
+	}
+
+	/** Browsing a public demo instance as its shared read-only account, i.e. not signed in (ADR-0278).
+	 *  Hides the self-service writes a Viewer otherwise has (pins, access tokens, account) - the API
+	 *  refuses them for this account anyway. */
+	get isDemo(): boolean {
+		return this.currentUser?.isDemo === true;
+	}
 
 	/** The opt-in-auth global switch (see docs/auth.md) - defaults to `true` while
 	 * unknown (pre-{@link initialize}), the same fail-toward-secure bias
@@ -158,6 +175,15 @@ export class AuthState {
 		}
 		if (redirectUrl) {
 			window.location.href = redirectUrl;
+			return;
+		}
+		// A public demo instance (ADR-0278) answers /me with its shared read-only account even
+		// without a session, so signing out lands back in the demo rather than on /login.
+		// Elsewhere this is a 401 and currentUser stays null.
+		try {
+			this.currentUser = await getCurrentUser();
+		} catch {
+			this.currentUser = null;
 		}
 	}
 }

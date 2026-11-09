@@ -53,7 +53,7 @@ export function settingsManagementLinks(auth: AuthState): NavLink[] {
 		{ href: '/settings/slos', label: m.nav_slos() },
 		{ href: '/settings/pipeline-rules', label: m.nav_pipelineRules() },
 		{ href: '/settings/log-metrics', label: m.nav_logMetrics() },
-		...(auth.authEnabled ? [{ href: '/settings/access-tokens', label: m.accessTokensPage_heading() }] : [])
+		...(auth.authEnabled && !auth.isDemo ? [{ href: '/settings/access-tokens', label: m.accessTokensPage_heading() }] : [])
 	];
 }
 

@@ -6,6 +6,7 @@ using Flare.Api.Alerting;
 using Flare.Api.Auditing;
 using Flare.Api.Auth;
 using Flare.Api.Caching;
+using Flare.Api.Demo;
 using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
 using Flare.ServiceDefaults.Outbound;
@@ -67,6 +68,24 @@ builder.Services.AddDataProtection()
 // (Users/Sessions/IngestApiKeys stores) - see Flare.Identity's remarks for why this is a
 // separate shared project rather than living directly in this one.
 builder.AddFlareIdentity();
+
+// Public read-only demo mode (ADR-0278). Configuration only (Demo__Enabled), never stored, so
+// nothing reachable over HTTP can turn it off. Wraps the auth settings store so auth reads as on.
+var demoOptions = builder.Configuration.GetSection(DemoOptions.SectionName).Get<DemoOptions>() ?? new DemoOptions();
+builder.Services.Configure<DemoOptions>(builder.Configuration.GetSection(DemoOptions.SectionName));
+builder.Services.AddSingleton<DemoMode>();
+if (demoOptions.Enabled)
+{
+    if (string.IsNullOrWhiteSpace(builder.Configuration["Identity:Admin:Username"]))
+    {
+        // The demo account alone makes the user table non-empty, which closes first-run bootstrap
+        // and stops Identity:Admin from creating an Admin later - so the Admin must exist from the first start.
+        throw new InvalidOperationException("Demo:Enabled requires Identity:Admin:Username and a password (Identity:Admin:Password or PasswordFile).");
+    }
+
+    builder.Services.AddSingleton<DbAuthSettingsStore>();
+    builder.Services.AddSingleton<IAuthSettingsStore>(sp => new DemoAuthSettingsStore(sp.GetRequiredService<DbAuthSettingsStore>()));
+}
 
 // Microsoft Entra ID (SSO) and generic OpenID Connect - the "Entra"/"EntraExternal" and
 // "Oidc"/"OidcExternal" schemes are always registered (not conditional on whether either
@@ -150,6 +169,21 @@ const string PatRateLimitPolicy = "PatRateLimit";
 // unauthenticated caller can't grow the partition set.
 builder.Services.AddRateLimiter(options =>
 {
+    // Demo mode (ADR-0278): every anonymous visitor shares one account, so the per-user caps elsewhere
+    // don't separate them - partition on client address instead. Signed-in accounts are never limited here.
+    if (demoOptions.Enabled)
+    {
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            DemoMode.IsDemo(httpContext.User)
+                ? RateLimitPartition.GetFixedWindowLimiter(httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = demoOptions.RequestsPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                })
+                : RateLimitPartition.GetNoLimiter("not-demo"));
+    }
+
     options.OnRejected = async (context, cancellationToken) =>
     {
         if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
@@ -602,6 +636,14 @@ await AdminProvisioner.ApplyAsync(
     CancellationToken.None,
     app.Services.GetRequiredService<IOptions<AuthOptions>>().Value.PasswordPolicy);
 
+// Demo mode's shared read-only account (ADR-0278) - after the Admin, see DemoProvisioner.
+var demoMode = app.Services.GetRequiredService<DemoMode>();
+if (demoMode.Enabled)
+{
+    demoMode.SetUser(await DemoProvisioner.ApplyAsync(app.Services.GetRequiredService<IUserStore>(), demoMode.Options, app.Logger, CancellationToken.None));
+    app.Logger.LogWarning("Demo mode is on: visitors without a session browse as the read-only account '{Username}'.", demoMode.Options.Username);
+}
+
 // Sub-path hosting (Flare:BasePath / Flare__BasePath, e.g. /flare) - first, so every later
 // middleware and endpoint sees the request already split into PathBase + Path. No-op unset.
 app.UseFlareBasePath(BasePath.Normalize(builder.Configuration[BasePath.ConfigurationKey]));
@@ -621,6 +663,12 @@ app.UseWebSockets();
 // Must come after UseCors() (so a CORS preflight OPTIONS request isn't itself
 // auth-challenged) and before every Map*Endpoints() call below.
 app.UseAuthentication();
+// Demo mode (ADR-0278): sessionless requests become the read-only demo Viewer, whose writes are refused.
+// Between the two so authorization evaluates that principal like any other.
+if (demoMode.Enabled)
+{
+    app.UseMiddleware<DemoMiddleware>();
+}
 app.UseAuthorization();
 // After UseAuthorization() - the PatRateLimit policy's partition-key factory reads
 // HttpContext.User, which only authentication middleware populates.
@@ -659,51 +707,56 @@ app.MapProxyAuthLoginEndpoints();
 // inherit the group's authorization requirement with no changes needed in any of those
 // endpoint files.
 var authenticatedRoutes = app.MapGroup("").RequireAuthorization().RequireRateLimiting(PatRateLimitPolicy);
-authenticatedRoutes.MapLogsEndpoints();
-authenticatedRoutes.MapLogTailEndpoints();
-authenticatedRoutes.MapSpanEndpoints();
-authenticatedRoutes.MapMetricsEndpoints();
-authenticatedRoutes.MapPrometheusEndpoints();
+// Demo mode (ADR-0278) refuses every non-GET request from the demo user unless the endpoint is
+// tagged AllowInDemo. Everything on queryRoutes only reads - its POSTs are searches with structured
+// filter bodies - so it carries the tag; the self-service writes a Viewer may otherwise make (saved
+// views, dashboard pins, preferences, AI calls) stay on authenticatedRoutes, untagged.
+var queryRoutes = authenticatedRoutes.MapGroup("").AllowInDemo();
+queryRoutes.MapLogsEndpoints();
+queryRoutes.MapLogTailEndpoints();
+queryRoutes.MapSpanEndpoints();
+queryRoutes.MapMetricsEndpoints();
+queryRoutes.MapPrometheusEndpoints();
 // Tempo-compatible trace API subset (ADR-0217) under /tempo, over ISpanQueryService.
-authenticatedRoutes.MapTempoEndpoints();
+queryRoutes.MapTempoEndpoints();
 // Loki-compatible log API subset (ADR-0236) under /loki/api/v1.
-authenticatedRoutes.MapLokiEndpoints();
-authenticatedRoutes.MapServicesEndpoints();
-authenticatedRoutes.MapSourceLinkReadEndpoints();
-authenticatedRoutes.MapIssueTrackerReadEndpoints();
-authenticatedRoutes.MapSourceMapReadEndpoints();
+queryRoutes.MapLokiEndpoints();
+queryRoutes.MapServicesEndpoints();
+queryRoutes.MapSourceLinkReadEndpoints();
+queryRoutes.MapIssueTrackerReadEndpoints();
+queryRoutes.MapSourceMapReadEndpoints();
 authenticatedRoutes.MapAiEndpoints();
-authenticatedRoutes.MapCheckInMonitorReadEndpoints();
-authenticatedRoutes.MapHostInventoryEndpoints();
-authenticatedRoutes.MapMetricCatalogEndpoints();
-authenticatedRoutes.MapPodMetricsEndpoints();
-authenticatedRoutes.MapKubernetesInventoryEndpoints();
-authenticatedRoutes.MapExceptionEndpoints();
-authenticatedRoutes.MapErrorIssueReadEndpoints();
-authenticatedRoutes.MapErrorOwnershipReadEndpoints();
-authenticatedRoutes.MapErrorGroupingReadEndpoints();
-authenticatedRoutes.MapReleaseReadEndpoints();
-authenticatedRoutes.MapMessagingEndpoints();
-authenticatedRoutes.MapExternalApiEndpoints();
-authenticatedRoutes.MapAppSessionEndpoints();
-authenticatedRoutes.MapWebReplayEndpoints();
-authenticatedRoutes.MapProfileEndpoints();
-authenticatedRoutes.MapLlmEndpoints();
-authenticatedRoutes.MapTraceFunnelEndpoints();
-authenticatedRoutes.MapNPlusOneEndpoints();
+queryRoutes.MapCheckInMonitorReadEndpoints();
+queryRoutes.MapHostInventoryEndpoints();
+queryRoutes.MapMetricCatalogEndpoints();
+queryRoutes.MapPodMetricsEndpoints();
+queryRoutes.MapKubernetesInventoryEndpoints();
+queryRoutes.MapExceptionEndpoints();
+queryRoutes.MapErrorIssueReadEndpoints();
+queryRoutes.MapErrorOwnershipReadEndpoints();
+queryRoutes.MapErrorGroupingReadEndpoints();
+queryRoutes.MapReleaseReadEndpoints();
+queryRoutes.MapMessagingEndpoints();
+queryRoutes.MapExternalApiEndpoints();
+queryRoutes.MapAppSessionEndpoints();
+queryRoutes.MapWebReplayEndpoints();
+queryRoutes.MapProfileEndpoints();
+queryRoutes.MapLlmEndpoints();
+queryRoutes.MapTraceFunnelEndpoints();
+queryRoutes.MapNPlusOneEndpoints();
 authenticatedRoutes.MapSavedViewEndpoints();
 authenticatedRoutes.MapMyProjectEndpoints();
 authenticatedRoutes.MapDashboardEndpoints();
 authenticatedRoutes.MapUserPreferencesEndpoints();
-authenticatedRoutes.MapIngestionEndpoints();
-authenticatedRoutes.MapPipelineEndpoints();
-authenticatedRoutes.MapIndexingEndpoints();
+queryRoutes.MapIngestionEndpoints();
+queryRoutes.MapPipelineEndpoints();
+queryRoutes.MapIndexingEndpoints();
 // Archive status holds no secrets and feeds the Ingestion page (ADR-0157); the targets/settings are Admin-only below.
-authenticatedRoutes.MapTelemetryExportStatusEndpoints();
-authenticatedRoutes.MapResourceGraphEndpoints();
-authenticatedRoutes.MapHostStatsEndpoints();
-authenticatedRoutes.MapVersionEndpoints();
-authenticatedRoutes.MapSloReadEndpoints();
+queryRoutes.MapTelemetryExportStatusEndpoints();
+queryRoutes.MapResourceGraphEndpoints();
+queryRoutes.MapHostStatsEndpoints();
+queryRoutes.MapVersionEndpoints();
+queryRoutes.MapSloReadEndpoints();
 
 // Self-service, unlike ingest API keys below - see PersonalAccessTokenEndpoints' own
 // remarks for why any authenticated Viewer-and-up (not RequireMember/RequireAdmin) can

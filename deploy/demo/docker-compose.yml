@@ -1,0 +1,268 @@
+# The public live demo (https://demo.flarenet.live): Flare in read-only demo mode (ADR-0278) plus
+# the example shop (examples/ExampleApp.Shop) generating real traffic into it, on one small VM.
+# Setup and redeploy steps: README.md next to this file. Values come from .env next to it
+# (copy .env.example).
+#
+# Only Caddy publishes ports (80/443). ClickHouse, Redis, Kafka, Postgres and Flare's OTLP ports
+# stay on the Compose network: the shop and the collector reach Flare.Ingest by service name.
+#
+# Memory limits are sized for an 8 GB / 3 vCPU VM, leaving about 2 GB for the OS.
+#
+# Run from the repository root's clone on the server:
+#   docker compose -f deploy/demo/docker-compose.yml --env-file deploy/demo/.env up -d
+
+name: flare-demo
+
+x-flare-env: &flare-env
+  ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:?set in .env}"
+  ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:?set in .env}"
+  Identity__DbPath: "/data/identity/flare-identity.db"
+  Alerting__PublicUrl: "https://${DEMO_DOMAIN:?set in .env}"
+
+x-flare-health: &flare-health
+  # No curl/wget in the aspnet base image - same bash /dev/tcp probe as the root docker-compose.yml.
+  test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
+  interval: 10s
+  timeout: 5s
+  retries: 30
+
+# Every shop container gets the whole service map, the way Aspire's WithReference would inject it:
+# service discovery resolves http://<name> through these, and the shop's PeerServiceProcessor and
+# fake-upstream redirect read them too.
+x-shop: &shop
+  image: ${SHOP_IMAGE:-ghcr.io/aminparsa18/flare-demo-shop}:${SHOP_IMAGE_TAG:-latest}
+  restart: unless-stopped
+  mem_limit: 160m
+  depends_on:
+    ingest:
+      condition: service_healthy
+    kafka:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+  environment: &shop-env
+    ConnectionStrings__flare: "http://ingest:4317"
+    ConnectionStrings__kafka: "kafka:9092"
+    ConnectionStrings__shopdb: "Host=postgres;Database=shopdb;Username=postgres;Password=${POSTGRES_PASSWORD:?set in .env}"
+    services__storefront__http__0: "http://storefront:8080"
+    services__checkout-api__http__0: "http://checkout-api:8080"
+    services__inventory-service__http__0: "http://inventory-service:8080"
+    services__payment-service__http__0: "http://payment-service:8080"
+    services__fraud-check__http__0: "http://fraud-check:8080"
+    services__order-service__http__0: "http://order-service:8080"
+    services__notification-service__http__0: "http://notification-service:8080"
+    services__fake-upstream__http__0: "http://fake-upstream:8080"
+    # Small box: a third of the shop's local-dev traffic, same as the old k3s demo.
+    Shop__Traffic__RequestsPerSecond: "1"
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on: [api, dashboard]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DEMO_DOMAIN: ${DEMO_DOMAIN:?set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8
+    restart: unless-stopped
+    mem_limit: 2800m
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set in .env}
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ../../db/clickhouse:/docker-entrypoint-initdb.d:ro
+      - ./clickhouse/demo-server.xml:/etc/clickhouse-server/config.d/demo-server.xml:ro
+      - ./clickhouse/demo-users.xml:/etc/clickhouse-server/users.d/demo-users.xml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user default --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:8.0
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set in .env}", "--save", "30", "100", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set in .env}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ingest:
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-ingest:${FLARE_IMAGE_TAG:-edge}
+    restart: unless-stopped
+    mem_limit: 384m
+    depends_on:
+      clickhouse: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *flare-env
+    volumes:
+      - identity-data:/data/identity
+    # No published ports: OTLP is only reachable on the Compose network (shop + collector).
+    healthcheck:
+      <<: *flare-health
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/4318; printf \"GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
+
+  api:
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-api:${FLARE_IMAGE_TAG:-edge}
+    restart: unless-stopped
+    mem_limit: 512m
+    depends_on:
+      clickhouse: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *flare-env
+      # Public read-only demo mode (ADR-0278). Needs an Admin from the very first start.
+      Demo__Enabled: "true"
+      Identity__Admin__Username: ${FLARE_ADMIN_USERNAME:?set in .env}
+      Identity__Admin__Password: ${FLARE_ADMIN_PASSWORD:?set in .env}
+      # Caddy is the only way in, so X-Forwarded-For is Caddy's view of the client: the demo's
+      # per-client rate limit and the login lockout key on the visitor, not on Caddy.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      Cors__AllowedOrigins__0: "https://${DEMO_DOMAIN}"
+      # Every visitor shares the demo account, so the per-user live-tail cap is the whole demo's cap.
+      LiveTail__MaxConnectionsPerUser: "40"
+      LiveTail__MaxConnections: "60"
+      Query__MaxExecutionSeconds: "15"
+      Query__MaxRowsToRead: "200000000"
+    volumes:
+      - identity-data:/data/identity
+    healthcheck: *flare-health
+
+  alert-worker:
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-alert-worker:${FLARE_IMAGE_TAG:-edge}
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      clickhouse: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *flare-env
+    volumes:
+      - identity-data:/data/identity
+    healthcheck: *flare-health
+
+  dashboard:
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-dashboard:${FLARE_IMAGE_TAG:-edge}
+    restart: unless-stopped
+    mem_limit: 192m
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      # Same origin as the dashboard: Caddy sends /api/* (and the Loki/Tempo APIs) to `api`.
+      PUBLIC_API_URL: "https://${DEMO_DOMAIN}"
+
+  # ---- The example shop and what it depends on -------------------------------------------------
+
+  kafka:
+    image: apache/kafka:4.1.0
+    restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      # Single-node KRaft. Setting any KAFKA_* variable replaces the image's defaults, so all are listed.
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_LOG_RETENTION_HOURS: "24"
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      # The shop creates its own tables on startup (ShopDatabase.cs), but not the database.
+      POSTGRES_DB: shopdb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d shopdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Host metrics for the Hosts page and Kafka consumer lag for Message queues - same config as the
+  # example AppHost's local run.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    restart: unless-stopped
+    mem_limit: 192m
+    hostname: flare-demo-host
+    depends_on:
+      ingest: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+    environment:
+      FLARE_OTLP_ENDPOINT: "http://ingest:4317"
+      KAFKA_BROKERS: "kafka:9092"
+    volumes:
+      - ../../examples/ExampleApp.AppHost/otelcol.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - /:/hostfs:ro
+
+  storefront:
+    <<: *shop
+    environment: { <<: *shop-env, Shop__Role: storefront, OTEL_SERVICE_NAME: storefront }
+  checkout-api:
+    <<: *shop
+    environment: { <<: *shop-env, Shop__Role: checkout-api, OTEL_SERVICE_NAME: checkout-api }
+  inventory-service:
+    <<: *shop
+    environment: { <<: *shop-env, Shop__Role: inventory-service, OTEL_SERVICE_NAME: inventory-service }
+  payment-service:
+    <<: *shop
+    environment: { <<: *shop-env, Shop__Role: payment-service, OTEL_SERVICE_NAME: payment-service }
+  fraud-check:
+    <<: *shop
+    environment: { <<: *shop-env, Shop__Role: fraud-check, OTEL_SERVICE_NAME: fraud-check }
+  order-service:
+    <<: *shop
+    environment: { <<: *shop-env, Shop__Role: order-service, OTEL_SERVICE_NAME: order-service }
+  notification-service:
+    <<: *shop
+    environment: { <<: *shop-env, Shop__Role: notification-service, OTEL_SERVICE_NAME: notification-service }
+  fake-upstream:
+    <<: *shop
+    environment: { <<: *shop-env, Shop__Role: fake-upstream, OTEL_SERVICE_NAME: fake-upstream }
+
+volumes:
+  caddy-data:
+  caddy-config:
+  clickhouse-data:
+  redis-data:
+  identity-data:
+  kafka-data:
+  postgres-data:

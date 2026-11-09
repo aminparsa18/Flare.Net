@@ -5,6 +5,13 @@ import { API_BASE_URL, apiFetch } from '#lib/api.ts';
 
 const PUSH_DELAY_MS = 500;
 
+// The public demo's shared account (ADR-0278) can't save preferences - the server refuses the PUT -
+// so changes stay in this browser's localStorage instead of sending requests that only 403.
+let readOnly = false;
+export function setPrefsSyncReadOnly(value: boolean): void {
+	readOnly = value;
+}
+
 export interface PrefsSync {
 	/** The stored document; null when the server has none; undefined when unreachable/unsupported. */
 	pull(): Promise<Record<string, unknown> | null | undefined>;
@@ -19,6 +26,7 @@ export function createPrefsSync(key: string): PrefsSync {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
 	async function pushNow(snapshot: unknown): Promise<void> {
+		if (readOnly) return;
 		try {
 			await apiFetch(url, {
 				method: 'PUT',

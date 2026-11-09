@@ -1,0 +1,8 @@
+<!-- Per-query memory cap for the demo VM, on top of Flare.Api's own Query__* execution caps. -->
+<clickhouse>
+    <profiles>
+        <default>
+            <max_memory_usage>1000000000</max_memory_usage>
+        </default>
+    </profiles>
+</clickhouse>

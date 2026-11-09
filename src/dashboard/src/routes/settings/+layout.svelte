@@ -74,7 +74,7 @@
 		{ href: '/settings/notifications', label: m.settingsNotifications_navLabel(), icon: BellIcon },
 		// Sessions and data export apply to every signed-in account; the password card
 		// inside is local-only.
-		...(auth.currentUser
+		...(auth.currentUser && !auth.isDemo
 			? [{ href: '/settings/account', label: m.settingsAccount_navLabel(), icon: UserIcon }]
 			: []),
 		...settingsManagementLinks(auth).map((link) => ({ ...link, icon: MANAGEMENT_ICONS[link.href as keyof typeof MANAGEMENT_ICONS] }))

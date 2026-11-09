@@ -3,9 +3,10 @@ using Aspire.Hosting.ApplicationModel;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Kubernetes is the deployment target for the standing demo (.github/workflows/deploy-demo.yml:
-// `aspire deploy` against a k3s box). Everything Kubernetes-specific is gated on IsPublishMode, so
-// `aspire run`/`dotnet run` keeps behaving exactly as before. See docs/reference/aspire-hosting.md's
+// Kubernetes is an optional deployment target (`aspire deploy` against a k3s box - see
+// examples/README.md; the public demo itself runs from deploy/demo/docker-compose.yml).
+// Everything Kubernetes-specific is gated on IsPublishMode, so `aspire run`/`dotnet run` keeps
+// behaving exactly as before. See docs/reference/aspire-hosting.md's
 // Kubernetes section for why persistent storage, the registry and the public URLs are each required.
 #pragma warning disable ASPIRECOMPUTE002, ASPIRECOMPUTE003 // AddPersistentVolume / AddContainerRegistry are preview APIs
 var publishing = builder.ExecutionContext.IsPublishMode;
@@ -172,7 +173,7 @@ var storefront = AddShopService("storefront")
     .WithReference(notification)
     .WithReference(fakeUpstream)
     .WithReference(kafka).WaitFor(kafka)
-    // The standing demo runs on a small box, so it gets a third of the local traffic.
+    // A k3s deploy runs on a small box, so it gets a third of the local traffic.
     .WithEnvironment("Shop__Traffic__RequestsPerSecond", publishing ? "1" : "3")
     // Failure-mode switches in the Aspire dashboard's resource menu - the same endpoints
     // examples/README.md shows with curl.
@@ -192,7 +193,7 @@ if (publishing)
     // The Kubernetes publisher rejects bind mounts, so on the cluster the config is baked into a
     // tiny image Aspire builds and pushes (Dockerfile.otelcol). That variant has no hostmetrics
     // receiver: it needs the node's root filesystem, which isn't expressible here, so the Hosts
-    // page stays empty on the standing demo (use ExampleApp.Seeder's `hosts` scenario for it).
+    // page stays empty on a k3s deploy (use ExampleApp.Seeder's `hosts` scenario for it).
     builder.AddDockerfile("otel-collector", ".", "Dockerfile.otelcol")
         .WithEnvironment("FLARE_OTLP_ENDPOINT", flare.Resource.OtlpGrpcEndpoint)
         .WithEnvironment("KAFKA_BROKERS", ReferenceExpression.Create($"{kafka.Resource.InternalEndpoint.Property(EndpointProperty.HostAndPort)}"))

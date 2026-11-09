@@ -5,6 +5,7 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { authContext } from '#lib/auth/context.ts';
 	import { savedViewsContext } from '#lib/saved-views/context.ts';
 	import { savedViewPath } from '#lib/saved-views/page-paths.ts';
 	import type { SavedView } from '#lib/saved-views-api.ts';
@@ -17,6 +18,7 @@
 	import { formatDateTime } from '#lib/time/format.ts';
 
 	const views = savedViewsContext.get();
+	const auth = authContext.get();
 
 	// Reuses the nav_* labels rather than a fourth copy of "Logs"/"Traces"/"Metrics" -
 	// same concept, same translated text, and PageType's exact values are drawn from the
@@ -110,18 +112,21 @@
 									<LinkIcon />
 								{/if}
 							</Button>
-							<Button variant="ghost" size="icon-sm" title={m.savedViewTable_rename()} onclick={() => views.openRename(view)}>
-								<PencilIcon />
-							</Button>
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								class="text-destructive hover:text-destructive"
-								title={m.savedViewTable_delete()}
-								onclick={() => handleDelete(view)}
-							>
-								<Trash2Icon />
-							</Button>
+							<!-- The public demo's shared account can't change saved views (ADR-0278). -->
+							{#if !auth.isDemo}
+								<Button variant="ghost" size="icon-sm" title={m.savedViewTable_rename()} onclick={() => views.openRename(view)}>
+									<PencilIcon />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									class="text-destructive hover:text-destructive"
+									title={m.savedViewTable_delete()}
+									onclick={() => handleDelete(view)}
+								>
+									<Trash2Icon />
+								</Button>
+							{/if}
 						</Table.Cell>
 					</Table.Row>
 				{/each}
