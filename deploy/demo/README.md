@@ -1,9 +1,12 @@
 # Public demo deployment
 
-What runs at <https://demo.flarenet.live>: Flare in read-only demo mode
+What runs at <https://176-223-135-205.sslip.io>: Flare in read-only demo mode
 ([ADR-0278](../../docs-internal/adr/0278-public-read-only-demo-mode.md)) and the example shop
 (`examples/ExampleApp.Shop`) sending it live data, in one Compose file behind Caddy. Sized for an
 8 GB / 3 vCPU Debian VM. Only Caddy's ports 80 and 443 are published.
+
+The sslip.io address is temporary. The demo moves to <https://demo.flarenet.live> once that
+name's DNS record points at the VM.
 
 | File | What it is |
 | --- | --- |
@@ -90,7 +93,7 @@ run:
 ## Check it
 
 ```sh
-curl -s https://demo.flarenet.live/api/auth/me -H 'Accept: application/json'   # "isDemo":true
-curl -s -o /dev/null -w '%{http_code}\n' -X PUT https://demo.flarenet.live/api/settings/auth \
+curl -s https://176-223-135-205.sslip.io/api/auth/me -H 'Accept: application/json'   # "isDemo":true
+curl -s -o /dev/null -w '%{http_code}\n' -X PUT https://176-223-135-205.sslip.io/api/settings/auth \
   -H 'Content-Type: application/json' -d '{"enabled":false,"localEnabled":true}'  # 403
 ```

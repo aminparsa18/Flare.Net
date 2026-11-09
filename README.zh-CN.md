@@ -37,7 +37,7 @@
 
 您的申请 → **OTLP** → Flare。这就是整个摄取故事——没有专有的有线格式，没有代理守护进程。如果您已经使用 OpenTelemetry 进行检测，Flare 可以直接使用它。
 
-**[体验在线演示 →](https://demo.flarenet.live)** — 一个正在运行的 Flare，由示例商店持续发送日志、链路追踪和指标。
+**[体验在线演示 →](https://176-223-135-205.sslip.io)** — 一个正在运行的 Flare，由示例商店持续发送日志、链路追踪和指标。
 
 ![Logs Explorer](docs/screenshots/logs-ch.webp)
 
