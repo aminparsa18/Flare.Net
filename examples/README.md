@@ -119,7 +119,7 @@ aspire stop
 
 ## Hosting the public demo
 
-The public demo at <https://demo.flarenet.live> doesn't use this AppHost. It runs the same shop
+The public demo at <https://176-223-135-205.sslip.io> doesn't use this AppHost. It runs the same shop
 from a plain Docker Compose file in read-only demo mode: see [`deploy/demo/`](../deploy/demo/).
 
 ## Publishing this AppHost to a k3s server
