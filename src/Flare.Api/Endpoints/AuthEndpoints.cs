@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Flare.Api.Auth;
+using Flare.Api.Demo;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -21,8 +22,9 @@ public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/auth/login", HandleLoginAsync);
-        endpoints.MapPost("/api/auth/logout", HandleLogoutAsync);
+        // AllowInDemo: in demo mode a visitor is the demo user, and must still be able to sign in as a real account (ADR-0278).
+        endpoints.MapPost("/api/auth/login", HandleLoginAsync).AllowInDemo();
+        endpoints.MapPost("/api/auth/logout", HandleLogoutAsync).AllowInDemo();
         endpoints.MapGet("/api/auth/me", HandleMeAsync);
         endpoints.MapPost("/api/auth/password", HandleChangePasswordAsync);
         endpoints.MapPost("/api/auth/set-password", HandleSetPasswordAsync);
@@ -169,7 +171,9 @@ public static class AuthEndpoints
         }
 
         var user = await users.FindByIdAsync(userId, cancellationToken);
-        return user is null || user.IsDisabled ? Results.Unauthorized() : ApiSerialization.Write(http, ToDto(user), AuthJsonContext.Default.AuthUserDto);
+        return user is null || user.IsDisabled
+            ? Results.Unauthorized()
+            : ApiSerialization.Write(http, ToDto(user) with { IsDemo = DemoMode.IsDemo(principal) }, AuthJsonContext.Default.AuthUserDto);
     }
 
     /// <summary>Self-service change for a local account: verifies the current password, then

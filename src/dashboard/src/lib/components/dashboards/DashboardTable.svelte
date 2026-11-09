@@ -196,15 +196,18 @@
 						<Table.Cell class="text-muted-foreground">{dashboard.layout.panels.length}</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{formatDateTime(dashboard.updatedAt)}</Table.Cell>
 						<Table.Cell class="text-right">
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								title={dashboards.isPinned(dashboard.id) ? m.dashboardTable_unpin() : m.dashboardTable_pin()}
-								aria-pressed={dashboards.isPinned(dashboard.id)}
-								onclick={() => dashboards.togglePin(dashboard.id)}
-							>
-								{#if dashboards.isPinned(dashboard.id)}<PinOffIcon />{:else}<PinIcon />{/if}
-							</Button>
+							<!-- Pins are per-account; the public demo's shared account can't save one (ADR-0278). -->
+							{#if !auth.isDemo}
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									title={dashboards.isPinned(dashboard.id) ? m.dashboardTable_unpin() : m.dashboardTable_pin()}
+									aria-pressed={dashboards.isPinned(dashboard.id)}
+									onclick={() => dashboards.togglePin(dashboard.id)}
+								>
+									{#if dashboards.isPinned(dashboard.id)}<PinOffIcon />{:else}<PinIcon />{/if}
+								</Button>
+							{/if}
 							<Button variant="ghost" size="sm" href={dashboardPath(dashboard)}>{m.dashboardTable_open()}</Button>
 							{#if auth.canMutate}
 								{#if auth.canMutateDashboard(dashboard.ownerUserId)}

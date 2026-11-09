@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Flare.Api.Auth;
+using Flare.Api.Demo;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -30,7 +31,7 @@ public static class LdapAuthEndpoints
 {
     public static IEndpointRouteBuilder MapLdapAuthEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/auth/ldap/login", HandleLoginAsync);
+        endpoints.MapPost("/api/auth/ldap/login", HandleLoginAsync).AllowInDemo();
         return endpoints;
     }
 

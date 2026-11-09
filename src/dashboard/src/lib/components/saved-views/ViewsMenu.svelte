@@ -9,6 +9,7 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { ScrollArea } from '#lib/components/ui/scroll-area/index.ts';
 	import SaveViewDialog from './SaveViewDialog.svelte';
+	import { authContext } from '#lib/auth/context.ts';
 	import { projects } from '#lib/projects/store.svelte.ts';
 	import { listSavedViews, type PageType, type SavedView } from '#lib/saved-views-api.ts';
 	import { setLastUsedViewId } from '#lib/saved-views/last-used.ts';
@@ -26,6 +27,8 @@
 		currentState: () => unknown;
 		applyState: (state: unknown) => void | Promise<void>;
 	} = $props();
+
+	const auth = authContext.get();
 
 	let open = $state(false);
 	let views = $state<SavedView[]>([]);
@@ -100,12 +103,15 @@
 				</Command.Group>
 			</Command.List>
 		</Command.Root>
-		<div class="border-t p-1">
-			<Button variant="ghost" size="sm" class="w-full justify-start" onclick={handleSaveClick}>
-				<SaveIcon data-icon="inline-start" />
-				{m.viewsMenu_saveCurrentView()}
-			</Button>
-		</div>
+		<!-- The public demo's shared account can't save views (ADR-0278). -->
+		{#if !auth.isDemo}
+			<div class="border-t p-1">
+				<Button variant="ghost" size="sm" class="w-full justify-start" onclick={handleSaveClick}>
+					<SaveIcon data-icon="inline-start" />
+					{m.viewsMenu_saveCurrentView()}
+				</Button>
+			</div>
+		{/if}
 	</Popover.Content>
 </Popover.Root>
 

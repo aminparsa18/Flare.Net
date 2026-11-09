@@ -31,6 +31,11 @@ public sealed partial record AuthUserDto
     /// dashboard show e.g. a disabled password field for an SSO account without a second
     /// round-trip.</summary>
     public required string AuthProvider { get; init; }
+
+    /// <summary>True when this is the shared read-only demo account a visitor without a session
+    /// browses as (ADR-0278), so the dashboard shows the demo banner and a Sign in link instead
+    /// of Log out. False for anyone who signed in, including a real Viewer.</summary>
+    public bool IsDemo { get; init; }
 }
 
 /// <summary>Response body for <c>POST /api/auth/logout</c>. <see cref="RedirectUrl"/> is

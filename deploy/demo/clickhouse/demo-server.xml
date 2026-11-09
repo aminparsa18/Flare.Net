@@ -1,0 +1,15 @@
+<!-- Demo VM sizing (deploy/demo/docker-compose.yml): keep ClickHouse inside its 2.8 GB container
+     limit, and drop system log tables Flare never reads. query_log and part_log stay - the Usage
+     and Indexing pages read them. -->
+<clickhouse>
+    <max_server_memory_usage>2400000000</max_server_memory_usage>
+    <mark_cache_size>268435456</mark_cache_size>
+    <uncompressed_cache_size>134217728</uncompressed_cache_size>
+    <trace_log remove="1"/>
+    <metric_log remove="1"/>
+    <asynchronous_metric_log remove="1"/>
+    <text_log remove="1"/>
+    <query_metric_log remove="1"/>
+    <processors_profile_log remove="1"/>
+    <latency_log remove="1"/>
+</clickhouse>

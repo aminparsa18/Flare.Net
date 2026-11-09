@@ -117,33 +117,46 @@ on, set `Shop__HighCardinalityMetrics` to `true` on `checkout-api` in
 aspire stop
 ```
 
-## Hosting the demo on a k3s server
+## Hosting the public demo
 
-The [Deploy demo to Debian/k3s](../.github/workflows/deploy-demo.yml) workflow publishes
-the same AppHost to a single-node k3s cluster with `aspire deploy`: Flare, the shop, Kafka,
-Postgres and an OpenTelemetry Collector, served over HTTPS with Let's Encrypt certificates.
-It is manual-dispatch only, because a deploy rebuilds about nine images on the server.
+The public demo at <https://demo.flarenet.live> doesn't use this AppHost. It runs the same shop
+from a plain Docker Compose file in read-only demo mode: see [`deploy/demo/`](../deploy/demo/).
+
+## Publishing this AppHost to a k3s server
+
+The AppHost can still publish the same stack to a single-node k3s cluster with `aspire deploy`:
+Flare, the shop, Kafka, Postgres and an OpenTelemetry Collector, served over HTTPS with Let's
+Encrypt certificates. Everything Kubernetes-specific in [`Program.cs`](ExampleApp.AppHost/Program.cs)
+is gated on publish mode. Each deploy builds about nine images on the machine running it.
 
 ### What the server needs
 
 - A Debian/Ubuntu box with k3s, Docker, the .NET SDK (see `global.json`), Helm 4.2 or newer
-  (Aspire 13.6 requires it) and the Aspire CLI, all installed for the user the runner runs as.
-- A GitHub Actions runner on that box with the label `flare-demo`. Its environment needs
-  `KUBECONFIG` pointing at the cluster, `DOTNET_ROOT`, and the Aspire CLI on `PATH`. Don't run
-  it as root.
+  (Aspire 13.6 requires it) and the Aspire CLI.
 - Two DNS A records pointing at the server: `<host>` for the dashboard and `api.<host>` for the
   API.
 - Ports 80 and 443 open to the internet. 4 GB of RAM is enough to run it, but tight, so add
   swap.
 
-### Repository settings
+### Deploy
 
-| Kind | Name | Value |
-| --- | --- | --- |
-| Variable | `DEMO_HOST` | The dashboard hostname, with no scheme or slash, e.g. `demo.example.com`. The API is served on `api.<DEMO_HOST>`. |
-| Secret | `GHCR_PULL_TOKEN` | A classic PAT with `read:packages`, so k3s can pull the private GHCR images. |
+From `examples/ExampleApp.AppHost`, with `KUBECONFIG` pointing at the cluster:
 
-The job runs in the `production` environment.
+```sh
+export Parameters__registry_endpoint=ghcr.io
+export Parameters__registry_repository=<owner>/<repo>
+export Parameters__dashboard_host=<host> Parameters__api_host=api.<host>
+export Parameters__public_dashboard_url=https://<host> Parameters__public_api_url=https://api.<host>
+export Parameters__postgres_password=<pinned> Parameters__flare_redis_password=<pinned>
+aspire deploy --environment production --non-interactive --clear-cache
+```
+
+- Pin the two passwords: Redis and Postgres only read theirs on first start, so new random
+  ones on a redeploy are rejected.
+- `--clear-cache` makes Aspire use these variables instead of the values saved by an earlier
+  deploy.
+- If the images in GHCR are private, give the namespace's default service account an
+  `imagePullSecrets` entry for `ghcr.io`.
 
 ### Traefik and Let's Encrypt
 

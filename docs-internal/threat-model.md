@@ -138,7 +138,7 @@ Intended use: a standing instance on an internal network or behind a reverse pro
 
 - **Admin-to-host compromise** (e.g., admin sets a webhook URL, configures LDAP/OIDC, uploads source maps). Admin is trusted (A4). Admin-only SSRF via *unguarded* fixed clients (source fetch, S3 archive, LLM endpoint, SMTP) is Low at most.
 - **Operator-controlled configuration** (`appsettings`, env vars, compose files, Helm values, `Outbound__*`, `Identity__*`): not attacker input.
-- **Developer-only paths**: `examples/`, `scripts/`, `src/Flare.Benchmarks`, tests, demo seeders, `deploy-demo.yml` target.
+- **Developer-only paths**: `examples/`, `scripts/`, `src/Flare.Benchmarks`, tests, demo seeders. The public demo (`deploy/demo/`) is a production deployment in demo mode: see ADR-0278.
 - **Multi-tenant SaaS isolation.** Flare does not claim it. Saved views, alert rules, channels and templates are shared workspace objects by design; only dashboards have owners (ADR-0027) and services have project scope (ADR-0123).
 - **Vulnerabilities requiring physical access** to the host, or arbitrary read of the Redis Data Protection key ring *and* ClickHouse (ADR-0205 states this is not protected).
 - **DoS by an Admin or an ingest-key holder within their configured limits.**
