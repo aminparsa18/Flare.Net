@@ -49,6 +49,12 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
+- **Guided tours for the other dashboard pages.** The tour framework and the Logs tour are done
+  (`src/dashboard/src/lib/tour/`, PR #765). Next, in rough order of how much each page packs in:
+  Traces (list, waterfall, flame graph, funnels, structural queries), Metrics (explorer, formulas,
+  catalog), Dashboards (edit mode, variables, rows, panels), Errors, and Alerts. Each one needs
+  `data-tour` wrappers on its sections, a steps file with en/ru/zh-CN strings, an entry in `ALL_TOURS`,
+  and `?tour=<id>` handling plus a `maybeAutoStart` call on the page, the same way `routes/+page.svelte` does it.
 - **.NET MAUI / mobile SDK (later).** `Flare.Maui` (ADR-0166, `src/Flare.Maui`) ships the
   `UseFlare()` core: OTLP/HTTP export, disk retry, device/session attributes, `HttpClient`
   and Shell navigation spans, unhandled-exception capture. Remaining for it: Windows. Native crashes found on the next launch (Android `ApplicationExitInfo`, iOS MetricKit,
