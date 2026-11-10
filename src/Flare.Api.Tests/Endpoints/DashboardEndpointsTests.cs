@@ -244,11 +244,11 @@ public class DashboardEndpointsTests
         await (await DashboardEndpoints.HandlePinAsync(dashboard.Id, pinContext, principal, dashboards, pins, CancellationToken.None)).ExecuteAsync(pinContext);
 
         Assert.Equal(StatusCodes.Status204NoContent, pinContext.Response.StatusCode);
-        Assert.Equal([dashboard.Id], await pins.ListAsync(viewerId));
-        Assert.Empty(await pins.ListAsync(Guid.NewGuid()));
+        Assert.Equal([dashboard.Id], await pins.ListAsync(viewerId, TestContext.Current.CancellationToken));
+        Assert.Empty(await pins.ListAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
 
         await (await DashboardEndpoints.HandleUnpinAsync(dashboard.Id, principal, pins, CancellationToken.None)).ExecuteAsync(CreateContext());
-        Assert.Empty(await pins.ListAsync(viewerId));
+        Assert.Empty(await pins.ListAsync(viewerId, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -260,7 +260,7 @@ public class DashboardEndpointsTests
 
         await (await DashboardEndpoints.HandlePinAsync(dashboard.Id, CreateContext(), Unauthenticated, dashboards, pins, CancellationToken.None)).ExecuteAsync(CreateContext());
 
-        Assert.Equal([dashboard.Id], await pins.ListAsync(Guid.Empty));
+        Assert.Equal([dashboard.Id], await pins.ListAsync(Guid.Empty, TestContext.Current.CancellationToken));
     }
 
     private sealed class InMemoryPinStore : IDashboardPinStore

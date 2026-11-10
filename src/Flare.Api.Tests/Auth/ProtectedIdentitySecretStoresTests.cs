@@ -48,12 +48,12 @@ public class ProtectedIdentitySecretStoresTests
         var inner = new FakeEntraStore(null);
         var store = new ProtectedEntraSettingsStore(inner, Protector());
 
-        var saved = await store.SaveAsync(true, "t", "c", "s3cret");
+        var saved = await store.SaveAsync(true, "t", "c", "s3cret", TestContext.Current.CancellationToken);
 
         Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Stored);
         Assert.DoesNotContain("s3cret", inner.Stored);
         Assert.Equal("s3cret", saved.ClientSecret);
-        Assert.Equal("s3cret", (await store.GetAsync()).ClientSecret);
+        Assert.Equal("s3cret", (await store.GetAsync(TestContext.Current.CancellationToken)).ClientSecret);
     }
 
     [Fact]
@@ -61,10 +61,10 @@ public class ProtectedIdentitySecretStoresTests
     {
         var inner = new FakeEntraStore(null);
         var store = new ProtectedEntraSettingsStore(inner, Protector());
-        await store.SaveAsync(true, "t", "c", "s3cret");
+        await store.SaveAsync(true, "t", "c", "s3cret", TestContext.Current.CancellationToken);
         var before = inner.Stored;
 
-        await store.SaveAsync(false, "t", "c", null);
+        await store.SaveAsync(false, "t", "c", null, TestContext.Current.CancellationToken);
 
         Assert.Equal(before, inner.Stored);
     }
@@ -75,10 +75,10 @@ public class ProtectedIdentitySecretStoresTests
         var inner = new FakeEntraStore("legacy");
         var store = new ProtectedEntraSettingsStore(inner, Protector());
 
-        Assert.Equal(1, await store.ProtectLegacySecretsAsync(default));
+        Assert.Equal(1, await store.ProtectLegacySecretsAsync(TestContext.Current.CancellationToken));
         Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Stored);
-        Assert.Equal(0, await store.ProtectLegacySecretsAsync(default));
-        Assert.Equal("legacy", (await store.GetAsync()).ClientSecret);
+        Assert.Equal(0, await store.ProtectLegacySecretsAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("legacy", (await store.GetAsync(TestContext.Current.CancellationToken)).ClientSecret);
     }
 
     [Fact]
@@ -87,12 +87,12 @@ public class ProtectedIdentitySecretStoresTests
         var inner = new FakeSourceLinkStore();
         var store = new ProtectedSourceLinkStore(inner, Protector());
 
-        await store.SetAsync(new SourceLinkConfig("svc", SourceLinkProvider.GitHub, "https://github.com/a/b", "main", "/src/", "ghp_token"));
+        await store.SetAsync(new SourceLinkConfig("svc", SourceLinkProvider.GitHub, "https://github.com/a/b", "main", "/src/", "ghp_token"), TestContext.Current.CancellationToken);
 
         Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Rows[0].AccessToken);
-        Assert.Equal("ghp_token", (await store.GetAllAsync())[0].AccessToken);
+        Assert.Equal("ghp_token", (await store.GetAllAsync(TestContext.Current.CancellationToken))[0].AccessToken);
 
-        await store.SetAsync(inner.Rows[0] with { AccessToken = "" });
+        await store.SetAsync(inner.Rows[0] with { AccessToken = "" }, TestContext.Current.CancellationToken);
         Assert.Equal("", inner.Rows[0].AccessToken);
     }
 
@@ -102,11 +102,11 @@ public class ProtectedIdentitySecretStoresTests
         var inner = new FakeSourceLinkStore();
         var store = new ProtectedSourceLinkStore(inner, Protector());
 
-        await store.SetAsync(new SourceLinkConfig("svc", SourceLinkProvider.GitHub, "https://github.com/a/b", "main", "/src/", "read", "write"));
+        await store.SetAsync(new SourceLinkConfig("svc", SourceLinkProvider.GitHub, "https://github.com/a/b", "main", "/src/", "read", "write"), TestContext.Current.CancellationToken);
 
         Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Rows[0].IssueToken);
         Assert.DoesNotContain("write", inner.Rows[0].IssueToken);
-        var revealed = (await store.GetAllAsync())[0];
+        var revealed = (await store.GetAllAsync(TestContext.Current.CancellationToken))[0];
         Assert.Equal("read", revealed.AccessToken);
         Assert.Equal("write", revealed.IssueToken);
     }
@@ -118,9 +118,9 @@ public class ProtectedIdentitySecretStoresTests
         inner.Rows.Add(new SourceLinkConfig("svc", SourceLinkProvider.GitHub, "https://github.com/a/b", "main", "", null, "legacy-write"));
         var store = new ProtectedSourceLinkStore(inner, Protector());
 
-        Assert.Equal(1, await store.ProtectLegacySecretsAsync(default));
+        Assert.Equal(1, await store.ProtectLegacySecretsAsync(TestContext.Current.CancellationToken));
         Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Rows[0].IssueToken);
-        Assert.Equal(0, await store.ProtectLegacySecretsAsync(default));
+        Assert.Equal(0, await store.ProtectLegacySecretsAsync(TestContext.Current.CancellationToken));
     }
 
     private sealed class FakeIssueTrackerStore : IIssueTrackerStore
@@ -145,14 +145,14 @@ public class ProtectedIdentitySecretStoresTests
         var inner = new FakeIssueTrackerStore();
         var store = new ProtectedIssueTrackerStore(inner, Protector());
 
-        await store.SetAsync(new IssueTrackerConfig("svc", IssueTrackerProvider.Jira, "https://x.atlassian.net", "1", "2", "bot@x.test", "jira-tok"));
+        await store.SetAsync(new IssueTrackerConfig("svc", IssueTrackerProvider.Jira, "https://x.atlassian.net", "1", "2", "bot@x.test", "jira-tok"), TestContext.Current.CancellationToken);
 
         Assert.StartsWith(NotificationSecretProtector.Prefix, inner.Rows[0].ApiToken);
-        Assert.Equal("jira-tok", (await store.GetAllAsync())[0].ApiToken);
+        Assert.Equal("jira-tok", (await store.GetAllAsync(TestContext.Current.CancellationToken))[0].ApiToken);
 
         inner.Rows[0] = inner.Rows[0] with { ApiToken = "legacy" };
-        Assert.Equal(1, await store.ProtectLegacySecretsAsync(default));
-        Assert.Equal(0, await store.ProtectLegacySecretsAsync(default));
-        Assert.Equal("legacy", (await store.GetAllAsync())[0].ApiToken);
+        Assert.Equal(1, await store.ProtectLegacySecretsAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(0, await store.ProtectLegacySecretsAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("legacy", (await store.GetAllAsync(TestContext.Current.CancellationToken))[0].ApiToken);
     }
 }

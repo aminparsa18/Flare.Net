@@ -65,7 +65,7 @@ public class ApiSerializationTests
 
         Assert.StartsWith("application/json", context.Response.ContentType);
         context.Response.Body.Position = 0;
-        var dto = await JsonSerializer.DeserializeAsync(context.Response.Body, AlertsJsonContext.Default.AlertRuleListResponse);
+        var dto = await JsonSerializer.DeserializeAsync(context.Response.Body, AlertsJsonContext.Default.AlertRuleListResponse, TestContext.Current.CancellationToken);
         Assert.NotNull(dto);
         Assert.Empty(dto!.Rules);
     }

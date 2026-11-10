@@ -24,11 +24,11 @@ public class DbDashboardPinStoreTests : IAsyncLifetime
         var user = Guid.NewGuid();
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
-        await _store.PinAsync(user, first);
+        await _store.PinAsync(user, first, TestContext.Current.CancellationToken);
         _clock.Advance(TimeSpan.FromMinutes(1));
-        await _store.PinAsync(user, second);
+        await _store.PinAsync(user, second, TestContext.Current.CancellationToken);
 
-        Assert.Equal([second, first], await _store.ListAsync(user));
+        Assert.Equal([second, first], await _store.ListAsync(user, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -36,11 +36,11 @@ public class DbDashboardPinStoreTests : IAsyncLifetime
     {
         var dashboard = Guid.NewGuid();
         var alice = Guid.NewGuid();
-        await _store.PinAsync(alice, dashboard);
-        await _store.PinAsync(alice, dashboard);
+        await _store.PinAsync(alice, dashboard, TestContext.Current.CancellationToken);
+        await _store.PinAsync(alice, dashboard, TestContext.Current.CancellationToken);
 
-        Assert.Single(await _store.ListAsync(alice));
-        Assert.Empty(await _store.ListAsync(Guid.NewGuid()));
+        Assert.Single(await _store.ListAsync(alice, TestContext.Current.CancellationToken));
+        Assert.Empty(await _store.ListAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -49,13 +49,13 @@ public class DbDashboardPinStoreTests : IAsyncLifetime
         var user = Guid.NewGuid();
         var keep = Guid.NewGuid();
         var drop = Guid.NewGuid();
-        await _store.PinAsync(user, keep);
-        await _store.PinAsync(user, drop);
+        await _store.PinAsync(user, keep, TestContext.Current.CancellationToken);
+        await _store.PinAsync(user, drop, TestContext.Current.CancellationToken);
 
-        await _store.UnpinAsync(user, drop);
-        await _store.UnpinAsync(user, Guid.NewGuid()); // not pinned: a no-op
+        await _store.UnpinAsync(user, drop, TestContext.Current.CancellationToken);
+        await _store.UnpinAsync(user, Guid.NewGuid(), TestContext.Current.CancellationToken); // not pinned: a no-op
 
-        Assert.Equal([keep], await _store.ListAsync(user));
+        Assert.Equal([keep], await _store.ListAsync(user, TestContext.Current.CancellationToken));
     }
 
     private sealed class FakeClock : TimeProvider

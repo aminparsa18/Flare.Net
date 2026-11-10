@@ -20,7 +20,7 @@ public class DbApdexThresholdStoreTests : IAsyncLifetime
     [Fact]
     public async Task GetAllAsync_WithNoOverrides_ReturnsEmpty()
     {
-        var overrides = await _store.GetAllAsync();
+        var overrides = await _store.GetAllAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(overrides);
     }
@@ -28,9 +28,9 @@ public class DbApdexThresholdStoreTests : IAsyncLifetime
     [Fact]
     public async Task SetAsync_ThenGetAllAsync_ReturnsTheOverride()
     {
-        await _store.SetAsync("checkout-api", 250);
+        await _store.SetAsync("checkout-api", 250, TestContext.Current.CancellationToken);
 
-        var overrides = await _store.GetAllAsync();
+        var overrides = await _store.GetAllAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(250, Assert.Single(overrides).Value);
         Assert.Equal("checkout-api", Assert.Single(overrides).Key);
@@ -39,10 +39,10 @@ public class DbApdexThresholdStoreTests : IAsyncLifetime
     [Fact]
     public async Task SetAsync_CalledTwiceForTheSameService_Upserts()
     {
-        await _store.SetAsync("checkout-api", 250);
-        await _store.SetAsync("checkout-api", 750);
+        await _store.SetAsync("checkout-api", 250, TestContext.Current.CancellationToken);
+        await _store.SetAsync("checkout-api", 750, TestContext.Current.CancellationToken);
 
-        var overrides = await _store.GetAllAsync();
+        var overrides = await _store.GetAllAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(750, Assert.Single(overrides).Value);
     }
@@ -50,10 +50,10 @@ public class DbApdexThresholdStoreTests : IAsyncLifetime
     [Fact]
     public async Task SetAsync_ForMultipleServices_TracksEachIndependently()
     {
-        await _store.SetAsync("checkout-api", 250);
-        await _store.SetAsync("search-api", 1000);
+        await _store.SetAsync("checkout-api", 250, TestContext.Current.CancellationToken);
+        await _store.SetAsync("search-api", 1000, TestContext.Current.CancellationToken);
 
-        var overrides = await _store.GetAllAsync();
+        var overrides = await _store.GetAllAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(2, overrides.Count);
         Assert.Equal(250, overrides["checkout-api"]);
@@ -63,18 +63,18 @@ public class DbApdexThresholdStoreTests : IAsyncLifetime
     [Fact]
     public async Task ResetAsync_RemovesTheOverride()
     {
-        await _store.SetAsync("checkout-api", 250);
+        await _store.SetAsync("checkout-api", 250, TestContext.Current.CancellationToken);
 
-        await _store.ResetAsync("checkout-api");
+        await _store.ResetAsync("checkout-api", TestContext.Current.CancellationToken);
 
-        Assert.Empty(await _store.GetAllAsync());
+        Assert.Empty(await _store.GetAllAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task ResetAsync_WithNoExistingOverride_IsANoOp()
     {
-        await _store.ResetAsync("checkout-api");
+        await _store.ResetAsync("checkout-api", TestContext.Current.CancellationToken);
 
-        Assert.Empty(await _store.GetAllAsync());
+        Assert.Empty(await _store.GetAllAsync(TestContext.Current.CancellationToken));
     }
 }

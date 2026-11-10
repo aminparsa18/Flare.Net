@@ -28,26 +28,26 @@ public class DbLoginAttemptStoreTests : IAsyncLifetime
     [Fact]
     public async Task GetLockedUntilAsync_ReturnsNull_ForAPairThatHasNeverFailed()
     {
-        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1"));
+        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task GetLockedUntilAsync_ReturnsNull_WhileBelowTheFailureThreshold()
     {
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
 
-        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1"));
+        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task GetLockedUntilAsync_ReturnsALockout_OnceTheThresholdIsReached()
     {
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
 
-        var lockedUntil = await _store.GetLockedUntilAsync("alice", "127.0.0.1");
+        var lockedUntil = await _store.GetLockedUntilAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
 
         Assert.NotNull(lockedUntil);
         Assert.Equal(_timeProvider.GetUtcNow() + TimeSpan.FromMinutes(15), lockedUntil);
@@ -56,56 +56,56 @@ public class DbLoginAttemptStoreTests : IAsyncLifetime
     [Fact]
     public async Task GetLockedUntilAsync_ReturnsNull_OnceTheLockoutExpires()
     {
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
-        Assert.NotNull(await _store.GetLockedUntilAsync("alice", "127.0.0.1"));
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        Assert.NotNull(await _store.GetLockedUntilAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken));
 
         _timeProvider.Advance(TimeSpan.FromMinutes(15) + TimeSpan.FromSeconds(1));
 
-        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1"));
+        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task RecordFailureAsync_ResetsTheStreak_WhenThePriorFailureIsOutsideTheWindow()
     {
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
 
         _timeProvider.Advance(TimeSpan.FromMinutes(15) + TimeSpan.FromSeconds(1));
 
         // A 3rd failure, but the first two are now outside the window - should count as
         // failure #1 of a fresh streak, not #3, so no lockout yet.
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
 
-        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1"));
+        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task RecordSuccessAsync_ClearsAnyTrackedFailures()
     {
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
 
-        await _store.RecordSuccessAsync("alice", "127.0.0.1");
-        await _store.RecordFailureAsync("alice", "127.0.0.1");
+        await _store.RecordSuccessAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken);
 
         // Only 1 failure since the reset - well below the threshold of 3.
-        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1"));
+        Assert.Null(await _store.GetLockedUntilAsync("alice", "127.0.0.1", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task FailuresAreScoped_ToTheUsernameAndClientIpPairTogether()
     {
-        await _store.RecordFailureAsync("alice", "10.0.0.1");
-        await _store.RecordFailureAsync("alice", "10.0.0.1");
-        await _store.RecordFailureAsync("alice", "10.0.0.1");
-        Assert.NotNull(await _store.GetLockedUntilAsync("alice", "10.0.0.1"));
+        await _store.RecordFailureAsync("alice", "10.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "10.0.0.1", TestContext.Current.CancellationToken);
+        await _store.RecordFailureAsync("alice", "10.0.0.1", TestContext.Current.CancellationToken);
+        Assert.NotNull(await _store.GetLockedUntilAsync("alice", "10.0.0.1", TestContext.Current.CancellationToken));
 
         // Same username, different IP - unaffected by the lockout above.
-        Assert.Null(await _store.GetLockedUntilAsync("alice", "10.0.0.2"));
+        Assert.Null(await _store.GetLockedUntilAsync("alice", "10.0.0.2", TestContext.Current.CancellationToken));
 
         // Same IP, different username - also unaffected.
-        Assert.Null(await _store.GetLockedUntilAsync("bob", "10.0.0.1"));
+        Assert.Null(await _store.GetLockedUntilAsync("bob", "10.0.0.1", TestContext.Current.CancellationToken));
     }
 }

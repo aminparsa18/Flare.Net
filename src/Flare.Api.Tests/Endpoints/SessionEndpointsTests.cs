@@ -43,14 +43,14 @@ public class SessionEndpointsTests
     {
         var sessions = new FakeSessionStore();
         var userId = Guid.NewGuid();
-        var mine = await sessions.CreateAsync(userId, TimeSpan.FromHours(1));
-        var other = await sessions.CreateAsync(userId, TimeSpan.FromHours(1));
-        await sessions.CreateAsync(Guid.NewGuid(), TimeSpan.FromHours(1));
+        var mine = await sessions.CreateAsync(userId, TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
+        var other = await sessions.CreateAsync(userId, TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
+        await sessions.CreateAsync(Guid.NewGuid(), TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
 
         var c = Ctx(mine.Token!);
-        Assert.Equal(200, await Run(await SessionEndpoints.HandleListAsync(c, Principal(userId), sessions, Opts, default), c));
+        Assert.Equal(200, await Run(await SessionEndpoints.HandleListAsync(c, Principal(userId), sessions, Opts, TestContext.Current.CancellationToken), c));
         c.Response.Body.Position = 0;
-        var body = await new StreamReader(c.Response.Body).ReadToEndAsync();
+        var body = await new StreamReader(c.Response.Body).ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain(mine.Token!, body);
         Assert.DoesNotContain(other.Token!, body);
 
@@ -64,15 +64,15 @@ public class SessionEndpointsTests
     {
         var sessions = new FakeSessionStore();
         var userId = Guid.NewGuid();
-        var mine = await sessions.CreateAsync(userId, TimeSpan.FromHours(1));
-        var theirs = await sessions.CreateAsync(Guid.NewGuid(), TimeSpan.FromHours(1));
+        var mine = await sessions.CreateAsync(userId, TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
+        var theirs = await sessions.CreateAsync(Guid.NewGuid(), TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
 
         var c1 = Ctx();
-        Assert.Equal(404, await Run(await SessionEndpoints.HandleRevokeAsync(SessionEndpoints.HandleFor(theirs.Id), Principal(userId), sessions, default), c1));
+        Assert.Equal(404, await Run(await SessionEndpoints.HandleRevokeAsync(SessionEndpoints.HandleFor(theirs.Id), Principal(userId), sessions, TestContext.Current.CancellationToken), c1));
         Assert.True(sessions.Contains(theirs.Token!));
 
         var c2 = Ctx();
-        Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAsync(SessionEndpoints.HandleFor(mine.Id), Principal(userId), sessions, default), c2));
+        Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAsync(SessionEndpoints.HandleFor(mine.Id), Principal(userId), sessions, TestContext.Current.CancellationToken), c2));
         Assert.False(sessions.Contains(mine.Token!));
     }
 
@@ -81,16 +81,16 @@ public class SessionEndpointsTests
     {
         var sessions = new FakeSessionStore();
         var userId = Guid.NewGuid();
-        var mine = await sessions.CreateAsync(userId, TimeSpan.FromHours(1));
-        var other = await sessions.CreateAsync(userId, TimeSpan.FromHours(1));
+        var mine = await sessions.CreateAsync(userId, TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
+        var other = await sessions.CreateAsync(userId, TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
 
         var keep = Ctx(mine.Token!);
-        Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAllAsync(true, keep, Principal(userId), sessions, Opts, default), keep));
+        Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAllAsync(true, keep, Principal(userId), sessions, Opts, TestContext.Current.CancellationToken), keep));
         Assert.True(sessions.Contains(mine.Token!));
         Assert.False(sessions.Contains(other.Token!));
 
         var all = Ctx(mine.Token!);
-        Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAllAsync(null, all, Principal(userId), sessions, Opts, default), all));
+        Assert.Equal(204, await Run(await SessionEndpoints.HandleRevokeAllAsync(null, all, Principal(userId), sessions, Opts, TestContext.Current.CancellationToken), all));
         Assert.False(sessions.Contains(mine.Token!));
     }
 
@@ -98,6 +98,6 @@ public class SessionEndpointsTests
     public async Task Unauthenticated_Returns401()
     {
         var c = Ctx();
-        Assert.Equal(401, await Run(await SessionEndpoints.HandleListAsync(c, new ClaimsPrincipal(new ClaimsIdentity()), new FakeSessionStore(), Opts, default), c));
+        Assert.Equal(401, await Run(await SessionEndpoints.HandleListAsync(c, new ClaimsPrincipal(new ClaimsIdentity()), new FakeSessionStore(), Opts, TestContext.Current.CancellationToken), c));
     }
 }

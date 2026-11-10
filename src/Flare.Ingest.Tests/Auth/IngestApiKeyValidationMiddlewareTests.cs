@@ -251,7 +251,7 @@ public class IngestApiKeyValidationMiddlewareTests
 
         Assert.Equal("application/json", context.Response.ContentType);
         context.Response.Body.Position = 0;
-        var json = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        var json = await new StreamReader(context.Response.Body).ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.Contains("google.rpc.RetryInfo", json);
     }
 

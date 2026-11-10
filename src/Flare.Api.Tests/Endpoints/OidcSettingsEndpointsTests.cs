@@ -66,7 +66,7 @@ public class OidcSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         context.Response.Body.Position = 0;
-        var raw = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        var raw = await new StreamReader(context.Response.Body).ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain("super-secret-value", raw);
 
         var dto = await ReadJsonBodyAsync(context, OidcSettingsJsonContext.Default.OidcSettingsDto);
@@ -93,7 +93,7 @@ public class OidcSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        var saved = await store.GetAsync();
+        var saved = await store.GetAsync(TestContext.Current.CancellationToken);
         Assert.True(saved.Enabled);
         Assert.Equal("Okta", saved.DisplayName);
         Assert.Equal("https://example.okta.com", saved.Authority);
@@ -122,7 +122,7 @@ public class OidcSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        var saved = await store.GetAsync();
+        var saved = await store.GetAsync(TestContext.Current.CancellationToken);
         Assert.Equal("https://example2.okta.com", saved.Authority);
         Assert.Equal("original-secret", saved.ClientSecret);
     }
@@ -214,6 +214,6 @@ public class OidcSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.False((await store.GetAsync()).Enabled);
+        Assert.False((await store.GetAsync(TestContext.Current.CancellationToken)).Enabled);
     }
 }

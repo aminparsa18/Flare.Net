@@ -61,7 +61,7 @@ public class EntraSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         context.Response.Body.Position = 0;
-        var raw = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        var raw = await new StreamReader(context.Response.Body).ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain("super-secret-value", raw);
 
         var dto = await ReadJsonBodyAsync(context, EntraSettingsJsonContext.Default.EntraSettingsDto);
@@ -78,7 +78,7 @@ public class EntraSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        var saved = await store.GetAsync();
+        var saved = await store.GetAsync(TestContext.Current.CancellationToken);
         Assert.True(saved.Enabled);
         Assert.Equal("tenant-1", saved.TenantId);
         Assert.Equal("client-1", saved.ClientId);
@@ -95,7 +95,7 @@ public class EntraSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        var saved = await store.GetAsync();
+        var saved = await store.GetAsync(TestContext.Current.CancellationToken);
         Assert.Equal("tenant-2", saved.TenantId);
         Assert.Equal("original-secret", saved.ClientSecret);
     }
@@ -134,6 +134,6 @@ public class EntraSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.False((await store.GetAsync()).Enabled);
+        Assert.False((await store.GetAsync(TestContext.Current.CancellationToken)).Enabled);
     }
 }

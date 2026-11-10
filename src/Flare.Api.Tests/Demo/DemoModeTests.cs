@@ -116,37 +116,37 @@ public class DemoModeTests
     {
         var users = new FakeUserStore();
 
-        var user = await DemoProvisioner.ApplyAsync(users, new DemoOptions(), NullLogger.Instance);
+        var user = await DemoProvisioner.ApplyAsync(users, new DemoOptions(), NullLogger.Instance, TestContext.Current.CancellationToken);
 
         Assert.Equal(UserRole.Viewer, user.Role);
         Assert.Equal("demo", user.Username);
-        Assert.Null(await users.VerifyPasswordAsync("demo", "demo"));
+        Assert.Null(await users.VerifyPasswordAsync("demo", "demo", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Provisioner_ResetsAnExistingAccountToAnEnabledViewer_AndRotatesItsPassword()
     {
         var users = new FakeUserStore();
-        var existing = await users.CreateAsync("demo", "Known-password-1", UserRole.Member);
-        await users.SetDisabledAsync(existing.Id, true);
+        var existing = await users.CreateAsync("demo", "Known-password-1", UserRole.Member, TestContext.Current.CancellationToken);
+        await users.SetDisabledAsync(existing.Id, true, TestContext.Current.CancellationToken);
 
-        var user = await DemoProvisioner.ApplyAsync(users, new DemoOptions(), NullLogger.Instance);
+        var user = await DemoProvisioner.ApplyAsync(users, new DemoOptions(), NullLogger.Instance, TestContext.Current.CancellationToken);
 
-        var stored = await users.FindByIdAsync(existing.Id);
+        var stored = await users.FindByIdAsync(existing.Id, TestContext.Current.CancellationToken);
         Assert.Equal(existing.Id, user.Id);
         Assert.Equal(UserRole.Viewer, stored!.Role);
         Assert.False(stored.IsDisabled);
-        Assert.Null(await users.VerifyPasswordAsync("demo", "Known-password-1"));
+        Assert.Null(await users.VerifyPasswordAsync("demo", "Known-password-1", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Provisioner_RefusesToTakeOverAnAdmin()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("demo", "Known-password-1", UserRole.Admin);
+        await users.CreateAsync("demo", "Known-password-1", UserRole.Admin, TestContext.Current.CancellationToken);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => DemoProvisioner.ApplyAsync(users, new DemoOptions(), NullLogger.Instance));
-        Assert.Equal(UserRole.Admin, (await users.FindByUsernameAsync("demo"))!.Role);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => DemoProvisioner.ApplyAsync(users, new DemoOptions(), NullLogger.Instance, TestContext.Current.CancellationToken));
+        Assert.Equal(UserRole.Admin, (await users.FindByUsernameAsync("demo", TestContext.Current.CancellationToken))!.Role);
     }
 
     [Fact]
@@ -155,12 +155,12 @@ public class DemoModeTests
         var inner = new FakeAuthSettingsStore(enabled: false, localEnabled: false);
         var store = new DemoAuthSettingsStore(inner);
 
-        var read = await store.GetAsync();
-        await store.SaveAsync(enabled: false, localEnabled: false);
+        var read = await store.GetAsync(TestContext.Current.CancellationToken);
+        await store.SaveAsync(enabled: false, localEnabled: false, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(read.Enabled);
         Assert.True(read.LocalEnabled);
-        Assert.True((await inner.GetAsync()).Enabled);
-        Assert.True((await inner.GetAsync()).LocalEnabled);
+        Assert.True((await inner.GetAsync(TestContext.Current.CancellationToken)).Enabled);
+        Assert.True((await inner.GetAsync(TestContext.Current.CancellationToken)).LocalEnabled);
     }
 }

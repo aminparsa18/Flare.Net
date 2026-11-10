@@ -81,7 +81,7 @@ public class LdapSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         context.Response.Body.Position = 0;
-        var raw = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        var raw = await new StreamReader(context.Response.Body).ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain("super-secret-value", raw);
 
         var dto = await ReadJsonBodyAsync(context, LdapSettingsJsonContext.Default.LdapSettingsDto);
@@ -98,7 +98,7 @@ public class LdapSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        var saved = await store.GetAsync();
+        var saved = await store.GetAsync(TestContext.Current.CancellationToken);
         Assert.True(saved.Enabled);
         Assert.Equal("dc.corp.example.com", saved.Host);
         Assert.Equal("DC=corp,DC=example,DC=com", saved.BaseDn);
@@ -118,7 +118,7 @@ public class LdapSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Equal("original-secret", (await store.GetAsync()).BindPassword);
+        Assert.Equal("original-secret", (await store.GetAsync(TestContext.Current.CancellationToken)).BindPassword);
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class LdapSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.False((await store.GetAsync()).Enabled);
+        Assert.False((await store.GetAsync(TestContext.Current.CancellationToken)).Enabled);
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public class LdapSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Equal(pem, (await store.GetAsync()).PinnedCertificatePem);
+        Assert.Equal(pem, (await store.GetAsync(TestContext.Current.CancellationToken)).PinnedCertificatePem);
     }
 
     [Fact]
@@ -234,7 +234,7 @@ public class LdapSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Equal(bundle, (await store.GetAsync()).PinnedCertificatePem);
+        Assert.Equal(bundle, (await store.GetAsync(TestContext.Current.CancellationToken)).PinnedCertificatePem);
     }
 
     [Fact]

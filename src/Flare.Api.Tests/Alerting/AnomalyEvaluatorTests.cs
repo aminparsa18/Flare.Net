@@ -20,7 +20,7 @@ public class AnomalyEvaluatorTests
         var alerts = new FakeAlertQueryService(from => from == Now.AddSeconds(-300) ? 10 : 100);
         var anomaly = new AnomalyCondition { Source = AlertConditionKind.LogCount, BaselinePeriods = 3, Direction = AnomalyDirection.Below, ZScoreThreshold = 3 };
 
-        var result = await AnomalyEvaluator.EvaluateAsync(alerts, anomaly, new LogFilter(), null, null, 300, Now, default);
+        var result = await AnomalyEvaluator.EvaluateAsync(alerts, anomaly, new LogFilter(), null, null, 300, Now, TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.True(result.Value.Score.Breached);
@@ -43,7 +43,7 @@ public class AnomalyEvaluatorTests
         var metric = new MetricAlertCondition { MetricName = "http.server.duration", Type = MetricPointType.Histogram, Aggregation = MetricAlertAggregation.P99 };
         var anomaly = new AnomalyCondition { Source = AlertConditionKind.MetricThreshold, BaselinePeriods = 3, ZScoreThreshold = 3 };
 
-        var result = await AnomalyEvaluator.EvaluateAsync(alerts, anomaly, new LogFilter(), metric, null, 300, Now, default);
+        var result = await AnomalyEvaluator.EvaluateAsync(alerts, anomaly, new LogFilter(), metric, null, 300, Now, TestContext.Current.CancellationToken);
 
         Assert.Equal("s", result!.Value.MetricUnit);
         Assert.All(alerts.Calls, c => Assert.Equal("metric", c.Kind));
@@ -56,7 +56,7 @@ public class AnomalyEvaluatorTests
         var alerts = new FakeAlertQueryService(_ => 5);
         var anomaly = new AnomalyCondition { Source = AlertConditionKind.ExceptionCount, BaselinePeriods = 3, ZScoreThreshold = 3 };
 
-        await AnomalyEvaluator.EvaluateAsync(alerts, anomaly, new LogFilter(), null, new ExceptionCountCondition { ExceptionType = "System.TimeoutException" }, 300, Now, default);
+        await AnomalyEvaluator.EvaluateAsync(alerts, anomaly, new LogFilter(), null, new ExceptionCountCondition { ExceptionType = "System.TimeoutException" }, 300, Now, TestContext.Current.CancellationToken);
 
         Assert.All(alerts.Calls, c => Assert.Equal("exceptions", c.Kind));
     }
@@ -69,7 +69,7 @@ public class AnomalyEvaluatorTests
     {
         var alerts = new FakeAlertQueryService(_ => 1);
 
-        var result = await AnomalyEvaluator.EvaluateAsync(alerts, new AnomalyCondition { Source = source, BaselinePeriods = 7, ZScoreThreshold = 3 }, new LogFilter(), null, null, 300, Now, default);
+        var result = await AnomalyEvaluator.EvaluateAsync(alerts, new AnomalyCondition { Source = source, BaselinePeriods = 7, ZScoreThreshold = 3 }, new LogFilter(), null, null, 300, Now, TestContext.Current.CancellationToken);
 
         Assert.Null(result);
         Assert.Empty(alerts.Calls);

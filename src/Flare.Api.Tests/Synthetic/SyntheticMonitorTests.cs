@@ -113,7 +113,7 @@ public class SyntheticMonitorTests
                 var received = await server.ReceiveAsync();
                 await server.SendAsync("pong"u8.ToArray(), received.RemoteEndPoint);
             }
-        });
+        }, TestContext.Current.CancellationToken);
         var prober = new SyntheticProber(new NoHttp(), TimeProvider.System);
         var monitor = Monitor(SyntheticMonitorKind.Udp, $"127.0.0.1:{port}") with { RequestBody = "ping" };
 
@@ -172,7 +172,7 @@ public class SyntheticMonitorTests
                 reply.AddRange(rdata);
                 await server.SendAsync(reply.ToArray(), request.RemoteEndPoint);
             }
-        });
+        }, TestContext.Current.CancellationToken);
 
         var mx = await SyntheticDnsWire.ResolveAsync(endpoint, "example.com", SyntheticDnsWire.TypeMx, CancellationToken.None);
         var txt = await SyntheticDnsWire.ResolveAsync(endpoint, "example.com", SyntheticDnsWire.TypeTxt, CancellationToken.None);

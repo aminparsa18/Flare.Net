@@ -95,7 +95,7 @@ public class IssueCreationServiceTests
         var handler = new CannedHandler(HttpStatusCode.Created, """{"html_url":"https://github.com/acme/shop/issues/9"}""");
         var issues = new FakeIssues();
 
-        var outcome = await Service(handler, issues).CreateAsync(Request(), "amin", default);
+        var outcome = await Service(handler, issues).CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
 
         Assert.Equal(200, outcome.StatusCode);
         Assert.Equal("https://github.com/acme/shop/issues/9", outcome.Issue!.IssueUrl);
@@ -109,7 +109,7 @@ public class IssueCreationServiceTests
         var handler = new CannedHandler(HttpStatusCode.Created, """{"html_url":"https://github.com/acme/shop/issues/9"}""");
         var issues = new FakeIssues();
 
-        var outcome = await Service(handler, issues).CreateAsync(Request() with { ExceptionMessage = null!, Body = null! }, "amin", default);
+        var outcome = await Service(handler, issues).CreateAsync(Request() with { ExceptionMessage = null!, Body = null! }, "amin", TestContext.Current.CancellationToken);
 
         Assert.Equal(200, outcome.StatusCode);
         Assert.Equal("", Assert.Single(issues.Upserts).ExceptionMessage);
@@ -120,7 +120,7 @@ public class IssueCreationServiceTests
     {
         var handler = new CannedHandler(HttpStatusCode.Created, "{}");
 
-        var outcome = await Service(handler, new FakeIssues(existingUrl: "https://github.com/acme/shop/issues/1")).CreateAsync(Request(), "amin", default);
+        var outcome = await Service(handler, new FakeIssues(existingUrl: "https://github.com/acme/shop/issues/1")).CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
 
         Assert.Equal(409, outcome.StatusCode);
         Assert.Equal(0, handler.Calls);
@@ -133,13 +133,13 @@ public class IssueCreationServiceTests
         var handler = new CannedHandler(HttpStatusCode.Created, """{"html_url":"https://github.com/acme/shop/issues/9"}""", gate);
         var service = Service(handler, new FakeIssues());
 
-        var first = service.CreateAsync(Request(), "amin", default);
+        var first = service.CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
         while (handler.Calls == 0)
         {
             await Task.Yield();
         }
 
-        var second = await service.CreateAsync(Request(), "amin", default);
+        var second = await service.CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
         gate.SetResult();
 
         Assert.Equal(409, second.StatusCode);
@@ -154,8 +154,8 @@ public class IssueCreationServiceTests
         var handler = new CannedHandler(HttpStatusCode.Created, """{"html_url":"https://github.com/acme/shop/issues/9"}""", gate);
         var service = Service(handler, new FakeIssues());
 
-        var first = service.CreateAsync(Request(), "amin", default);
-        var second = service.CreateAsync(Request() with { ExceptionMessage = "other" }, "amin", default);
+        var first = service.CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
+        var second = service.CreateAsync(Request() with { ExceptionMessage = "other" }, "amin", TestContext.Current.CancellationToken);
         while (handler.Calls < 2)
         {
             await Task.Yield();
@@ -171,8 +171,8 @@ public class IssueCreationServiceTests
     {
         var service = Service(new CannedHandler(HttpStatusCode.Unauthorized, """{"message":"Bad credentials"}"""), new FakeIssues());
 
-        var first = await service.CreateAsync(Request(), "amin", default);
-        var second = await service.CreateAsync(Request(), "amin", default);
+        var first = await service.CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
+        var second = await service.CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
 
         Assert.Equal(502, first.StatusCode);
         Assert.Contains("401", first.Error);
@@ -186,7 +186,7 @@ public class IssueCreationServiceTests
         var handler = new CannedHandler(HttpStatusCode.Created, "{}");
         var readOnly = GitHub with { AccessToken = "r-t0k", IssueToken = null };
 
-        var outcome = await Service(handler, new FakeIssues(), links: [readOnly]).CreateAsync(Request(), "amin", default);
+        var outcome = await Service(handler, new FakeIssues(), links: [readOnly]).CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
 
         Assert.Equal(422, outcome.StatusCode);
         Assert.Equal(0, handler.Calls);
@@ -195,7 +195,7 @@ public class IssueCreationServiceTests
     [Fact]
     public async Task AProviderMismatch_IsRefused()
     {
-        var outcome = await Service(new CannedHandler(HttpStatusCode.Created, "{}"), new FakeIssues()).CreateAsync(Request(IssueTrackerTarget.GitLab), "amin", default);
+        var outcome = await Service(new CannedHandler(HttpStatusCode.Created, "{}"), new FakeIssues()).CreateAsync(Request(IssueTrackerTarget.GitLab), "amin", TestContext.Current.CancellationToken);
 
         Assert.Equal(422, outcome.StatusCode);
     }
@@ -207,9 +207,9 @@ public class IssueCreationServiceTests
         var noType = new IssueTrackerConfig("shop", IssueTrackerProvider.Jira, "https://acme.atlassian.net", "10000", "", "", "tok");
         var complete = noType with { IssueTypeId = "10001" };
 
-        Assert.Equal(422, (await Service(handler, new FakeIssues(), trackers: [noType]).CreateAsync(Request(IssueTrackerTarget.Jira), "amin", default)).StatusCode);
+        Assert.Equal(422, (await Service(handler, new FakeIssues(), trackers: [noType]).CreateAsync(Request(IssueTrackerTarget.Jira), "amin", TestContext.Current.CancellationToken)).StatusCode);
 
-        var ok = await Service(handler, new FakeIssues(), trackers: [complete]).CreateAsync(Request(IssueTrackerTarget.Jira), "amin", default);
+        var ok = await Service(handler, new FakeIssues(), trackers: [complete]).CreateAsync(Request(IssueTrackerTarget.Jira), "amin", TestContext.Current.CancellationToken);
         Assert.Equal("https://acme.atlassian.net/browse/OPS-1", ok.Issue!.IssueUrl);
     }
 
@@ -218,7 +218,7 @@ public class IssueCreationServiceTests
     {
         var handler = new CannedHandler(HttpStatusCode.Created, """{"html_url":"https://github.com/acme/shop/issues/9"}""");
 
-        var outcome = await Service(handler, new FakeIssues(failUpsert: true)).CreateAsync(Request(), "amin", default);
+        var outcome = await Service(handler, new FakeIssues(failUpsert: true)).CreateAsync(Request(), "amin", TestContext.Current.CancellationToken);
 
         Assert.Equal(500, outcome.StatusCode);
         Assert.Contains("https://github.com/acme/shop/issues/9", outcome.Error);

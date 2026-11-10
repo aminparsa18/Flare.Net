@@ -75,10 +75,10 @@ public class DashboardProjectScopingTests
     {
         var context = CreateContext(Guid.NewGuid(), UserRole.Member, null, null, new { name = "n", layoutJson = new { }, projectId = _payments.Id });
 
-        var status = await StatusAsync(await DashboardEndpoints.HandleCreateAsync(context, context.User, _dashboards, _projects, default), context);
+        var status = await StatusAsync(await DashboardEndpoints.HandleCreateAsync(context, context.User, _dashboards, _projects, TestContext.Current.CancellationToken), context);
 
         Assert.Equal(StatusCodes.Status403Forbidden, status);
-        Assert.Empty(await _dashboards.ListAsync(default));
+        Assert.Empty(await _dashboards.ListAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -86,10 +86,10 @@ public class DashboardProjectScopingTests
     {
         var context = CreateContext(Guid.NewGuid(), UserRole.Member, UserRole.Member, _payments.Id, new { name = "n", layoutJson = new { }, projectId = _payments.Id });
 
-        var status = await StatusAsync(await DashboardEndpoints.HandleCreateAsync(context, context.User, _dashboards, _projects, default), context);
+        var status = await StatusAsync(await DashboardEndpoints.HandleCreateAsync(context, context.User, _dashboards, _projects, TestContext.Current.CancellationToken), context);
 
         Assert.Equal(StatusCodes.Status201Created, status);
-        Assert.Equal(_payments.Id, (await _dashboards.ListAsync(default)).Single().ProjectId);
+        Assert.Equal(_payments.Id, (await _dashboards.ListAsync(TestContext.Current.CancellationToken)).Single().ProjectId);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class DashboardProjectScopingTests
     {
         var context = CreateContext(Guid.NewGuid(), UserRole.Admin, null, null, new { name = "n", layoutJson = new { }, projectId = Guid.NewGuid() });
 
-        var status = await StatusAsync(await DashboardEndpoints.HandleCreateAsync(context, context.User, _dashboards, _projects, default), context);
+        var status = await StatusAsync(await DashboardEndpoints.HandleCreateAsync(context, context.User, _dashboards, _projects, TestContext.Current.CancellationToken), context);
 
         Assert.Equal(StatusCodes.Status400BadRequest, status);
     }
@@ -107,7 +107,7 @@ public class DashboardProjectScopingTests
     {
         var context = CreateContext(Guid.NewGuid(), UserRole.Member, UserRole.Viewer, _payments.Id, new { name = "n", layoutJson = new { }, projectId = _payments.Id });
 
-        var status = await StatusAsync(await DashboardEndpoints.HandleCreateAsync(context, context.User, _dashboards, _projects, default), context);
+        var status = await StatusAsync(await DashboardEndpoints.HandleCreateAsync(context, context.User, _dashboards, _projects, TestContext.Current.CancellationToken), context);
 
         Assert.Equal(StatusCodes.Status403Forbidden, status);
     }
@@ -119,9 +119,9 @@ public class DashboardProjectScopingTests
         Seed(_payments.Id);
         var context = CreateContext(Guid.NewGuid(), UserRole.Member, null, null);
 
-        await (await DashboardEndpoints.HandleListAsync(context, _dashboards, default)).ExecuteAsync(context);
+        await (await DashboardEndpoints.HandleListAsync(context, _dashboards, TestContext.Current.CancellationToken)).ExecuteAsync(context);
         context.Response.Body.Position = 0;
-        var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        var body = await new StreamReader(context.Response.Body).ReadToEndAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(body, "\"id\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count);
     }
@@ -133,8 +133,8 @@ public class DashboardProjectScopingTests
         var outsider = CreateContext(Guid.NewGuid(), UserRole.Member, null, null);
         var member = CreateContext(Guid.NewGuid(), UserRole.Viewer, UserRole.Viewer, _payments.Id);
 
-        Assert.Equal(StatusCodes.Status404NotFound, await StatusAsync(await DashboardEndpoints.HandleGetAsync(dashboard.Id, outsider, _dashboards, default), outsider));
-        Assert.Equal(StatusCodes.Status200OK, await StatusAsync(await DashboardEndpoints.HandleGetAsync(dashboard.Id, member, _dashboards, default), member));
+        Assert.Equal(StatusCodes.Status404NotFound, await StatusAsync(await DashboardEndpoints.HandleGetAsync(dashboard.Id, outsider, _dashboards, TestContext.Current.CancellationToken), outsider));
+        Assert.Equal(StatusCodes.Status200OK, await StatusAsync(await DashboardEndpoints.HandleGetAsync(dashboard.Id, member, _dashboards, TestContext.Current.CancellationToken), member));
     }
 
     [Fact]
@@ -145,8 +145,8 @@ public class DashboardProjectScopingTests
         var outsider = CreateContext(Guid.NewGuid(), UserRole.Member, null, null, body);
         var viewer = CreateContext(Guid.NewGuid(), UserRole.Member, UserRole.Viewer, _payments.Id, body);
 
-        Assert.Equal(StatusCodes.Status404NotFound, await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, outsider, outsider.User, _dashboards, _projects, default), outsider));
-        Assert.Equal(StatusCodes.Status403Forbidden, await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, viewer, viewer.User, _dashboards, _projects, default), viewer));
+        Assert.Equal(StatusCodes.Status404NotFound, await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, outsider, outsider.User, _dashboards, _projects, TestContext.Current.CancellationToken), outsider));
+        Assert.Equal(StatusCodes.Status403Forbidden, await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, viewer, viewer.User, _dashboards, _projects, TestContext.Current.CancellationToken), viewer));
     }
 
     [Fact]
@@ -157,8 +157,8 @@ public class DashboardProjectScopingTests
         var member = CreateContext(Guid.NewGuid(), UserRole.Member, UserRole.Member, _payments.Id, body);
         var admin = CreateContext(Guid.NewGuid(), UserRole.Member, UserRole.Admin, _payments.Id, body);
 
-        Assert.Equal(StatusCodes.Status403Forbidden, await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, member, member.User, _dashboards, _projects, default), member));
-        Assert.Equal(StatusCodes.Status200OK, await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, admin, admin.User, _dashboards, _projects, default), admin));
+        Assert.Equal(StatusCodes.Status403Forbidden, await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, member, member.User, _dashboards, _projects, TestContext.Current.CancellationToken), member));
+        Assert.Equal(StatusCodes.Status200OK, await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, admin, admin.User, _dashboards, _projects, TestContext.Current.CancellationToken), admin));
     }
 
     [Fact]
@@ -166,12 +166,12 @@ public class DashboardProjectScopingTests
     {
         var dashboard = Seed(_payments.Id);
         var keep = CreateContext(Guid.NewGuid(), UserRole.Admin, null, null, new { name = "x", layoutJson = new { } });
-        await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, keep, keep.User, _dashboards, _projects, default);
-        Assert.Equal(_payments.Id, (await _dashboards.GetAsync(dashboard.Id, default))!.ProjectId);
+        await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, keep, keep.User, _dashboards, _projects, TestContext.Current.CancellationToken);
+        Assert.Equal(_payments.Id, (await _dashboards.GetAsync(dashboard.Id, TestContext.Current.CancellationToken))!.ProjectId);
 
         var clear = CreateContext(Guid.NewGuid(), UserRole.Admin, null, null, new { name = "x", layoutJson = new { }, projectId = Guid.Empty });
-        await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, clear, clear.User, _dashboards, _projects, default);
-        Assert.Null((await _dashboards.GetAsync(dashboard.Id, default))!.ProjectId);
+        await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, clear, clear.User, _dashboards, _projects, TestContext.Current.CancellationToken);
+        Assert.Null((await _dashboards.GetAsync(dashboard.Id, TestContext.Current.CancellationToken))!.ProjectId);
     }
 
     [Fact]
@@ -181,10 +181,10 @@ public class DashboardProjectScopingTests
         var dashboard = Seed(_payments.Id);
         var context = CreateContext(Guid.NewGuid(), UserRole.Member, UserRole.Admin, _payments.Id, new { name = "x", layoutJson = new { }, projectId = other.Id });
 
-        var status = await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, _dashboards, _projects, default), context);
+        var status = await StatusAsync(await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, _dashboards, _projects, TestContext.Current.CancellationToken), context);
 
         Assert.Equal(StatusCodes.Status403Forbidden, status);
-        Assert.Equal(_payments.Id, (await _dashboards.GetAsync(dashboard.Id, default))!.ProjectId);
+        Assert.Equal(_payments.Id, (await _dashboards.GetAsync(dashboard.Id, TestContext.Current.CancellationToken))!.ProjectId);
     }
 
     [Fact]
@@ -193,9 +193,9 @@ public class DashboardProjectScopingTests
         var dashboard = Seed(_payments.Id);
         var context = CreateContext(Guid.NewGuid(), UserRole.Member, null, null);
 
-        var status = await StatusAsync(await DashboardEndpoints.HandleDeleteAsync(dashboard.Id, context, context.User, _dashboards, default), context);
+        var status = await StatusAsync(await DashboardEndpoints.HandleDeleteAsync(dashboard.Id, context, context.User, _dashboards, TestContext.Current.CancellationToken), context);
 
         Assert.Equal(StatusCodes.Status404NotFound, status);
-        Assert.NotNull(await _dashboards.GetAsync(dashboard.Id, default));
+        Assert.NotNull(await _dashboards.GetAsync(dashboard.Id, TestContext.Current.CancellationToken));
     }
 }

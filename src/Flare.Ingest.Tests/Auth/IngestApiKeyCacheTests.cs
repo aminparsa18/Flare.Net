@@ -20,7 +20,7 @@ public class IngestApiKeyCacheTests
     public async Task IsValid_ReturnsTrue_ForAKeyCreatedInTheStore_AfterInitializeAsync()
     {
         var store = new FakeIngestApiKeyStore();
-        var (_, rawKey) = await store.CreateAsync("prod-collector");
+        var (_, rawKey) = await store.CreateAsync("prod-collector", cancellationToken: TestContext.Current.CancellationToken);
         var cache = CreateCache(store, new IngestAuthOptions());
 
         await cache.InitializeAsync(CancellationToken.None);
@@ -33,8 +33,8 @@ public class IngestApiKeyCacheTests
     public async Task IsValid_ReturnsFalse_ForAnExpiredKey_EvenThoughItIsStillInTheCache()
     {
         var store = new FakeIngestApiKeyStore();
-        var (_, expiredRaw) = await store.CreateAsync("old", expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1));
-        var (_, liveRaw) = await store.CreateAsync("new", expiresAt: DateTimeOffset.UtcNow.AddDays(1));
+        var (_, expiredRaw) = await store.CreateAsync("old", expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1), cancellationToken: TestContext.Current.CancellationToken);
+        var (_, liveRaw) = await store.CreateAsync("new", expiresAt: DateTimeOffset.UtcNow.AddDays(1), cancellationToken: TestContext.Current.CancellationToken);
         var cache = CreateCache(store, new IngestAuthOptions());
 
         await cache.InitializeAsync(CancellationToken.None);
@@ -47,8 +47,8 @@ public class IngestApiKeyCacheTests
     public async Task IsValid_ReturnsFalse_ForARevokedKey()
     {
         var store = new FakeIngestApiKeyStore();
-        var (key, rawKey) = await store.CreateAsync("prod-collector");
-        await store.RevokeAsync(key.Id);
+        var (key, rawKey) = await store.CreateAsync("prod-collector", cancellationToken: TestContext.Current.CancellationToken);
+        await store.RevokeAsync(key.Id, TestContext.Current.CancellationToken);
         var cache = CreateCache(store, new IngestAuthOptions());
 
         await cache.InitializeAsync(CancellationToken.None);
@@ -71,7 +71,7 @@ public class IngestApiKeyCacheTests
     public async Task IsValid_AcceptsBothAStoreKeyAndTheStaticKeyTogether()
     {
         var store = new FakeIngestApiKeyStore();
-        var (_, rawKey) = await store.CreateAsync("prod-collector");
+        var (_, rawKey) = await store.CreateAsync("prod-collector", cancellationToken: TestContext.Current.CancellationToken);
         var cache = CreateCache(store, new IngestAuthOptions { StaticIngestApiKey = "fixed-key-123" });
 
         await cache.InitializeAsync(CancellationToken.None);

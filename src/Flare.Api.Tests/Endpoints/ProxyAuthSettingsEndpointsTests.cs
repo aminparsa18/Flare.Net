@@ -70,7 +70,7 @@ public class ProxyAuthSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        var saved = await store.GetAsync();
+        var saved = await store.GetAsync(TestContext.Current.CancellationToken);
         Assert.True(saved.Enabled);
         Assert.Equal("Remote-User", saved.HeaderName);
         Assert.Equal("172.18.0.0/16", saved.TrustedProxyCidrs);
@@ -161,7 +161,7 @@ public class ProxyAuthSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.False((await store.GetAsync()).Enabled);
+        Assert.False((await store.GetAsync(TestContext.Current.CancellationToken)).Enabled);
     }
 
     [Fact]
@@ -185,7 +185,7 @@ public class ProxyAuthSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        var saved = await store.GetAsync();
+        var saved = await store.GetAsync(TestContext.Current.CancellationToken);
         Assert.Equal("X-Forwarded-Groups", saved.GroupsHeaderName);
         Assert.Equal("admins", saved.AdminGroup);
         Assert.Equal("members", saved.MemberGroup);
@@ -214,7 +214,7 @@ public class ProxyAuthSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Equal("https://proxy.example.com/oauth2/sign_out", (await store.GetAsync()).LogoutRedirectUrl);
+        Assert.Equal("https://proxy.example.com/oauth2/sign_out", (await store.GetAsync(TestContext.Current.CancellationToken)).LogoutRedirectUrl);
     }
 
     [Fact]

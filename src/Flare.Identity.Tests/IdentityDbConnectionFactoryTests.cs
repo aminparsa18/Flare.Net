@@ -23,7 +23,7 @@ public class IdentityDbConnectionFactoryTests
 
             // The directory existing isn't enough on its own to prove the connection
             // string is usable - actually open it, same as every real caller would.
-            await using var connection = await factory.OpenAsync();
+            await using var connection = await factory.OpenAsync(TestContext.Current.CancellationToken);
             Assert.True(File.Exists(dbPath));
         }
         finally

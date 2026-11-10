@@ -74,7 +74,7 @@ public class OutboundAddressPolicyTests
         using var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<IHttpClientFactory>().CreateClient("g");
 
-        var ex = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync("http://127.0.0.1:1/"));
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync("http://127.0.0.1:1/", TestContext.Current.CancellationToken));
         Assert.Contains("Blocked outbound request", ex.Message);
     }
 
@@ -98,6 +98,6 @@ public class OutboundAddressPolicyTests
         services.AddHttpClient("p").AddOutboundGuard();
         using var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<IHttpClientFactory>().CreateClient("p");
-        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync("http://169.254.169.254/"));
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync("http://169.254.169.254/", TestContext.Current.CancellationToken));
     }
 }

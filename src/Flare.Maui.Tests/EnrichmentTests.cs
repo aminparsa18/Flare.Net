@@ -221,7 +221,7 @@ public class OfflineQueueTests
             // A batch the exporter writes after startup pushes the queue over the cap.
             var fresh = Write(dir, "b", 100, now.AddHours(-1));
 
-            for (var i = 0; i < 100 && File.Exists(old); i++) await Task.Delay(50);
+            for (var i = 0; i < 100 && File.Exists(old); i++) await Task.Delay(50, TestContext.Current.CancellationToken);
 
             Assert.False(File.Exists(old));
             Assert.True(File.Exists(fresh));

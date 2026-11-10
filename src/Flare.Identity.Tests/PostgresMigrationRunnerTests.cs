@@ -28,10 +28,10 @@ public class PostgresMigrationRunnerTests : IAsyncLifetime
         await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
             IdentityMigrationRunner.ApplyAsync(_database.ConnectionFactory, NullLogger.Instance)));
 
-        await using var connection = await _database.ConnectionFactory.OpenAsync();
+        await using var connection = await _database.ConnectionFactory.OpenAsync(TestContext.Current.CancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) - COUNT(DISTINCT Name) FROM schema_migrations";
-        Assert.Equal(0L, Convert.ToInt64(await command.ExecuteScalarAsync()));
+        Assert.Equal(0L, Convert.ToInt64(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken)));
     }
 
     [Fact]
@@ -39,9 +39,9 @@ public class PostgresMigrationRunnerTests : IAsyncLifetime
     {
         Assert.SkipUnless(_enabled, "FLARE_TEST_POSTGRES is not set.");
 
-        await using var connection = await _database.ConnectionFactory.OpenAsync();
+        await using var connection = await _database.ConnectionFactory.OpenAsync(TestContext.Current.CancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT Enabled FROM AuthSettings WHERE Id = 1";
-        Assert.Equal(0L, Convert.ToInt64(await command.ExecuteScalarAsync()));
+        Assert.Equal(0L, Convert.ToInt64(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken)));
     }
 }
