@@ -61,7 +61,7 @@ public class PiiRedactorTests
     {
         var annotator = Annotator(new() { Pii = { Enabled = true } });
         var result = await annotator.AnnotateAsync(
-            [Event("hi bob@example.com", new() { ["user"] = "amy@example.com", ["k"] = "safe" })], default);
+            [Event("hi bob@example.com", new() { ["user"] = "amy@example.com", ["k"] = "safe" })], TestContext.Current.CancellationToken);
         Assert.Equal("hi [REDACTED:email]", result[0].Body);
         Assert.Equal("[REDACTED:email]", result[0].LogAttributes["user"]);
         Assert.Equal("safe", result[0].LogAttributes["k"]);
@@ -71,8 +71,8 @@ public class PiiRedactorTests
     public async Task Annotator_is_a_noop_by_default_and_when_master_switch_off()
     {
         var input = new[] { Event("bob@example.com", []) };
-        Assert.Same(input, await Annotator(new()).AnnotateAsync(input, default));
-        Assert.Same(input, await Annotator(new() { Enabled = false, Pii = { Enabled = true } }).AnnotateAsync(input, default));
+        Assert.Same(input, await Annotator(new()).AnnotateAsync(input, TestContext.Current.CancellationToken));
+        Assert.Same(input, await Annotator(new() { Enabled = false, Pii = { Enabled = true } }).AnnotateAsync(input, TestContext.Current.CancellationToken));
     }
 
     private sealed class EmptyCache(bool? piiOverride = null) : IPipelineRuleCache
@@ -99,10 +99,10 @@ public class PiiRedactorTests
     {
         var input = new[] { Event("bob@example.com", []) };
         var on = new PipelineRuleAnnotator(new EmptyCache(true), Options.Create(new PipelineRuleOptions()));
-        Assert.Equal("[REDACTED:email]", (await on.AnnotateAsync(input, default))[0].Body);
+        Assert.Equal("[REDACTED:email]", (await on.AnnotateAsync(input, TestContext.Current.CancellationToken))[0].Body);
 
         var off = new PipelineRuleAnnotator(new EmptyCache(false), Options.Create(new PipelineRuleOptions { Pii = { Enabled = true } }));
-        Assert.Same(input, await off.AnnotateAsync(input, default));
+        Assert.Same(input, await off.AnnotateAsync(input, TestContext.Current.CancellationToken));
     }
 
     [Theory]
