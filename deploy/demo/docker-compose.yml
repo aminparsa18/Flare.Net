@@ -94,8 +94,10 @@ services:
   redis:
     image: redis:8.0
     restart: unless-stopped
-    mem_limit: 256m
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set in .env}", "--save", "30", "100", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    # noeviction: a full Redis refuses writes instead of silently dropping buffered telemetry, so
+    # maxmemory must stay well above what ingest's capped streams can hold (see `ingest` below).
+    mem_limit: 512m
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set in .env}", "--save", "30", "100", "--maxmemory", "400mb", "--maxmemory-policy", "noeviction"]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?set in .env}
     volumes:
@@ -115,6 +117,14 @@ services:
       redis: { condition: service_healthy }
     environment:
       <<: *flare-env
+      # Flushed entries stay in the Redis buffer streams until MAXLEN trims them. The default cap
+      # (1,000,000 per stream) is gigabytes, so at the demo's traffic Redis hit its maxmemory after
+      # about 2.5 hours, refused every write and took ingest down. 20,000 per stream is still
+      # minutes of headroom for ClickHouse to be away.
+      LogEventPipeline__StreamMaxLength: "20000"
+      SpanEventPipeline__StreamMaxLength: "20000"
+      MetricEventPipeline__StreamMaxLength: "20000"
+      ProfileEventPipeline__StreamMaxLength: "20000"
     volumes:
       - identity-data:/data/identity
     # No published ports: OTLP is only reachable on the Compose network (shop + collector).
