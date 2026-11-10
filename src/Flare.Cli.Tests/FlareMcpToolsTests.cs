@@ -32,7 +32,7 @@ public class FlareMcpToolsTests
     {
         var handler = new StubHandler(_ => Json("{}"));
 
-        var ex = await Assert.ThrowsAsync<McpException>(() => Tools(handler, initialized: false).SearchLogs());
+        var ex = await Assert.ThrowsAsync<McpException>(() => Tools(handler, initialized: false).SearchLogs(cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("flare start", ex.Message);
         Assert.Empty(handler.Paths);
@@ -43,7 +43,7 @@ public class FlareMcpToolsTests
     {
         var handler = new StubHandler(_ => Json("{}", HttpStatusCode.Unauthorized));
 
-        var ex = await Assert.ThrowsAsync<McpException>(() => Tools(handler).SearchLogs());
+        var ex = await Assert.ThrowsAsync<McpException>(() => Tools(handler).SearchLogs(cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("401", ex.Message);
         Assert.Contains("FLARE_API_TOKEN", ex.Message);
@@ -54,7 +54,7 @@ public class FlareMcpToolsTests
     {
         var handler = new StubHandler(_ => Json("{}", HttpStatusCode.Unauthorized));
 
-        var ex = await Assert.ThrowsAsync<McpException>(() => Tools(handler).ListRuns("api"));
+        var ex = await Assert.ThrowsAsync<McpException>(() => Tools(handler).ListRuns("api", TestContext.Current.CancellationToken));
 
         Assert.Contains("401", ex.Message);
     }
@@ -64,7 +64,7 @@ public class FlareMcpToolsTests
     {
         var handler = new StubHandler(_ => Json("{}"));
 
-        await Assert.ThrowsAsync<McpException>(() => Tools(handler).SearchLogs(levels: ["loud"]));
+        await Assert.ThrowsAsync<McpException>(() => Tools(handler).SearchLogs(levels: ["loud"], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Empty(handler.Paths);
     }
@@ -74,7 +74,7 @@ public class FlareMcpToolsTests
     {
         var handler = new StubHandler(_ => Json("{}"));
 
-        var ex = await Assert.ThrowsAsync<McpException>(() => Tools(handler).SearchLogs(lastRun: true));
+        var ex = await Assert.ThrowsAsync<McpException>(() => Tools(handler).SearchLogs(lastRun: true, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("services", ex.Message);
     }
@@ -90,7 +90,7 @@ public class FlareMcpToolsTests
             return Json($$"""{"events":[{"eventId":"{{Guid.NewGuid()}}","timestamp":"2026-10-02T10:00:00Z","severityText":"INFO","severityNumber":9,"serviceName":"api","body":"{{longBody}}"}]}""");
         });
 
-        var text = await Tools(handler).SearchLogs(limit: 5000);
+        var text = await Tools(handler).SearchLogs(limit: 5000, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Contains("\"pageSize\":100", sentBody);
         Assert.True(text.Length < 500, "a 1000-char body must be truncated");
@@ -112,7 +112,7 @@ public class FlareMcpToolsTests
             _ => Json("{}", HttpStatusCode.NotFound),
         });
 
-        var text = await Tools(handler).CompareRuns("api", "POST /checkout");
+        var text = await Tools(handler).CompareRuns("api", "POST /checkout", TestContext.Current.CancellationToken);
 
         Assert.Contains("No 'POST /checkout' trace", text);
         Assert.DoesNotContain("trace=other", text);
@@ -127,7 +127,7 @@ public class FlareMcpToolsTests
             _ => Json("""{"events":[{"firedAt":"2026-10-04T01:33:10+00:00","observedCount":8,"thresholdCount":5,"windowSeconds":300,"notificationStatus":"Sent","resolved":false,"suppressedByWindow":"","aiSummary":"Payments failing.\nCheck provider.","aiModel":"m1"}]}"""),
         });
 
-        var text = await Tools(handler).ListFiringAlerts();
+        var text = await Tools(handler).ListFiringAlerts(TestContext.Current.CancellationToken);
 
         Assert.Contains("Checkout errors: fired", text);
         Assert.Contains("AI summary (m1): Payments failing. Check provider.", text);
@@ -142,7 +142,7 @@ public class FlareMcpToolsTests
     [Fact]
     public async Task ListCheckInMonitors_ListsUnhealthyFirstWithSchedule()
     {
-        var text = await Tools(new StubHandler(_ => Json(CheckInList))).ListCheckInMonitors();
+        var text = await Tools(new StubHandler(_ => Json(CheckInList))).ListCheckInMonitors(cancellationToken: TestContext.Current.CancellationToken);
 
         var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.StartsWith("Nightly backup [nightly-backup]: late schedule=0 2 * * * Europe/Berlin grace=600s last=- next=2026-10-20 00:00:00Z", lines[0]);
@@ -152,7 +152,7 @@ public class FlareMcpToolsTests
     [Fact]
     public async Task ListCheckInMonitors_UnhealthyOnly_FiltersHealthy()
     {
-        var text = await Tools(new StubHandler(_ => Json(CheckInList))).ListCheckInMonitors(unhealthyOnly: true);
+        var text = await Tools(new StubHandler(_ => Json(CheckInList))).ListCheckInMonitors(unhealthyOnly: true, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Contains("Nightly backup", text);
         Assert.DoesNotContain("Alpha sync", text);
@@ -161,7 +161,7 @@ public class FlareMcpToolsTests
     [Fact]
     public async Task ListCheckInMonitors_None_SaysSo()
     {
-        var text = await Tools(new StubHandler(_ => Json("""{"monitors":[]}"""))).ListCheckInMonitors();
+        var text = await Tools(new StubHandler(_ => Json("""{"monitors":[]}"""))).ListCheckInMonitors(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("No check-in monitors configured.", text);
     }
