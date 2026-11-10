@@ -33,6 +33,11 @@
 	import { getRecentSearches } from '#lib/logs/recent-searches.ts';
 	import * as m from '#lib/paraglide/messages.js';
 	import type { Component } from 'svelte';
+	import { page } from '$app/state';
+	import { stripBase } from '#lib/paths.ts';
+	import { tourForPath } from '#lib/tour/tours/index.ts';
+	import { tourController } from '#lib/tour/tour.svelte.ts';
+	import CompassIcon from '@lucide/svelte/icons/compass';
 
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import WaypointsIcon from '@lucide/svelte/icons/waypoints';
@@ -157,6 +162,14 @@
 		logs.openExport();
 	}
 
+	const pageTour = $derived(tourForPath(stripBase(page.url.pathname)));
+
+	function startTour(): void {
+		if (!pageTour) return;
+		open = false;
+		tourController.start(pageTour);
+	}
+
 	function selectRecentSearch(term: string): void {
 		if (!logs) return;
 		open = false;
@@ -195,16 +208,24 @@
 				</Command.Item>
 			{/each}
 		</Command.Group>
-		{#if logs}
+		{#if logs || pageTour}
 			<Command.Group heading={m.commandPalette_actions()}>
-				<Command.Item value="Toggle Live Mode" onSelect={toggleLive}>
-					<RadioIcon />
-					<span>{logs.explorer.live ? m.commandPalette_pauseLiveTail() : m.commandPalette_resumeLiveTail()}</span>
-				</Command.Item>
-				<Command.Item value="Export Logs" onSelect={exportLogs}>
-					<DownloadIcon />
-					<span>{m.commandPalette_exportLogs()}</span>
-				</Command.Item>
+				{#if logs}
+					<Command.Item value="Toggle Live Mode" onSelect={toggleLive}>
+						<RadioIcon />
+						<span>{logs.explorer.live ? m.commandPalette_pauseLiveTail() : m.commandPalette_resumeLiveTail()}</span>
+					</Command.Item>
+					<Command.Item value="Export Logs" onSelect={exportLogs}>
+						<DownloadIcon />
+						<span>{m.commandPalette_exportLogs()}</span>
+					</Command.Item>
+				{/if}
+				{#if pageTour}
+					<Command.Item value="Take a tour of this page onboarding help" onSelect={startTour}>
+						<CompassIcon />
+						<span>{m.tour_startFromMenu()}</span>
+					</Command.Item>
+				{/if}
 			</Command.Group>
 		{/if}
 		{#if logs && recentSearches.length > 0}

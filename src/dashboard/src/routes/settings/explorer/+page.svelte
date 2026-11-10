@@ -18,7 +18,9 @@
 	import { listDashboards, type DashboardSummary } from '#lib/dashboards-api.ts';
 	import { getHomeDashboardId, setHomeDashboardId } from '#lib/dashboards/home-preference.ts';
 	import { clearCollapsedFlags, clearRecentSearches, clearRecentCustomRanges, clearLastUsedViews } from '#lib/explorer/browser-state.ts';
+	import { ALL_TOURS, tourReplayHref } from '#lib/tour/tours/index.ts';
 	import XIcon from '@lucide/svelte/icons/x';
+	import CompassIcon from '@lucide/svelte/icons/compass';
 	import * as m from '#lib/paraglide/messages.js';
 
 	const landingLabels: Record<LandingPage, () => string> = {
@@ -216,6 +218,20 @@
 						{/each}
 					</div>
 				{/if}
+			</div>
+		{/each}
+	</section>
+
+	<section class="flex flex-col gap-2">
+		<h3 class="font-medium">{m.settingsExplorer_toursHeading()}</h3>
+		<p class="text-muted-foreground text-sm">{m.settingsExplorer_toursDescription()}</p>
+		{#each ALL_TOURS as tour (tour.id)}
+			<div class={rowClass}>
+				<span>{tour.name()}</span>
+				<Button variant="outline" size="sm" href={tourReplayHref(tour)}>
+					<CompassIcon data-icon="inline-start" />
+					{m.settingsExplorer_toursReplay()}
+				</Button>
 			</div>
 		{/each}
 	</section>

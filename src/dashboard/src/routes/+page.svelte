@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { LogsExplorerState } from '#lib/logs/state.svelte.ts';
 	import { logsExplorerContext } from '#lib/logs/context.ts';
 	import { resolveRequestedSavedView } from '#lib/saved-views/hydrate.ts';
@@ -24,6 +24,8 @@
 	import FacetSidebar from '#lib/components/facets/FacetSidebar.svelte';
 	import { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
 	import { DEFAULT_LOG_ATTRIBUTE_FACETS, LOG_FACET_BAGS, logFacetDefinitions, logFacetReloadKey } from '#lib/logs/facets.ts';
+	import { tourController } from '#lib/tour/tour.svelte.ts';
+	import { logsTour } from '#lib/tour/tours/logs.ts';
 	import * as m from '#lib/paraglide/messages.js';
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
@@ -36,6 +38,8 @@
 		{ value: 'Resource' as const, label: m.attributeFilters_bagResource() },
 		{ value: 'Scope' as const, label: m.attributeFilters_bagScope() }
 	];
+
+	let tourTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function handleVisibilityChange() {
 		explorer.handleVisibilityChange(document.hidden);
@@ -94,6 +98,20 @@
 			}
 			void explorer.loadKnownServices();
 
+			// `?tour=logs` (Settings > Explorer > Guided tours' Replay) always starts it, then drops
+			// the param so a reload doesn't replay it again. Otherwise first visit only
+			// (#lib/tour/), and only on a bare visit - someone arriving from a shared link or alert
+			// came to look at something specific. The delay lets the toolbar and first results
+			// render so the spotlight lands on settled layout.
+			if (page.url.searchParams.get('tour') === logsTour.id) {
+				const url = new URL(page.url.href);
+				url.searchParams.delete('tour');
+				replaceState(url, page.state);
+				tourTimer = setTimeout(() => tourController.start(logsTour), 800);
+			} else if (page.url.searchParams.size === 0) {
+				tourTimer = setTimeout(() => tourController.maybeAutoStart(logsTour), 800);
+			}
+
 			// A `?context=`/`?ts=` permalink (LogContextSheet's "Copy link") opens the
 			// context sheet *on top of* whatever the branches above just loaded, rather
 			// than replacing them - unlike `?view=`/the Metrics deep link, it isn't a
@@ -106,6 +124,8 @@
 	});
 
 	onDestroy(() => {
+		clearTimeout(tourTimer);
+		tourController.cancel(logsTour);
 		explorer.dispose();
 	});
 </script>
@@ -116,30 +136,34 @@
 	<title>{m.logsPage_title()}</title>
 </svelte:head>
 
+<!-- The `data-tour` wrappers are the Logs tour's anchors (#lib/tour/tours/logs.ts); `contents`
+     keeps them out of the layout. -->
 <div class="flex h-full flex-col">
 	<LogsToolbar />
-	<NaturalLanguageFilter
-		target="Logs"
-		knownServices={() => explorer.knownServices}
-		apply={(f) =>
-			explorer.applySavedViewState({
-				timeRangePreset: f.timeRangePreset,
-				customRange: f.customRange ?? null,
-				services: f.services,
-				severityNumbers: f.severityNumbers,
-				search: f.search,
-				attributeFilters: f.attributeFilters
-			})}
-	/>
+	<div class="contents" data-tour="logs-ai">
+		<NaturalLanguageFilter
+			target="Logs"
+			knownServices={() => explorer.knownServices}
+			apply={(f) =>
+				explorer.applySavedViewState({
+					timeRangePreset: f.timeRangePreset,
+					customRange: f.customRange ?? null,
+					services: f.services,
+					severityNumbers: f.severityNumbers,
+					search: f.search,
+					attributeFilters: f.attributeFilters
+				})}
+		/>
+	</div>
 	<div class="flex min-h-0 flex-1">
-		<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
+		<div class="contents" data-tour="logs-facets"><FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} /></div>
 		<div class="flex min-w-0 flex-1 flex-col">
-			<VolumeChart releaseMarkers />
-			<ValueDistributionChart />
-			<AttributeFiltersRow />
-			<BodyJsonFiltersRow />
-			<SqlQueryRow />
-			<div class="flex min-h-0 flex-1 flex-col">
+			<div class="contents" data-tour="logs-volume"><VolumeChart releaseMarkers /></div>
+			<div class="contents" data-tour="logs-value-distribution"><ValueDistributionChart /></div>
+			<div class="contents" data-tour="logs-attribute-filters"><AttributeFiltersRow /></div>
+			<div class="contents" data-tour="logs-json-filters"><BodyJsonFiltersRow /></div>
+			<div class="contents" data-tour="logs-sql"><SqlQueryRow /></div>
+			<div class="flex min-h-0 flex-1 flex-col" data-tour="logs-table">
 				<LogTable />
 			</div>
 		</div>

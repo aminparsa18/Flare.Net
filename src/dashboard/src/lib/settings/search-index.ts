@@ -39,6 +39,7 @@ export function settingEntries(): SettingEntry[] {
 			m.settingsExplorer_chartHeading(),
 			m.settingsExplorer_facetHeading(),
 			m.settingsExplorer_pinnedHeading(),
+			m.settingsExplorer_toursHeading(),
 			m.settingsExplorer_storedHeading()
 		]),
 		...page('/settings/keyboard', m.settingsKeyboard_navLabel(), [m.settingsKeyboard_heading()]),
