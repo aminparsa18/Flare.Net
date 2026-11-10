@@ -4,6 +4,9 @@ using Xunit;
 
 namespace Flare.Maui.Tests;
 
+// Public_api_returns_false_before_initialization reads FlareMaui's static state, so this class
+// must not run in parallel with EndToEndTests, which initializes it.
+[Collection("FlareMaui global state")]
 public class FeedbackTests
 {
     private sealed class RecordingHandler(HttpStatusCode status = HttpStatusCode.NoContent, bool throws = false) : HttpMessageHandler
