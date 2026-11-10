@@ -349,7 +349,7 @@ public class EndToEndTests
                 ctx.Request.ContentType, (int)ms.Length));
             ctx.Response.StatusCode = 200;
             ctx.Response.Close();
-        });
+        }, TestContext.Current.CancellationToken);
 
         var options = new FlareMauiOptions
         {
@@ -367,7 +367,7 @@ public class EndToEndTests
             FlareMaui.Source.StartActivity("hello")?.Dispose();
             FlareMaui.Flush();
 
-            var r = await received.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            var r = await received.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
             Assert.Equal("/v1/traces", r.Path);
             Assert.Equal("Bearer flr_test", r.Auth);
             Assert.Equal("application/x-protobuf", r.Type);
@@ -439,14 +439,14 @@ public class NetworkTracingTests
             ctx.Response.ContentLength64 = body.Length;
             await ctx.Response.OutputStream.WriteAsync(body);
             ctx.Response.Close();
-        });
+        }, TestContext.Current.CancellationToken);
 
         var exported = new List<Activity>();
         using (Build(exported, Options(), () => true))
         {
             using var http = new HttpClient();
-            var response = await http.PostAsync($"http://localhost:{port}/orders?token=secret", new ByteArrayContent(new byte[300]));
-            await response.Content.ReadAsByteArrayAsync();
+            var response = await http.PostAsync($"http://localhost:{port}/orders?token=secret", new ByteArrayContent(new byte[300]), TestContext.Current.CancellationToken);
+            await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
         }
 
         var call = Assert.Single(exported, a => a.OperationName != "breadcrumb");
@@ -469,7 +469,7 @@ public class NetworkTracingTests
         using (Build(exported, Options(), () => online))
         {
             using var http = new HttpClient();
-            await Assert.ThrowsAnyAsync<HttpRequestException>(() => http.GetAsync($"http://localhost:{FreePort()}/x"));
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => http.GetAsync($"http://localhost:{FreePort()}/x", TestContext.Current.CancellationToken));
         }
 
         var call = Assert.Single(exported, a => a.OperationName != "breadcrumb");
@@ -487,7 +487,7 @@ public class NetworkTracingTests
         using (Build(exported, options, null))
         {
             using var http = new HttpClient();
-            await Assert.ThrowsAnyAsync<HttpRequestException>(() => http.PostAsync($"http://localhost:{FreePort()}/x", new ByteArrayContent(new byte[10])));
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => http.PostAsync($"http://localhost:{FreePort()}/x", new ByteArrayContent(new byte[10]), TestContext.Current.CancellationToken));
         }
 
         var call = Assert.Single(exported);

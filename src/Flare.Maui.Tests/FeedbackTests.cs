@@ -30,7 +30,7 @@ public class FeedbackTests
     {
         var handler = new RecordingHandler();
 
-        Assert.True(await Sender(handler).SendAsync("  It froze  ", "a@b.c", "Ann", default));
+        Assert.True(await Sender(handler).SendAsync("  It froze  ", "a@b.c", "Ann", TestContext.Current.CancellationToken));
 
         var (uri, auth, body) = Assert.Single(handler.Requests);
         Assert.Equal("http://h:4318/v1/feedback", uri.ToString());
@@ -51,7 +51,7 @@ public class FeedbackTests
     {
         var handler = new RecordingHandler();
 
-        await Sender(handler, user: null, version: null).SendAsync("hi", null, "  ", default);
+        await Sender(handler, user: null, version: null).SendAsync("hi", null, "  ", TestContext.Current.CancellationToken);
 
         using var json = JsonDocument.Parse(handler.Requests[0].Body);
         Assert.Equal(["service", "session_id", "message"], json.RootElement.EnumerateObject().Select(p => p.Name));
@@ -63,7 +63,7 @@ public class FeedbackTests
     public async Task Empty_message_is_not_sent(string message)
     {
         var handler = new RecordingHandler();
-        Assert.False(await Sender(handler).SendAsync(message, null, null, default));
+        Assert.False(await Sender(handler).SendAsync(message, null, null, TestContext.Current.CancellationToken));
         Assert.Empty(handler.Requests);
     }
 
@@ -71,7 +71,7 @@ public class FeedbackTests
     public async Task Long_message_is_cut_before_sending()
     {
         var handler = new RecordingHandler();
-        await Sender(handler).SendAsync(new string('m', FeedbackSender.MaxMessageChars + 10), null, null, default);
+        await Sender(handler).SendAsync(new string('m', FeedbackSender.MaxMessageChars + 10), null, null, TestContext.Current.CancellationToken);
         using var json = JsonDocument.Parse(handler.Requests[0].Body);
         Assert.Equal(FeedbackSender.MaxMessageChars, json.RootElement.GetProperty("message").GetString()!.Length);
     }
@@ -79,13 +79,13 @@ public class FeedbackTests
     [Fact]
     public async Task Rejection_and_network_failure_return_false_without_throwing()
     {
-        Assert.False(await Sender(new RecordingHandler(HttpStatusCode.ServiceUnavailable)).SendAsync("hi", null, null, default));
-        Assert.False(await Sender(new RecordingHandler(throws: true)).SendAsync("hi", null, null, default));
+        Assert.False(await Sender(new RecordingHandler(HttpStatusCode.ServiceUnavailable)).SendAsync("hi", null, null, TestContext.Current.CancellationToken));
+        Assert.False(await Sender(new RecordingHandler(throws: true)).SendAsync("hi", null, null, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Public_api_returns_false_before_initialization() =>
-        Assert.False(await FlareMaui.SendFeedbackAsync("hi"));
+        Assert.False(await FlareMaui.SendFeedbackAsync("hi", cancellationToken: TestContext.Current.CancellationToken));
 
     [Fact]
     public void Enrichment_exposes_the_current_user_id()
