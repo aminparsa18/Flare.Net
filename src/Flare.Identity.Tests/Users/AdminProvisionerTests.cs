@@ -26,7 +26,7 @@ public class AdminProvisionerTests : IAsyncLifetime
     {
         await Apply(new() { Username = "root", Password = "correct horse" });
 
-        var user = await _store.VerifyPasswordAsync("root", "correct horse");
+        var user = await _store.VerifyPasswordAsync("root", "correct horse", TestContext.Current.CancellationToken);
         Assert.NotNull(user);
         Assert.Equal(UserRole.Admin, user.Role);
     }
@@ -36,9 +36,10 @@ public class AdminProvisionerTests : IAsyncLifetime
     {
         await AdminProvisioner.ApplyAsync(
             _store, new() { Username = "root", Password = "alllowercase" }, NullLogger.Instance,
-            policy: new PasswordPolicy { RequireDigit = true });
+            policy: new PasswordPolicy { RequireDigit = true },
+            cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.False(await _store.AnyAsync());
+        Assert.False(await _store.AnyAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -47,9 +48,9 @@ public class AdminProvisionerTests : IAsyncLifetime
         var path = Path.GetTempFileName();
         try
         {
-            await File.WriteAllTextAsync(path, "from-a-file\n");
+            await File.WriteAllTextAsync(path, "from-a-file\n", TestContext.Current.CancellationToken);
             await Apply(new() { Username = "root", PasswordFile = path, Password = "ignored-value" });
-            Assert.NotNull(await _store.VerifyPasswordAsync("root", "from-a-file"));
+            Assert.NotNull(await _store.VerifyPasswordAsync("root", "from-a-file", TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -60,32 +61,32 @@ public class AdminProvisionerTests : IAsyncLifetime
     [Fact]
     public async Task DoesNothing_WhenAnyUserExists()
     {
-        await _store.CreateAsync("alice", "alice-password", UserRole.Admin);
+        await _store.CreateAsync("alice", "alice-password", UserRole.Admin, TestContext.Current.CancellationToken);
         await Apply(new() { Username = "root", Password = "correct horse" });
-        Assert.Null(await _store.FindByUsernameAsync("root"));
+        Assert.Null(await _store.FindByUsernameAsync("root", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task DoesNotChangePassword_WithoutReconcile()
     {
-        await _store.CreateAsync("root", "original-pass", UserRole.Admin);
+        await _store.CreateAsync("root", "original-pass", UserRole.Admin, TestContext.Current.CancellationToken);
         await Apply(new() { Username = "root", Password = "different-pass" });
-        Assert.NotNull(await _store.VerifyPasswordAsync("root", "original-pass"));
+        Assert.NotNull(await _store.VerifyPasswordAsync("root", "original-pass", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Reconcile_ResetsPassword_Role_AndEnabled()
     {
-        var u = await _store.CreateAsync("root", "original-pass", UserRole.Admin);
-        await _store.SetRoleAsync(u.Id, UserRole.Viewer);
-        await _store.SetDisabledAsync(u.Id, true);
+        var u = await _store.CreateAsync("root", "original-pass", UserRole.Admin, TestContext.Current.CancellationToken);
+        await _store.SetRoleAsync(u.Id, UserRole.Viewer, TestContext.Current.CancellationToken);
+        await _store.SetDisabledAsync(u.Id, true, TestContext.Current.CancellationToken);
 
         await Apply(new() { Username = "root", Password = "different-pass", Reconcile = true });
 
-        var after = await _store.VerifyPasswordAsync("root", "different-pass");
+        var after = await _store.VerifyPasswordAsync("root", "different-pass", TestContext.Current.CancellationToken);
         Assert.NotNull(after);
         Assert.Equal(UserRole.Admin, after.Role);
-        Assert.Null(await _store.VerifyPasswordAsync("root", "original-pass"));
+        Assert.Null(await _store.VerifyPasswordAsync("root", "original-pass", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -93,6 +94,6 @@ public class AdminProvisionerTests : IAsyncLifetime
     {
         await Apply(new() { Username = "root", Password = "short" });
         await Apply(new() { Username = "root" });
-        Assert.False(await _store.AnyAsync());
+        Assert.False(await _store.AnyAsync(TestContext.Current.CancellationToken));
     }
 }

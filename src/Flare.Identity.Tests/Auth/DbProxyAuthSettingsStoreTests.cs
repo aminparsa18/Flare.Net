@@ -21,7 +21,7 @@ public class DbProxyAuthSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task GetAsync_ReturnsNotConfigured_WhenNoRowExistsYet()
     {
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(ProxyAuthSettings.NotConfigured, settings);
     }
@@ -38,9 +38,10 @@ public class DbProxyAuthSettingsStoreTests : IAsyncLifetime
             memberGroup: "members",
             viewerGroup: "viewers",
             defaultRole: UserRole.Member,
-            logoutRedirectUrl: "https://proxy.example.com/oauth2/sign_out");
+            logoutRedirectUrl: "https://proxy.example.com/oauth2/sign_out",
+            cancellationToken: TestContext.Current.CancellationToken);
 
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.True(settings.Enabled);
         Assert.Equal("Remote-User", settings.HeaderName);
@@ -57,9 +58,9 @@ public class DbProxyAuthSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task SaveAsync_CalledTwice_OverwritesEveryField()
     {
-        await _store.SaveAsync(true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, null);
+        await _store.SaveAsync(true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, null, TestContext.Current.CancellationToken);
 
-        var updated = await _store.SaveAsync(true, "X-Auth-User", "10.0.0.0/8", "X-Groups", "a", "m", "v", UserRole.Admin, "https://proxy.example.com/logout");
+        var updated = await _store.SaveAsync(true, "X-Auth-User", "10.0.0.0/8", "X-Groups", "a", "m", "v", UserRole.Admin, "https://proxy.example.com/logout", TestContext.Current.CancellationToken);
 
         Assert.Equal("X-Auth-User", updated.HeaderName);
         Assert.Equal("10.0.0.0/8", updated.TrustedProxyCidrs);
@@ -71,9 +72,9 @@ public class DbProxyAuthSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task SaveAsync_CanDisableWithoutClearingOtherFields()
     {
-        await _store.SaveAsync(true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, null);
+        await _store.SaveAsync(true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, null, TestContext.Current.CancellationToken);
 
-        var disabled = await _store.SaveAsync(false, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, null);
+        var disabled = await _store.SaveAsync(false, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, null, TestContext.Current.CancellationToken);
 
         Assert.False(disabled.Enabled);
         Assert.Equal("172.18.0.0/16", disabled.TrustedProxyCidrs);
@@ -82,7 +83,7 @@ public class DbProxyAuthSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task SaveAsync_PersistsNullOptionalGroupFields()
     {
-        var saved = await _store.SaveAsync(true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, null);
+        var saved = await _store.SaveAsync(true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, null, TestContext.Current.CancellationToken);
 
         Assert.Null(saved.GroupsHeaderName);
         Assert.Null(saved.AdminGroup);

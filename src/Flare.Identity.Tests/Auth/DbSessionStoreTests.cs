@@ -31,8 +31,8 @@ public class DbSessionStoreTests : IAsyncLifetime
     {
         var userId = await CreateUserAsync("alice");
 
-        var created = await _store.CreateAsync(userId, TimeSpan.FromDays(14));
-        var found = await _store.FindAsync(created.Token!);
+        var created = await _store.CreateAsync(userId, TimeSpan.FromDays(14), TestContext.Current.CancellationToken);
+        var found = await _store.FindAsync(created.Token!, TestContext.Current.CancellationToken);
 
         Assert.NotNull(found);
         Assert.Equal(userId, found.UserId);
@@ -44,27 +44,27 @@ public class DbSessionStoreTests : IAsyncLifetime
     {
         var userId = await CreateUserAsync("carol");
 
-        var created = await _store.CreateAsync(userId, TimeSpan.FromDays(1));
+        var created = await _store.CreateAsync(userId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
 
         Assert.NotNull(created.Token);
         Assert.Equal(SessionTokenHasher.Hash(created.Token), created.Id);
         Assert.NotEqual(created.Token, created.Id);
 
         // The digest is not itself a usable credential, and a found/listed session never carries the token.
-        Assert.Null(await _store.FindAsync(created.Id));
-        Assert.Null((await _store.FindAsync(created.Token))!.Token);
-        Assert.Null(Assert.Single(await _store.ListForUserAsync(userId)).Token);
+        Assert.Null(await _store.FindAsync(created.Id, TestContext.Current.CancellationToken));
+        Assert.Null((await _store.FindAsync(created.Token, TestContext.Current.CancellationToken))!.Token);
+        Assert.Null(Assert.Single(await _store.ListForUserAsync(userId, TestContext.Current.CancellationToken)).Token);
     }
 
     [Fact]
     public async Task DeleteByIdAsync_RevokesTheSession()
     {
         var userId = await CreateUserAsync("dave");
-        var created = await _store.CreateAsync(userId, TimeSpan.FromDays(1));
+        var created = await _store.CreateAsync(userId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
 
-        await _store.DeleteByIdAsync(created.Id);
+        await _store.DeleteByIdAsync(created.Id, TestContext.Current.CancellationToken);
 
-        Assert.Null(await _store.FindAsync(created.Token!));
+        Assert.Null(await _store.FindAsync(created.Token!, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -72,8 +72,8 @@ public class DbSessionStoreTests : IAsyncLifetime
     {
         var userId = await CreateUserAsync("bob");
 
-        var first = await _store.CreateAsync(userId, TimeSpan.FromDays(1));
-        var second = await _store.CreateAsync(userId, TimeSpan.FromDays(1));
+        var first = await _store.CreateAsync(userId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
+        var second = await _store.CreateAsync(userId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
 
         Assert.NotEqual(first.Id, second.Id);
     }
@@ -81,7 +81,7 @@ public class DbSessionStoreTests : IAsyncLifetime
     [Fact]
     public async Task FindAsync_ReturnsNull_ForUnknownToken()
     {
-        Assert.Null(await _store.FindAsync("not-a-real-token"));
+        Assert.Null(await _store.FindAsync("not-a-real-token", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -89,9 +89,9 @@ public class DbSessionStoreTests : IAsyncLifetime
     {
         var userId = await CreateUserAsync("carol");
 
-        var session = await _store.CreateAsync(userId, TimeSpan.FromMilliseconds(-1));
+        var session = await _store.CreateAsync(userId, TimeSpan.FromMilliseconds(-1), TestContext.Current.CancellationToken);
 
-        Assert.Null(await _store.FindAsync(session.Token!));
+        Assert.Null(await _store.FindAsync(session.Token!, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -99,10 +99,10 @@ public class DbSessionStoreTests : IAsyncLifetime
     {
         var userId = await CreateUserAsync("dave");
 
-        var session = await _store.CreateAsync(userId, TimeSpan.FromDays(1));
-        await _store.DeleteAsync(session.Token!);
+        var session = await _store.CreateAsync(userId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
+        await _store.DeleteAsync(session.Token!, TestContext.Current.CancellationToken);
 
-        Assert.Null(await _store.FindAsync(session.Token!));
+        Assert.Null(await _store.FindAsync(session.Token!, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -110,15 +110,15 @@ public class DbSessionStoreTests : IAsyncLifetime
     {
         var userId = await CreateUserAsync("erin");
         var otherUserId = await CreateUserAsync("frank");
-        var sessionA = await _store.CreateAsync(userId, TimeSpan.FromDays(1));
-        var sessionB = await _store.CreateAsync(userId, TimeSpan.FromDays(1));
-        var otherSession = await _store.CreateAsync(otherUserId, TimeSpan.FromDays(1));
+        var sessionA = await _store.CreateAsync(userId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
+        var sessionB = await _store.CreateAsync(userId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
+        var otherSession = await _store.CreateAsync(otherUserId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
 
-        await _store.DeleteAllForUserAsync(userId);
+        await _store.DeleteAllForUserAsync(userId, TestContext.Current.CancellationToken);
 
-        Assert.Null(await _store.FindAsync(sessionA.Token!));
-        Assert.Null(await _store.FindAsync(sessionB.Token!));
-        Assert.NotNull(await _store.FindAsync(otherSession.Token!));
+        Assert.Null(await _store.FindAsync(sessionA.Token!, TestContext.Current.CancellationToken));
+        Assert.Null(await _store.FindAsync(sessionB.Token!, TestContext.Current.CancellationToken));
+        Assert.NotNull(await _store.FindAsync(otherSession.Token!, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -126,12 +126,12 @@ public class DbSessionStoreTests : IAsyncLifetime
     {
         var userId = await CreateUserAsync("grace");
 
-        var session = await _store.CreateAsync(userId, TimeSpan.FromDays(1));
+        var session = await _store.CreateAsync(userId, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
 
-        await Task.Delay(10); // ensure the clock has moved at all
-        await _store.TouchLastSeenAsync(session.Token!);
+        await Task.Delay(10, TestContext.Current.CancellationToken); // ensure the clock has moved at all
+        await _store.TouchLastSeenAsync(session.Token!, TestContext.Current.CancellationToken);
 
-        var found = await _store.FindAsync(session.Token!);
+        var found = await _store.FindAsync(session.Token!, TestContext.Current.CancellationToken);
         Assert.True(found!.LastSeenAt > session.LastSeenAt);
     }
 }

@@ -26,12 +26,12 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
     [Fact]
     public async Task ApplyAsync_RunningTwice_DoesNotThrow_AndDoesNotDuplicateMigrationRecords()
     {
-        await IdentityMigrationRunner.ApplyAsync(_database.ConnectionFactory, NullLogger.Instance);
+        await IdentityMigrationRunner.ApplyAsync(_database.ConnectionFactory, NullLogger.Instance, TestContext.Current.CancellationToken);
 
-        await using var connection = await _database.ConnectionFactory.OpenAsync();
+        await using var connection = await _database.ConnectionFactory.OpenAsync(TestContext.Current.CancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM schema_migrations WHERE Name = '0001_identity.sql'";
-        var count = (long)(await command.ExecuteScalarAsync())!;
+        var count = (long)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
 
         Assert.Equal(1, count);
     }
@@ -39,13 +39,13 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
     [Fact]
     public async Task ApplyAsync_CreatesTheExpectedTables()
     {
-        await using var connection = await _database.ConnectionFactory.OpenAsync();
+        await using var connection = await _database.ConnectionFactory.OpenAsync(TestContext.Current.CancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name";
-        await using var reader = await command.ExecuteReaderAsync();
+        await using var reader = await command.ExecuteReaderAsync(TestContext.Current.CancellationToken);
 
         var tables = new List<string>();
-        while (await reader.ReadAsync())
+        while (await reader.ReadAsync(TestContext.Current.CancellationToken))
         {
             tables.Add(reader.GetString(0));
         }
@@ -70,7 +70,7 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
         Guid localUserId = Guid.NewGuid(), entraUserId = Guid.NewGuid();
         const string sessionId = "session-token-for-the-local-user";
 
-        await using (var connection = await _database.ConnectionFactory.OpenAsync())
+        await using (var connection = await _database.ConnectionFactory.OpenAsync(TestContext.Current.CancellationToken))
         {
             await using (var insertUsers = connection.CreateCommand())
             {
@@ -81,7 +81,7 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
                      INSERT INTO Users (Id, Username, PasswordHash, Role, CreatedAt, UpdatedAt, IsDisabled, AuthProvider, ExternalId)
                      VALUES ('{entraUserId}', 'entra-viewer', 'hash-2', 'Viewer', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 0, 'Entra', 'entra-oid-123');
                      """;
-                await insertUsers.ExecuteNonQueryAsync();
+                await insertUsers.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
 
             await using (var insertSession = connection.CreateCommand())
@@ -91,7 +91,7 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
                      INSERT INTO Sessions (Id, UserId, CreatedAt, ExpiresAt, LastSeenAt)
                      VALUES ('{sessionId}', '{localUserId}', '2026-01-01T00:00:00Z', '2027-01-01T00:00:00Z', '2026-01-01T00:00:00Z')
                      """;
-                await insertSession.ExecuteNonQueryAsync();
+                await insertSession.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
 
             // Re-run the rebuild against this real pre-existing data, even though its
@@ -100,37 +100,37 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
             await using (var unmarkMigration = connection.CreateCommand())
             {
                 unmarkMigration.CommandText = "DELETE FROM schema_migrations WHERE Name = '0005_ldap_id.sql'";
-                await unmarkMigration.ExecuteNonQueryAsync();
+                await unmarkMigration.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
         }
 
-        await IdentityMigrationRunner.ApplyAsync(_database.ConnectionFactory, NullLogger.Instance);
+        await IdentityMigrationRunner.ApplyAsync(_database.ConnectionFactory, NullLogger.Instance, TestContext.Current.CancellationToken);
 
-        await using var verifyConnection = await _database.ConnectionFactory.OpenAsync();
+        await using var verifyConnection = await _database.ConnectionFactory.OpenAsync(TestContext.Current.CancellationToken);
 
         await using (var selectUsers = verifyConnection.CreateCommand())
         {
             selectUsers.CommandText = "SELECT Username, AuthProvider, ExternalId FROM Users ORDER BY Username";
-            await using var reader = await selectUsers.ExecuteReaderAsync();
+            await using var reader = await selectUsers.ExecuteReaderAsync(TestContext.Current.CancellationToken);
 
-            Assert.True(await reader.ReadAsync());
+            Assert.True(await reader.ReadAsync(TestContext.Current.CancellationToken));
             Assert.Equal("entra-viewer", reader.GetString(0));
             Assert.Equal("Entra", reader.GetString(1));
             Assert.Equal("entra-oid-123", reader.GetString(2));
 
-            Assert.True(await reader.ReadAsync());
+            Assert.True(await reader.ReadAsync(TestContext.Current.CancellationToken));
             Assert.Equal("local-admin", reader.GetString(0));
             Assert.Equal("Local", reader.GetString(1));
             Assert.True(reader.IsDBNull(2));
 
-            Assert.False(await reader.ReadAsync());
+            Assert.False(await reader.ReadAsync(TestContext.Current.CancellationToken));
         }
 
         await using (var selectSession = verifyConnection.CreateCommand())
         {
             selectSession.CommandText = "SELECT UserId FROM Sessions WHERE Id = @id";
             selectSession.AddParameter("@id", sessionId);
-            var userId = (string?)await selectSession.ExecuteScalarAsync();
+            var userId = (string?)await selectSession.ExecuteScalarAsync(TestContext.Current.CancellationToken);
             Assert.Equal(localUserId.ToString(), userId);
         }
 
@@ -144,7 +144,7 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
                 VALUES (@id, 'ad-user', 'hash-3', 'Member', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 0, 'ActiveDirectory', 'ad-object-guid')
                 """;
             insertAdUser.AddParameter("@id", Guid.NewGuid().ToString());
-            var exception = await Record.ExceptionAsync(() => insertAdUser.ExecuteNonQueryAsync());
+            var exception = await Record.ExceptionAsync(() => insertAdUser.ExecuteNonQueryAsync(TestContext.Current.CancellationToken));
             Assert.Null(exception);
         }
     }
@@ -182,11 +182,11 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
             // ApplyAsync got there first and is mid-batch" deterministically, sidestepping
             // the in-process-repro limitation the comment above documents for the
             // bookkeeping-only race.
-            var holder = await factory.OpenAsync();
+            var holder = await factory.OpenAsync(TestContext.Current.CancellationToken);
             await using (var begin = holder.CreateCommand())
             {
                 begin.CommandText = "BEGIN IMMEDIATE;";
-                await begin.ExecuteNonQueryAsync();
+                await begin.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
 
             // Release the lock from a short background delay instead of racing a
@@ -205,10 +205,10 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
                 await using var release = holder.CreateCommand();
                 release.CommandText = "COMMIT;";
                 await release.ExecuteNonQueryAsync();
-            });
+            }, TestContext.Current.CancellationToken);
 
             var startTicks = Environment.TickCount64;
-            await IdentityMigrationRunner.ApplyAsync(factory, NullLogger.Instance);
+            await IdentityMigrationRunner.ApplyAsync(factory, NullLogger.Instance, TestContext.Current.CancellationToken);
             var elapsedMilliseconds = Environment.TickCount64 - startTicks;
 
             await releaseTask;
@@ -221,10 +221,10 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
                 elapsedMilliseconds >= releaseDelayMilliseconds - 50,
                 $"Expected ApplyAsync to block until the lock was released (~{releaseDelayMilliseconds}ms), but it completed in {elapsedMilliseconds}ms.");
 
-            await using var verify = await factory.OpenAsync();
+            await using var verify = await factory.OpenAsync(TestContext.Current.CancellationToken);
             await using var count = verify.CreateCommand();
             count.CommandText = "SELECT COUNT(*) FROM schema_migrations";
-            Assert.Equal(SqliteMigrationCount, (long)(await count.ExecuteScalarAsync())!);
+            Assert.Equal(SqliteMigrationCount, (long)(await count.ExecuteScalarAsync(TestContext.Current.CancellationToken))!);
         }
         finally
         {
@@ -248,13 +248,13 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
             var factoryB = new IdentityDbConnectionFactory(Options.Create(new IdentityOptions { DbPath = dbPath }));
 
             await Task.WhenAll(
-                IdentityMigrationRunner.ApplyAsync(factoryA, NullLogger.Instance),
-                IdentityMigrationRunner.ApplyAsync(factoryB, NullLogger.Instance));
+                IdentityMigrationRunner.ApplyAsync(factoryA, NullLogger.Instance, TestContext.Current.CancellationToken),
+                IdentityMigrationRunner.ApplyAsync(factoryB, NullLogger.Instance, TestContext.Current.CancellationToken));
 
-            await using var verify = await factoryA.OpenAsync();
+            await using var verify = await factoryA.OpenAsync(TestContext.Current.CancellationToken);
             await using var count = verify.CreateCommand();
             count.CommandText = "SELECT COUNT(*) FROM schema_migrations";
-            Assert.Equal(SqliteMigrationCount, (long)(await count.ExecuteScalarAsync())!);
+            Assert.Equal(SqliteMigrationCount, (long)(await count.ExecuteScalarAsync(TestContext.Current.CancellationToken))!);
         }
         finally
         {

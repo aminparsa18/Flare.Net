@@ -20,7 +20,7 @@ public class DbUserPreferencesStoreTests : IAsyncLifetime
     [Fact]
     public async Task GetAsync_ReturnsNullWhenNothingStored()
     {
-        Assert.Null(await _store.GetAsync(Guid.NewGuid(), "appearance"));
+        Assert.Null(await _store.GetAsync(Guid.NewGuid(), "appearance", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -28,12 +28,12 @@ public class DbUserPreferencesStoreTests : IAsyncLifetime
     {
         var alice = Guid.NewGuid();
         var bob = Guid.NewGuid();
-        await _store.SetAsync(alice, "appearance", """{"density":"compact"}""");
-        await _store.SetAsync(alice, "appearance", """{"density":"comfortable"}""");
-        await _store.SetAsync(bob, "appearance", """{"density":"compact"}""");
+        await _store.SetAsync(alice, "appearance", """{"density":"compact"}""", TestContext.Current.CancellationToken);
+        await _store.SetAsync(alice, "appearance", """{"density":"comfortable"}""", TestContext.Current.CancellationToken);
+        await _store.SetAsync(bob, "appearance", """{"density":"compact"}""", TestContext.Current.CancellationToken);
 
-        Assert.Equal("""{"density":"comfortable"}""", await _store.GetAsync(alice, "appearance"));
-        Assert.Equal("""{"density":"compact"}""", await _store.GetAsync(bob, "appearance"));
+        Assert.Equal("""{"density":"comfortable"}""", await _store.GetAsync(alice, "appearance", TestContext.Current.CancellationToken));
+        Assert.Equal("""{"density":"compact"}""", await _store.GetAsync(bob, "appearance", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -41,12 +41,12 @@ public class DbUserPreferencesStoreTests : IAsyncLifetime
     {
         var alice = Guid.NewGuid();
         var bob = Guid.NewGuid();
-        await _store.SetAsync(alice, "appearance", "{}");
-        await _store.SetAsync(bob, "appearance", "{}");
+        await _store.SetAsync(alice, "appearance", "{}", TestContext.Current.CancellationToken);
+        await _store.SetAsync(bob, "appearance", "{}", TestContext.Current.CancellationToken);
 
-        await _store.DeleteAsync(alice, "appearance");
+        await _store.DeleteAsync(alice, "appearance", TestContext.Current.CancellationToken);
 
-        Assert.Null(await _store.GetAsync(alice, "appearance"));
-        Assert.NotNull(await _store.GetAsync(bob, "appearance"));
+        Assert.Null(await _store.GetAsync(alice, "appearance", TestContext.Current.CancellationToken));
+        Assert.NotNull(await _store.GetAsync(bob, "appearance", TestContext.Current.CancellationToken));
     }
 }

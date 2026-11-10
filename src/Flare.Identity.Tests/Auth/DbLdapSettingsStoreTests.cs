@@ -21,7 +21,7 @@ public class DbLdapSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task GetAsync_ReturnsNotConfigured_WhenNoRowExistsYet()
     {
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(LdapSettings.NotConfigured, settings);
     }
@@ -48,9 +48,10 @@ public class DbLdapSettingsStoreTests : IAsyncLifetime
             adminGroupDn: "CN=Flare Admins,DC=corp,DC=example,DC=com",
             memberGroupDn: "CN=Flare Members,DC=corp,DC=example,DC=com",
             viewerGroupDn: "CN=Flare Viewers,DC=corp,DC=example,DC=com",
-            defaultRole: UserRole.Viewer);
+            defaultRole: UserRole.Viewer,
+            cancellationToken: TestContext.Current.CancellationToken);
 
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.True(settings.Enabled);
         Assert.Equal("dc.corp.example.com", settings.Host);
@@ -90,7 +91,7 @@ public class DbLdapSettingsStoreTests : IAsyncLifetime
         var saved = await SaveWithPassword("secret-1", pinnedCertificatePem: SamplePinnedCertificatePem);
 
         Assert.Equal(SamplePinnedCertificatePem, saved.PinnedCertificatePem);
-        Assert.Equal(SamplePinnedCertificatePem, (await _store.GetAsync()).PinnedCertificatePem);
+        Assert.Equal(SamplePinnedCertificatePem, (await _store.GetAsync(TestContext.Current.CancellationToken)).PinnedCertificatePem);
     }
 
     [Fact]

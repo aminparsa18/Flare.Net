@@ -21,7 +21,7 @@ public class DbOidcSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task GetAsync_ReturnsNotConfigured_WhenNoRowExistsYet()
     {
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(OidcSettings.NotConfigured, settings);
     }
@@ -37,9 +37,10 @@ public class DbOidcSettingsStoreTests : IAsyncLifetime
             clientSecret: "secret-1",
             scopes: "openid profile email",
             roleClaimName: "roles",
-            defaultRole: UserRole.Member);
+            defaultRole: UserRole.Member,
+            cancellationToken: TestContext.Current.CancellationToken);
 
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.True(settings.Enabled);
         Assert.Equal("Okta", settings.DisplayName);
@@ -55,26 +56,26 @@ public class DbOidcSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task SaveAsync_WithNullClientSecret_PreservesTheExistingSecret()
     {
-        await _store.SaveAsync(true, "Okta", "https://example.okta.com", "client-1", "original-secret", "openid profile email", "roles", UserRole.Viewer);
+        await _store.SaveAsync(true, "Okta", "https://example.okta.com", "client-1", "original-secret", "openid profile email", "roles", UserRole.Viewer, TestContext.Current.CancellationToken);
 
         // Admin edits the Authority only, leaving the client secret field blank in the UI -
         // the dashboard sends clientSecret: null for "unchanged".
-        var updated = await _store.SaveAsync(true, "Okta", "https://example2.okta.com", "client-1", null, "openid profile email", "roles", UserRole.Viewer);
+        var updated = await _store.SaveAsync(true, "Okta", "https://example2.okta.com", "client-1", null, "openid profile email", "roles", UserRole.Viewer, TestContext.Current.CancellationToken);
 
         Assert.Equal("https://example2.okta.com", updated.Authority);
         Assert.Equal("original-secret", updated.ClientSecret);
 
-        var fetched = await _store.GetAsync();
+        var fetched = await _store.GetAsync(TestContext.Current.CancellationToken);
         Assert.Equal("original-secret", fetched.ClientSecret);
     }
 
     [Fact]
     public async Task SaveAsync_CalledTwiceWithARealSecret_OverwritesIt()
     {
-        await _store.SaveAsync(true, "Okta", "https://example.okta.com", "client-1", "old-secret", "openid profile email", "roles", UserRole.Viewer);
-        await _store.SaveAsync(true, "Okta", "https://example.okta.com", "client-1", "new-secret", "openid profile email", "roles", UserRole.Viewer);
+        await _store.SaveAsync(true, "Okta", "https://example.okta.com", "client-1", "old-secret", "openid profile email", "roles", UserRole.Viewer, TestContext.Current.CancellationToken);
+        await _store.SaveAsync(true, "Okta", "https://example.okta.com", "client-1", "new-secret", "openid profile email", "roles", UserRole.Viewer, TestContext.Current.CancellationToken);
 
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("new-secret", settings.ClientSecret);
     }
@@ -82,9 +83,9 @@ public class DbOidcSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task SaveAsync_CanDisableWithoutTouchingStoredCredentials()
     {
-        await _store.SaveAsync(true, "Okta", "https://example.okta.com", "client-1", "secret-1", "openid profile email", "roles", UserRole.Viewer);
+        await _store.SaveAsync(true, "Okta", "https://example.okta.com", "client-1", "secret-1", "openid profile email", "roles", UserRole.Viewer, TestContext.Current.CancellationToken);
 
-        var disabled = await _store.SaveAsync(false, "Okta", "https://example.okta.com", "client-1", null, "openid profile email", "roles", UserRole.Viewer);
+        var disabled = await _store.SaveAsync(false, "Okta", "https://example.okta.com", "client-1", null, "openid profile email", "roles", UserRole.Viewer, TestContext.Current.CancellationToken);
 
         Assert.False(disabled.Enabled);
         Assert.Equal("secret-1", disabled.ClientSecret);

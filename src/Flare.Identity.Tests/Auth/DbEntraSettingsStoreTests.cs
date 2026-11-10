@@ -20,7 +20,7 @@ public class DbEntraSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task GetAsync_ReturnsNotConfigured_WhenNoRowExistsYet()
     {
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(EntraSettings.NotConfigured, settings);
     }
@@ -28,9 +28,9 @@ public class DbEntraSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task SaveAsync_ThenGetAsync_RoundTrips()
     {
-        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "secret-1");
+        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "secret-1", cancellationToken: TestContext.Current.CancellationToken);
 
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.True(settings.Enabled);
         Assert.Equal("tenant-1", settings.TenantId);
@@ -42,26 +42,26 @@ public class DbEntraSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task SaveAsync_WithNullClientSecret_PreservesTheExistingSecret()
     {
-        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "original-secret");
+        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "original-secret", cancellationToken: TestContext.Current.CancellationToken);
 
         // Admin edits TenantId only, leaving the client secret field blank in the UI -
         // the dashboard sends clientSecret: null for "unchanged".
-        var updated = await _store.SaveAsync(enabled: true, tenantId: "tenant-2", clientId: "client-1", clientSecret: null);
+        var updated = await _store.SaveAsync(enabled: true, tenantId: "tenant-2", clientId: "client-1", clientSecret: null, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("tenant-2", updated.TenantId);
         Assert.Equal("original-secret", updated.ClientSecret);
 
-        var fetched = await _store.GetAsync();
+        var fetched = await _store.GetAsync(TestContext.Current.CancellationToken);
         Assert.Equal("original-secret", fetched.ClientSecret);
     }
 
     [Fact]
     public async Task SaveAsync_CalledTwiceWithARealSecret_OverwritesIt()
     {
-        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "old-secret");
-        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "new-secret");
+        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "old-secret", cancellationToken: TestContext.Current.CancellationToken);
+        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "new-secret", cancellationToken: TestContext.Current.CancellationToken);
 
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("new-secret", settings.ClientSecret);
     }
@@ -69,9 +69,9 @@ public class DbEntraSettingsStoreTests : IAsyncLifetime
     [Fact]
     public async Task SaveAsync_CanDisableWithoutTouchingStoredCredentials()
     {
-        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "secret-1");
+        await _store.SaveAsync(enabled: true, tenantId: "tenant-1", clientId: "client-1", clientSecret: "secret-1", cancellationToken: TestContext.Current.CancellationToken);
 
-        var disabled = await _store.SaveAsync(enabled: false, tenantId: "tenant-1", clientId: "client-1", clientSecret: null);
+        var disabled = await _store.SaveAsync(enabled: false, tenantId: "tenant-1", clientId: "client-1", clientSecret: null, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(disabled.Enabled);
         Assert.Equal("secret-1", disabled.ClientSecret);

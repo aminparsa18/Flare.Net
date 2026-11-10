@@ -31,14 +31,14 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     [Fact]
     public async Task CreateAsync_ReturnsARawTokenThatHashesToTheStoredHashAndValidates()
     {
-        var (token, rawToken) = await _store.CreateAsync(_userId, "ci-pipeline", expiresAt: null);
+        var (token, rawToken) = await _store.CreateAsync(_userId, "ci-pipeline", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.StartsWith(PersonalAccessTokenHasher.Prefix, rawToken, StringComparison.Ordinal);
         Assert.Equal("ci-pipeline", token.Name);
         Assert.Equal(_userId, token.UserId);
         Assert.True(token.IsActive(_timeProvider.GetUtcNow()));
 
-        var validated = await _store.ValidateAsync(rawToken);
+        var validated = await _store.ValidateAsync(rawToken, TestContext.Current.CancellationToken);
         Assert.NotNull(validated);
         Assert.Equal(token.Id, validated!.Id);
     }
@@ -47,12 +47,12 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     public async Task ListWithExpiryAsync_ReturnsNonRevokedTokensWithAnExpiry()
     {
         var soon = _timeProvider.GetUtcNow().AddDays(2);
-        await _store.CreateAsync(_userId, "never", expiresAt: null);
-        var (expiring, _) = await _store.CreateAsync(_userId, "expiring", soon);
-        var (revoked, _) = await _store.CreateAsync(_userId, "revoked", soon);
-        await _store.RevokeAsync(revoked.Id);
+        await _store.CreateAsync(_userId, "never", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
+        var (expiring, _) = await _store.CreateAsync(_userId, "expiring", soon, TestContext.Current.CancellationToken);
+        var (revoked, _) = await _store.CreateAsync(_userId, "revoked", soon, TestContext.Current.CancellationToken);
+        await _store.RevokeAsync(revoked.Id, TestContext.Current.CancellationToken);
 
-        var listed = await _store.ListWithExpiryAsync();
+        var listed = await _store.ListWithExpiryAsync(TestContext.Current.CancellationToken);
 
         var only = Assert.Single(listed);
         Assert.Equal(expiring.Id, only.Id);
@@ -62,8 +62,8 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     [Fact]
     public async Task CreateAsync_GeneratesADifferentRawTokenEachTime()
     {
-        var (_, rawA) = await _store.CreateAsync(_userId, "token-a", expiresAt: null);
-        var (_, rawB) = await _store.CreateAsync(_userId, "token-b", expiresAt: null);
+        var (_, rawA) = await _store.CreateAsync(_userId, "token-a", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
+        var (_, rawB) = await _store.CreateAsync(_userId, "token-b", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.NotEqual(rawA, rawB);
     }
@@ -71,7 +71,7 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     [Fact]
     public async Task ValidateAsync_ReturnsNullForAnUnknownToken()
     {
-        var validated = await _store.ValidateAsync(PersonalAccessTokenHasher.GenerateRawToken());
+        var validated = await _store.ValidateAsync(PersonalAccessTokenHasher.GenerateRawToken(), TestContext.Current.CancellationToken);
 
         Assert.Null(validated);
     }
@@ -79,41 +79,41 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     [Fact]
     public async Task ValidateAsync_ReturnsNullForARevokedToken()
     {
-        var (token, rawToken) = await _store.CreateAsync(_userId, "to-be-revoked", expiresAt: null);
+        var (token, rawToken) = await _store.CreateAsync(_userId, "to-be-revoked", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
 
-        await _store.RevokeAsync(token.Id);
+        await _store.RevokeAsync(token.Id, TestContext.Current.CancellationToken);
 
-        Assert.Null(await _store.ValidateAsync(rawToken));
+        Assert.Null(await _store.ValidateAsync(rawToken, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task ValidateAsync_ReturnsNullForAnExpiredToken()
     {
-        var (_, rawToken) = await _store.CreateAsync(_userId, "short-lived", _timeProvider.GetUtcNow().AddDays(1));
+        var (_, rawToken) = await _store.CreateAsync(_userId, "short-lived", _timeProvider.GetUtcNow().AddDays(1), TestContext.Current.CancellationToken);
 
         _timeProvider.Advance(TimeSpan.FromDays(2));
 
-        Assert.Null(await _store.ValidateAsync(rawToken));
+        Assert.Null(await _store.ValidateAsync(rawToken, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task ValidateAsync_ReturnsATokenThatHasNotYetExpired()
     {
-        var (_, rawToken) = await _store.CreateAsync(_userId, "still-valid", _timeProvider.GetUtcNow().AddDays(1));
+        var (_, rawToken) = await _store.CreateAsync(_userId, "still-valid", _timeProvider.GetUtcNow().AddDays(1), TestContext.Current.CancellationToken);
 
         _timeProvider.Advance(TimeSpan.FromHours(1));
 
-        Assert.NotNull(await _store.ValidateAsync(rawToken));
+        Assert.NotNull(await _store.ValidateAsync(rawToken, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task ListForUserAsync_OnlyReturnsTokensForThatUser()
     {
-        var otherUserId = (await _userStore.CreateAsync("bob", "correct horse battery staple", UserRole.Viewer)).Id;
-        await _store.CreateAsync(_userId, "mine", expiresAt: null);
-        await _store.CreateAsync(otherUserId, "not-mine", expiresAt: null);
+        var otherUserId = (await _userStore.CreateAsync("bob", "correct horse battery staple", UserRole.Viewer, TestContext.Current.CancellationToken)).Id;
+        await _store.CreateAsync(_userId, "mine", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
+        await _store.CreateAsync(otherUserId, "not-mine", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
 
-        var mine = await _store.ListForUserAsync(_userId);
+        var mine = await _store.ListForUserAsync(_userId, TestContext.Current.CancellationToken);
 
         Assert.Single(mine);
         Assert.Equal("mine", mine[0].Name);
@@ -122,11 +122,11 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     [Fact]
     public async Task ListForUserAsync_ReflectsRevocationOnTheRecord()
     {
-        var (token, _) = await _store.CreateAsync(_userId, "to-be-revoked", expiresAt: null);
+        var (token, _) = await _store.CreateAsync(_userId, "to-be-revoked", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
 
-        await _store.RevokeAsync(token.Id);
+        await _store.RevokeAsync(token.Id, TestContext.Current.CancellationToken);
 
-        var found = (await _store.ListForUserAsync(_userId)).Single(t => t.Id == token.Id);
+        var found = (await _store.ListForUserAsync(_userId, TestContext.Current.CancellationToken)).Single(t => t.Id == token.Id);
         Assert.NotNull(found.RevokedAt);
         Assert.False(found.IsActive(_timeProvider.GetUtcNow()));
     }
@@ -134,19 +134,19 @@ public class DbPersonalAccessTokenStoreTests : IAsyncLifetime
     [Fact]
     public async Task FindAsync_ReturnsNullForAnUnknownId()
     {
-        Assert.Null(await _store.FindAsync(Guid.NewGuid()));
+        Assert.Null(await _store.FindAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task TouchLastUsedAsync_UpdatesLastUsedAt()
     {
-        var (token, _) = await _store.CreateAsync(_userId, "touchable", expiresAt: null);
+        var (token, _) = await _store.CreateAsync(_userId, "touchable", expiresAt: null, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Null(token.LastUsedAt);
 
         _timeProvider.Advance(TimeSpan.FromMinutes(5));
-        await _store.TouchLastUsedAsync(token.Id);
+        await _store.TouchLastUsedAsync(token.Id, TestContext.Current.CancellationToken);
 
-        var found = await _store.FindAsync(token.Id);
+        var found = await _store.FindAsync(token.Id, TestContext.Current.CancellationToken);
         Assert.Equal(_timeProvider.GetUtcNow(), found!.LastUsedAt);
     }
 }

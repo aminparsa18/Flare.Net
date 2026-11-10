@@ -24,7 +24,7 @@ public class DbAuthSettingsStoreTests : IAsyncLifetime
         // IdentityTestDatabase.InitializeAsync runs every migration, including
         // 0004_auth_settings.sql, against a brand-new (empty) database - this is the
         // "fresh install" case the opt-in-auth pivot is actually for.
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.False(settings.Enabled);
         Assert.True(settings.LocalEnabled);
@@ -37,7 +37,7 @@ public class DbAuthSettingsStoreTests : IAsyncLifetime
         // (as if it had never run), insert a pre-existing user the way a real upgrade
         // would already have one, then re-run the migrator - exercising the *actual*
         // migration SQL's seed logic, not a reimplementation of it.
-        await using (var connection = await _database.ConnectionFactory.OpenAsync())
+        await using (var connection = await _database.ConnectionFactory.OpenAsync(TestContext.Current.CancellationToken))
         {
             await using (var insertUser = connection.CreateCommand())
             {
@@ -46,7 +46,7 @@ public class DbAuthSettingsStoreTests : IAsyncLifetime
                     INSERT INTO Users (Id, Username, PasswordHash, Role, CreatedAt, UpdatedAt, IsDisabled)
                     VALUES ('11111111-1111-1111-1111-111111111111', 'preexisting-admin', 'hash', 'Admin', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 0)
                     """;
-                await insertUser.ExecuteNonQueryAsync();
+                await insertUser.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
 
             await using (var undoMigration = connection.CreateCommand())
@@ -56,22 +56,22 @@ public class DbAuthSettingsStoreTests : IAsyncLifetime
                     DELETE FROM AuthSettings WHERE Id = 1;
                     DELETE FROM schema_migrations WHERE Name = '0004_auth_settings.sql';
                     """;
-                await undoMigration.ExecuteNonQueryAsync();
+                await undoMigration.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
         }
 
-        await IdentityMigrationRunner.ApplyAsync(_database.ConnectionFactory, NullLogger.Instance);
+        await IdentityMigrationRunner.ApplyAsync(_database.ConnectionFactory, NullLogger.Instance, TestContext.Current.CancellationToken);
 
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
         Assert.True(settings.Enabled);
     }
 
     [Fact]
     public async Task SaveAsync_ThenGetAsync_RoundTrips()
     {
-        await _store.SaveAsync(enabled: true, localEnabled: false);
+        await _store.SaveAsync(enabled: true, localEnabled: false, cancellationToken: TestContext.Current.CancellationToken);
 
-        var settings = await _store.GetAsync();
+        var settings = await _store.GetAsync(TestContext.Current.CancellationToken);
 
         Assert.True(settings.Enabled);
         Assert.False(settings.LocalEnabled);
