@@ -24,6 +24,8 @@ Otlp__AllowedOrigins__1=http://localhost:5173
 
 重启 Flare.Ingest。仅允许 `POST`，允许的请求头为 `Content-Type`、`Content-Encoding`
 和 `Authorization`。`*` 表示允许任意来源。
+每个值只使用其源，因此末尾斜杠或路径会被忽略；不是绝对 `http(s)` URL 的值会让
+Flare.Ingest 启动失败。
 
 ## 安装并配置 SDK
 

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Flare.Api.Auth;
+using Flare.Identity;
 using Flare.Identity.Auth;
 using Flare.Identity.Users;
 using Microsoft.AspNetCore.Authentication;
@@ -38,7 +39,7 @@ public static class EntraAuthEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleLoginAsync(HttpContext http, string? returnUrl, IConfiguration configuration, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleLoginAsync(HttpContext http, string? returnUrl, CorsAllowedOrigins allowedOrigins, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
     {
         var settings = await entraSettings.GetAsync(cancellationToken);
         if (!settings.Enabled)
@@ -49,8 +50,7 @@ public static class EntraAuthEndpoints
         // Same allow-list CORS already enforces for the dashboard's own origin
         // (Program.cs) - reused here as an open-redirect guard, since this endpoint's
         // whole job ends in a Results.Redirect to whatever returnUrl says.
-        var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-        var validatedReturnUrl = ValidateReturnUrl(returnUrl, allowedOrigins);
+        var validatedReturnUrl = ValidateReturnUrl(returnUrl, allowedOrigins.Origins);
         if (validatedReturnUrl is null)
         {
             return Results.Problem("returnUrl is missing or is not an allowed origin.", statusCode: StatusCodes.Status400BadRequest);
@@ -153,12 +153,12 @@ public static class EntraAuthEndpoints
 
     internal static string? ValidateReturnUrl(string? returnUrl, IReadOnlyCollection<string> allowedOrigins)
     {
-        if (string.IsNullOrWhiteSpace(returnUrl) || !Uri.TryCreate(returnUrl, UriKind.Absolute, out var uri))
+        // Same normalization as the (already normalized) allow-list, so case, default ports and IDN hosts agree.
+        if (string.IsNullOrWhiteSpace(returnUrl) || !BrowserOrigins.TryNormalize(returnUrl, allowPath: true, out var origin))
         {
             return null;
         }
 
-        var origin = $"{uri.Scheme}://{uri.Authority}";
         return allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) ? returnUrl : null;
     }
 

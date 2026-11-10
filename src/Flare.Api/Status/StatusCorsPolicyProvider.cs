@@ -1,3 +1,4 @@
+using Flare.Api.Auth;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.Extensions.Options;
 
@@ -9,7 +10,7 @@ namespace Flare.Api.Status;
 /// endpoints therefore accept the configured origins plus the https origin of any enabled page's domain. They are
 /// unauthenticated, so credentials are never allowed; every other endpoint keeps the default policy.
 /// </summary>
-public sealed class StatusCorsPolicyProvider(IOptions<CorsOptions> options, IServiceProvider services, IConfiguration configuration) : ICorsPolicyProvider
+public sealed class StatusCorsPolicyProvider(IOptions<CorsOptions> options, IServiceProvider services, CorsAllowedOrigins allowedOrigins) : ICorsPolicyProvider
 {
     public const string PolicyName = "StatusDomains";
 
@@ -23,7 +24,7 @@ public sealed class StatusCorsPolicyProvider(IOptions<CorsOptions> options, ISer
         }
 
         var builder = new CorsPolicyBuilder()
-            .WithOrigins(configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+            .WithOrigins([.. allowedOrigins.Origins])
             .AllowAnyMethod()
             .AllowAnyHeader();
 

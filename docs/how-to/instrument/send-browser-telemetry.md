@@ -26,7 +26,9 @@ Otlp__AllowedOrigins__1=http://localhost:5173
 ```
 
 Restart Flare.Ingest. Only `POST` is allowed, with the `Content-Type`,
-`Content-Encoding` and `Authorization` headers. `*` allows any origin.
+`Content-Encoding` and `Authorization` headers. `*` allows any origin. Only the
+origin of each value is used, so a trailing slash or path is ignored; a value
+that is not an absolute `http(s)` URL stops Flare.Ingest at startup.
 
 ## Install and configure the SDK
 

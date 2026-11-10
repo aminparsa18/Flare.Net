@@ -63,7 +63,7 @@ generic `401` a wrong password gets.
 | `Audit:Forwarding:IntervalSeconds` / `:BatchSize` | `10` / `100` | How often each sink polls for new events, and events per delivery. |
 | `Auth:IngestKeyRequired` | `false` | Whether `Flare.Ingest` rejects OTLP requests with no valid API key. |
 | `Auth:StaticIngestApiKey` | unset | A fixed ingest key set via config instead of the dashboard — see [ingest API keys](../how-to/admin/configure-authentication.md#ingest-api-keys). |
-| `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra login `returnUrl` allow-list. |
+| `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra/OIDC login `returnUrl` allow-list. Each value is reduced to its origin (`scheme://host[:port]`), so a trailing slash or path such as `https://example.com/flare/` is ignored. A value that is not an absolute `http(s)` URL, or `*`, stops `Flare.Api` at startup with an error naming the entry. |
 | `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. The one Entra-related setting that's still config-bound — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` live in the database instead, set via the `/auth` page (Admin-only, `GET`/`PUT /api/settings/entra`). |
 
 **Everything else has no configuration-file equivalent at all** — set

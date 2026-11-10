@@ -1,3 +1,6 @@
+using Flare.Api.Auth;
+using Flare.Identity;
+
 namespace Flare.Api.Endpoints;
 
 /// <summary>
@@ -12,8 +15,7 @@ public static class WebSocketOriginGuard
     /// </summary>
     public static bool IsAllowed(HttpContext http)
     {
-        var allowed = http.RequestServices.GetRequiredService<IConfiguration>()
-            .GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        var allowed = http.RequestServices.GetRequiredService<CorsAllowedOrigins>().Origins;
         if (IsAllowed(http.Request.Headers.Origin.ToString(), allowed))
         {
             return true;
@@ -23,7 +25,10 @@ public static class WebSocketOriginGuard
         return false;
     }
 
+    /// <summary><paramref name="allowedOrigins"/> is already normalized (<see cref="CorsAllowedOrigins"/>); the
+    /// presented origin is normalized the same way, so a non-canonical header still compares correctly.</summary>
     internal static bool IsAllowed(string origin, IEnumerable<string> allowedOrigins) =>
         origin.Length == 0
-        || allowedOrigins.Any(a => string.Equals(a.TrimEnd('/'), origin.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));
+        || BrowserOrigins.TryNormalize(origin, allowPath: true, out var normalized)
+            && allowedOrigins.Contains(normalized, StringComparer.OrdinalIgnoreCase);
 }

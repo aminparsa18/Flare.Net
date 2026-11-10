@@ -65,7 +65,7 @@ Flare 的确切角色、身份解析事实和配置密钥
 | `Audit:Forwarding:IntervalSeconds` / `:BatchSize` | `10` / `100` | 每个目标轮询新事件的间隔，以及每次发送的事件数。 |
 | `Auth:IngestKeyRequired` | `false` | `Flare.Ingest` 是否拒绝没有有效 API 密钥的 OTLP 请求。 |
 | `Auth:StaticIngestApiKey` | 未设置 | 通过配置而不是仪表板设置的固定摄取密钥 - 请参阅 [ingest API keys](../how-to/admin/configure-authentication.zh-CN.md#摄取-api-密钥)。 |
-| `Cors:AllowedOrigins:0`、`:1`、…… | 没有任何 | 允许使用凭据调用 `Flare.Api` 的来源（即仪表板自己的来源）。必需 — `Flare.Api` 不再默认为 `AllowAnyOrigin()`。还兼作 Entra 登录 `returnUrl` 允许列表。 |
+| `Cors:AllowedOrigins:0`、`:1`、…… | 没有任何 | 允许使用凭据调用 `Flare.Api` 的来源（即仪表板自己的来源）。必需 — `Flare.Api` 不再默认为 `AllowAnyOrigin()`。还兼作 Entra/OIDC 登录 `returnUrl` 允许列表。每个值都会被归约为源（`scheme://host[:port]`），因此末尾斜杠或路径（如 `https://example.com/flare/`）会被忽略。不是绝对 `http(s)` URL 的值或 `*` 会让 `Flare.Api` 启动失败，错误信息会指出是哪一项。 |
 | `Auth:Entra:DefaultRole` | `Viewer` | 当令牌未携带可识别的 `roles` 声明条目时，首次登录时分配的角色。一项与 Entra 相关的设置仍然是配置绑定的 — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` 位于数据库中，而是通过 `/auth` 页面（仅限管理员、`GET`/`PUT /api/settings/entra`）进行设置。 |
 
 **其他一切都没有等效的配置文件** - set

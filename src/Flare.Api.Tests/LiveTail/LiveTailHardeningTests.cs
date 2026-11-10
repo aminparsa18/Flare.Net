@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
+using Flare.Api.Auth;
 using Flare.Api.Endpoints;
 using Flare.Api.LiveTail;
 using Flare.Api.Model;
@@ -214,11 +215,12 @@ public class LiveTailHardeningTests
     [InlineData("http://localhost:9999", false)]
     public void OriginGuard_AllowsOnlyListedOrigins(string? origin, bool allowed)
     {
+        // Configured with a trailing slash and path: normalized to the bare origin at startup.
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Cors:AllowedOrigins:0"] = "http://localhost:7777",
+            ["Cors:AllowedOrigins:0"] = "http://localhost:7777/flare/",
         }).Build();
-        var http = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton<IConfiguration>(config).BuildServiceProvider() };
+        var http = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton(CorsAllowedOrigins.FromConfiguration(config)).BuildServiceProvider() };
         if (origin is not null)
         {
             http.Request.Headers.Origin = origin;
@@ -232,7 +234,7 @@ public class LiveTailHardeningTests
     public void OriginGuard_RejectsAnyOrigin_WhenNoneConfigured()
     {
         var config = new ConfigurationBuilder().Build();
-        var http = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton<IConfiguration>(config).BuildServiceProvider() };
+        var http = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton(CorsAllowedOrigins.FromConfiguration(config)).BuildServiceProvider() };
         http.Request.Headers.Origin = "http://localhost:7777";
 
         Assert.False(WebSocketOriginGuard.IsAllowed(http));

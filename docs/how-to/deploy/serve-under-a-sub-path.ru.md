@@ -86,8 +86,10 @@ TLS на порту OTLP (или на отдельном хосте OTLP), вы�
 - **Все страницы возвращают 404.** Дашборд запущен без `FLARE_BASE_PATH`, либо
   прокси отрезает `/flare/` перед передачей ему. Дашборду нужен полный путь.
 - **Страница загружается, но все вызовы API падают.** `PUBLIC_API_URL` должен
-  быть `https://example.com/flare`, а не `https://example.com/flare/api`, а
-  `Cors__AllowedOrigins__0` — просто origin `https://example.com`.
+  быть `https://example.com/flare`, а не `https://example.com/flare/api`. В
+  `Cors__AllowedOrigins__0` учитывается только origin: `https://example.com`,
+  `https://example.com/` и `https://example.com/flare` одинаково разрешают
+  `https://example.com`.
 - **Ссылки в уведомлениях ведут не туда.** `Alerting__PublicUrl` должен
   включать префикс.
 - **Контейнер дашборда показывает unhealthy.** Его проверка состояния запрашивает

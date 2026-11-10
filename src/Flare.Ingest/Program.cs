@@ -54,13 +54,12 @@ builder.Services.AddRequestDecompression();
 // key, so which key may use which origin is enforced on the actual request, in
 // IngestApiKeyValidationMiddleware.
 const string BrowserCorsPolicy = "OtlpBrowser";
+var browserOrigins = OtlpBrowserOrigins.FromOptions(otlpReceiverOptions);
 builder.Services.AddCors();
 builder.Services.AddOptions<CorsOptions>().Configure<IngestApiKeyCache>((cors, keyCache) =>
     cors.AddPolicy(BrowserCorsPolicy, policy =>
     {
-        var origins = otlpReceiverOptions.AllowedOrigins;
-        policy.SetIsOriginAllowed(origin =>
-            origins.Contains("*") || origins.Contains(origin, StringComparer.OrdinalIgnoreCase) || keyCache.AnyKeyAllowsOrigin(origin));
+        policy.SetIsOriginAllowed(origin => browserOrigins.IsConfigured(origin) || keyCache.AnyKeyAllowsOrigin(origin));
         policy.WithMethods("POST").WithHeaders("Content-Type", "Content-Encoding", "Authorization").SetPreflightMaxAge(TimeSpan.FromHours(1));
     }));
 

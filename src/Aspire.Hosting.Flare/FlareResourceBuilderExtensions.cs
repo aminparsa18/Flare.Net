@@ -746,7 +746,9 @@ public static class FlareResourceBuilderExtensions
     /// (<see cref="Flare.Api.Alerting.AlertLinkOptions"/>) - the same URL a fired alert's
     /// notification links back to the rule with, so calling this one method is enough to
     /// get both the CORS wiring and working notification links; nothing extra to
-    /// call for the latter.
+    /// call for the latter. The value may include a sub-path or trailing slash
+    /// (e.g. <c>https://example.com/flare/</c>): <c>api</c> reduces each CORS entry to its
+    /// origin, while notification links keep the full URL.
     /// </summary>
     /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
     /// <param name="publicDashboardUrl">A <c>secret: false</c> <c>AddParameter</c> result.</param>

@@ -19,7 +19,7 @@ Clés de configuration exactes des points de terminaison WebSocket live-tail (`G
 
 ## Vérification de l'origine
 
-Les navigateurs n'appliquent pas CORS aux WebSockets : `Flare.Api` rejette donc avec 403 une mise à niveau dont l'en-tête `Origin` n'est pas listé dans `Cors:AllowedOrigins` (variables `Cors__AllowedOrigins__0`, `__1`, ...). Les requêtes sans en-tête `Origin`, comme celles de la CLI `flare`, sont acceptées. Si le tableau de bord est servi depuis une origine absente de cette liste, le live-tail ne se connecte pas.
+Les navigateurs n'appliquent pas CORS aux WebSockets : `Flare.Api` rejette donc avec 403 une mise à niveau dont l'en-tête `Origin` n'est pas listé dans `Cors:AllowedOrigins` (variables `Cors__AllowedOrigins__0`, `__1`, ...). Les requêtes sans en-tête `Origin`, comme celles de la CLI `flare`, sont acceptées. Si le tableau de bord est servi depuis une origine absente de cette liste, le live-tail ne se connecte pas. Seule l'origine des valeurs listées est comparée : une barre oblique finale ou un chemin dans la valeur configurée n'a pas d'effet.
 
 ## Durée de vie du socket
 

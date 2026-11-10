@@ -85,8 +85,10 @@ address directly, and keep any HTTP-to-HTTPS redirect to the dashboard host.
   the proxy strips `/flare/` before forwarding to it. The dashboard needs the
   full path.
 - **The page loads but every API call fails.** `PUBLIC_API_URL` should be
-  `https://example.com/flare`, not `https://example.com/flare/api`, and
-  `Cors__AllowedOrigins__0` must be the bare origin `https://example.com`.
+  `https://example.com/flare`, not `https://example.com/flare/api`. For
+  `Cors__AllowedOrigins__0`, only the origin counts: `https://example.com`,
+  `https://example.com/` and `https://example.com/flare` all allow
+  `https://example.com`.
 - **Notification links point at the wrong place.** `Alerting__PublicUrl` must
   include the prefix.
 - **The dashboard container reports unhealthy.** Its health check requests

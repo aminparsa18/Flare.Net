@@ -19,7 +19,7 @@ live-tail WebSocket 端点（`GET /api/logs/tail`、主机统计、资源图）�
 
 ## Origin 检查
 
-浏览器不会对 WebSocket 应用 CORS，因此如果升级请求的 `Origin` 头不在 `Cors:AllowedOrigins`（环境变量 `Cors__AllowedOrigins__0`、`__1` ……）中，`Flare.Api` 会以 403 拒绝。没有 `Origin` 头的请求（如 `flare` CLI）会被允许。如果仪表板所在的来源不在该列表中，live-tail 将无法连接。
+浏览器不会对 WebSocket 应用 CORS，因此如果升级请求的 `Origin` 头不在 `Cors:AllowedOrigins`（环境变量 `Cors__AllowedOrigins__0`、`__1` ……）中，`Flare.Api` 会以 403 拒绝。没有 `Origin` 头的请求（如 `flare` CLI）会被允许。如果仪表板所在的来源不在该列表中，live-tail 将无法连接。列表中的值只按源比较，因此配置值中的末尾斜杠或路径不影响结果。
 
 ## 套接字生命周期
 

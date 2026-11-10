@@ -155,3 +155,7 @@ folders are where "what happened and why" actually lives.
   publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
   `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
   mention npm in the csproj `Description` while the version is bumped.
+- **Drop the "origin only" note from the CommunityToolkit Flare integration.** Once a released Flare image normalizes configured CORS origins
+  (`fix/normalize-cors-origins`: a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored), open a small PR on
+  CommunityToolkit/Aspire removing the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in
+  `src/CommunityToolkit.Aspire.Hosting.Flare/`, then reply on [#2370](https://github.com/CommunityToolkit/Aspire/pull/2370) so the reviewers see the promised fix landed.

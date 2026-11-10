@@ -19,7 +19,7 @@ Exact configuration keys for the live-tail WebSocket endpoints (`GET /api/logs/t
 
 ## Origin check
 
-Browsers do not apply CORS to WebSockets, so `Flare.Api` rejects an upgrade whose `Origin` header is not listed in `Cors:AllowedOrigins` (env var `Cors__AllowedOrigins__0`, `__1`, ...) with 403. Requests without an `Origin` header, such as the `flare` CLI, are allowed. If the dashboard is served from an origin that is not in this list, live tail will not connect.
+Browsers do not apply CORS to WebSockets, so `Flare.Api` rejects an upgrade whose `Origin` header is not listed in `Cors:AllowedOrigins` (env var `Cors__AllowedOrigins__0`, `__1`, ...) with 403. Requests without an `Origin` header, such as the `flare` CLI, are allowed. If the dashboard is served from an origin that is not in this list, live tail will not connect. Listed values are compared by origin only, so a trailing slash or path in the configured value does not matter.
 
 ## Socket lifetime
 
