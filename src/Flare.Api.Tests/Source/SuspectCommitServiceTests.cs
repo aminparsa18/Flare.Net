@@ -58,7 +58,7 @@ public class SuspectCommitServiceTests
         var handler = new CannedHandler(_ => (HttpStatusCode.OK, Compare("""[{"filename":"README.md"}]""", "c1", "c2")));
         var service = new SuspectCommitService(new FakeFactory(handler), new FakeStore(GitHub));
 
-        var (result, error) = await service.GetAsync(Request("src/Cart.cs"), default);
+        var (result, error) = await service.GetAsync(Request("src/Cart.cs"), TestContext.Current.CancellationToken);
 
         Assert.Null(error);
         Assert.Empty(result!.Commits);
@@ -77,7 +77,7 @@ public class SuspectCommitServiceTests
                 : (HttpStatusCode.OK, """{"files":[{"filename":"README.md"}]}"""));
         var service = new SuspectCommitService(new FakeFactory(handler), new FakeStore(GitHub));
 
-        var (result, error) = await service.GetAsync(Request("src/Cart.cs", "src/Other.cs"), default);
+        var (result, error) = await service.GetAsync(Request("src/Cart.cs", "src/Other.cs"), TestContext.Current.CancellationToken);
 
         Assert.Null(error);
         var suspect = Assert.Single(result!.Commits);
@@ -94,8 +94,8 @@ public class SuspectCommitServiceTests
         var handler = new CannedHandler(_ => (HttpStatusCode.OK, Compare("""[{"filename":"README.md"}]""", "c1")));
         var service = new SuspectCommitService(new FakeFactory(handler), new FakeStore(GitHub));
 
-        await service.GetAsync(Request("src/Cart.cs"), default);
-        await service.GetAsync(Request("src/Cart.cs"), default);
+        await service.GetAsync(Request("src/Cart.cs"), TestContext.Current.CancellationToken);
+        await service.GetAsync(Request("src/Cart.cs"), TestContext.Current.CancellationToken);
 
         Assert.Single(handler.Urls);
     }
@@ -106,7 +106,7 @@ public class SuspectCommitServiceTests
         var handler = new CannedHandler(_ => (HttpStatusCode.NotFound, "{}"));
         var service = new SuspectCommitService(new FakeFactory(handler), new FakeStore(GitHub));
 
-        var (result, error) = await service.GetAsync(Request("src/Cart.cs"), default);
+        var (result, error) = await service.GetAsync(Request("src/Cart.cs"), TestContext.Current.CancellationToken);
 
         Assert.Null(result);
         Assert.Contains("404", error);
@@ -121,7 +121,7 @@ public class SuspectCommitServiceTests
         var handler = new CannedHandler(_ => (HttpStatusCode.OK, "{}"));
         var subject = new SuspectCommitService(new FakeFactory(handler), new FakeStore(GitHub));
 
-        var (result, error) = await subject.GetAsync(new SuspectCommitsRequest { ServiceName = service, BaseRef = baseRef, HeadRef = headRef, Paths = [path] }, default);
+        var (result, error) = await subject.GetAsync(new SuspectCommitsRequest { ServiceName = service, BaseRef = baseRef, HeadRef = headRef, Paths = [path] }, TestContext.Current.CancellationToken);
 
         Assert.Null(result);
         Assert.NotNull(error);

@@ -30,7 +30,7 @@ public class PromEvaluatorTests
         var evaluator = new PromEvaluator(stub);
 
         var result = await evaluator.EvaluateAsync(
-            PromQlParser.Parse("rate(http_requests_total[2m])"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("rate(http_requests_total[2m])"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         var series = Assert.Single(result.Series);
         Assert.Equal("api", series.Labels["service_name"]);
@@ -49,7 +49,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 30), Point(1, 30)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("increase(jobs_total[2m])"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("increase(jobs_total[2m])"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(60, Assert.Single(result.Series).Samples[^1].Value);
     }
@@ -62,7 +62,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 60)] }]);
 
         await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("rate(legacy_total[1m])"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("rate(legacy_total[1m])"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.True(stub.LastQuery!.TreatAsCounter);
         Assert.Equal(MetricPointType.Gauge, stub.LastQuery.Type);
@@ -75,7 +75,7 @@ public class PromEvaluatorTests
             [new MetricNameInfo { MetricName = "hits", ServiceName = "api", Type = MetricPointType.Sum, SeriesCount = 1 }], []);
 
         var ex = await Assert.ThrowsAsync<PromQlException>(() => new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("hits_total"), T0, T0, TimeSpan.FromMinutes(1), default));
+            PromQlParser.Parse("hits_total"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
 
         Assert.Contains("rate()", ex.Message);
     }
@@ -84,7 +84,7 @@ public class PromEvaluatorTests
     public async Task UnknownMetric_IsEmptyNotAnError()
     {
         var result = await new PromEvaluator(new StubMetrics([], [])).EvaluateAsync(
-            PromQlParser.Parse("nope"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("nope"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Empty(result.Series);
     }
@@ -101,7 +101,7 @@ public class PromEvaluatorTests
             attributeKeys: ["room"]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("""temp{room!="a",service_name="api"}"""), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("""temp{room!="a",service_name="api"}"""), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal("b", Assert.Single(result.Series).Labels["room"]);
         Assert.Equal(["api"], stub.LastQuery!.Filter.Services);
@@ -188,14 +188,14 @@ public class PromEvaluatorTests
             [Hist("/a", [10, 0]), Hist("/b", [0, 10])]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("histogram_quantile(0.5, sum by (le) (rate(d_seconds_bucket[1m])))"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("histogram_quantile(0.5, sum by (le) (rate(d_seconds_bucket[1m])))"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         // 20 observations, half in each bucket: the median is the boundary.
         Assert.Equal(1.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
         Assert.True(stub.LastQuery!.IncludeBuckets);
 
         var byRoute = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("histogram_quantile(0.5, sum by (le, route) (rate(d_seconds_bucket[1m])))"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("histogram_quantile(0.5, sum by (le, route) (rate(d_seconds_bucket[1m])))"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
         Assert.Equal(2, byRoute.Series.Count);
     }
 
@@ -536,7 +536,7 @@ public class PromEvaluatorTests
     public async Task Vector_IsALabellessSeriesAtEveryStep()
     {
         var result = await new PromEvaluator(new StubMetrics([], [])).EvaluateAsync(
-            PromQlParser.Parse("vector(3)"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("vector(3)"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsScalar);
         var series = Assert.Single(result.Series);
@@ -552,7 +552,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(-60, 7)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("temp offset 1h"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("temp offset 1h"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(T0.AddHours(-1), stub.LastQuery!.Filter.From);
         // The hour-old value is reported at the evaluation instant, so it lines up with an un-offset series.
@@ -569,7 +569,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(-60, 120)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("rate(jobs_total[1m] offset 1h)"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("rate(jobs_total[1m] offset 1h)"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(T0.AddHours(-1).AddMinutes(-1), stub.LastQuery!.Filter.From);
         Assert.Equal(2.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
@@ -583,7 +583,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 60), Point(1, 180)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("irate(jobs_total[2m])"), T0.AddMinutes(1), T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("irate(jobs_total[2m])"), T0.AddMinutes(1), T0.AddMinutes(1), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(3.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
     }
@@ -596,8 +596,8 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 2), Point(1, 4), Point(2, 9)] }]);
         var evaluator = new PromEvaluator(stub);
 
-        var avg = await evaluator.EvaluateAsync(PromQlParser.Parse("avg_over_time(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
-        var last = await evaluator.EvaluateAsync(PromQlParser.Parse("last_over_time(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+        var avg = await evaluator.EvaluateAsync(PromQlParser.Parse("avg_over_time(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
+        var last = await evaluator.EvaluateAsync(PromQlParser.Parse("last_over_time(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(5.0, avg.Series[0].Samples[0].Value);
         Assert.Equal(9.0, last.Series[0].Samples[0].Value);
@@ -617,7 +617,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 2), Point(1, 4), Point(2, 9)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse($"{function}(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse($"{function}(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(aggregate, stub.LastQuery!.GaugeAggregate);
         Assert.Equal(expected, Assert.Single(Assert.Single(result.Series).Samples).Value);
@@ -631,7 +631,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 2)] }]);
 
         await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("avg_over_time(temp[3m])"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("avg_over_time(temp[3m])"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Null(stub.LastQuery!.GaugeAggregate);
     }
@@ -645,7 +645,7 @@ public class PromEvaluatorTests
         var at = T0.AddMinutes(1).AddSeconds(30);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse($"temp @ {at.ToUnixTimeSeconds()}"), T0, T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse($"temp @ {at.ToUnixTimeSeconds()}"), T0, T0.AddMinutes(3), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         var series = Assert.Single(result.Series);
         Assert.Equal([7.0, 7.0, 7.0, 7.0], series.Samples.Select(s => s.Value));
@@ -665,7 +665,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(5, 3)] }]);
 
         await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("temp @ start()"), T0, T0.AddMinutes(5), TimeSpan.FromMinutes(1), default, evaluationTime: T0.AddMinutes(5));
+            PromQlParser.Parse("temp @ start()"), T0, T0.AddMinutes(5), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken, evaluationTime: T0.AddMinutes(5));
 
         // start() is the evaluation time, so the lookback ends at T0+5m; the window's own start (T0) would end it at T0.
         Assert.Equal(T0, stub.LastQuery!.Filter.From);
@@ -680,7 +680,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(3, 1)] }]);
 
         await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse($"temp @ {T0.AddMinutes(5).ToUnixTimeSeconds()} offset 2m"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse($"temp @ {T0.AddMinutes(5).ToUnixTimeSeconds()} offset 2m"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(T0.AddMinutes(3).AddMilliseconds(1), stub.LastQuery!.Filter.To);
     }
@@ -694,7 +694,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 60), Point(1, 180), Point(2, 60)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("max_over_time(rate(jobs_total[1m])[3m:1m])"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("max_over_time(rate(jobs_total[1m])[3m:1m])"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         var series = Assert.Single(result.Series);
         Assert.DoesNotContain("__name__", series.Labels.Keys);
@@ -713,9 +713,9 @@ public class PromEvaluatorTests
         var evaluator = new PromEvaluator(stub);
 
         var count = await evaluator.EvaluateAsync(
-            PromQlParser.Parse("count_over_time(temp[2m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("count_over_time(temp[2m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
         var avg = await evaluator.EvaluateAsync(
-            PromQlParser.Parse("avg_over_time((temp * 2)[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("avg_over_time((temp * 2)[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         // (t-2m, t] holds the samples at minutes 1 and 2; (t-3m, t] holds all three, doubled.
         Assert.Equal(2.0, Assert.Single(count.Series).Samples[0].Value);
@@ -730,7 +730,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 5), Point(1, 6)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("max_over_time(temp[2m:1m] offset 2m)"), T0.AddMinutes(3), T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("max_over_time(temp[2m:1m] offset 2m)"), T0.AddMinutes(3), T0.AddMinutes(3), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         var sample = Assert.Single(Assert.Single(result.Series).Samples);
         Assert.Equal(T0.AddMinutes(3).ToUnixTimeMilliseconds(), sample.TimestampMs);
@@ -745,7 +745,7 @@ public class PromEvaluatorTests
             [new MetricNameInfo { MetricName = "temp", ServiceName = "api", Type = MetricPointType.Gauge, SeriesCount = 1 }], []);
 
         var ex = await Assert.ThrowsAsync<PromQlException>(() => new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("max_over_time(temp[30d:1s])"), T0, T0, TimeSpan.FromMinutes(1), default));
+            PromQlParser.Parse("max_over_time(temp[30d:1s])"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
 
         Assert.Contains("subquery", ex.Message);
     }
@@ -757,7 +757,7 @@ public class PromEvaluatorTests
             [new MetricNameInfo { MetricName = "hits", ServiceName = "api", Type = MetricPointType.Sum, SeriesCount = 1 }], []);
 
         var ex = await Assert.ThrowsAsync<PromQlException>(() => new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("avg_over_time(hits_total[5m])"), T0, T0, TimeSpan.FromMinutes(1), default));
+            PromQlParser.Parse("avg_over_time(hits_total[5m])"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
 
         Assert.Contains("gauges", ex.Message);
     }
@@ -778,7 +778,7 @@ public class PromEvaluatorTests
             });
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("100 * sum(rate(errors_total[1m])) / sum(rate(requests_total[1m]))"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("100 * sum(rate(errors_total[1m])) / sum(rate(requests_total[1m]))"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(10.0, Assert.Single(Assert.Single(result.Series).Samples).Value, 9);
     }
@@ -803,7 +803,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 5), Point(2, 7)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("absent(queue_depth{service_name=\"api\"})"), T0, T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("absent(queue_depth{service_name=\"api\"})"), T0, T0.AddMinutes(3), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         var series = Assert.Single(result.Series);
         Assert.Equal("api", series.Labels["service_name"]);
@@ -815,7 +815,7 @@ public class PromEvaluatorTests
     public async Task Absent_OfUnknownMetric_IsOneAtEveryStep()
     {
         var result = await new PromEvaluator(new StubMetrics([], [])).EvaluateAsync(
-            PromQlParser.Parse("absent(nothing_here)"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("absent(nothing_here)"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(3, Assert.Single(result.Series).Samples.Count);
     }
@@ -844,7 +844,7 @@ public class PromEvaluatorTests
         var store = new StubExemplars(ExemplarRow("/a", "t1"), ExemplarRow("/b", "t2"));
 
         var found = await new PromEvaluator(names, store).ExemplarsAsync(
-            (PromSelector)PromQlParser.Parse("http_server_request_duration_seconds_bucket{http_route=~\"/a\"}"), T0, T0.AddMinutes(5), 100, default);
+            (PromSelector)PromQlParser.Parse("http_server_request_duration_seconds_bucket{http_route=~\"/a\"}"), T0, T0.AddMinutes(5), 100, TestContext.Current.CancellationToken);
 
         var exemplar = Assert.Single(found);
         Assert.Equal("t1", exemplar.Labels["trace_id"]);
@@ -863,8 +863,8 @@ public class PromEvaluatorTests
             [new MetricNameInfo { MetricName = "lat", ServiceName = "api", Type = MetricPointType.Histogram, SeriesCount = 1 }], []);
         var withStore = new PromEvaluator(names, new StubExemplars(ExemplarRow("/a", "t1")));
 
-        Assert.Empty(await withStore.ExemplarsAsync((PromSelector)PromQlParser.Parse("lat_sum"), T0, T0.AddMinutes(1), 10, default));
-        Assert.Empty(await new PromEvaluator(names).ExemplarsAsync((PromSelector)PromQlParser.Parse("lat_bucket"), T0, T0.AddMinutes(1), 10, default));
+        Assert.Empty(await withStore.ExemplarsAsync((PromSelector)PromQlParser.Parse("lat_sum"), T0, T0.AddMinutes(1), 10, TestContext.Current.CancellationToken));
+        Assert.Empty(await new PromEvaluator(names).ExemplarsAsync((PromSelector)PromQlParser.Parse("lat_bucket"), T0, T0.AddMinutes(1), 10, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -885,7 +885,7 @@ public class PromEvaluatorTests
     public async Task Time_IsEachStepsTimestamp_AndExactForAnInstantQuery()
     {
         var evaluator = new PromEvaluator(GaugeStub());
-        var range = await evaluator.EvaluateAsync(PromQlParser.Parse("time()"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+        var range = await evaluator.EvaluateAsync(PromQlParser.Parse("time()"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.True(range.IsScalar);
         Assert.Equal(
@@ -894,7 +894,7 @@ public class PromEvaluatorTests
 
         // 90s into a minute: the last step is stamped with its bucket start, but the instant is the evaluation time.
         var at = T0.AddSeconds(90);
-        var instant = await evaluator.EvaluateAsync(PromQlParser.Parse("time()"), at.AddMinutes(-5), at, TimeSpan.FromMinutes(1), default, evaluationTime: at);
+        var instant = await evaluator.EvaluateAsync(PromQlParser.Parse("time()"), at.AddMinutes(-5), at, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken, evaluationTime: at);
         Assert.Equal(at.ToUnixTimeSeconds(), Assert.Single(instant.Series).Samples[^1].Value);
     }
 
@@ -903,7 +903,7 @@ public class PromEvaluatorTests
     {
         var evaluator = new PromEvaluator(GaugeStub());
 
-        var result = await evaluator.EvaluateAsync(PromQlParser.Parse("time() - 60"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+        var result = await evaluator.EvaluateAsync(PromQlParser.Parse("time() - 60"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsScalar);
         Assert.Equal([T0.ToUnixTimeSeconds() - 60.0, T0.ToUnixTimeSeconds()], Assert.Single(result.Series).Samples.Select(s => s.Value));
@@ -913,7 +913,7 @@ public class PromEvaluatorTests
     public async Task VectorOfTime_IsASeriesWithNoLabels()
     {
         var result = await new PromEvaluator(GaugeStub()).EvaluateAsync(
-            PromQlParser.Parse("vector(time())"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("vector(time())"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         var series = Assert.Single(result.Series);
         Assert.Empty(series.Labels);
@@ -929,7 +929,7 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, started), Point(1, started));
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("time() - temp"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("time() - temp"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal([600.0, 660.0], Assert.Single(result.Series).Samples.Select(s => s.Value));
     }
@@ -945,7 +945,7 @@ public class PromEvaluatorTests
             ]);
         var evaluator = new PromEvaluator(stub);
 
-        var result = await evaluator.EvaluateAsync(PromQlParser.Parse("scalar(temp)"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+        var result = await evaluator.EvaluateAsync(PromQlParser.Parse("scalar(temp)"), T0, T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         // Minute 0: one series. Minute 1: two. Minute 2: none.
         var values = Assert.Single(result.Series).Samples.Select(s => s.Value).ToList();
@@ -965,7 +965,7 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, 3), Point(1, -2), Point(2, 5));
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse($"{function}(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse($"{function}(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(aggregate, stub.LastQuery!.GaugeAggregate);
         Assert.Equal(6.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
@@ -978,7 +978,7 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, 10), Point(1, 20), Point(2, 30));
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("deriv(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("deriv(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(3), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Null(stub.LastQuery!.GaugeAggregate);
         Assert.Equal(10.0 / 60, Assert.Single(result.Series).Samples[0].Value, 9);
@@ -990,7 +990,7 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, 10), Point(1, 20), Point(2, 30));
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("predict_linear(temp[3m], 600)"), T0.AddMinutes(2), T0.AddMinutes(3), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("predict_linear(temp[3m], 600)"), T0.AddMinutes(2), T0.AddMinutes(3), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         // The line is 10 + (x - 30s) / 6 and is read at T0+3m (180s) plus 600s: 35 + 100.
         Assert.Equal(135.0, Assert.Single(result.Series).Samples[0].Value, 9);
@@ -1000,7 +1000,7 @@ public class PromEvaluatorTests
     public async Task Deriv_WithASingleBucket_HasNoSample()
     {
         var result = await new PromEvaluator(GaugeStub(Point(0, 10))).EvaluateAsync(
-            PromQlParser.Parse("deriv(temp[1m])"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("deriv(temp[1m])"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Empty(result.Series);
     }
@@ -1014,7 +1014,7 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, 1), Point(1, 4), Point(2, 10));
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse(query), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse(query), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(expected, Assert.Single(Assert.Single(result.Series).Samples).Value);
     }
@@ -1025,8 +1025,8 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, 0), Point(1, 60), Point(2, 120));
         var evaluator = new PromEvaluator(stub);
 
-        var deriv = await evaluator.EvaluateAsync(PromQlParser.Parse("deriv(temp[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
-        var predicted = await evaluator.EvaluateAsync(PromQlParser.Parse("predict_linear(temp[3m:1m], 60)"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+        var deriv = await evaluator.EvaluateAsync(PromQlParser.Parse("deriv(temp[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
+        var predicted = await evaluator.EvaluateAsync(PromQlParser.Parse("predict_linear(temp[3m:1m], 60)"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         // 60 per minute, so 1 per second; the line reaches 120 at the window's end, 180 a minute later.
         Assert.Equal(1.0, Assert.Single(Assert.Single(deriv.Series).Samples).Value, 9);
@@ -1110,7 +1110,7 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, 3), Point(1, -2), Point(2, 5));
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("idelta(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("idelta(temp[3m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(MetricGaugeAggregate.LastDelta, stub.LastQuery!.GaugeAggregate);
         Assert.Equal(5.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
@@ -1120,7 +1120,7 @@ public class PromEvaluatorTests
     public async Task Idelta_OverASubquery_IsTheLastTwoInnerSamples()
     {
         var result = await new PromEvaluator(GaugeStub(Point(0, 1), Point(1, 4), Point(2, 10))).EvaluateAsync(
-            PromQlParser.Parse("idelta(temp[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("idelta(temp[3m:1m])"), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(6.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
     }
@@ -1139,7 +1139,7 @@ public class PromEvaluatorTests
     public async Task HoltWinters_SmoothsTheBucketAverages(string query)
     {
         var result = await new PromEvaluator(GaugeStub(Point(0, 1), Point(1, 3), Point(2, 2))).EvaluateAsync(
-            PromQlParser.Parse(query), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse(query), T0.AddMinutes(2), T0.AddMinutes(2), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(3.5, Assert.Single(Assert.Single(result.Series).Samples).Value);
     }
@@ -1150,7 +1150,7 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, 7));
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("timestamp(temp)"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("timestamp(temp)"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(MetricGaugeAggregate.LastTime, stub.LastQuery!.GaugeAggregate);
         var series = Assert.Single(result.Series);
@@ -1165,7 +1165,7 @@ public class PromEvaluatorTests
         var stub = GaugeStub(Point(0, 7), Point(1, 9));
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("timestamp(temp * 2)"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("timestamp(temp * 2)"), T0, T0.AddMinutes(1), TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(
             [(double)T0.ToUnixTimeSeconds(), T0.AddMinutes(1).ToUnixTimeSeconds()],
@@ -1204,7 +1204,7 @@ public class PromEvaluatorTests
             }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("histogram_fraction(0, 1, sum by (le) (rate(d_seconds_bucket[1m])))"), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("histogram_fraction(0, 1, sum by (le) (rate(d_seconds_bucket[1m])))"), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(0.75, Assert.Single(Assert.Single(result.Series).Samples).Value);
     }
@@ -1223,7 +1223,7 @@ public class PromEvaluatorTests
     public async Task NamePattern_EvaluatesEveryMatchingMetric_AndSkipsTheOnesItCannotRead()
     {
         var result = await new PromEvaluator(NamedStub()).EvaluateAsync(
-            PromQlParser.Parse("""{__name__=~"temp_.*"}"""), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("""{__name__=~"temp_.*"}"""), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal(["temp_a", "temp_b"], result.Series.Select(s => s.Labels["__name__"]).Order());
         Assert.Contains(result.Warnings, w => w.Contains("skipped 'temp_jobs_total'") && w.Contains("rate()"));
@@ -1233,7 +1233,7 @@ public class PromEvaluatorTests
     public async Task NamePattern_WithANegativeMatcher_NarrowsTheMatches()
     {
         var result = await new PromEvaluator(NamedStub()).EvaluateAsync(
-            PromQlParser.Parse("""{__name__=~"temp_.*", __name__!~".*_b|.*_total"}"""), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("""{__name__=~"temp_.*", __name__!~".*_b|.*_total"}"""), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         Assert.Equal("temp_a", Assert.Single(result.Series).Labels["__name__"]);
         Assert.Empty(result.Warnings);
@@ -1250,7 +1250,7 @@ public class PromEvaluatorTests
             [new MetricSeries { ServiceName = "api", Attributes = new Dictionary<string, string>(), Points = [Point(0, 60)] }]);
 
         var result = await new PromEvaluator(stub).EvaluateAsync(
-            PromQlParser.Parse("""sum(rate({__name__=~"jobs_.*"}[1m]))"""), T0, T0, TimeSpan.FromMinutes(1), default);
+            PromQlParser.Parse("""sum(rate({__name__=~"jobs_.*"}[1m]))"""), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
 
         // Two counters of 1/s each.
         Assert.Equal(2.0, Assert.Single(Assert.Single(result.Series).Samples).Value);
@@ -1261,9 +1261,9 @@ public class PromEvaluatorTests
     {
         var evaluator = new PromEvaluator(NamedStub());
 
-        var none = await evaluator.EvaluateAsync(PromQlParser.Parse("""{__name__=~"zzz.*"}"""), T0, T0, TimeSpan.FromMinutes(1), default);
+        var none = await evaluator.EvaluateAsync(PromQlParser.Parse("""{__name__=~"zzz.*"}"""), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
         var error = await Assert.ThrowsAsync<PromQlException>(() => evaluator.EvaluateAsync(
-            PromQlParser.Parse("""{__name__=~".*_total"}"""), T0, T0, TimeSpan.FromMinutes(1), default));
+            PromQlParser.Parse("""{__name__=~".*_total"}"""), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
 
         Assert.Empty(none.Series);
         Assert.Contains("rate()", error.Message);
@@ -1273,7 +1273,7 @@ public class PromEvaluatorTests
     public async Task NamePattern_OnTheSeriesEndpoint_ListsEveryMatchingMetricsSeries()
     {
         var series = await new PromEvaluator(NamedStub()).SelectSeriesAsync(
-            (PromSelector)PromQlParser.Parse("""{__name__=~"temp_.*"}"""), T0, T0.AddMinutes(5), [], default);
+            (PromSelector)PromQlParser.Parse("""{__name__=~"temp_.*"}"""), T0, T0.AddMinutes(5), [], TestContext.Current.CancellationToken);
 
         Assert.Equal(["temp_a", "temp_b", "temp_jobs_total"], series.Select(s => s.Labels["__name__"]).Order());
     }
@@ -1282,7 +1282,7 @@ public class PromEvaluatorTests
     public async Task NamePattern_InHistogramQuantile_ExplainsItNeedsOneName()
     {
         var error = await Assert.ThrowsAsync<PromQlException>(() => new PromEvaluator(NamedStub()).EvaluateAsync(
-            PromQlParser.Parse("""histogram_quantile(0.5, rate({__name__=~"d_.*"}[1m]))"""), T0, T0, TimeSpan.FromMinutes(1), default));
+            PromQlParser.Parse("""histogram_quantile(0.5, rate({__name__=~"d_.*"}[1m]))"""), T0, T0, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
 
         Assert.Contains("single metric name", error.Message);
     }

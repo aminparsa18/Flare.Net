@@ -76,7 +76,7 @@ public class AuthEndpointsTests
     public async Task Login_ReturnsUnauthorized_ForTheWrongPassword()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var context = CreateContext(new { username = "alice", password = "wrongpassword1" });
 
         var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CreateLoginAttempts(), TimeProvider.System, CancellationToken.None);
@@ -89,7 +89,7 @@ public class AuthEndpointsTests
     public async Task Login_ReturnsTheUser_AndSetsASessionCookie_ForCorrectCredentials()
     {
         var users = new FakeUserStore();
-        var created = await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        var created = await users.CreateAsync("alice", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var sessions = new FakeSessionStore();
         var context = CreateContext(new { username = "alice", password = "correctpassword1" });
 
@@ -108,16 +108,16 @@ public class AuthEndpointsTests
         // The cookie's value is the session token itself (Session.Token) -
         // confirm a real session was actually created, not just a cookie shape.
         var token = ExtractCookieValue(setCookie, DefaultAuthOptions.CookieName);
-        Assert.NotNull(await sessions.FindAsync(token));
+        Assert.NotNull(await sessions.FindAsync(token, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Logout_DeletesTheSession_AndClearsTheCookie()
     {
         var users = new FakeUserStore();
-        var user = await users.CreateAsync("alice", "correctpassword1", UserRole.Viewer);
+        var user = await users.CreateAsync("alice", "correctpassword1", UserRole.Viewer, TestContext.Current.CancellationToken);
         var sessions = new FakeSessionStore();
-        var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1));
+        var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
 
         var context = new DefaultHttpContext { RequestServices = EmptyRequestServices };
         context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Token}";
@@ -127,7 +127,7 @@ public class AuthEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Null(await sessions.FindAsync(session.Token!));
+        Assert.Null(await sessions.FindAsync(session.Token!, TestContext.Current.CancellationToken));
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.LogoutResponse);
         Assert.Null(dto!.RedirectUrl);
     }
@@ -136,9 +136,9 @@ public class AuthEndpointsTests
     public async Task Logout_ReturnsTheConfiguredRedirectUrl_ForAReverseProxyProvisionedAccount()
     {
         var users = new FakeUserStore();
-        var user = await users.CreateFromExternalAsync("ReverseProxy", "alice", "alice", UserRole.Viewer);
+        var user = await users.CreateFromExternalAsync("ReverseProxy", "alice", "alice", UserRole.Viewer, TestContext.Current.CancellationToken);
         var sessions = new FakeSessionStore();
-        var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1));
+        var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
         var proxyAuthSettings = new FakeProxyAuthSettingsStore(new ProxyAuthSettings(
             true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, DateTimeOffset.UtcNow,
             LogoutRedirectUrl: "https://proxy.example.com/oauth2/sign_out"));
@@ -151,7 +151,7 @@ public class AuthEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Null(await sessions.FindAsync(session.Token!));
+        Assert.Null(await sessions.FindAsync(session.Token!, TestContext.Current.CancellationToken));
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.LogoutResponse);
         Assert.Equal("https://proxy.example.com/oauth2/sign_out", dto!.RedirectUrl);
     }
@@ -160,9 +160,9 @@ public class AuthEndpointsTests
     public async Task Logout_ReturnsNoRedirectUrl_ForALocalAccount_EvenIfOneIsConfigured()
     {
         var users = new FakeUserStore();
-        var user = await users.CreateAsync("alice", "correctpassword1", UserRole.Viewer);
+        var user = await users.CreateAsync("alice", "correctpassword1", UserRole.Viewer, TestContext.Current.CancellationToken);
         var sessions = new FakeSessionStore();
-        var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1));
+        var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1), TestContext.Current.CancellationToken);
         var proxyAuthSettings = new FakeProxyAuthSettingsStore(new ProxyAuthSettings(
             true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, DateTimeOffset.UtcNow,
             LogoutRedirectUrl: "https://proxy.example.com/oauth2/sign_out"));
@@ -194,7 +194,7 @@ public class AuthEndpointsTests
     public async Task Me_ReturnsTheUser_WhenThePrincipalCarriesAValidSessionClaim()
     {
         var users = new FakeUserStore();
-        var user = await users.CreateAsync("alice", "correctpassword1", UserRole.Member);
+        var user = await users.CreateAsync("alice", "correctpassword1", UserRole.Member, TestContext.Current.CancellationToken);
         var context = CreateContext();
         // Mirrors exactly what SessionAuthenticationHandler builds on a successful cookie lookup.
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())], authenticationType: "FlareSession");
@@ -228,7 +228,7 @@ public class AuthEndpointsTests
     public async Task Bootstrap_Returns409_WhenAUserAlreadyExists()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("existing-admin", "correctpassword1", UserRole.Admin);
+        await users.CreateAsync("existing-admin", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var context = CreateContext(new { username = "root", password = "correctpassword1" });
 
         var result = await AuthEndpoints.HandleBootstrapAsync(context, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
@@ -264,7 +264,7 @@ public class AuthEndpointsTests
     public async Task BootstrapStatus_ReturnsFalse_OnceAUserExists()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var context = CreateContext();
 
         var result = await AuthEndpoints.HandleBootstrapStatusAsync(context, users, new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), new FakeProxyAuthSettingsStore(), new FakePasswordResetMailer(), CancellationToken.None);
@@ -349,7 +349,7 @@ public class AuthEndpointsTests
     public async Task Login_Returns404_WhenLocalLoginIsDisabled()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var context = CreateContext(new { username = "alice", password = "correctpassword1" });
 
         var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), new FakeAuthSettingsStore(localEnabled: false), Options.Create(DefaultAuthOptions), CreateLoginAttempts(), TimeProvider.System, CancellationToken.None);
@@ -362,7 +362,7 @@ public class AuthEndpointsTests
     public async Task Login_ReturnsTooManyRequests_OnceFailedAttemptsReachTheThreshold_EvenWithTheCorrectPassword()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var loginAttempts = CreateLoginAttempts(maxFailedAttempts: 3);
 
         for (var i = 0; i < 3; i++)
@@ -387,7 +387,7 @@ public class AuthEndpointsTests
     public async Task Login_DoesNotLockOut_WhenFailedAttemptsStayBelowTheThreshold()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var loginAttempts = CreateLoginAttempts(maxFailedAttempts: 3);
 
         for (var i = 0; i < 2; i++)
@@ -408,7 +408,7 @@ public class AuthEndpointsTests
     public async Task Login_ResetsTheFailedAttemptCount_AfterASuccessfulLogin()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var loginAttempts = CreateLoginAttempts(maxFailedAttempts: 3);
 
         // 2 failures, then a success - the success should clear the streak.

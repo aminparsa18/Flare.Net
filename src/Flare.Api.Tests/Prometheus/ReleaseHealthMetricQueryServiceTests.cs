@@ -123,7 +123,7 @@ public class ReleaseHealthMetricQueryServiceTests
             Type = MetricPointType.Sum,
             BucketWidthSeconds = 60,
             Filter = new MetricFilter { From = T0, To = T0.AddMinutes(1) },
-        }, default);
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal("http.requests", inner.LastQuery?.MetricName);
     }
@@ -133,7 +133,7 @@ public class ReleaseHealthMetricQueryServiceTests
     {
         var service = new ReleaseHealthMetricQueryService(new EmptyMetrics(), new FakeSessions([]));
 
-        var names = (await service.GetNamesAsync(new MetricNamesRequest(), default)).Metrics;
+        var names = (await service.GetNamesAsync(new MetricNamesRequest(), TestContext.Current.CancellationToken)).Metrics;
 
         Assert.Equal(
             [

@@ -28,14 +28,14 @@ public class ForgotPasswordEndpointTests
         var users = new FakeUserStore();
         var tokens = new FakePasswordSetTokenStore();
         var mailer = new FakePasswordResetMailer();
-        var u = await users.CreateAsync("ada@example.com", "password-123", UserRole.Viewer);
+        var u = await users.CreateAsync("ada@example.com", "password-123", UserRole.Viewer, TestContext.Current.CancellationToken);
 
         Assert.Equal(204, await Post("ada@example.com", users, tokens, mailer));
 
         var sent = Assert.Single(mailer.Sent);
         Assert.Equal("ada@example.com", sent.To);
         var raw = sent.Link[(sent.Link.IndexOf("token=", StringComparison.Ordinal) + 6)..];
-        Assert.Equal(u.Id, await tokens.ConsumeAsync(raw));
+        Assert.Equal(u.Id, await tokens.ConsumeAsync(raw, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class ForgotPasswordEndpointTests
         var users = new FakeUserStore();
         var tokens = new FakePasswordSetTokenStore();
         var mailer = new FakePasswordResetMailer();
-        await users.CreateAsync("plainname", "password-123", UserRole.Viewer);
+        await users.CreateAsync("plainname", "password-123", UserRole.Viewer, TestContext.Current.CancellationToken);
 
         Assert.Equal(204, await Post("ghost@example.com", users, tokens, mailer));
         Assert.Equal(204, await Post("plainname", users, tokens, mailer));
@@ -56,7 +56,7 @@ public class ForgotPasswordEndpointTests
     {
         var users = new FakeUserStore();
         var mailer = new FakePasswordResetMailer();
-        await users.CreateAsync("grace@example.com", "password-123", UserRole.Viewer);
+        await users.CreateAsync("grace@example.com", "password-123", UserRole.Viewer, TestContext.Current.CancellationToken);
 
         var tokens = new FakePasswordSetTokenStore();
         await Post("grace@example.com", users, tokens, mailer);

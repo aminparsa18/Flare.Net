@@ -43,7 +43,7 @@ public class SuspectCommitTests
 
         Assert.Equal(HttpMethod.Post, compare.Method);
         Assert.Equal("https://dev.azure.com/org/proj/_apis/git/repositories/shop/commitsbatch?$top=100&api-version=7.1", compare.RequestUri!.OriginalString);
-        Assert.Equal("""{"itemVersion":{"version":"main","versionType":"branch"},"compareVersion":{"version":"aaa1111","versionType":"commit"}}""", await compare.Content!.ReadAsStringAsync());
+        Assert.Equal("""{"itemVersion":{"version":"main","versionType":"branch"},"compareVersion":{"version":"aaa1111","versionType":"commit"}}""", await compare.Content!.ReadAsStringAsync(TestContext.Current.CancellationToken));
         Assert.StartsWith("Basic ", compare.Headers.GetValues("Authorization").Single());
         Assert.Equal("https://dev.azure.com/org/proj/_apis/git/repositories/shop/commits/bbb2222/changes?api-version=7.1", files.RequestUri!.OriginalString);
     }

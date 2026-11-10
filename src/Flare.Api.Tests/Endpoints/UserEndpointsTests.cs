@@ -35,15 +35,15 @@ public class UserEndpointsTests
     public async Task ListUsers_ReturnsEveryUser()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
-        await users.CreateAsync("bob", "correctpassword2", UserRole.Viewer);
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
+        await users.CreateAsync("bob", "correctpassword2", UserRole.Viewer, TestContext.Current.CancellationToken);
         var context = CreateContext();
 
         var result = await UserEndpoints.HandleListAsync(context, users, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         context.Response.Body.Position = 0;
-        var dto = await JsonSerializer.DeserializeAsync(context.Response.Body, UsersJsonContext.Default.UserListResponse);
+        var dto = await JsonSerializer.DeserializeAsync(context.Response.Body, UsersJsonContext.Default.UserListResponse, TestContext.Current.CancellationToken);
         Assert.Equal(2, dto!.Users.Count);
     }
 
@@ -51,37 +51,37 @@ public class UserEndpointsTests
     public async Task SetRole_PromotesAViewerToMember()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("admin", "correctpassword1", UserRole.Admin); // keeps the guard from tripping
-        var target = await users.CreateAsync("viewer", "correctpassword2", UserRole.Viewer);
+        await users.CreateAsync("admin", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken); // keeps the guard from tripping
+        var target = await users.CreateAsync("viewer", "correctpassword2", UserRole.Viewer, TestContext.Current.CancellationToken);
         var context = CreateContext(new { role = "Member" });
 
         var result = await UserEndpoints.HandleSetRoleAsync(target.Id, context, users, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Equal(UserRole.Member, (await users.FindByIdAsync(target.Id))!.Role);
+        Assert.Equal(UserRole.Member, (await users.FindByIdAsync(target.Id, TestContext.Current.CancellationToken))!.Role);
     }
 
     [Fact]
     public async Task SetRole_Returns400_WhenDemotingTheLastEnabledAdmin()
     {
         var users = new FakeUserStore();
-        var admin = await users.CreateAsync("only-admin", "correctpassword1", UserRole.Admin);
+        var admin = await users.CreateAsync("only-admin", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var context = CreateContext(new { role = "Member" });
 
         var result = await UserEndpoints.HandleSetRoleAsync(admin.Id, context, users, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
-        Assert.Equal(UserRole.Admin, (await users.FindByIdAsync(admin.Id))!.Role);
+        Assert.Equal(UserRole.Admin, (await users.FindByIdAsync(admin.Id, TestContext.Current.CancellationToken))!.Role);
     }
 
     [Fact]
     public async Task SetRole_AllowsDemotion_WhenAnotherEnabledAdminRemains()
     {
         var users = new FakeUserStore();
-        var admin1 = await users.CreateAsync("admin-one", "correctpassword1", UserRole.Admin);
-        await users.CreateAsync("admin-two", "correctpassword2", UserRole.Admin);
+        var admin1 = await users.CreateAsync("admin-one", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
+        await users.CreateAsync("admin-two", "correctpassword2", UserRole.Admin, TestContext.Current.CancellationToken);
         var context = CreateContext(new { role = "Viewer" });
 
         var result = await UserEndpoints.HandleSetRoleAsync(admin1.Id, context, users, CancellationToken.None);
@@ -106,29 +106,29 @@ public class UserEndpointsTests
     public async Task SetDisabled_Returns400_WhenDisablingTheLastEnabledAdmin()
     {
         var users = new FakeUserStore();
-        var admin = await users.CreateAsync("only-admin", "correctpassword1", UserRole.Admin);
+        var admin = await users.CreateAsync("only-admin", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
         var context = CreateContext(new { isDisabled = true });
 
         var result = await UserEndpoints.HandleSetDisabledAsync(admin.Id, context, users, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
-        Assert.False((await users.FindByIdAsync(admin.Id))!.IsDisabled);
+        Assert.False((await users.FindByIdAsync(admin.Id, TestContext.Current.CancellationToken))!.IsDisabled);
     }
 
     [Fact]
     public async Task SetDisabled_DisablesANonAdminUser()
     {
         var users = new FakeUserStore();
-        await users.CreateAsync("admin", "correctpassword1", UserRole.Admin);
-        var viewer = await users.CreateAsync("viewer", "correctpassword2", UserRole.Viewer);
+        await users.CreateAsync("admin", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
+        var viewer = await users.CreateAsync("viewer", "correctpassword2", UserRole.Viewer, TestContext.Current.CancellationToken);
         var context = CreateContext(new { isDisabled = true });
 
         var result = await UserEndpoints.HandleSetDisabledAsync(viewer.Id, context, users, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.True((await users.FindByIdAsync(viewer.Id))!.IsDisabled);
+        Assert.True((await users.FindByIdAsync(viewer.Id, TestContext.Current.CancellationToken))!.IsDisabled);
     }
 
     [Fact]
@@ -137,8 +137,8 @@ public class UserEndpointsTests
         // Re-enabling (isDisabled: false) never trips the guard - only the transition
         // *into* disabled/non-Admin does.
         var users = new FakeUserStore();
-        var admin = await users.CreateAsync("only-admin", "correctpassword1", UserRole.Admin);
-        await users.SetDisabledAsync(admin.Id, true);
+        var admin = await users.CreateAsync("only-admin", "correctpassword1", UserRole.Admin, TestContext.Current.CancellationToken);
+        await users.SetDisabledAsync(admin.Id, true, TestContext.Current.CancellationToken);
         var context = CreateContext(new { isDisabled = false });
 
         var result = await UserEndpoints.HandleSetDisabledAsync(admin.Id, context, users, CancellationToken.None);

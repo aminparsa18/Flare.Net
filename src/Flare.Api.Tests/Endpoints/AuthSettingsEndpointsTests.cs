@@ -37,7 +37,7 @@ public class AuthSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         context.Response.Body.Position = 0;
-        var dto = await JsonSerializer.DeserializeAsync(context.Response.Body, AuthSettingsJsonContext.Default.AuthSettingsDto);
+        var dto = await JsonSerializer.DeserializeAsync(context.Response.Body, AuthSettingsJsonContext.Default.AuthSettingsDto, TestContext.Current.CancellationToken);
         Assert.False(dto!.Enabled);
         Assert.True(dto.LocalEnabled);
     }
@@ -52,7 +52,7 @@ public class AuthSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.True((await authSettings.GetAsync()).Enabled);
+        Assert.True((await authSettings.GetAsync(TestContext.Current.CancellationToken)).Enabled);
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class AuthSettingsEndpointsTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
-        Assert.False((await authSettings.GetAsync()).Enabled);
+        Assert.False((await authSettings.GetAsync(TestContext.Current.CancellationToken)).Enabled);
     }
 
     [Fact]

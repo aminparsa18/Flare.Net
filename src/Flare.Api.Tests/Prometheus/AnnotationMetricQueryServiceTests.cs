@@ -136,7 +136,7 @@ public class AnnotationMetricQueryServiceTests
             Type = MetricPointType.Gauge,
             BucketWidthSeconds = 1,
             Filter = new MetricFilter { From = T0.AddDays(-2), To = T0 },
-        }, default));
+        }, TestContext.Current.CancellationToken));
         Assert.Contains("larger step", ex.Message);
     }
 
@@ -174,7 +174,7 @@ public class AnnotationMetricQueryServiceTests
     {
         var service = new AnnotationMetricQueryService(new EmptyMetrics(), _ => Task.FromResult<IReadOnlyList<(Guid, Guid?)>>([]), new FakeHistory([]), new FakeReleases([]), () => ProjectAccess.Unrestricted, new FixedTime(T0));
 
-        var names = (await service.GetNamesAsync(new MetricNamesRequest(), default)).Metrics;
+        var names = (await service.GetNamesAsync(new MetricNamesRequest(), TestContext.Current.CancellationToken)).Metrics;
 
         Assert.Equal(
             ["flare_alert_firing", "flare_release_deployed"],
@@ -193,7 +193,7 @@ public class AnnotationMetricQueryServiceTests
             Type = MetricPointType.Sum,
             BucketWidthSeconds = 60,
             Filter = new MetricFilter { From = T0, To = T0.AddMinutes(1) },
-        }, default);
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal("http.requests", inner.LastQuery?.MetricName);
     }

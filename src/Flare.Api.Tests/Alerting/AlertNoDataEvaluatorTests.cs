@@ -23,7 +23,7 @@ public class AlertNoDataEvaluatorTests
     {
         var alerts = new FakeAlertQueryService();
 
-        var absent = await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.LogCount, new LogFilter(), null, 0, Now, default);
+        var absent = await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.LogCount, new LogFilter(), null, 0, Now, TestContext.Current.CancellationToken);
 
         Assert.False(absent);
         Assert.Empty(alerts.Calls);
@@ -36,7 +36,7 @@ public class AlertNoDataEvaluatorTests
     {
         var alerts = new FakeAlertQueryService { LogCount = logs };
 
-        var absent = await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.LogCount, new LogFilter(), null, 900, Now, default);
+        var absent = await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.LogCount, new LogFilter(), null, 900, Now, TestContext.Current.CancellationToken);
 
         Assert.Equal(expected, absent);
         var call = Assert.Single(alerts.Calls);
@@ -50,7 +50,7 @@ public class AlertNoDataEvaluatorTests
     {
         var alerts = new FakeAlertQueryService { MetricPointCount = points };
 
-        var absent = await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.MetricThreshold, new LogFilter(), Metric, 600, Now, default);
+        var absent = await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.MetricThreshold, new LogFilter(), Metric, 600, Now, TestContext.Current.CancellationToken);
 
         Assert.Equal(expected, absent);
         Assert.Equal(("metricPoints", Now.AddSeconds(-600), Now), Assert.Single(alerts.Calls));
@@ -61,7 +61,7 @@ public class AlertNoDataEvaluatorTests
     {
         var alerts = new FakeAlertQueryService();
 
-        Assert.False(await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.MetricThreshold, new LogFilter(), null, 600, Now, default));
+        Assert.False(await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.MetricThreshold, new LogFilter(), null, 600, Now, TestContext.Current.CancellationToken));
         Assert.Empty(alerts.Calls);
     }
 
@@ -70,7 +70,7 @@ public class AlertNoDataEvaluatorTests
     {
         var alerts = new FakeAlertQueryService();
 
-        Assert.False(await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.ExceptionCount, new LogFilter(), null, 600, Now, default));
+        Assert.False(await AlertNoDataEvaluator.IsAbsentAsync(alerts, AlertConditionKind.ExceptionCount, new LogFilter(), null, 600, Now, TestContext.Current.CancellationToken));
         Assert.Empty(alerts.Calls);
     }
 

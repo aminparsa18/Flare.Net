@@ -13,7 +13,7 @@ public class WebSocketLifetimeTests
         var http = new DefaultHttpContext();
         using var cts = WebSocketLifetime.Link(http, new LiveTailOptions { MaxSocketLifetime = TimeSpan.FromMilliseconds(50) });
 
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        await Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
         Assert.True(cts.IsCancellationRequested);
     }
@@ -26,7 +26,7 @@ public class WebSocketLifetimeTests
         var http = new DefaultHttpContext();
         using var cts = WebSocketLifetime.Link(http, new LiveTailOptions { MaxSocketLifetime = TimeSpan.FromSeconds(seconds) });
 
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         Assert.False(cts.IsCancellationRequested);
     }
