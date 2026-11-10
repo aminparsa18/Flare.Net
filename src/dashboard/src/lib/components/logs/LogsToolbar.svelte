@@ -83,21 +83,27 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<TimeRangePicker />
-	<PopoverMultiSelect
-		label={m.logsToolbar_serviceLabel()}
-		options={serviceOptions}
-		selected={explorer.filter.services}
-		onChange={(next) => explorer.setServices(next)}
-	/>
-	<PopoverMultiSelect
-		label={m.logsToolbar_levelLabel()}
-		options={severityOptions}
-		selected={selectedSeverityIds}
-		onChange={handleSeverityChange}
-	/>
-	<ScopeFilterPopover />
-	<TraceSpanFilterPopover />
+	<div class="contents" data-tour="logs-time-range">
+		<TimeRangePicker />
+	</div>
+	<div class="contents" data-tour="logs-service-level">
+		<PopoverMultiSelect
+			label={m.logsToolbar_serviceLabel()}
+			options={serviceOptions}
+			selected={explorer.filter.services}
+			onChange={(next) => explorer.setServices(next)}
+		/>
+		<PopoverMultiSelect
+			label={m.logsToolbar_levelLabel()}
+			options={severityOptions}
+			selected={selectedSeverityIds}
+			onChange={handleSeverityChange}
+		/>
+	</div>
+	<div class="contents" data-tour="logs-scope-trace">
+		<ScopeFilterPopover />
+		<TraceSpanFilterPopover />
+	</div>
 
 	{#if explorer.filter.patternId}
 		<!-- Drill-down from PatternsModal ("View occurrences") - a sticky filter with no
@@ -149,101 +155,125 @@
 		</Badge>
 	{/if}
 
-	<LogsFunctionsPopover
-		functions={explorer.filter.postProcessFunctions}
-		onApply={(fns) => explorer.setPostProcessFunctions(fns)}
-	/>
-
-	<LogsTimeShiftPopover
-		timeShiftSeconds={explorer.filter.timeShiftSeconds}
-		onApply={(seconds) => explorer.setTimeShiftSeconds(seconds)}
-	/>
-
-	<LogsLinesPerRowMenu
-		lines={explorer.filter.maxLinesPerRow}
-		showTime={explorer.filter.showTimestampColumn}
-		showBody={explorer.filter.showBodyColumn}
-		onChange={(lines) => explorer.setMaxLinesPerRow(lines)}
-		onColumnChange={(column, visible) => explorer.setColumnVisibility(column, visible)}
-	/>
-
-	<LogsBodyColumnsPopover paths={explorer.filter.bodyColumns} onApply={(paths) => explorer.setBodyColumns(paths)} />
-
-	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
-	     starts from defaults rather than restoring it (#lib/saved-views/last-used.ts). -->
-	<Button
-		variant="ghost"
-		size="sm"
-		onclick={() => {
-			explorer.resetFilters();
-			setLastUsedViewId('Logs', null);
-		}}
-		disabled={!explorer.hasActiveFilters()}
-	>
-		<XIcon data-icon="inline-start" />
-		{m.logsToolbar_clearFilters()}
-	</Button>
-
-	<SavedSearchesMenu currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
-
-	<PinToDashboardButton panelType="Logs" currentState={() => explorer.toSavedViewState()} defaultTitle={m.nav_logs()} />
-
-	<CreateAlertButton
-		draft={() => ({
-			kind: 'LogCount',
-			name: m.createAlertButton_name({ title: m.nav_logs() }),
-			services: [...explorer.filter.services],
-			severityNumbers: [...explorer.filter.severityNumbers],
-			search: explorer.filter.search
-		})}
-	/>
-
-	<CreateLogMetricButton filter={() => explorer.buildFilter(null)} />
-
-	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
-
-	<ExportDialog bind:open={exportDialogOpen} />
-	<ShareViewButton />
-
-	<div class="relative min-w-48 flex-1">
-		<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-		<Input
-			class="pl-8"
-			data-logs-search
-			placeholder={m.logsToolbar_searchPlaceholder()}
-			value={searchDraft}
-			oninput={(e) => handleSearchInput(e.currentTarget.value)}
+	<div class="contents" data-tour="logs-functions">
+		<LogsFunctionsPopover
+			functions={explorer.filter.postProcessFunctions}
+			onApply={(fns) => explorer.setPostProcessFunctions(fns)}
 		/>
 	</div>
 
-	<Button
-		variant={explorer.filter.searchAllFields ? 'default' : 'outline'}
-		size="sm"
-		aria-pressed={explorer.filter.searchAllFields}
-		title={m.logsToolbar_searchAllFieldsHint()}
-		onclick={() => explorer.setSearchAllFields(!explorer.filter.searchAllFields)}
-	>
-		{m.logsToolbar_searchAllFields()}
-	</Button>
+	<div class="contents" data-tour="logs-time-shift">
+		<LogsTimeShiftPopover
+			timeShiftSeconds={explorer.filter.timeShiftSeconds}
+			onApply={(seconds) => explorer.setTimeShiftSeconds(seconds)}
+		/>
+	</div>
+
+	<div class="contents" data-tour="logs-display">
+		<LogsLinesPerRowMenu
+			lines={explorer.filter.maxLinesPerRow}
+			showTime={explorer.filter.showTimestampColumn}
+			showBody={explorer.filter.showBodyColumn}
+			onChange={(lines) => explorer.setMaxLinesPerRow(lines)}
+			onColumnChange={(column, visible) => explorer.setColumnVisibility(column, visible)}
+		/>
+	
+		<LogsBodyColumnsPopover paths={explorer.filter.bodyColumns} onApply={(paths) => explorer.setBodyColumns(paths)} />
+	</div>
+
+	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
+	     starts from defaults rather than restoring it (#lib/saved-views/last-used.ts). -->
+	<div class="contents" data-tour="logs-clear">
+		<Button
+			variant="ghost"
+			size="sm"
+			onclick={() => {
+				explorer.resetFilters();
+				setLastUsedViewId('Logs', null);
+			}}
+			disabled={!explorer.hasActiveFilters()}
+		>
+			<XIcon data-icon="inline-start" />
+			{m.logsToolbar_clearFilters()}
+		</Button>
+	</div>
+
+	<div class="contents" data-tour="logs-saved">
+		<SavedSearchesMenu currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
+	</div>
+
+	<div class="contents" data-tour="logs-pin-alert">
+		<PinToDashboardButton panelType="Logs" currentState={() => explorer.toSavedViewState()} defaultTitle={m.nav_logs()} />
+
+		<CreateAlertButton
+			draft={() => ({
+				kind: 'LogCount',
+				name: m.createAlertButton_name({ title: m.nav_logs() }),
+				services: [...explorer.filter.services],
+				severityNumbers: [...explorer.filter.severityNumbers],
+				search: explorer.filter.search
+			})}
+		/>
+	</div>
+
+	<div class="contents" data-tour="logs-metric">
+		<CreateLogMetricButton filter={() => explorer.buildFilter(null)} />
+	</div>
+
+	<div class="contents" data-tour="logs-patterns">
+		<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
+	</div>
+
+	<div class="contents" data-tour="logs-export-share">
+		<ExportDialog bind:open={exportDialogOpen} />
+		<ShareViewButton />
+	</div>
+
+	<div class="contents" data-tour="logs-search">
+		<div class="relative min-w-48 flex-1">
+			<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+			<Input
+				class="pl-8"
+				data-logs-search
+				placeholder={m.logsToolbar_searchPlaceholder()}
+				value={searchDraft}
+				oninput={(e) => handleSearchInput(e.currentTarget.value)}
+			/>
+		</div>
+	</div>
+
+	<div class="contents" data-tour="logs-all-fields">
+		<Button
+			variant={explorer.filter.searchAllFields ? 'default' : 'outline'}
+			size="sm"
+			aria-pressed={explorer.filter.searchAllFields}
+			title={m.logsToolbar_searchAllFieldsHint()}
+			onclick={() => explorer.setSearchAllFields(!explorer.filter.searchAllFields)}
+		>
+			{m.logsToolbar_searchAllFields()}
+		</Button>
+	</div>
 
 	<!-- Clicking anywhere on the button (including the badge) toggles live via the shared
 	     onclick below - the badge is a label, not a separate control. Once actually
 	     streaming ("open"), it reads "Pause" so the button communicates what clicking does
 	     next, not raw websocket state; connecting/closed/error stay as technical status
 	     since those aren't states a click "pauses" out of. -->
-	<Button
-		variant={explorer.live ? 'default' : 'outline'}
-		size="sm"
-		disabled={!explorer.live && isTraceSpanFilterActive(explorer.filter.traceSpan)}
-		title={!explorer.live && isTraceSpanFilterActive(explorer.filter.traceSpan) ? m.logsToolbar_liveDisabledTraceSpan() : undefined}
-		onclick={() => explorer.setLive(!explorer.live)}
-	>
-		<RadioIcon data-icon="inline-start" />
-		{m.logsToolbar_live()}
-		{#if explorer.live}
-			<Badge variant={liveVariant} class="ml-1">
-				{explorer.connectionStatus === 'open' ? m.logsToolbar_pause() : explorer.connectionStatus}
-			</Badge>
-		{/if}
-	</Button>
+	<div class="contents" data-tour="logs-live">
+		<Button
+			variant={explorer.live ? 'default' : 'outline'}
+			size="sm"
+			disabled={!explorer.live && isTraceSpanFilterActive(explorer.filter.traceSpan)}
+			title={!explorer.live && isTraceSpanFilterActive(explorer.filter.traceSpan) ? m.logsToolbar_liveDisabledTraceSpan() : undefined}
+			onclick={() => explorer.setLive(!explorer.live)}
+		>
+			<RadioIcon data-icon="inline-start" />
+			{m.logsToolbar_live()}
+			{#if explorer.live}
+				<Badge variant={liveVariant} class="ml-1">
+					{explorer.connectionStatus === 'open' ? m.logsToolbar_pause() : explorer.connectionStatus}
+				</Badge>
+			{/if}
+		</Button>
+	</div>
 </div>

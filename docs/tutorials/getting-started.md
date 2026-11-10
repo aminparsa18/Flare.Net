@@ -96,6 +96,12 @@ page has live tail on by default, so your log line should already be
 sitting there tagged `flare-hello`, `Information`. Click the row to expand
 the full structured payload.
 
+The first time you open the Logs page, a short guided tour walks through
+each of its controls. Skip it if you like; you can take it again any time
+from the **⋯** menu (top right) or the command palette (⌘K / Ctrl+K) with
+**Take a tour of this page**, or from **Settings → Explorer → Guided
+tours**.
+
 If you don't see it: check the terminal running `dotnet run` for exporter
 errors, and confirm `docker compose ps` shows every service healthy.
 

@@ -101,6 +101,12 @@ Logs a le live tail activé par défaut, donc votre ligne de log devrait
 déjà être là, étiquetée `flare-hello`, `Information`. Cliquez sur la
 ligne pour déplier la charge utile structurée complète.
 
+La première fois que vous ouvrez la page Logs, une courte visite guidée
+présente chacune de ses commandes. Vous pouvez la passer et la relancer à
+tout moment depuis le menu **⋯** (en haut à droite) ou la palette de
+commandes (⌘K / Ctrl+K), avec l'entrée **Take a tour of this page**, ou
+depuis **Settings → Explorer → Guided tours**.
+
 Si vous ne la voyez pas : vérifiez le terminal exécutant `dotnet run`
 pour d'éventuelles erreurs d'exportateur, et confirmez que
 `docker compose ps` montre chaque service sain.

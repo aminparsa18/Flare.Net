@@ -16,6 +16,7 @@
 	import GlobalShortcuts from '#lib/components/nav/GlobalShortcuts.svelte';
 	import UpdateNotice from '#lib/components/nav/UpdateNotice.svelte';
 	import DemoBanner from '#lib/components/nav/DemoBanner.svelte';
+	import TourOverlay from '#lib/components/tour/TourOverlay.svelte';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import { Alert, AlertTitle, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
@@ -204,6 +205,7 @@
 			{/if}
 			<CommandPalette bind:open={commandPaletteOpen} />
 			<GlobalShortcuts />
+			<TourOverlay />
 		{/if}
 		<!-- Sidebar layout: the notice banner sits above the page, beside the sidebar. -->
 		<div class="flex min-h-0 min-w-0 flex-1 flex-col">

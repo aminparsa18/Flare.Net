@@ -32,6 +32,9 @@
 	import { updateNotice } from '#lib/version/update-notice.svelte.ts';
 	import { page } from '$app/state';
 	import { navLinks } from './nav-links';
+	import { tourForPath } from '#lib/tour/tours/index.ts';
+	import { tourController } from '#lib/tour/tour.svelte.ts';
+	import CompassIcon from '@lucide/svelte/icons/compass';
 	import type { Component } from 'svelte';
 	import EarthIcon from '@lucide/svelte/icons/earth';
 	import ServerIcon from '@lucide/svelte/icons/server';
@@ -87,6 +90,9 @@
 		// on its own the moment this resolves.
 		await auth.logout();
 	}
+
+	// Only on pages that have a tour (#lib/tour/tours/index.ts).
+	const pageTour = $derived(tourForPath(stripBase(page.url.pathname)));
 </script>
 
 <DropdownMenu.Root>
@@ -132,6 +138,12 @@
 				</a>
 			{/snippet}
 		</DropdownMenu.Item>
+		{#if pageTour}
+			<DropdownMenu.Item onSelect={() => tourController.start(pageTour)}>
+				<CompassIcon />
+				{m.tour_startFromMenu()}
+			</DropdownMenu.Item>
+		{/if}
 		<DropdownMenu.Separator />
 
 		{#if auth.authEnabled}
