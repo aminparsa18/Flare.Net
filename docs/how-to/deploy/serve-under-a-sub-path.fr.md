@@ -92,8 +92,10 @@ redirection HTTP vers HTTPS à l'hôte du tableau de bord.
   `FLARE_BASE_PATH`, ou le proxy retire `/flare/` avant de lui transmettre la
   requête. Il a besoin du chemin complet.
 - **La page se charge mais tous les appels API échouent.** `PUBLIC_API_URL` doit
-  valoir `https://example.com/flare`, pas `https://example.com/flare/api`, et
-  `Cors__AllowedOrigins__0` doit être l'origine seule `https://example.com`.
+  valoir `https://example.com/flare`, pas `https://example.com/flare/api`. Pour
+  `Cors__AllowedOrigins__0`, seule l'origine compte : `https://example.com`,
+  `https://example.com/` et `https://example.com/flare` autorisent tous
+  `https://example.com`.
 - **Les liens des notifications pointent au mauvais endroit.**
   `Alerting__PublicUrl` doit inclure le préfixe.
 - **Le conteneur du tableau de bord est signalé unhealthy.** Son contrôle de santé

@@ -18,17 +18,12 @@ public static class IngestKeyOrigins
                 continue;
             }
 
-            if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-                || uri.Scheme is not ("http" or "https")
-                || uri.AbsolutePath != "/"
-                || !string.IsNullOrEmpty(uri.Query)
-                || !string.IsNullOrEmpty(uri.Fragment)
-                || origin.EndsWith("//", StringComparison.Ordinal))
+            // Strict on write: the caller is interactive (API/CLI), so a path is reported rather than silently dropped.
+            if (!BrowserOrigins.TryNormalize(origin, allowPath: false, out var normalized))
             {
                 return (null, $"'{origin}' is not a valid origin; use scheme://host[:port] with no path, e.g. https://app.example.com.");
             }
 
-            var normalized = uri.GetLeftPart(UriPartial.Authority).ToLowerInvariant();
             if (!result.Contains(normalized))
             {
                 result.Add(normalized);
@@ -43,4 +38,20 @@ public static class IngestKeyOrigins
 
     public static IReadOnlyList<string> Deserialize(string? stored) =>
         string.IsNullOrEmpty(stored) ? [] : stored.Split(Separator, StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>Lenient re-normalization of stored origins (e.g. a row edited directly in the database): paths are
+    /// dropped, unparseable entries skipped. Values written through <see cref="Normalize"/> pass through unchanged.</summary>
+    public static IReadOnlyList<string> NormalizeStored(IEnumerable<string> stored)
+    {
+        var result = new List<string>();
+        foreach (var value in stored)
+        {
+            if (BrowserOrigins.TryNormalize(value, allowPath: true, out var origin) && !result.Contains(origin))
+            {
+                result.Add(origin);
+            }
+        }
+
+        return result;
+    }
 }

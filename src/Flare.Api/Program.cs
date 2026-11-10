@@ -594,10 +594,14 @@ builder.Services.AddFlareResponseCompression(responseCompression);
 // unintentionally). Cors:AllowedOrigins must list the dashboard's actual origin(s) -
 // e.g. http://localhost:5173 in dev, http://localhost:7777 in docker-compose (dashboard
 // and API are different origins even there, so this can't default to same-origin-only).
+// Normalized once (trailing slash/path dropped, invalid entries fail startup) and shared
+// with every other reader of the list via DI.
+var corsAllowedOrigins = CorsAllowedOrigins.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(corsAllowedOrigins);
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy => policy
-        .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+        .WithOrigins([.. corsAllowedOrigins.Origins])
         .AllowAnyMethod()
         .AllowAnyHeader()
         .AllowCredentials());

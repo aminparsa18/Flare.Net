@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using Flare.Api.Auth;
 using Flare.Api.Endpoints;
 using Flare.Identity.Users;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Flare.Api.Tests.Endpoints;
@@ -98,6 +100,21 @@ public class EntraAuthEndpointsTests
     public void ValidateReturnUrl_ReturnsNull_ForAMalformedUrl()
     {
         Assert.Null(EntraAuthEndpoints.ValidateReturnUrl("not-a-url", ["http://localhost:3000"]));
+    }
+
+    [Fact]
+    public void ValidateReturnUrl_AcceptsADeepLink_WhenTheAllowListWasConfiguredWithAPath()
+    {
+        // Cors:AllowedOrigins:0 = "https://Example.com/flare/" -> normalized to https://example.com at startup.
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Cors:AllowedOrigins:0"] = "https://Example.com/flare/",
+        }).Build();
+        var allowed = CorsAllowedOrigins.FromConfiguration(config).Origins;
+
+        Assert.Equal("https://EXAMPLE.com:443/flare/logs", EntraAuthEndpoints.ValidateReturnUrl("https://EXAMPLE.com:443/flare/logs", allowed));
+        Assert.Null(EntraAuthEndpoints.ValidateReturnUrl("https://example.com.evil.test/flare", allowed));
+        Assert.Null(EntraAuthEndpoints.ValidateReturnUrl("https://example.com@evil.test/flare", allowed));
     }
 
     [Fact]

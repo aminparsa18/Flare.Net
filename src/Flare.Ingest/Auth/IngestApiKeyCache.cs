@@ -66,7 +66,9 @@ public sealed class IngestApiKeyCache(IIngestApiKeyStore store, IOptions<IngestA
                 map[key.KeyHash] = new IngestKeyCacheEntry(key.Id, key.Name, key.Limits)
                 {
                     ExpiresAt = key.ExpiresAt,
-                    AllowedOrigins = key.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                    // Re-normalized leniently: values written through the API already are, but a row edited
+                    // directly in the database could carry a trailing slash or path.
+                    AllowedOrigins = IngestKeyOrigins.NormalizeStored(key.AllowedOrigins).ToHashSet(StringComparer.OrdinalIgnoreCase),
                     AllowedServices = key.AllowedServices.ToHashSet(StringComparer.Ordinal),
                 };
             }

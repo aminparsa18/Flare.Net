@@ -72,8 +72,9 @@ OTLP 摄取（端口 4317 和 4318）不受影响，应用仍像以前一样指�
 - **所有页面都返回 404。** 仪表板启动时没有设置 `FLARE_BASE_PATH`，或代理在转发给它之前去掉了
   `/flare/`。仪表板需要完整路径。
 - **页面能加载，但所有 API 调用都失败。** `PUBLIC_API_URL` 应为 `https://example.com/flare`，
-  而不是 `https://example.com/flare/api`；`Cors__AllowedOrigins__0` 必须是纯源
-  `https://example.com`。
+  而不是 `https://example.com/flare/api`。`Cors__AllowedOrigins__0` 只看源：
+  `https://example.com`、`https://example.com/` 和 `https://example.com/flare`
+  都会允许 `https://example.com`。
 - **通知中的链接指向错误位置。** `Alerting__PublicUrl` 必须包含前缀。
 - **仪表板容器显示 unhealthy。** 它的健康检查在容器内请求 `<FLARE_BASE_PATH>/`；请确认该变量
   设置在 `dashboard` 服务上，而不只是 `api`。

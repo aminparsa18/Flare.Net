@@ -36,7 +36,7 @@ public static class OidcAuthEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleLoginAsync(HttpContext http, string? returnUrl, IConfiguration configuration, IOidcSettingsStore oidcSettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleLoginAsync(HttpContext http, string? returnUrl, CorsAllowedOrigins allowedOrigins, IOidcSettingsStore oidcSettings, CancellationToken cancellationToken)
     {
         var settings = await oidcSettings.GetAsync(cancellationToken);
         if (!settings.Enabled)
@@ -47,8 +47,7 @@ public static class OidcAuthEndpoints
         // Same allow-list CORS already enforces for the dashboard's own origin
         // (Program.cs) - reused here as an open-redirect guard, same as
         // EntraAuthEndpoints.HandleLoginAsync.
-        var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-        var validatedReturnUrl = EntraAuthEndpoints.ValidateReturnUrl(returnUrl, allowedOrigins);
+        var validatedReturnUrl = EntraAuthEndpoints.ValidateReturnUrl(returnUrl, allowedOrigins.Origins);
         if (validatedReturnUrl is null)
         {
             return Results.Problem("returnUrl is missing or is not an allowed origin.", statusCode: StatusCodes.Status400BadRequest);
