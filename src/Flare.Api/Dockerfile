@@ -4,7 +4,7 @@
 # Flare.Ingest/Dockerfile's comment for why (Directory.Build.props / .Packages.props /
 # global.json + the Flare.ServiceDefaults ProjectReference).
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /source
 
 COPY Directory.Build.props Directory.Packages.props global.json ./
@@ -54,7 +54,7 @@ RUN dotnet publish src/Flare.Api/Flare.Api.csproj \
     -p:InformationalVersion=${FLARE_VERSION} \
     -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 
 # System.DirectoryServices.Protocols (LdapAuthEndpoints' AD/LDAP client) is a P/Invoke

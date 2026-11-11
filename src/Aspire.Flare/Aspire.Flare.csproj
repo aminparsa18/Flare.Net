@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -45,8 +44,6 @@
          FlareSettings, mirroring Aspire.Seq's dependency set. OpenTelemetry.Extensions.Hosting +
          OpenTelemetry.Exporter.OpenTelemetryProtocol give AddOpenTelemetry()/WithLogging()/the
          named AddOtlpExporter(string, ...) overload this package registers against. -->
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />

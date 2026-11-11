@@ -305,7 +305,7 @@ internal sealed class SourceMapsUploadNativeCommand : AsyncCommand<SourceMapsUpl
         public required string[] Paths { get; init; }
 
         [CommandOption("--managed <PATH>")]
-        [Description("The assembly (.dll with its .pdb) or a directory of them the app was compiled from, e.g. obj/Release/net10.0/osx-arm64. Lets overloaded methods resolve by parameter types. Repeatable.")]
+        [Description("The assembly (.dll with its .pdb) or a directory of them the app was compiled from, e.g. obj/Release/net11.0/osx-arm64. Lets overloaded methods resolve by parameter types. Repeatable.")]
         public string[]? Managed { get; init; }
     }
 

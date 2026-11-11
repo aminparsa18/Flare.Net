@@ -8,7 +8,7 @@
 
 ## 前提条件
 
-- .NET 10 SDK
+- .NET 11 SDK
 - [Aspire CLI](https://aspire.dev)（`aspire --version` 应能输出内容）
 - 正在运行的 Docker Desktop 或其他兼容 Docker 的引擎。演示会启动大约九个容器。
 - `Flare.Net` 仓库的检出副本

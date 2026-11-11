@@ -14,7 +14,7 @@ If your app runs inside a .NET Aspire AppHost, use
 - A running Flare instance ([standalone](../deploy/run-standalone.md),
   [CLI](../deploy/run-with-cli.md) or [Aspire](../deploy/run-with-aspire.md)) with
   its OTLP port reachable from your app: `4317` for gRPC, `4318` for HTTP.
-- A .NET 10 app.
+- A .NET 11 app.
 
 ## Add the package and the call
 

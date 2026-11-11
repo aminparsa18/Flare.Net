@@ -16,7 +16,7 @@
 
 ## Предварительные требования
 
-- .NET 10 SDK
+- .NET 11 SDK
 - [Aspire CLI](https://aspire.dev) (`aspire --version` должна что-то вывести)
 - Запущенный Docker Desktop или другой Docker-совместимый движок
 

@@ -49,23 +49,21 @@
     <PackageVersion Include="MailKit" Version="4.18.2" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.14" />
-    <PackageVersion Include="OpenTelemetry" Version="1.20.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.20.1" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="11.0.0" />
+    <PackageVersion Include="OpenTelemetry" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.21.0" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.120" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.2" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.1" />
     <!-- Flare.Aspire (project: src/Aspire.Flare/) - the client-side package (v2 roadmap item).
-         Pinned at 10.0.14 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
-         .NET 10 servicing train). -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.14" />
+         Pinned at 11.0.0 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
+         .NET 11 servicing train). -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="11.0.0" />
     <!-- Flare.Ingest: OTLP receiver -->
     <PackageVersion Include="Grpc.AspNetCore" Version="2.85.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
@@ -74,12 +72,10 @@
          above (same .NET 10 servicing train) - gives a browsable /openapi endpoint for
          manually exercising the API before the dashboard (still an open question, see
          Planning.md #1) exists to call it. -->
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
-    <!-- Microsoft.AspNetCore.OpenApi 10.0.14 transitively pulls Microsoft.OpenApi 2.0.0,
-         which has a known high-severity advisory (GHSA-v5pm-xwqc-g5wc, circular schema
-         references can hang the parser) fixed in 2.7.5. Pinned directly + referenced
-         from Flare.Api.csproj so the direct reference wins over the transitive one. -->
-    <PackageVersion Include="Microsoft.OpenApi" Version="2.12.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0" />
+    <!-- Microsoft.AspNetCore.OpenApi 11.0.0 transitively pulls Microsoft.OpenApi 3.11.0, past the
+         GHSA-v5pm-xwqc-g5wc advisory (fixed in 2.7.5) that the old 10.x train's 2.0.0 needed a direct
+         Microsoft.OpenApi pin to override - so the pin is gone. -->
     <!-- MemoryPack. Originally added for Flare.Api's phase 0 JSON->MemoryPack
          request/response migration (see
          docs-internal/investigations/memorypack-serialization-migration-scope.md) and now
@@ -106,23 +102,23 @@
          own NuGet package back in .NET Core 3.0 and never moved back - a real
          FrameworkReference gap, confirmed by the CS0234 this package fixes. Pinned at
          10.0.14 to match every other .NET-10-servicing-train package above. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="11.0.0" />
     <!-- Flare.Api: shares the Data Protection key ring across replicas via Redis (Planning.md's
          "Multi-node scaling" item) so a mid-Entra/OIDC-handshake external cookie survives
          landing on a different replica than the one that issued it. Pinned at 10.0.14 to
          match every other .NET-10-servicing-train package above. -->
-    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="11.0.0" />
     <!-- Flare.Api: Active Directory (LDAP) login (Planning.md's "Active Directory auth"
          item, docs/auth.md). Cross-platform LDAP client (works from the Linux container
          this project ships) - unlike classic System.DirectoryServices/ADSI, which is
          Windows-only. Pinned at 10.0.14 to match every other .NET-10-servicing-train
          package above. -->
-    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.14" />
+    <PackageVersion Include="System.DirectoryServices.Protocols" Version="11.0.0" />
     <!-- Flare.Identity: local username/password auth + roles, embedded-SQLite-backed
          (Planning.md's "Auth + multi-user / roles" Later-roadmap item, 2026-08-10 design
          decision - SQLite over a new Postgres container, see docs/auth.md). Pinned at
          10.0.14 to match every other .NET-10-servicing-train package above. -->
-    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="11.0.0" />
     <!-- PasswordHasher<T> (Auth/AspNetPasswordHasher.cs) comes from the ASP.NET Core
          shared framework (Microsoft.AspNetCore.App FrameworkReference) in .NET 10, not a
          separate Microsoft.Extensions.Identity.Core package reference - confirmed via
@@ -133,8 +129,8 @@
          restructured its packages in 3.x, which Microsoft.Data.Sqlite 10.0.x doesn't
          target) - pinned directly + referenced from Flare.Identity.csproj so it wins over
          the transitive 2.1.11 floor, same pattern already used above for Microsoft.OpenApi. -->
-    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.14" />
-    <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.14" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.5" />
     <!-- Flare.Api: the Kubernetes resource-topology provider (Planning.md's Kubernetes
          resource-topology item) - KubernetesResources.KubernetesResourcePoller uses this to
          talk to the in-cluster Kubernetes API server (bearer-token + CA-trust plumbing via
@@ -157,7 +153,7 @@
     <PackageVersion Include="ModelContextProtocol" Version="2.3.1" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.3.1" />
     <PackageVersion Include="ModelContextProtocol.Core" Version="2.3.1" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <!-- examples/: the multi-service shop demo (ExampleApp.Shop) and its AppHost's backing
          containers. Hosting packages pinned to the same 13.6.4 train as every other Aspire
          package above. The shop uses the raw clients plus their real OTel instrumentation
@@ -174,7 +170,7 @@
     <!-- The shop's LLM calls (examples/ExampleApp.Shop/LlmClients.cs): the real
          Microsoft.Extensions.AI abstractions and its UseOpenTelemetry() decorator over an
          in-process fake model, so the demo emits the same gen_ai.* spans a real app would. -->
-    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="11.0.0" />
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />

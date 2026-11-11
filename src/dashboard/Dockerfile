@@ -13,7 +13,7 @@
 # src/dashboard/src/lib/generated/memorypack/*.ts as part of compiling Flare.Api.Model's
 # [GenerateTypeScript] types - see ADR-0016 and Flare.Api.csproj's own comment on that
 # MSBuild property).
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS codegen
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS codegen
 WORKDIR /source
 
 COPY Directory.Build.props Directory.Packages.props global.json ./

@@ -25,7 +25,7 @@ consumer looks like.
 
 ## Prerequisites
 
-- .NET 10 SDK
+- .NET 11 SDK
 - [Aspire CLI](https://aspire.dev) (`aspire --version` should print something)
 - Docker Desktop (or another Docker-compatible engine), running. The demo starts about nine
   containers.

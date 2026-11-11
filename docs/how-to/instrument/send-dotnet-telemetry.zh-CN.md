@@ -13,7 +13,7 @@
 - 一个正在运行的 Flare 实例（[独立部署](../deploy/run-standalone.zh-CN.md)、
   [CLI](../deploy/run-with-cli.zh-CN.md) 或 [Aspire](../deploy/run-with-aspire.zh-CN.md)），
   且你的应用能访问它的 OTLP 端口：gRPC 为 `4317`，HTTP 为 `4318`。
-- 一个 .NET 10 应用。
+- 一个 .NET 11 应用。
 
 ## 添加包和调用
 
