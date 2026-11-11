@@ -34,14 +34,15 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: macos-latest
+    runs-on: xcode-27
+    env:
+      # The .NET 11 iOS pack (27.2) requires Xcode 27.2; the xcode-27 image defaults to 27.1.
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # global.json pins the .NET 11 SDK. Its iOS pack (27.2) requires Xcode 27.2, which the GitHub macOS runner images do not
-      # have yet (they ship 26.x), so CI builds the core and Android targets only (FlareExcludeIos). Remove the
-      # property from the dotnet steps below once a runner has Xcode 27.2 and the iOS targets can build.
+      # global.json pins the .NET 11 SDK.
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -51,16 +52,16 @@ jobs:
         run: dotnet --version
 
       - name: Restore MAUI workloads
-        run: dotnet workload restore Flare.Maui.slnx -p:FlareExcludeIos=true
+        run: dotnet workload restore Flare.Maui.slnx
 
       - name: Restore
-        run: dotnet restore Flare.Maui.slnx -p:FlareExcludeIos=true
+        run: dotnet restore Flare.Maui.slnx
 
       # Debug on purpose: Release runs the IL linker over the example app for iOS and Android, which is minutes of
       # work and only checks trimming of code no test exercises. Debug still compiles every target.
       - name: Build
-        run: dotnet build Flare.Maui.slnx --no-restore -p:FlareExcludeIos=true
+        run: dotnet build Flare.Maui.slnx --no-restore
 
       - name: Test
         # --project, not --solution: on .NET 11 a solution run also tries to launch ExampleApp.Maui on a device.
-        run: dotnet test --project src/Flare.Maui.Tests --no-build -p:FlareExcludeIos=true
+        run: dotnet test --project src/Flare.Maui.Tests --no-build
