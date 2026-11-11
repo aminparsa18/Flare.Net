@@ -46,7 +46,7 @@
     <PackageVersion Include="Aspire.Hosting.Redis" Version="13.6.4" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.6.4" />
     <!-- Flare.ServiceDefaults: standard Aspire template observability stack -->
-    <PackageVersion Include="MailKit" Version="4.18.2" />
+    <PackageVersion Include="MailKit" Version="5.0.0" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="11.0.0" />
@@ -150,9 +150,9 @@
     <PackageVersion Include="Spectre.Console.Cli" Version="0.57.2" />
     <!-- Flare.Cli's `flare mcp` stdio MCP server: the official C# SDK plus the generic host
          it runs on (Hosting pinned at 10.0.14 to match the other Microsoft.Extensions.* pins). -->
-    <PackageVersion Include="ModelContextProtocol" Version="2.3.1" />
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.3.1" />
-    <PackageVersion Include="ModelContextProtocol.Core" Version="2.3.1" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.4.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
+    <PackageVersion Include="ModelContextProtocol.Core" Version="2.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <!-- examples/: the multi-service shop demo (ExampleApp.Shop) and its AppHost's backing
          containers. Hosting packages pinned to the same 13.6.4 train as every other Aspire
