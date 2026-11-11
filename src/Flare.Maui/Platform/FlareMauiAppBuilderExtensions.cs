@@ -80,15 +80,32 @@ public static class FlareMauiAppBuilderExtensions
                 .OnPause(_ => FrameMonitor.Stop())
                 .OnStop(_ => Backgrounded()));
 #elif IOS || MACCATALYST
-            events.AddiOS(i => i
-                .WillEnterForeground(_ => { if (options.TracePerformance) FlareMaui.NoteForegroundBegin(); })
-                .OnActivated(_ =>
-                {
-                    Resumed();
-                    if (options.TracePerformance) FrameMonitor.Start();
-                })
-                .OnResignActivation(_ => FrameMonitor.Stop())
-                .DidEnterBackground(_ => Backgrounded()));
+            void WillEnterForeground() { if (options.TracePerformance) FlareMaui.NoteForegroundBegin(); }
+            void Activated()
+            {
+                Resumed();
+                if (options.TracePerformance) FrameMonitor.Start();
+            }
+
+            // Apps built with the iOS 27 SDK must use the UIKit scene lifecycle (UIApplicationSceneManifest in Info.plist),
+            // and MAUI then raises the Scene* events instead of the application-level ones, so hook whichever set is live.
+            // Registering both would run every handler twice.
+            if (Foundation.NSBundle.MainBundle.InfoDictionary?.ContainsKey(new Foundation.NSString("UIApplicationSceneManifest")) == true)
+            {
+                events.AddiOS(i => i
+                    .SceneWillEnterForeground(_ => WillEnterForeground())
+                    .SceneOnActivated(_ => Activated())
+                    .SceneOnResignActivation(_ => FrameMonitor.Stop())
+                    .SceneDidEnterBackground(_ => Backgrounded()));
+            }
+            else
+            {
+                events.AddiOS(i => i
+                    .WillEnterForeground(_ => WillEnterForeground())
+                    .OnActivated(_ => Activated())
+                    .OnResignActivation(_ => FrameMonitor.Stop())
+                    .DidEnterBackground(_ => Backgrounded()));
+            }
 #endif
         });
 
