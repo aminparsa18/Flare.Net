@@ -581,7 +581,17 @@ builder.Services.AddSingleton<IErrorOwnershipQueryService, ErrorOwnershipQuerySe
 builder.Services.AddSingleton<IErrorGroupingQueryService, ErrorGroupingQueryService>();
 builder.Services.AddSingleton<IReleaseQueryService, ReleaseQueryService>();
 
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(o =>
+{
+    o.AddDocumentTransformer(Flare.Api.OpenApi.FlareOpenApiTransformers.SecuritySchemes(
+        builder.Configuration["Auth:CookieName"] ?? "flare_session"));
+    o.AddDocumentTransformer(Flare.Api.OpenApi.FlareOpenApiTransformers.Tags());
+    // Tag hierarchy (parent/kind/summary) is an OpenAPI 3.2 feature; opt in so 3.1-only consumers keep working.
+    if (builder.Configuration.GetValue<bool>("OpenApi:EmitV32"))
+    {
+        o.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_2;
+    }
+});
 
 // gzip-1 response compression (ADR-0277); ResponseCompression__Enabled=false when a proxy compresses instead.
 var responseCompression = builder.Configuration.GetSection(ResponseCompressionSettings.SectionName).Get<ResponseCompressionSettings>()
