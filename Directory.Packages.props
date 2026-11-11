@@ -82,7 +82,8 @@
          also used by Flare.Ingest for its internal Redis Streams buffer payload (see
          docs-internal/adr/0017-memorypack-ingest-redis-buffer.md) - one centrally-pinned
          version for both. Latest stable per nuget.org's flatcontainer index. -->
-    <PackageVersion Include="MemoryPack" Version="1.21.4" />
+    <PackageVersion Include="MemoryPack" Version="1.22.0" />
+    <PackageVersion Include="MemoryPack.Core" Version="1.22.0" />
     <!-- TODO: unofficial patched MemoryPack source generator (github.com/aminparsa18/MemoryPack),
          used by Flare.Api in place of the meta package's own MemoryPack.Generator. Adds to the
          TypeScript generator: DateTimeOffset, IReadOnlyList/IReadOnlyCollection/IReadOnlyDictionary,
@@ -90,7 +91,7 @@
          MemoryPackGenerator_TypeScriptDictionaryAsRecord (ADR-0276). When Cysharp ships
          equivalents, drop this entry and the matching PackageReference/ExcludeAssets in
          Flare.Api.csproj and go back to the stock generator. -->
-    <PackageVersion Include="MemoryPack.Generator.Patched" Version="1.21.4.3" />
+    <PackageVersion Include="MemoryPack.Generator.Patched" Version="1.22.0.1" />
     <!-- src/Flare.Benchmarks: project-local JSON-vs-MemoryPack numbers for both migrated
          boundaries above (ADR-0015/0016/0017) - see
          docs-internal/planning/roadmap.md's "Flare-specific JSON-vs-MemoryPack benchmark"
@@ -172,8 +173,8 @@
          in-process fake model, so the demo emits the same gen_ai.* spans a real app would. -->
     <PackageVersion Include="Microsoft.Extensions.AI" Version="11.0.0" />
     <!-- Tests -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
-    <PackageVersion Include="xunit.v3" Version="4.0.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.1" />
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
   </ItemGroup>
 </Project>
