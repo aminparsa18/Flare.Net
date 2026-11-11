@@ -11,12 +11,13 @@
     <PackageReference Include="KubernetesClient" />
     <!-- MemoryPack, phase 0 of the JSON->MemoryPack request/response migration - see
          docs-internal/investigations/memorypack-serialization-migration-scope.md. -->
-    <!-- TODO: remove ExcludeAssets + the MemoryPack.Generator.Patched reference below once
-         Cysharp/MemoryPack ships equivalents of its TypeScript generator additions (DateTimeOffset,
+    <!-- TODO: switch back to the MemoryPack meta package (and drop MemoryPack.Generator.Patched) once
+         Cysharp/MemoryPack ships equivalents of the patched TypeScript generator additions (DateTimeOffset,
          IReadOnly* collections, HasValue-byte nullable readers, Record dictionaries - see
-         Directory.Packages.props and ADR-0276), then use the stock generator again. Until then the
-         patched generator replaces the meta package's own, so the two are never both active. -->
-    <PackageReference Include="MemoryPack" ExcludeAssets="analyzers" />
+         Directory.Packages.props and ADR-0276). Until then: MemoryPack.Core (runtime only) + the patched
+         generator. The meta package can't be used here since 1.22.0: its stock MemoryPack.Generator has the
+         same assembly name with a higher version and wins over the patched one. -->
+    <PackageReference Include="MemoryPack.Core" />
     <PackageReference Include="MemoryPack.Generator.Patched" PrivateAssets="all" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="System.DirectoryServices.Protocols" />
