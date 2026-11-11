@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { AlertsState } from '#lib/alerts/state.svelte.ts';
 	import { alertsContext } from '#lib/alerts/context.ts';
@@ -16,6 +16,8 @@
 	import NotificationChannelFormDialog from '#lib/components/notification-channels/NotificationChannelFormDialog.svelte';
 	import MaintenanceWindowFormDialog from '#lib/components/maintenance-windows/MaintenanceWindowFormDialog.svelte';
 	import * as m from '#lib/paraglide/messages.js';
+	import { startPageTour } from '#lib/tour/page.ts';
+	import { alertsTour } from '#lib/tour/tours/alerts.ts';
 
 	// Channels and maintenance windows are managed under Settings > Workspace, but their state
 	// is still provided here: AlertRuleFormDialog's channel picker needs the loaded channels, and
@@ -26,7 +28,11 @@
 	// The rule form's escalation section picks from the loaded rotations.
 	const rotations = onCallRotationsContext.set(new OnCallRotationsState());
 
+	let stopTour: (() => void) | undefined;
+
 	onMount(() => {
+		// A `?rule=` or draft deep link is not a bare visit; startPageTour leaves those alone.
+		stopTour = startPageTour(alertsTour);
 		void channels.load();
 		void maintenance.load();
 		void rotations.load();
@@ -54,6 +60,8 @@
 			if (rule) alerts.openHistory(rule);
 		})();
 	});
+
+	onDestroy(() => stopTour?.());
 </script>
 
 <svelte:head>

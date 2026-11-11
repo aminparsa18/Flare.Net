@@ -15,25 +15,31 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<TracesViewTabs activeTab="funnels" />
-	<Select.Root type="single" value={funnel.windowPreset} onValueChange={(v) => v && funnel.setWindowPreset(v as FunnelWindowPreset)}>
-		<Select.Trigger class="ml-auto w-auto">
-			<ClockIcon data-icon="inline-start" />
-			{servicesWindowPresetLabel(funnel.windowPreset)}
-		</Select.Trigger>
-		<Select.Content>
-			{#each FUNNEL_WINDOW_PRESETS as preset (preset.value)}
-				<Select.Item value={preset.value} label={servicesWindowPresetLabel(preset.value)} />
-			{/each}
-		</Select.Content>
-	</Select.Root>
-	<ViewsMenu pageType="Funnels" currentState={() => funnel.currentViewState()} applyState={(state) => funnel.applySavedViewState(state)} />
-	<Button size="sm" onclick={() => funnel.run()} disabled={!funnel.runnable || funnel.loading} title={funnel.runnable ? undefined : m.funnelsPage_stepIncomplete()}>
-		{#if funnel.loading}
-			<Spinner class="size-4" data-icon="inline-start" />
-		{:else}
-			<PlayIcon data-icon="inline-start" />
-		{/if}
-		{m.funnelsPage_run()}
-	</Button>
+	<div class="contents" data-tour="funnels-tabs"><TracesViewTabs activeTab="funnels" /></div>
+	<div class="contents" data-tour="funnels-window">
+		<Select.Root type="single" value={funnel.windowPreset} onValueChange={(v) => v && funnel.setWindowPreset(v as FunnelWindowPreset)}>
+			<Select.Trigger class="ml-auto w-auto">
+				<ClockIcon data-icon="inline-start" />
+				{servicesWindowPresetLabel(funnel.windowPreset)}
+			</Select.Trigger>
+			<Select.Content>
+				{#each FUNNEL_WINDOW_PRESETS as preset (preset.value)}
+					<Select.Item value={preset.value} label={servicesWindowPresetLabel(preset.value)} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	</div>
+	<div class="contents" data-tour="funnels-saved">
+		<ViewsMenu pageType="Funnels" currentState={() => funnel.currentViewState()} applyState={(state) => funnel.applySavedViewState(state)} />
+	</div>
+	<div class="contents" data-tour="funnels-run">
+		<Button size="sm" onclick={() => funnel.run()} disabled={!funnel.runnable || funnel.loading} title={funnel.runnable ? undefined : m.funnelsPage_stepIncomplete()}>
+			{#if funnel.loading}
+				<Spinner class="size-4" data-icon="inline-start" />
+			{:else}
+				<PlayIcon data-icon="inline-start" />
+			{/if}
+			{m.funnelsPage_run()}
+		</Button>
+	</div>
 </div>

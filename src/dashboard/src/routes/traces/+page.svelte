@@ -25,6 +25,8 @@
 	import type { TimeRangePreset } from '#lib/logs/time-range.ts';
 	import type { SpanAttributeFilter, TraceStructureFilter } from '#lib/traces-api.ts';
 	import * as m from '#lib/paraglide/messages.js';
+	import { startPageTour } from '#lib/tour/page.ts';
+	import { tracesTour } from '#lib/tour/tours/traces.ts';
 
 	const explorer = tracesExplorerContext.set(new TracesExplorerState());
 	const services = servicesContext.set(new ServicesState());
@@ -64,7 +66,10 @@
 		}
 	}
 
+	let stopTour: (() => void) | undefined;
+
 	onMount(() => {
+		stopTour = startPageTour(tracesTour);
 		void (async () => {
 			// ?view=<id> (a saved view's shareable link) takes priority - applySavedViewState
 			// already runs the search itself, so the branches below are only reached with
@@ -121,6 +126,7 @@
 	});
 
 	onDestroy(() => {
+		stopTour?.();
 		explorer.dispose();
 		services.dispose();
 	});
@@ -147,13 +153,15 @@
 				})}
 		/>
 		<div class="flex min-h-0 flex-1">
-			<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
+			<div class="contents" data-tour="traces-facets">
+				<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
+			</div>
 			<div class="flex min-w-0 flex-1 flex-col">
-				<SpanAttributeFiltersRow />
+				<div class="contents" data-tour="traces-attribute-filters"><SpanAttributeFiltersRow /></div>
 				{#if explorer.structureEditorOpen}
 					<TraceStructureEditor />
 				{/if}
-				<div class="flex min-h-0 flex-1 flex-col">
+				<div class="flex min-h-0 flex-1 flex-col" data-tour="traces-list">
 					<TraceList />
 				</div>
 			</div>

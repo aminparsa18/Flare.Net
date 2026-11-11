@@ -86,18 +86,24 @@
 	{#if auth.canMutate}
 		<div class="flex items-center gap-2">
 			<input bind:this={importInput} type="file" accept="application/json" class="hidden" onchange={handleImportFileChange} />
-			<Button size="sm" variant="outline" title={m.dashboardTable_fromTemplateTitle()} onclick={() => (templatesOpen = true)}>
-				<LayoutTemplateIcon data-icon="inline-start" />
-				{m.dashboardTable_fromTemplate()}
-			</Button>
-			<Button size="sm" variant="outline" title={m.dashboardTable_importTitle()} onclick={() => importInput?.click()}>
-				<UploadIcon data-icon="inline-start" />
-				{m.dashboardTable_import()}
-			</Button>
-			<Button size="sm" onclick={() => dashboards.openCreate()}>
-				<PlusIcon data-icon="inline-start" />
-				{m.dashboardTable_new()}
-			</Button>
+			<div class="contents" data-tour="dashboards-template">
+				<Button size="sm" variant="outline" title={m.dashboardTable_fromTemplateTitle()} onclick={() => (templatesOpen = true)}>
+					<LayoutTemplateIcon data-icon="inline-start" />
+					{m.dashboardTable_fromTemplate()}
+				</Button>
+			</div>
+			<div class="contents" data-tour="dashboards-import">
+				<Button size="sm" variant="outline" title={m.dashboardTable_importTitle()} onclick={() => importInput?.click()}>
+					<UploadIcon data-icon="inline-start" />
+					{m.dashboardTable_import()}
+				</Button>
+			</div>
+			<div class="contents" data-tour="dashboards-new">
+				<Button size="sm" onclick={() => dashboards.openCreate()}>
+					<PlusIcon data-icon="inline-start" />
+					{m.dashboardTable_new()}
+				</Button>
+			</div>
 		</div>
 	{/if}
 </div>
@@ -151,7 +157,7 @@
 		</Empty.Content>
 	</Empty.Root>
 {:else}
-	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-2" data-tour="dashboards-filters">
 		<div class="relative w-64">
 			<SearchIcon class="text-muted-foreground absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
 			<Input bind:value={dashboards.search} placeholder={m.dashboardTable_searchPlaceholder()} class="h-8 pl-7" />
@@ -165,7 +171,7 @@
 			<Button variant="ghost" size="sm" onclick={() => (dashboards.activeTags = [])}>{m.dashboardTable_clearTags()}</Button>
 		{/if}
 	</div>
-	<div class="min-h-0 flex-1 overflow-y-auto">
+	<div class="min-h-0 flex-1 overflow-y-auto" data-tour="dashboards-table">
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
@@ -196,6 +202,7 @@
 						<Table.Cell class="text-muted-foreground">{dashboard.layout.panels.length}</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{formatDateTime(dashboard.updatedAt)}</Table.Cell>
 						<Table.Cell class="text-right">
+							<div class="contents" data-tour="dashboards-actions">
 							<!-- Pins are per-account; the public demo's shared account can't save one (ADR-0278). -->
 							{#if !auth.isDemo}
 								<Button
@@ -236,6 +243,7 @@
 									<Trash2Icon />
 								</Button>
 							{/if}
+							</div>
 						</Table.Cell>
 					</Table.Row>
 				{/each}

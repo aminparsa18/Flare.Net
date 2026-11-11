@@ -17,8 +17,13 @@ export interface TourStep {
 export interface TourDefinition {
 	/** Stable id, used as the "already seen" key and the `?tour=<id>` replay link. */
 	id: string;
-	/** Base-stripped route the tour runs on. */
-	path: string;
+	/** Base-stripped route the tour runs on. Omit for a dynamic route and give `pathPattern` instead. */
+	path?: string;
+	/**
+	 * Matches a dynamic route such as `/traces/<id>`. These pages have no fixed URL to link to, so
+	 * Settings can't offer Replay for them - the tour is reachable from the page's own menu instead.
+	 */
+	pathPattern?: RegExp;
 	/** Shown in Settings > Explorer > Guided tours. */
 	name: () => string;
 	/** Bump to show the tour again to people who've completed an older version. */

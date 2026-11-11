@@ -13,6 +13,8 @@
 	import { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
 	import { DEFAULT_ERROR_ATTRIBUTE_FACETS, ERROR_FACET_BAGS, errorFacetDefinitions, errorFacetReloadKey } from '#lib/errors/facets.ts';
 	import * as m from '#lib/paraglide/messages.js';
+	import { startPageTour } from '#lib/tour/page.ts';
+	import { errorsTour } from '#lib/tour/tours/errors.ts';
 
 	const errors = errorsExplorerContext.set(new ErrorsExplorerState());
 
@@ -27,7 +29,10 @@
 	const facetReloadKey = $derived(errorFacetReloadKey(errors));
 	const facetBagOptions = [{ value: 'Resource' as const, label: m.attributeFilters_bagResource() }];
 
+	let stopTour: (() => void) | undefined;
+
 	onMount(() => {
+		stopTour = startPageTour(errorsTour);
 		// A fired exception alert's `?state=` link (#lib/deep-links.ts) scopes the page to
 		// the rule's type, services and evaluated window instead of the default last hour.
 		const deepLink = parseErrorsStateDeepLinkParam(page.url);
@@ -35,6 +40,7 @@
 	});
 
 	onDestroy(() => {
+		stopTour?.();
 		errors.dispose();
 	});
 </script>
@@ -46,14 +52,18 @@
 <div class="flex h-full flex-col">
 	<ErrorsToolbar />
 	<div class="flex min-h-0 flex-1">
-		<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
+		<div class="contents" data-tour="errors-facets">
+			<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
+		</div>
 		<div class="flex min-w-0 flex-1 flex-col">
-			<ResourceAttributeFiltersRow
-				filters={errors.filter.resourceAttributes}
-				onChange={(filters) => errors.setResourceAttributes(filters)}
-				collapseStorageKey="flare.errors.resourceAttributeFiltersCollapsed"
-			/>
-			<div class="min-h-0 flex-1 overflow-auto">
+			<div class="contents" data-tour="errors-resource-filters">
+				<ResourceAttributeFiltersRow
+					filters={errors.filter.resourceAttributes}
+					onChange={(filters) => errors.setResourceAttributes(filters)}
+					collapseStorageKey="flare.errors.resourceAttributeFiltersCollapsed"
+				/>
+			</div>
+			<div class="min-h-0 flex-1 overflow-auto" data-tour="errors-table">
 				<ExceptionGroupsTable />
 			</div>
 		</div>

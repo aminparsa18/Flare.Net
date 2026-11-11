@@ -24,7 +24,7 @@
 	import FacetSidebar from '#lib/components/facets/FacetSidebar.svelte';
 	import { FacetSidebarPrefs } from '#lib/facets/prefs.svelte.ts';
 	import { DEFAULT_LOG_ATTRIBUTE_FACETS, LOG_FACET_BAGS, logFacetDefinitions, logFacetReloadKey } from '#lib/logs/facets.ts';
-	import { tourController } from '#lib/tour/tour.svelte.ts';
+	import { startPageTour } from '#lib/tour/page.ts';
 	import { logsTour } from '#lib/tour/tours/logs.ts';
 	import * as m from '#lib/paraglide/messages.js';
 
@@ -39,7 +39,7 @@
 		{ value: 'Scope' as const, label: m.attributeFilters_bagScope() }
 	];
 
-	let tourTimer: ReturnType<typeof setTimeout> | undefined;
+	let stopTour: (() => void) | undefined;
 
 	function handleVisibilityChange() {
 		explorer.handleVisibilityChange(document.hidden);
@@ -98,19 +98,8 @@
 			}
 			void explorer.loadKnownServices();
 
-			// `?tour=logs` (Settings > Explorer > Guided tours' Replay) always starts it, then drops
-			// the param so a reload doesn't replay it again. Otherwise first visit only
-			// (#lib/tour/), and only on a bare visit - someone arriving from a shared link or alert
-			// came to look at something specific. The delay lets the toolbar and first results
-			// render so the spotlight lands on settled layout.
-			if (page.url.searchParams.get('tour') === logsTour.id) {
-				const url = new URL(page.url.href);
-				url.searchParams.delete('tour');
-				replaceState(url, page.state);
-				tourTimer = setTimeout(() => tourController.start(logsTour), 800);
-			} else if (page.url.searchParams.size === 0) {
-				tourTimer = setTimeout(() => tourController.maybeAutoStart(logsTour), 800);
-			}
+			// The delay inside startPageTour lets the toolbar and first results render first.
+			stopTour = startPageTour(logsTour);
 
 			// A `?context=`/`?ts=` permalink (LogContextSheet's "Copy link") opens the
 			// context sheet *on top of* whatever the branches above just loaded, rather
@@ -124,8 +113,7 @@
 	});
 
 	onDestroy(() => {
-		clearTimeout(tourTimer);
-		tourController.cancel(logsTour);
+		stopTour?.();
 		explorer.dispose();
 	});
 </script>

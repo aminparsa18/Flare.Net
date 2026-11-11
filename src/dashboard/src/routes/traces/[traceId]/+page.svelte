@@ -26,6 +26,8 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import * as m from '#lib/paraglide/messages.js';
+	import { startPageTour } from '#lib/tour/page.ts';
+	import { traceTour } from '#lib/tour/tours/trace.ts';
 
 	const grafanaUrl = $derived(grafanaTraceUrl(page.params.traceId!));
 
@@ -41,7 +43,10 @@
 	// route's own key includes the segment value, so a plain onMount (not an $effect
 	// re-running on param change) is enough here, same as every other page in this app
 	// fetching its own data client-side in onMount.
+	let stopTour: (() => void) | undefined;
+
 	onMount(() => {
+		stopTour = startPageTour(traceTour);
 		void detail.load(page.params.traceId!, page.url.searchParams.get('span'));
 	});
 
@@ -53,6 +58,7 @@
 	}
 
 	onDestroy(() => {
+		stopTour?.();
 		detail.dispose();
 	});
 </script>
@@ -63,17 +69,19 @@
 
 <div class="flex h-full flex-col">
 	<div class="bg-background sticky top-0 z-10 flex items-center gap-2 border-b px-4 py-2">
-		<Button variant="ghost" size="sm" href={withBase('/traces')}>
-			<ArrowLeftIcon data-icon="inline-start" />
-			{m.tracePage_backToTraces()}
-		</Button>
+		<div class="contents" data-tour="trace-back">
+			<Button variant="ghost" size="sm" href={withBase('/traces')}>
+				<ArrowLeftIcon data-icon="inline-start" />
+				{m.tracePage_backToTraces()}
+			</Button>
+		</div>
 		<span class="text-muted-foreground truncate font-mono text-xs">{page.params.traceId}</span>
 		{#if !detail.loading && !detail.notFound && !detail.error}
 			<!-- Span search over the waterfall and flame graph (the service map has no
 			     per-span rows to highlight). Enter / Shift+Enter step through matches,
 			     Escape clears. -->
 			{#if activeTab !== 'service-map'}
-				<div class="ml-auto flex items-center gap-1">
+				<div class="ml-auto flex items-center gap-1" data-tour="trace-search">
 					<div class="relative w-56">
 						<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
 						<Input
@@ -133,7 +141,7 @@
 					{/if}
 				</div>
 			{/if}
-			<div class="flex items-center gap-1 {activeTab === 'service-map' ? 'ml-auto' : ''}">
+			<div class="flex items-center gap-1 {activeTab === 'service-map' ? 'ml-auto' : ''}" data-tour="trace-tabs">
 				<button
 					type="button"
 					class={cn(buttonVariants({ variant: activeTab === 'waterfall' ? 'secondary' : 'ghost', size: 'sm' }))}
@@ -156,20 +164,24 @@
 					{m.tracePage_serviceMapTab()}
 				</button>
 			</div>
-			<Button
-				variant="outline"
-				size="icon-sm"
-				aria-label={m.tracePage_downloadJson()}
-				title={detail.partialSpanIds.size > 0 ? m.tracePage_downloadJsonPartial({ count: detail.trace?.spans.length ?? 0 }) : m.tracePage_downloadJson()}
-				onclick={downloadJson}
-			>
-				<DownloadIcon />
-			</Button>
-			{#if grafanaUrl}
-				<Button variant="outline" size="sm" href={grafanaUrl} target="_blank" rel="noopener noreferrer">
-					<ExternalLinkIcon data-icon="inline-start" />
-					{m.tracePage_openInGrafana()}
+			<div class="contents" data-tour="trace-download">
+				<Button
+					variant="outline"
+					size="icon-sm"
+					aria-label={m.tracePage_downloadJson()}
+					title={detail.partialSpanIds.size > 0 ? m.tracePage_downloadJsonPartial({ count: detail.trace?.spans.length ?? 0 }) : m.tracePage_downloadJson()}
+					onclick={downloadJson}
+				>
+					<DownloadIcon />
 				</Button>
+			</div>
+			{#if grafanaUrl}
+				<div class="contents" data-tour="trace-grafana">
+					<Button variant="outline" size="sm" href={grafanaUrl} target="_blank" rel="noopener noreferrer">
+						<ExternalLinkIcon data-icon="inline-start" />
+						{m.tracePage_openInGrafana()}
+					</Button>
+				</div>
 			{/if}
 		{/if}
 	</div>
@@ -203,11 +215,11 @@
 			</Alert.Root>
 		{/if}
 		{#if activeTab === 'waterfall'}
-		<TraceWaterfall />
+		<div class="contents" data-tour="trace-waterfall"><TraceWaterfall /></div>
 	{:else if activeTab === 'flame-graph'}
-		<TraceFlameGraph />
+		<div class="contents" data-tour="trace-flame-graph"><TraceFlameGraph /></div>
 	{:else}
-		<ServiceMap spans={detail.trace?.spans ?? []} />
+		<div class="contents" data-tour="trace-service-map"><ServiceMap spans={detail.trace?.spans ?? []} /></div>
 		{/if}
 	{/if}
 </div>

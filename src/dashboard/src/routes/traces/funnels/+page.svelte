@@ -15,10 +15,15 @@
 	import FunnelResults from '#lib/components/trace-funnels/FunnelResults.svelte';
 	import FunnelTracesSheet from '#lib/components/trace-funnels/FunnelTracesSheet.svelte';
 	import * as m from '#lib/paraglide/messages.js';
+	import { startPageTour } from '#lib/tour/page.ts';
+	import { funnelsTour } from '#lib/tour/tours/funnels.ts';
 
 	const funnel = traceFunnelContext.set(new TraceFunnelState());
 
+	let stopTour: (() => void) | undefined;
+
 	onMount(() => {
+		stopTour = startPageTour(funnelsTour);
 		void (async () => {
 			const view =
 				(await resolveRequestedSavedView(page.url, 'Funnels')) ??
@@ -28,6 +33,7 @@
 	});
 
 	onDestroy(() => {
+		stopTour?.();
 		funnel.dispose();
 	});
 </script>
@@ -38,8 +44,8 @@
 
 <div class="flex h-full flex-col overflow-y-auto">
 	<FunnelToolbar />
-	<p class="text-muted-foreground px-4 pt-3 text-sm">{m.funnelsPage_intro()}</p>
+	<p class="text-muted-foreground px-4 pt-3 text-sm" data-tour="funnels-intro">{m.funnelsPage_intro()}</p>
 	<FunnelStepsEditor />
-	<FunnelResults />
+	<div class="contents" data-tour="funnels-results"><FunnelResults /></div>
 </div>
 <FunnelTracesSheet />

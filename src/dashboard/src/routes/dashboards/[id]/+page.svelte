@@ -37,6 +37,8 @@
 	import type { DashboardPanel, DashboardVariable } from '#lib/dashboards-api.ts';
 	import { variableOptionLabel } from '#lib/dashboards/variables.ts';
 	import * as m from '#lib/paraglide/messages.js';
+	import { startPageTour } from '#lib/tour/page.ts';
+	import { dashboardTour } from '#lib/tour/tours/dashboard.ts';
 
 	const auth = authContext.get();
 	const viewer = new DashboardViewerState();
@@ -85,8 +87,12 @@
 		if (search !== page.url.search) void goto(page.url.pathname + search, { shallow: true, replace: true, state: page.state });
 	});
 
+	let stopTour: (() => void) | undefined;
+
 	onMount(() => {
 		if (reportMode) chrome.hidden = true;
+		// Report mode renders a dashboard for a scheduled PDF/image, so nothing may cover it.
+		else stopTour = startPageTour(dashboardTour);
 		void viewer
 			.load(page.params.id!, page.url.searchParams)
 			.then(() => (urlSyncReady = true))
@@ -97,6 +103,7 @@
 	});
 
 	onDestroy(() => {
+		stopTour?.();
 		viewer.dispose();
 		document.removeEventListener('fullscreenchange', handleFullscreenChange);
 		// Leaving the route (not just toggling off) must always give the nav back, even if
@@ -170,74 +177,84 @@
 
 		{#if viewer.dashboard && !reportMode}
 			<div class="ml-auto flex items-center gap-2">
-				<Button
-					variant={viewer.isHome ? 'secondary' : 'ghost'}
-					size="icon-sm"
-					title={viewer.isHome ? m.dashboardViewer_unsetHome() : m.dashboardViewer_setHome()}
-					onclick={() => viewer.toggleHome()}
-				>
-					<HomeIcon />
-				</Button>
+				<div class="contents" data-tour="dashboard-home">
+					<Button
+						variant={viewer.isHome ? 'secondary' : 'ghost'}
+						size="icon-sm"
+						title={viewer.isHome ? m.dashboardViewer_unsetHome() : m.dashboardViewer_setHome()}
+						onclick={() => viewer.toggleHome()}
+					>
+						<HomeIcon />
+					</Button>
+				</div>
 
-				<Select.Root type="single" value={viewer.refreshInterval} onValueChange={(v) => v && handleRefreshIntervalChange(v)}>
-					<Select.Trigger class="w-auto" title={m.dashboardViewer_refreshIntervalTitle()}>
-						<RefreshCwIcon data-icon="inline-start" />
-						{refreshIntervalLabel(viewer.refreshInterval)}
-					</Select.Trigger>
-					<Select.Content>
-						{#each REFRESH_INTERVALS as interval (interval.value)}
-							<Select.Item value={interval.value} label={refreshIntervalLabel(interval.value)} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
+				<div class="contents" data-tour="dashboard-refresh">
+					<Select.Root type="single" value={viewer.refreshInterval} onValueChange={(v) => v && handleRefreshIntervalChange(v)}>
+						<Select.Trigger class="w-auto" title={m.dashboardViewer_refreshIntervalTitle()}>
+							<RefreshCwIcon data-icon="inline-start" />
+							{refreshIntervalLabel(viewer.refreshInterval)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each REFRESH_INTERVALS as interval (interval.value)}
+								<Select.Item value={interval.value} label={refreshIntervalLabel(interval.value)} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
 
-				<Select.Root type="single" value={viewer.timeRangeOverride ?? OVERRIDE_OFF} onValueChange={(v) => v && handleOverrideChange(v)}>
-					<Select.Trigger class="w-auto" title={m.dashboardViewer_timeRangeOverrideTitle()}>
-						<ClockIcon data-icon="inline-start" />
-						{overrideLabel}
-					</Select.Trigger>
-					<Select.Content>
-						<Select.Item value={OVERRIDE_OFF} label={m.dashboardViewer_timeRangeOverrideOff()} />
-						{#each overridePresets as preset (preset.value)}
-							<Select.Item value={preset.value} label={presetLabel(preset.value)} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
+				<div class="contents" data-tour="dashboard-time-range">
+					<Select.Root type="single" value={viewer.timeRangeOverride ?? OVERRIDE_OFF} onValueChange={(v) => v && handleOverrideChange(v)}>
+						<Select.Trigger class="w-auto" title={m.dashboardViewer_timeRangeOverrideTitle()}>
+							<ClockIcon data-icon="inline-start" />
+							{overrideLabel}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value={OVERRIDE_OFF} label={m.dashboardViewer_timeRangeOverrideOff()} />
+							{#each overridePresets as preset (preset.value)}
+								<Select.Item value={preset.value} label={presetLabel(preset.value)} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
 
-				{#each viewer.variables as variable (variable.id)}
-					{#if variable.sourceKind === 'Textbox'}
-						<VariableTextbox {variable} value={viewer.variableValues[variable.id]?.[0] ?? ''} onCommit={(v) => viewer.setVariableValues(variable.id, v ? [v] : [])} />
-					{:else if variable.multi}
-						<VariableMultiPicker
-							{variable}
-							options={viewer.variableOptions[variable.id] ?? []}
-							selected={viewer.variableValues[variable.id] ?? []}
-							onChange={(values) => viewer.setVariableValues(variable.id, values)}
-						/>
-					{:else}
-						<Select.Root
-							type="single"
-							value={viewer.variableValues[variable.id]?.[0] ?? VARIABLE_OFF}
-							onValueChange={(v) => v && handleVariableChange(variable.id, v)}
-						>
-							<Select.Trigger class="w-auto" title={variable.description || variable.name}>
-								<SlidersHorizontalIcon data-icon="inline-start" />
-								{variable.name}: {variableLabel(variable)}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value={VARIABLE_OFF} label={m.dashboardViewer_variableAll()} />
-								{#each viewer.variableOptions[variable.id] ?? [] as option (option)}
-									<Select.Item value={option} label={variableOptionLabel(variable, option)} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					{/if}
-				{/each}
+				<div class="contents" data-tour="dashboard-variables">
+					{#each viewer.variables as variable (variable.id)}
+						{#if variable.sourceKind === 'Textbox'}
+							<VariableTextbox {variable} value={viewer.variableValues[variable.id]?.[0] ?? ''} onCommit={(v) => viewer.setVariableValues(variable.id, v ? [v] : [])} />
+						{:else if variable.multi}
+							<VariableMultiPicker
+								{variable}
+								options={viewer.variableOptions[variable.id] ?? []}
+								selected={viewer.variableValues[variable.id] ?? []}
+								onChange={(values) => viewer.setVariableValues(variable.id, values)}
+							/>
+						{:else}
+							<Select.Root
+								type="single"
+								value={viewer.variableValues[variable.id]?.[0] ?? VARIABLE_OFF}
+								onValueChange={(v) => v && handleVariableChange(variable.id, v)}
+							>
+								<Select.Trigger class="w-auto" title={variable.description || variable.name}>
+									<SlidersHorizontalIcon data-icon="inline-start" />
+									{variable.name}: {variableLabel(variable)}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value={VARIABLE_OFF} label={m.dashboardViewer_variableAll()} />
+									{#each viewer.variableOptions[variable.id] ?? [] as option (option)}
+										<Select.Item value={option} label={variableOptionLabel(variable, option)} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						{/if}
+					{/each}
+				</div>
 
 				{#if auth.canMutateDashboard(viewer.dashboard?.ownerUserId ?? null)}
-					<Button variant="ghost" size="icon-sm" title={m.schedule_open()} onclick={() => (schedulesOpen = true)}>
-						<CalendarClockIcon />
-					</Button>
+					<div class="contents" data-tour="dashboard-schedules">
+						<Button variant="ghost" size="icon-sm" title={m.schedule_open()} onclick={() => (schedulesOpen = true)}>
+							<CalendarClockIcon />
+						</Button>
+					</div>
 					{#if viewer.editing}
 						{#if viewer.timeRangeOverride !== (viewer.dashboard?.layout.defaultTimeRange ?? null)}
 							<Button variant="outline" size="sm" onclick={() => viewer.setDefaultTimeRange(viewer.timeRangeOverride)}>
@@ -245,45 +262,55 @@
 								{viewer.timeRangeOverride ? m.dashboardViewer_saveDefaultRange() : m.dashboardViewer_clearDefaultRange()}
 							</Button>
 						{/if}
-						<Button variant="outline" size="sm" onclick={() => (manageVariablesOpen = true)}>
-							<SlidersHorizontalIcon data-icon="inline-start" />
-							{m.dashboardViewer_manageVariables()}
-						</Button>
+						<div class="contents" data-tour="dashboard-manage-variables">
+							<Button variant="outline" size="sm" onclick={() => (manageVariablesOpen = true)}>
+								<SlidersHorizontalIcon data-icon="inline-start" />
+								{m.dashboardViewer_manageVariables()}
+							</Button>
+						</div>
 
-						<Button variant="outline" size="sm" onclick={handleAddRow}>
-							<Rows3Icon data-icon="inline-start" />
-							{m.dashboardViewer_addRow()}
-						</Button>
+						<div class="contents" data-tour="dashboard-add-row">
+							<Button variant="outline" size="sm" onclick={handleAddRow}>
+								<Rows3Icon data-icon="inline-start" />
+								{m.dashboardViewer_addRow()}
+							</Button>
+						</div>
 
-						<Button variant="outline" size="sm" onclick={() => openAddPanel(null)}>
-							<PlusIcon data-icon="inline-start" />
-							{m.dashboardViewer_addPanel()}
-						</Button>
+						<div class="contents" data-tour="dashboard-add-panel">
+							<Button variant="outline" size="sm" onclick={() => openAddPanel(null)}>
+								<PlusIcon data-icon="inline-start" />
+								{m.dashboardViewer_addPanel()}
+							</Button>
+						</div>
 					{/if}
 
-					<Button
-						variant={viewer.editing ? 'secondary' : 'outline'}
-						size="sm"
-						onclick={() => viewer.setEditing(!viewer.editing)}
-					>
-						<PencilIcon data-icon="inline-start" />
-						{viewer.editing ? m.dashboardViewer_doneEditing() : m.dashboardViewer_edit()}
-					</Button>
+					<div class="contents" data-tour="dashboard-edit">
+						<Button
+							variant={viewer.editing ? 'secondary' : 'outline'}
+							size="sm"
+							onclick={() => viewer.setEditing(!viewer.editing)}
+						>
+							<PencilIcon data-icon="inline-start" />
+							{viewer.editing ? m.dashboardViewer_doneEditing() : m.dashboardViewer_edit()}
+						</Button>
+					</div>
 				{/if}
 
 				{#if fullscreenSupported}
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						title={isFullscreen ? m.dashboardViewer_exitFullscreen() : m.dashboardViewer_fullscreen()}
-						onclick={toggleFullscreen}
-					>
-						{#if isFullscreen}
-							<Minimize2Icon />
-						{:else}
-							<Maximize2Icon />
-						{/if}
-					</Button>
+					<div class="contents" data-tour="dashboard-fullscreen">
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							title={isFullscreen ? m.dashboardViewer_exitFullscreen() : m.dashboardViewer_fullscreen()}
+							onclick={toggleFullscreen}
+						>
+							{#if isFullscreen}
+								<Minimize2Icon />
+							{:else}
+								<Maximize2Icon />
+							{/if}
+						</Button>
+					</div>
 				{/if}
 			</div>
 		{/if}
@@ -320,7 +347,7 @@
 			</Empty.Content>
 		</Empty.Root>
 	{:else}
-		<div class="min-h-0 flex-1 overflow-y-auto p-4">
+		<div class="min-h-0 flex-1 overflow-y-auto p-4" data-tour="dashboard-panels">
 			{#if ungroupedPanels.length > 0}
 				{@render grid(ungroupedPanels, null)}
 			{/if}
