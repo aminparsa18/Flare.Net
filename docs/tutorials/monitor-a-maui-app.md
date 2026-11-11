@@ -12,7 +12,7 @@ of it MAUI build time.
 
 ## Prerequisites
 
-- The .NET 10 SDK with the MAUI workload (`dotnet workload install maui`), and
+- The .NET 11 SDK with the MAUI workload (`dotnet workload install maui`), and
   an Android emulator or an iOS simulator you can already run a MAUI app on
 - A checkout of the `Flare.Net` repository (you'll reference a project in it)
 - Flare running from
@@ -127,13 +127,13 @@ any `HttpClient` are traced.
 Android (emulator or device):
 
 ```sh
-dotnet build -f net10.0-android -t:Run
+dotnet build -f net11.0-android -t:Run
 ```
 
 iOS simulator:
 
 ```sh
-dotnet build -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Run -p:_DeviceName=:v2:udid=<simulator-udid>
+dotnet build -f net11.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Run -p:_DeviceName=:v2:udid=<simulator-udid>
 ```
 
 `xcrun simctl list devices` lists simulator ids. Once the app is up, tap the

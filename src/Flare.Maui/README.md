@@ -84,7 +84,7 @@ dotnet test --project src/Flare.Maui.Tests
 
 ## Tests
 
-`Flare.Maui.Tests` covers the MAUI-free core on plain `net10.0`: option validation, endpoint building, resource
+`Flare.Maui.Tests` covers the MAUI-free core on plain `net11.0`: option validation, endpoint building, resource
 attributes, the session processor, the exception reporter, and an end-to-end provider run against an in-process
 HTTP listener. The `UseFlare` glue (lifecycle events, Shell hook) needs a device or emulator and is verified by
 running an app.

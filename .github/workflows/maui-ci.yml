@@ -7,7 +7,7 @@
 # Directory.Build.props / Directory.Packages.props / global.json that might affect the mobile targets). Flare.Maui is deliberately outside Flare.slnx
 # (ADR-0166), so ci.yml never builds it; this is the signal that the mobile targets compile.
 #
-# The tests are the plain net10.0 core tests (Flare.Maui.Tests); there is no device or
+# The tests are the plain net11.0 core tests (Flare.Maui.Tests); there is no device or
 # emulator here, so the Platform/ glue is only compile-checked.
 
 name: MAUI CI
@@ -39,19 +39,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The 10.0.4xx SDK band's iOS packs need Xcode 27 and macos-latest ships Xcode 26.x. global.json's
-      # rollForward would pick a newer preinstalled SDK, so pin the 10.0.1xx band exactly for this job.
+      # global.json pins the .NET 11 SDK. Its iOS pack (27.2) requires Xcode 27.2, so the runner must have it selected
+      # (xcode-select / DEVELOPER_DIR); macos-latest images that only ship Xcode 26.x fail the net11.0-ios build.
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.111
+          global-json-file: global.json
 
-      - name: Pin the SDK band
-        run: |
-          cat > global.json <<'EOF2'
-          { "sdk": { "version": "10.0.111", "rollForward": "disable", "workloadVersion": "10.0.111.1" }, "test": { "runner": "Microsoft.Testing.Platform" } }
-          EOF2
-          dotnet --version
+      - name: SDK version
+        run: dotnet --version
 
       - name: Restore MAUI workloads
         run: dotnet workload restore Flare.Maui.slnx

@@ -25,13 +25,13 @@ It needs the MAUI workloads, so it lives in `Flare.Maui.slnx`, not `Flare.slnx`.
 
 ```bash
 # iOS simulator
-dotnet build examples/ExampleApp.Maui -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Run -p:_DeviceName=:v2:udid=<simulator-udid>
+dotnet build examples/ExampleApp.Maui -f net11.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Run -p:_DeviceName=:v2:udid=<simulator-udid>
 
 # iOS device (needs a signing identity and provisioning profile for the bundle id)
-dotnet build examples/ExampleApp.Maui -f net10.0-ios -c Release -p:RuntimeIdentifier=ios-arm64 -t:Run -p:_DeviceName=<device-udid>
+dotnet build examples/ExampleApp.Maui -f net11.0-ios -c Release -p:RuntimeIdentifier=ios-arm64 -t:Run -p:_DeviceName=<device-udid>
 
 # Android (emulator or device)
-dotnet build examples/ExampleApp.Maui -f net10.0-android -t:Run
+dotnet build examples/ExampleApp.Maui -f net11.0-android -t:Run
 ```
 
 ## Automated flows (Maestro)
