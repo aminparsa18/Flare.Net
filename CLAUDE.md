@@ -40,7 +40,7 @@ Solution file is **`Flare.slnx`** (not `.sln`).
 
 ## Commands
 
-**.NET** (targets `net11.0` (except `Flare.Maui`/`ExampleApp.Maui`, which stay on net10 until MAUI moves to CoreCLR), SDK pinned via `global.json` to `11.0.100`, Aspire SDK `13.6.4`):
+**.NET** (targets `net11.0`, SDK pinned via `global.json` to `11.0.100`, Aspire SDK `13.6.4`):
 ```bash
 dotnet build Flare.slnx
 dotnet test --solution Flare.slnx    # all tests (xUnit v3 on Microsoft.Testing.Platform, set in global.json)

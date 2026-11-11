@@ -2,19 +2,19 @@
 
   <PropertyGroup>
     <!-- Directory.Build.props sets a single TargetFramework; clear it so TargetFrameworks wins.
-         Plain net10.0 carries only the MAUI-free core (unit-tested); the mobile targets add the glue. -->
+         Plain net11.0 carries only the MAUI-free core (unit-tested); the mobile targets add the glue. -->
     <TargetFramework />
-    <TargetFrameworks>net10.0;net10.0-android;net10.0-ios</TargetFrameworks>
+    <TargetFrameworks>net11.0;net11.0-android;net11.0-ios</TargetFrameworks>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">24.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-ios'))">15.0</SupportedOSPlatformVersion>
-    <UseMaui Condition="'$(TargetFramework)' != 'net10.0'">true</UseMaui>
+    <UseMaui Condition="'$(TargetFramework)' != 'net11.0'">true</UseMaui>
     <SingleProject>false</SingleProject>
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
-  <!-- The MAUI-free core is trim- and AOT-clean (ADR-0169). Only the plain net10.0 target is analysed here:
+  <!-- The MAUI-free core is trim- and AOT-clean (ADR-0169). Only the plain net11.0 target is analysed here:
        the mobile targets need the MAUI workloads and their trim story is owned by the MAUI SDK. -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net11.0'">
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
@@ -48,12 +48,12 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0'">
+  <ItemGroup Condition="'$(TargetFramework)' != 'net11.0'">
     <PackageReference Include="Microsoft.Maui.Controls" />
   </ItemGroup>
 
-  <!-- MAUI glue: not compiled for the plain net10.0 core. -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+  <!-- MAUI glue: not compiled for the plain net11.0 core. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
     <Compile Remove="Platform\**" />
   </ItemGroup>
 

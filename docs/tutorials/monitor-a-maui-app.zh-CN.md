@@ -8,7 +8,7 @@
 
 ## 前提条件
 
-- 安装了 MAUI 工作负载的 .NET 10 SDK（`dotnet workload install maui`），以及一个你已经能运行 MAUI 应用的 Android 模拟器或 iOS 模拟器
+- 安装了 MAUI 工作负载的 .NET 11 SDK（`dotnet workload install maui`），以及一个你已经能运行 MAUI 应用的 Android 模拟器或 iOS 模拟器
 - `Flare.Net` 仓库的检出副本（你要引用其中的一个项目）
 - 按[教程：你的第一批 Flare 日志](getting-started.zh-CN.md)运行起来的 Flare，并已发布 OTLP/HTTP 端口 `4318`
 
@@ -105,13 +105,13 @@ void OnCrash(object? sender, EventArgs e)
 Android（模拟器或真机）：
 
 ```sh
-dotnet build -f net10.0-android -t:Run
+dotnet build -f net11.0-android -t:Run
 ```
 
 iOS 模拟器：
 
 ```sh
-dotnet build -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Run -p:_DeviceName=:v2:udid=<simulator-udid>
+dotnet build -f net11.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Run -p:_DeviceName=:v2:udid=<simulator-udid>
 ```
 
 `xcrun simctl list devices` 会列出模拟器 ID。应用启动后，点击计数按钮几次（它会自己产生一些活动），然后点击 **Call an API**，再点击 **Handled error**。把 **Crash** 留到第 6 步。

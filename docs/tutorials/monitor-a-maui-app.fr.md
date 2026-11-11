@@ -15,7 +15,7 @@ de compilation MAUI.
 
 ## Prérequis
 
-- Le SDK .NET 10 avec la charge de travail MAUI
+- Le SDK .NET 11 avec la charge de travail MAUI
   (`dotnet workload install maui`), et un émulateur Android ou un simulateur
   iOS sur lequel vous savez déjà exécuter une application MAUI
 - Un clone du dépôt `Flare.Net` (vous y référencerez un projet)
@@ -132,13 +132,13 @@ void OnCrash(object? sender, EventArgs e)
 Android (émulateur ou appareil) :
 
 ```sh
-dotnet build -f net10.0-android -t:Run
+dotnet build -f net11.0-android -t:Run
 ```
 
 Simulateur iOS :
 
 ```sh
-dotnet build -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Run -p:_DeviceName=:v2:udid=<simulator-udid>
+dotnet build -f net11.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Run -p:_DeviceName=:v2:udid=<simulator-udid>
 ```
 
 `xcrun simctl list devices` liste les identifiants de simulateur. Une fois

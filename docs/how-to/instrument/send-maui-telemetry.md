@@ -349,7 +349,7 @@ symbols of each release from CI, with the `--release` value your app reports as
 `service.version`:
 
 ```bash
-flare sourcemaps upload-dotnet obj/Release/net10.0-android \
+flare sourcemaps upload-dotnet obj/Release/net11.0-android \
   --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
 ```
 
@@ -361,8 +361,8 @@ For a **Native AOT** build (`PublishAot`, iOS), frames read `at MyApp.Cart.Add(S
 Upload the `.dSYM` that `dotnet publish` writes next to the binary:
 
 ```bash
-flare sourcemaps upload-native bin/Release/net10.0-ios/ios-arm64/publish/MyApp.dSYM \
-  --managed obj/Release/net10.0-ios/ios-arm64 \
+flare sourcemaps upload-native bin/Release/net11.0-ios/ios-arm64/publish/MyApp.dSYM \
+  --managed obj/Release/net11.0-ios/ios-arm64 \
   --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
 ```
 

@@ -146,9 +146,16 @@ public static class FlareMaui
     /// The OpenTelemetry exporter reads its disk-retry switch from the environment when it is created,
     /// so this must run before any provider is built.
     /// </summary>
+    /// <remarks>
+    /// OpenTelemetry 1.21 refuses a retry directory whose ancestors are not owned by the current user or root. That is
+    /// meant for shared hosts; on Android `/data` is owned by uid 1000 and the app directory is already private to the
+    /// app's sandbox, so the check rejects every path and crashes startup. It is switched off unless the app set it.
+    /// </remarks>
     internal static void EnableDiskRetry(string directory)
     {
         Directory.CreateDirectory(directory);
+        if (Environment.GetEnvironmentVariable("OTEL_DOTNET_EXPERIMENTAL_OTLP_DISK_RETRY_CHECK_PERMISSIONS") is null)
+            Environment.SetEnvironmentVariable("OTEL_DOTNET_EXPERIMENTAL_OTLP_DISK_RETRY_CHECK_PERMISSIONS", "false");
         Environment.SetEnvironmentVariable("OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY", "disk");
         Environment.SetEnvironmentVariable("OTEL_DOTNET_EXPERIMENTAL_OTLP_DISK_RETRY_DIRECTORY_PATH", directory);
     }
