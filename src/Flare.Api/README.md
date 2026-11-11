@@ -475,6 +475,15 @@ expression, and a unit test checks the migration against it. See
 over `ResourceAttributes`. Those branches can't use a skip index, so every row in the window is
 read; that's why it's off by default. `LogFilterMatcher` mirrors it for live tail.
 
+## OpenAPI document
+
+In Development, `GET /openapi/v1.json` serves the generated spec. `OpenApi/FlareOpenApiTransformers.cs`
+declares two security schemes (the `flare_session` cookie, named by `Auth:CookieName`, and the
+`flr_pat_…` Bearer token) and tags every `/api/{segment}` operation by its segment, with the segments
+grouped under parent areas (Telemetry, Alerting, Dashboards, Administration). The parent/kind/summary tag
+fields are OpenAPI 3.2 only, so the document stays 3.1 by default; set `OpenApi__EmitV32=true` to emit 3.2
+with the hierarchy.
+
 ## Running it
 
 Via the Aspire AppHost (recommended — wires the ClickHouse connection and health checks):

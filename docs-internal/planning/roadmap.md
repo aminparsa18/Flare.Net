@@ -23,13 +23,6 @@ folders are where "what happened and why" actually lives.
   `metadata_entityname` (`azuremonitor` receiver) and
   `ApproximateNumberOfMessagesVisible_avg` with `QueueName` (`awsfirehose` +
   `transform`), and fix the constants in `MessagingQueryBuilder` if they differ.
-- **Use the OpenAPI.NET 3.x features in the generated spec.** `Microsoft.OpenApi` 3.11.0 now ships
-  transitively with `Microsoft.AspNetCore.OpenApi` 11.0, but `AddOpenApi()` in `Flare.Api` still uses
-  defaults. Worth doing: (1) a document transformer that groups endpoints with hierarchical tags
-  (`kind`/`summary`/`parent`: logs, traces, metrics, alerts, dashboards); (2) declare the cookie and
-  Bearer `flr_pat_…` security schemes so generated clients and the Terraform provider can see them;
-  (3) optionally emit OpenAPI 3.2 if `AddOpenApi` exposes it and a consumer needs it. Check the
-  [3.0 upgrade guide](https://github.com/microsoft/OpenAPI.NET/blob/main/docs/upgrade-guide-3.md).
 - **Continuous profiling: retention and span links.** Ingest, the Profiles page and the how-to are done
   ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)), and verified end to end with the
   OpenTelemetry eBPF profiler (`otelcol-ebpf-profiler` 0.163.2, whole-host, Docker Desktop and Linux).
