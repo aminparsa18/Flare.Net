@@ -12,15 +12,21 @@
 	import { authContext } from '#lib/auth/context.ts';
 	import MetricCatalogDetailSheet from '#lib/components/metric-catalog/MetricCatalogDetailSheet.svelte';
 	import * as m from '#lib/paraglide/messages.js';
+	import { startPageTour } from '#lib/tour/page.ts';
+	import { catalogTour } from '#lib/tour/tours/catalog.ts';
 
 	const auth = authContext.get();
 	const catalog = metricCatalogContext.set(new MetricCatalogState());
 
+	let stopTour: (() => void) | undefined;
+
 	onMount(() => {
+		stopTour = startPageTour(catalogTour);
 		void catalog.load();
 	});
 
 	onDestroy(() => {
+		stopTour?.();
 		catalog.dispose();
 	});
 </script>
@@ -34,6 +40,6 @@
 	{#if auth.canMutate}
 		<MetricAttributeRulesUnmatched />
 	{/if}
-	<MetricCatalogTable />
+	<div class="contents" data-tour="catalog-table"><MetricCatalogTable /></div>
 	<MetricCatalogDetailSheet />
 </div>

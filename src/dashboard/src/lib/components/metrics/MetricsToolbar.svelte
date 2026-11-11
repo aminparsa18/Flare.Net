@@ -85,40 +85,46 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<Select.Root type="single" value={explorer.mode} onValueChange={(v) => v && explorer.setMode(v as 'single' | 'formula')}>
-		<Select.Trigger class="w-auto">
-			{MODE_OPTIONS.find((o) => o.value === explorer.mode)?.label()}
-		</Select.Trigger>
-		<Select.Content>
-			{#each MODE_OPTIONS as option (option.value)}
-				<Select.Item value={option.value} label={option.label()} />
-			{/each}
-		</Select.Content>
-	</Select.Root>
+	<div class="contents" data-tour="metrics-mode">
+		<Select.Root type="single" value={explorer.mode} onValueChange={(v) => v && explorer.setMode(v as 'single' | 'formula')}>
+			<Select.Trigger class="w-auto">
+				{MODE_OPTIONS.find((o) => o.value === explorer.mode)?.label()}
+			</Select.Trigger>
+			<Select.Content>
+				{#each MODE_OPTIONS as option (option.value)}
+					<Select.Item value={option.value} label={option.label()} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	</div>
 
-	<Select.Root
-		type="single"
-		value={explorer.filter.timeRangePreset}
-		onValueChange={(v) => v && explorer.setTimeRangePreset(v as TimeRangePreset)}
-	>
-		<Select.Trigger class="w-auto">
-			<ClockIcon data-icon="inline-start" />
-			{activeLabel}
-		</Select.Trigger>
-		<Select.Content>
-			{#each presets as preset (preset.value)}
-				<Select.Item value={preset.value} label={presetLabel(preset.value)} />
-			{/each}
-		</Select.Content>
-	</Select.Root>
-	<AroundTimePopover onApply={(range) => explorer.setCustomRange(range)} />
+	<div class="contents" data-tour="metrics-time">
+		<Select.Root
+			type="single"
+			value={explorer.filter.timeRangePreset}
+			onValueChange={(v) => v && explorer.setTimeRangePreset(v as TimeRangePreset)}
+		>
+			<Select.Trigger class="w-auto">
+				<ClockIcon data-icon="inline-start" />
+				{activeLabel}
+			</Select.Trigger>
+			<Select.Content>
+				{#each presets as preset (preset.value)}
+					<Select.Item value={preset.value} label={presetLabel(preset.value)} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+		<AroundTimePopover onApply={(range) => explorer.setCustomRange(range)} />
+	</div>
 
-	<PopoverMultiSelect
-		label={m.metricsToolbar_serviceLabel()}
-		options={serviceOptions}
-		selected={explorer.filter.services}
-		onChange={(next) => explorer.setServices(next)}
-	/>
+	<div class="contents" data-tour="metrics-services">
+		<PopoverMultiSelect
+			label={m.metricsToolbar_serviceLabel()}
+			options={serviceOptions}
+			selected={explorer.filter.services}
+			onChange={(next) => explorer.setServices(next)}
+		/>
+	</div>
 
 	<!-- Real server-side grouping (collapses series sharing one attribute key's value -
 	     see MetricSeriesQueryBuilder's remarks), not a display reshape, so this lives here
@@ -127,13 +133,15 @@
 	     entirely when the selected metric has no discovered attribute keys, same
 	     graceful-degradation call as every other picker on this page. -->
 	{#if explorer.mode === 'single' && explorer.knownAttributeKeys.length > 0}
-		<PopoverSingleSelect
-			label={m.metricsToolbar_groupByLabel()}
-			triggerLabel={groupByLabel}
-			options={groupByOptions}
-			value={explorer.filter.groupByAttributeKey ?? GROUP_BY_NONE}
-			onChange={(v) => explorer.setGroupByAttribute(v === GROUP_BY_NONE ? null : v)}
-		/>
+		<div class="contents" data-tour="metrics-group-by">
+			<PopoverSingleSelect
+				label={m.metricsToolbar_groupByLabel()}
+				triggerLabel={groupByLabel}
+				options={groupByOptions}
+				value={explorer.filter.groupByAttributeKey ?? GROUP_BY_NONE}
+				onChange={(v) => explorer.setGroupByAttribute(v === GROUP_BY_NONE ? null : v)}
+			/>
+		</div>
 	{/if}
 
 	<!-- The series cap (MetricQueryRequest.topN / MetricSeriesQueryBuilder's remarks)
@@ -168,11 +176,13 @@
 		     see MetricSeriesQueryBuilder's own remarks on why HAVING and TopN compose rather
 		     than one replacing the other. Formula mode has no single ranking magnitude to filter
 		     on (each row is its own query) - out of scope for v1, same as TopN/compare below. -->
-		<MetricsHavingPopover
-			havingOperator={explorer.filter.havingOperator}
-			havingValue={explorer.filter.havingValue}
-			onApply={(operator, value) => explorer.setHaving(operator, value)}
-		/>
+		<div class="contents" data-tour="metrics-having">
+			<MetricsHavingPopover
+				havingOperator={explorer.filter.havingOperator}
+				havingValue={explorer.filter.havingValue}
+				onApply={(operator, value) => explorer.setHaving(operator, value)}
+			/>
+		</div>
 
 		<!-- Per-query post-processing (roadmap: "Per-query post-processing functions
 		     (metrics and logs)", ADR-0038) - clamp-min/max/absolute/log2/log10/cumulative-sum
@@ -180,10 +190,12 @@
 		     Hidden for Histogram, which has no single scalar Value to transform - same
 		     exclusion ADR-0036 made for Formula-mode operands. -->
 		{#if !isHistogramType(explorer.selected?.type)}
-			<MetricsFunctionsPopover
-				functions={explorer.filter.postProcessFunctions}
-				onApply={(functions) => explorer.setPostProcessFunctions(functions)}
-			/>
+			<div class="contents" data-tour="metrics-functions">
+				<MetricsFunctionsPopover
+					functions={explorer.filter.postProcessFunctions}
+					onApply={(functions) => explorer.setPostProcessFunctions(functions)}
+				/>
+			</div>
 		{/if}
 
 		<!-- MetricChart itself is the one that decides whether/how comparison actually
@@ -197,14 +209,16 @@
 		     the exact compared dates). Formula mode has no previous-period fetch yet (v1 scope
 		     cut, see docs-internal/adr/0036-cross-query-metric-formulas.md) - hidden rather than
 		     shown-and-ignored, same as every other single-mode-only control here. -->
-		<label class="flex items-center gap-1.5 text-xs font-medium" title={m.metricsToolbar_compareTitle()}>
-			<Switch
-				checked={explorer.filter.compareEnabled}
-				onCheckedChange={(v) => explorer.setCompareEnabled(v)}
-				size="sm"
-			/>
-			{m.metricsToolbar_compareLabel()}
-		</label>
+		<div class="contents" data-tour="metrics-compare">
+			<label class="flex items-center gap-1.5 text-xs font-medium" title={m.metricsToolbar_compareTitle()}>
+				<Switch
+					checked={explorer.filter.compareEnabled}
+					onCheckedChange={(v) => explorer.setCompareEnabled(v)}
+					size="sm"
+				/>
+				{m.metricsToolbar_compareLabel()}
+			</label>
+		</div>
 
 		<!-- Time-shift overlay (roadmap: "Per-query post-processing functions (metrics and
 		     logs)", ADR-0040) - a fixed, arbitrary offset overlay, distinct from Compare's
@@ -215,54 +229,66 @@
 		     see its own timeShiftActive/timeShiftUnavailable remarks), same "toolbar filter,
 		     chart decides what to do with it" split. Formula mode has no overlay fetch
 		     either, same v1 scope cut Compare's own remarks document. -->
-		<MetricsTimeShiftPopover
-			timeShiftSeconds={explorer.filter.timeShiftSeconds}
-			onApply={(seconds) => explorer.setTimeShiftSeconds(seconds)}
-		/>
+		<div class="contents" data-tour="metrics-time-shift">
+			<MetricsTimeShiftPopover
+				timeShiftSeconds={explorer.filter.timeShiftSeconds}
+				onApply={(seconds) => explorer.setTimeShiftSeconds(seconds)}
+			/>
+		</div>
 	{/if}
 
 	<!-- Re-runs the chart's current query on an interval while on - see
 	     MetricsExplorerState.autoRefreshEnabled's own remarks. A plain `title`, same
 	     "one static sentence, not a rich Tooltip.*" call the compare switch above already
 	     makes. -->
-	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.metricsToolbar_autoRefreshTitle()}>
-		<Switch
-			checked={explorer.autoRefreshEnabled}
-			onCheckedChange={(v) => explorer.setAutoRefreshEnabled(v)}
-			size="sm"
+	<div class="contents" data-tour="metrics-auto-refresh">
+		<label class="flex items-center gap-1.5 text-xs font-medium" title={m.metricsToolbar_autoRefreshTitle()}>
+			<Switch
+				checked={explorer.autoRefreshEnabled}
+				onCheckedChange={(v) => explorer.setAutoRefreshEnabled(v)}
+				size="sm"
+			/>
+			<RefreshCwIcon class="size-3.5" />
+			{m.metricsToolbar_autoRefreshLabel()}
+		</label>
+	</div>
+
+	<div class="contents" data-tour="metrics-catalog">
+		<Button variant="ghost" size="sm" href={withBase('/metrics/catalog')} title={m.metricCatalog_openTitle()}>
+			<LibraryIcon data-icon="inline-start" />
+			{m.metricCatalog_openLabel()}
+		</Button>
+	</div>
+
+	<div class="contents" data-tour="metrics-saved">
+		<ViewsMenu
+			pageType="Metrics"
+			currentState={() => explorer.toSavedViewState()}
+			applyState={(s) => explorer.applySavedViewState(s)}
 		/>
-		<RefreshCwIcon class="size-3.5" />
-		{m.metricsToolbar_autoRefreshLabel()}
-	</label>
-
-	<Button variant="ghost" size="sm" href={withBase('/metrics/catalog')} title={m.metricCatalog_openTitle()}>
-		<LibraryIcon data-icon="inline-start" />
-		{m.metricCatalog_openLabel()}
-	</Button>
-
-	<ViewsMenu
-		pageType="Metrics"
-		currentState={() => explorer.toSavedViewState()}
-		applyState={(s) => explorer.applySavedViewState(s)}
-	/>
+	</div>
 
 	<!-- DashboardMetricsPanelBody.svelte now renders FormulaChart for a formula-mode panel
 	     (docs-internal/adr/0037-dashboard-metrics-formula-panels.md, closing the follow-up
 	     ADR-0036 left open) - pinning is available in both modes. -->
-	<CreateAlertButton
-		draft={() =>
-			explorer.selected
-				? {
-						kind: 'MetricThreshold',
-						name: m.createAlertButton_name({ title: explorer.selected.metricName }),
-						metricName: explorer.selected.metricName,
-						metricType: explorer.selected.type
-					}
-				: null}
-	/>
-	<PinToDashboardButton
-		panelType="Metrics"
-		currentState={() => explorer.toSavedViewState()}
-		defaultTitle={explorer.mode === 'formula' ? explorer.formulaExpression : (explorer.selected?.metricName ?? m.nav_metrics())}
-	/>
+	<div class="contents" data-tour="metrics-alert">
+		<CreateAlertButton
+			draft={() =>
+				explorer.selected
+					? {
+							kind: 'MetricThreshold',
+							name: m.createAlertButton_name({ title: explorer.selected.metricName }),
+							metricName: explorer.selected.metricName,
+							metricType: explorer.selected.type
+						}
+					: null}
+		/>
+	</div>
+	<div class="contents" data-tour="metrics-pin">
+		<PinToDashboardButton
+			panelType="Metrics"
+			currentState={() => explorer.toSavedViewState()}
+			defaultTitle={explorer.mode === 'formula' ? explorer.formulaExpression : (explorer.selected?.metricName ?? m.nav_metrics())}
+		/>
+	</div>
 </div>

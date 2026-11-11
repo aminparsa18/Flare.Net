@@ -53,45 +53,53 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<Select.Root
-		type="single"
-		value={errors.filter.timeRangePreset}
-		onValueChange={(v) => v && errors.setTimeRangePreset(v as TimeRangePreset)}
-	>
-		<Select.Trigger class="w-auto">
-			<ClockIcon data-icon="inline-start" />
-			{activeLabel}
-		</Select.Trigger>
-		<Select.Content>
-			{#each presets as preset (preset.value)}
-				<Select.Item value={preset.value} label={presetLabel(preset.value)} />
-			{/each}
-		</Select.Content>
-	</Select.Root>
+	<div class="contents" data-tour="errors-time">
+		<Select.Root
+			type="single"
+			value={errors.filter.timeRangePreset}
+			onValueChange={(v) => v && errors.setTimeRangePreset(v as TimeRangePreset)}
+		>
+			<Select.Trigger class="w-auto">
+				<ClockIcon data-icon="inline-start" />
+				{activeLabel}
+			</Select.Trigger>
+			<Select.Content>
+				{#each presets as preset (preset.value)}
+					<Select.Item value={preset.value} label={presetLabel(preset.value)} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	</div>
 
-	<PopoverMultiSelect
-		label={m.errorsToolbar_serviceLabel()}
-		options={serviceOptions}
-		selected={errors.filter.services}
-		onChange={(next) => errors.setServices(next)}
-	/>
+	<div class="contents" data-tour="errors-services">
+		<PopoverMultiSelect
+			label={m.errorsToolbar_serviceLabel()}
+			options={serviceOptions}
+			selected={errors.filter.services}
+			onChange={(next) => errors.setServices(next)}
+		/>
+	</div>
 
-	<Select.Root type="single" value={errors.statusFilter} onValueChange={(v) => v && errors.setStatusFilter(v as ErrorsStatusFilter)}>
-		<Select.Trigger class="w-auto" aria-label={m.errorIssue_filterLabel()}>
-			{statusOptions.find((o) => o.value === errors.statusFilter)?.label}
-		</Select.Trigger>
-		<Select.Content>
-			{#each statusOptions as option (option.value)}
-				<Select.Item value={option.value} label={option.label} />
-			{/each}
-		</Select.Content>
-	</Select.Root>
+	<div class="contents" data-tour="errors-status">
+		<Select.Root type="single" value={errors.statusFilter} onValueChange={(v) => v && errors.setStatusFilter(v as ErrorsStatusFilter)}>
+			<Select.Trigger class="w-auto" aria-label={m.errorIssue_filterLabel()}>
+				{statusOptions.find((o) => o.value === errors.statusFilter)?.label}
+			</Select.Trigger>
+			<Select.Content>
+				{#each statusOptions as option (option.value)}
+					<Select.Item value={option.value} label={option.label} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	</div>
 
 	{#if errors.canFilterMine}
-		<Button variant={errors.mineOnly ? 'secondary' : 'outline'} size="sm" aria-pressed={errors.mineOnly} onclick={() => errors.setMineOnly(!errors.mineOnly)}>
-			<UserIcon data-icon="inline-start" />
-			{m.errorsToolbar_mine()}
-		</Button>
+		<div class="contents" data-tour="errors-mine">
+			<Button variant={errors.mineOnly ? 'secondary' : 'outline'} size="sm" aria-pressed={errors.mineOnly} onclick={() => errors.setMineOnly(!errors.mineOnly)}>
+				<UserIcon data-icon="inline-start" />
+				{m.errorsToolbar_mine()}
+			</Button>
+		</div>
 	{/if}
 
 	{#if errors.filter.exceptionType}
@@ -116,24 +124,30 @@
 	</Button>
 
 	{#if auth.canMutate}
-		<Button variant="outline" size="sm" class="ml-auto" onclick={() => (groupingOpen = true)}>
-			<LayersIcon data-icon="inline-start" />
-			{m.errorGrouping_open()}
-		</Button>
-		<Button variant="outline" size="sm" onclick={() => (ownershipOpen = true)}>
-			<UsersIcon data-icon="inline-start" />
-			{m.errorOwnership_open()}
-		</Button>
+		<div class="contents" data-tour="errors-grouping">
+			<Button variant="outline" size="sm" class="ml-auto" onclick={() => (groupingOpen = true)}>
+				<LayersIcon data-icon="inline-start" />
+				{m.errorGrouping_open()}
+			</Button>
+		</div>
+		<div class="contents" data-tour="errors-ownership">
+			<Button variant="outline" size="sm" onclick={() => (ownershipOpen = true)}>
+				<UsersIcon data-icon="inline-start" />
+				{m.errorOwnership_open()}
+			</Button>
+		</div>
 	{/if}
 
-	<Button variant="outline" size="sm" class={auth.canMutate ? '' : 'ml-auto'} onclick={() => errors.runSearch()} disabled={errors.loading}>
-		{#if errors.loading}
-			<Spinner class="size-4" data-icon="inline-start" />
-		{:else}
-			<RefreshCwIcon data-icon="inline-start" />
-		{/if}
-		{m.errorsToolbar_refresh()}
-	</Button>
+	<div class="contents" data-tour="errors-refresh">
+		<Button variant="outline" size="sm" class={auth.canMutate ? '' : 'ml-auto'} onclick={() => errors.runSearch()} disabled={errors.loading}>
+			{#if errors.loading}
+				<Spinner class="size-4" data-icon="inline-start" />
+			{:else}
+				<RefreshCwIcon data-icon="inline-start" />
+			{/if}
+			{m.errorsToolbar_refresh()}
+		</Button>
+	</div>
 </div>
 
 <OwnershipRulesDialog bind:open={ownershipOpen} />

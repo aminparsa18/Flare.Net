@@ -39,7 +39,7 @@
 	}
 </script>
 
-<ol class="flex flex-col gap-3 px-4 py-3">
+<ol class="flex flex-col gap-3 px-4 py-3" data-tour="funnels-steps">
 	{#each funnel.steps as step, index (step.id)}
 		<li class="rounded-lg border p-3" aria-label={m.funnelsPage_stepHeading({ number: index + 1 })}>
 			<div class="mb-2 flex items-center gap-2">

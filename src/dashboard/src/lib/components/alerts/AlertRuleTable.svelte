@@ -189,11 +189,13 @@
 		<p class="text-muted-foreground text-xs">{m.alertRuleTable_subheading()}</p>
 	</div>
 	<div class="flex items-center gap-2">
-		<AlertRulesTransfer ruleIds={isAlertListViewActive(view) ? visibleRules.map((r) => r.id) : []} />
-		<Button size="sm" onclick={() => alerts.openCreate()}>
-			<PlusIcon data-icon="inline-start" />
-			{m.alertRuleTable_newAlert()}
-		</Button>
+		<div class="contents" data-tour="alerts-transfer"><AlertRulesTransfer ruleIds={isAlertListViewActive(view) ? visibleRules.map((r) => r.id) : []} /></div>
+		<div class="contents" data-tour="alerts-new">
+			<Button size="sm" onclick={() => alerts.openCreate()}>
+				<PlusIcon data-icon="inline-start" />
+				{m.alertRuleTable_newAlert()}
+			</Button>
+		</div>
 	</div>
 </div>
 
@@ -222,7 +224,7 @@
 		</Empty.Content>
 	</Empty.Root>
 {:else}
-	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-2" data-tour="alerts-filters">
 		<div class="relative w-64">
 			<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
 			<Input class="h-8 pl-8" placeholder={m.alertRuleTable_searchPlaceholder()} bind:value={view.query} />
@@ -245,7 +247,7 @@
 			</Button>
 		{/if}
 	</div>
-	<div class="min-h-0 flex-1 overflow-y-auto">
+	<div class="min-h-0 flex-1 overflow-y-auto" data-tour="alerts-table">
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
@@ -393,6 +395,7 @@
 							{alerts.statuses.get(rule.id)?.lastFiredAt ? formatDateTime(alerts.statuses.get(rule.id)!.lastFiredAt!) : m.alertRuleTable_neverFired()}
 						</Table.Cell>
 						<Table.Cell class="text-right">
+							<div class="contents" data-tour="alerts-actions">
 							<Button
 								variant="ghost"
 								size="icon-sm"
@@ -433,6 +436,7 @@
 							>
 								<Trash2Icon />
 							</Button>
+							</div>
 						</Table.Cell>
 					</Table.Row>
 				{/each}

@@ -226,12 +226,17 @@
 		<h3 class="font-medium">{m.settingsExplorer_toursHeading()}</h3>
 		<p class="text-muted-foreground text-sm">{m.settingsExplorer_toursDescription()}</p>
 		{#each ALL_TOURS as tour (tour.id)}
+			{@const replayHref = tourReplayHref(tour)}
 			<div class={rowClass}>
 				<span>{tour.name()}</span>
-				<Button variant="outline" size="sm" href={tourReplayHref(tour)}>
-					<CompassIcon data-icon="inline-start" />
-					{m.settingsExplorer_toursReplay()}
-				</Button>
+				{#if replayHref}
+					<Button variant="outline" size="sm" href={replayHref}>
+						<CompassIcon data-icon="inline-start" />
+						{m.settingsExplorer_toursReplay()}
+					</Button>
+				{:else}
+					<span class="text-muted-foreground text-xs">{m.settingsExplorer_toursReplayInPage()}</span>
+				{/if}
 			</div>
 		{/each}
 	</section>

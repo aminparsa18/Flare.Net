@@ -68,30 +68,34 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<TracesViewTabs {activeTab} {onTabChange} />
-	<Select.Root
-		type="single"
-		value={explorer.filter.timeRangePreset}
-		onValueChange={(v) => v && explorer.setTimeRangePreset(v as TimeRangePreset)}
-	>
-		<Select.Trigger class="w-auto">
-			<ClockIcon data-icon="inline-start" />
-			{activeLabel}
-		</Select.Trigger>
-		<Select.Content>
-			{#each presets as preset (preset.value)}
-				<Select.Item value={preset.value} label={presetLabel(preset.value)} />
-			{/each}
-		</Select.Content>
-	</Select.Root>
-	<AroundTimePopover onApply={(range) => explorer.setCustomRange(range)} />
+	<div class="contents" data-tour="traces-tabs"><TracesViewTabs {activeTab} {onTabChange} /></div>
+	<div class="contents" data-tour="traces-time">
+		<Select.Root
+			type="single"
+			value={explorer.filter.timeRangePreset}
+			onValueChange={(v) => v && explorer.setTimeRangePreset(v as TimeRangePreset)}
+		>
+			<Select.Trigger class="w-auto">
+				<ClockIcon data-icon="inline-start" />
+				{activeLabel}
+			</Select.Trigger>
+			<Select.Content>
+				{#each presets as preset (preset.value)}
+					<Select.Item value={preset.value} label={presetLabel(preset.value)} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+		<AroundTimePopover onApply={(range) => explorer.setCustomRange(range)} />
+	</div>
 
-	<PopoverMultiSelect
-		label={m.tracesToolbar_serviceLabel()}
-		options={serviceOptions}
-		selected={explorer.filter.services}
-		onChange={(next) => explorer.setServices(next)}
-	/>
+	<div class="contents" data-tour="traces-services">
+		<PopoverMultiSelect
+			label={m.tracesToolbar_serviceLabel()}
+			options={serviceOptions}
+			selected={explorer.filter.services}
+			onChange={(next) => explorer.setServices(next)}
+		/>
+	</div>
 
 	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
 	     starts from defaults rather than restoring it (#lib/saved-views/last-used.ts). -->
@@ -108,71 +112,83 @@
 		{m.tracesToolbar_clearFilters()}
 	</Button>
 
-	<div class="relative w-44">
-		<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-		<Input
-			class="pl-8"
-			placeholder={m.tracesToolbar_goToTracePlaceholder()}
-			aria-label={m.tracesToolbar_goToTracePlaceholder()}
-			value={traceIdDraft}
-			oninput={(e) => (traceIdDraft = e.currentTarget.value)}
-			onkeydown={(e) => e.key === 'Enter' && goToTrace()}
-		/>
+	<div class="contents" data-tour="traces-go-to">
+		<div class="relative w-44">
+			<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+			<Input
+				class="pl-8"
+				placeholder={m.tracesToolbar_goToTracePlaceholder()}
+				aria-label={m.tracesToolbar_goToTracePlaceholder()}
+				value={traceIdDraft}
+				oninput={(e) => (traceIdDraft = e.currentTarget.value)}
+				onkeydown={(e) => e.key === 'Enter' && goToTrace()}
+			/>
+		</div>
 	</div>
 
 	<!-- Opens TraceStructureEditor under the filter row; the applied expression shows on the
 	     button so it's visible while the editor is closed. -->
-	<Button
-		variant={explorer.filter.structure ? 'secondary' : 'ghost'}
-		size="sm"
-		aria-pressed={explorer.structureEditorOpen}
-		title={m.tracesToolbar_structureTitle()}
-		onclick={() => (explorer.structureEditorOpen = !explorer.structureEditorOpen)}
-	>
-		<GitForkIcon data-icon="inline-start" />
-		{m.tracesToolbar_structureLabel()}
-		{#if explorer.filter.structure}
-			<code class="max-w-28 truncate font-mono text-xs">{explorer.filter.structure.expression}</code>
-		{/if}
-	</Button>
+	<div class="contents" data-tour="traces-structure">
+		<Button
+			variant={explorer.filter.structure ? 'secondary' : 'ghost'}
+			size="sm"
+			aria-pressed={explorer.structureEditorOpen}
+			title={m.tracesToolbar_structureTitle()}
+			onclick={() => (explorer.structureEditorOpen = !explorer.structureEditorOpen)}
+		>
+			<GitForkIcon data-icon="inline-start" />
+			{m.tracesToolbar_structureLabel()}
+			{#if explorer.filter.structure}
+				<code class="max-w-28 truncate font-mono text-xs">{explorer.filter.structure.expression}</code>
+			{/if}
+		</Button>
+	</div>
 
-	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_nPlusOneTitle()}>
-		<Switch checked={explorer.filter.nPlusOneOnly} onCheckedChange={(v) => explorer.setNPlusOneOnly(v)} size="sm" />
-		<DatabaseZapIcon class="size-3.5" />
-		{m.tracesToolbar_nPlusOneLabel()}
-	</label>
+	<div class="contents" data-tour="traces-n-plus-one">
+		<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_nPlusOneTitle()}>
+			<Switch checked={explorer.filter.nPlusOneOnly} onCheckedChange={(v) => explorer.setNPlusOneOnly(v)} size="sm" />
+			<DatabaseZapIcon class="size-3.5" />
+			{m.tracesToolbar_nPlusOneLabel()}
+		</label>
+	</div>
 
 	<!-- Root spans (one row per trace) vs. each service's entry spans - see
 	     TracesFilterState.entrySpansOnly. -->
-	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_entrySpansTitle()}>
-		<Switch
-			checked={explorer.filter.entrySpansOnly}
-			onCheckedChange={(v) => explorer.setEntrySpansOnly(v)}
-			size="sm"
-		/>
-		<LogInIcon class="size-3.5" />
-		{m.tracesToolbar_entrySpansLabel()}
-	</label>
+	<div class="contents" data-tour="traces-entry-spans">
+		<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_entrySpansTitle()}>
+			<Switch
+				checked={explorer.filter.entrySpansOnly}
+				onCheckedChange={(v) => explorer.setEntrySpansOnly(v)}
+				size="sm"
+			/>
+			<LogInIcon class="size-3.5" />
+			{m.tracesToolbar_entrySpansLabel()}
+		</label>
+	</div>
 
 	<!-- Re-runs the trace search on an interval while on - see
 	     TracesExplorerState.autoRefreshEnabled's own remarks. A plain `title`, same "one
 	     static sentence, not a rich Tooltip.*" call MetricsToolbar's compare switch makes
 	     for itself. -->
-	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_autoRefreshTitle()}>
-		<Switch
-			checked={explorer.autoRefreshEnabled}
-			onCheckedChange={(v) => explorer.setAutoRefreshEnabled(v)}
-			size="sm"
-		/>
-		<RefreshCwIcon class="size-3.5" />
-		{m.tracesToolbar_autoRefreshLabel()}
-	</label>
+	<div class="contents" data-tour="traces-auto-refresh">
+		<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_autoRefreshTitle()}>
+			<Switch
+				checked={explorer.autoRefreshEnabled}
+				onCheckedChange={(v) => explorer.setAutoRefreshEnabled(v)}
+				size="sm"
+			/>
+			<RefreshCwIcon class="size-3.5" />
+			{m.tracesToolbar_autoRefreshLabel()}
+		</label>
+	</div>
 
 	{#if activeTab === 'traces'}
-		<TracesExportDialog />
+		<div class="contents" data-tour="traces-export"><TracesExportDialog /></div>
 	{/if}
 
-	<ViewsMenu pageType="Traces" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
+	<div class="contents" data-tour="traces-saved">
+		<ViewsMenu pageType="Traces" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 
-	<PinToDashboardButton panelType="Traces" currentState={() => explorer.toSavedViewState()} defaultTitle={m.nav_traces()} />
+		<PinToDashboardButton panelType="Traces" currentState={() => explorer.toSavedViewState()} defaultTitle={m.nav_traces()} />
+	</div>
 </div>

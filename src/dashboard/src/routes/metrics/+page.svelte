@@ -13,10 +13,13 @@
 	import FormulaBuilder from '#lib/components/metrics/FormulaBuilder.svelte';
 	import FormulaChart from '#lib/components/metrics/FormulaChart.svelte';
 	import * as m from '#lib/paraglide/messages.js';
+	import { startPageTour } from '#lib/tour/page.ts';
+	import { metricsTour } from '#lib/tour/tours/metrics.ts';
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
 
 	onDestroy(() => {
+		stopTour?.();
 		explorer.dispose();
 	});
 
@@ -61,8 +64,11 @@
 	let panelsEl: HTMLDivElement | null = null;
 	let dragging = $state(false);
 
+	let stopTour: (() => void) | undefined;
+
 	onMount(() => {
 		pickerWidth = loadStoredWidth();
+		stopTour = startPageTour(metricsTour);
 
 		void (async () => {
 			// ?view=<id> (a saved view's shareable link) takes priority - applySavedViewState
@@ -130,10 +136,10 @@
 	<MetricsToolbar />
 	<div class="flex min-h-0 flex-1" bind:this={panelsEl}>
 		{#if explorer.mode === 'formula'}
-			<FormulaBuilder />
-			<FormulaChart releaseMarkers exemplars />
+			<div class="contents" data-tour="metrics-formula-builder"><FormulaBuilder /></div>
+			<div class="contents" data-tour="metrics-chart"><FormulaChart releaseMarkers exemplars /></div>
 		{:else}
-			<MetricPicker width={pickerWidth} />
+			<div class="contents" data-tour="metrics-picker"><MetricPicker width={pickerWidth} /></div>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<!-- Svelte's linter treats role="separator" as non-interactive by default, but the
@@ -162,7 +168,7 @@
 						: ''}"
 				></div>
 			</div>
-			<MetricChart releaseMarkers exemplars />
+			<div class="contents" data-tour="metrics-chart"><MetricChart releaseMarkers exemplars /></div>
 		{/if}
 	</div>
 </div>
