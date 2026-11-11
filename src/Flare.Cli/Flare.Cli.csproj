@@ -81,9 +81,9 @@
          Flare.Api with a personal access token. No backend changes. Bumped 0.1.8 to 0.1.9: both FLARE_IMAGE_TAG pins moved 0.5.1 -> 0.6.0, matching the server
          API the CLI's newer commands call. Tag on release: flare-cli-v{Version}
          (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.9</Version>
+    <Version>0.1.10</Version>
     <Authors>Amin Parsa</Authors>
-    <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
+    <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Also published to npm as @apardev/flare-cli. Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/aminparsa18/Flare.Net</PackageProjectUrl>
