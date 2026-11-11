@@ -6,7 +6,6 @@
     <!-- Directory.Build.props sets a single TargetFramework; clear it so TargetFrameworks wins. -->
     <TargetFramework />
     <TargetFrameworks>net11.0-android;net11.0-ios</TargetFrameworks>
-    <TargetFrameworks Condition="'$(FlareExcludeIos)' == 'true'">net11.0-android</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <RootNamespace>ExampleApp.Maui</RootNamespace>
     <UseMaui>true</UseMaui>

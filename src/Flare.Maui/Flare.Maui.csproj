@@ -5,8 +5,6 @@
          Plain net11.0 carries only the MAUI-free core (unit-tested); the mobile targets add the glue. -->
     <TargetFramework />
     <TargetFrameworks>net11.0;net11.0-android;net11.0-ios</TargetFrameworks>
-    <!-- CI sets this while GitHub macOS runners lack Xcode 27.2, which the .NET 11 iOS pack requires. -->
-    <TargetFrameworks Condition="'$(FlareExcludeIos)' == 'true'">net11.0;net11.0-android</TargetFrameworks>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">24.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-ios'))">15.0</SupportedOSPlatformVersion>
     <UseMaui Condition="'$(TargetFramework)' != 'net11.0'">true</UseMaui>
