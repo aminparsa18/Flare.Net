@@ -62,4 +62,5 @@ jobs:
         run: dotnet build Flare.Maui.slnx --no-restore -p:FlareExcludeIos=true
 
       - name: Test
-        run: dotnet test --solution Flare.Maui.slnx --no-build -p:FlareExcludeIos=true
+        # --project, not --solution: on .NET 11 a solution run also tries to launch ExampleApp.Maui on a device.
+        run: dotnet test --project src/Flare.Maui.Tests --no-build -p:FlareExcludeIos=true
