@@ -27,7 +27,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Reads global.json so the exact pinned SDK (10.0.100, rollForward
+      # Reads global.json so the exact pinned SDK (11.0.100, rollForward
       # latestFeature) is what actually builds - not whatever setup-dotnet's own
       # default happens to be.
       - name: Set up .NET

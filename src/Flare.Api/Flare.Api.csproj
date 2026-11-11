@@ -19,9 +19,6 @@
     <PackageReference Include="MemoryPack" ExcludeAssets="analyzers" />
     <PackageReference Include="MemoryPack.Generator.Patched" PrivateAssets="all" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
-    <!-- Direct reference (see Directory.Packages.props) so the pinned, patched version
-         wins over Microsoft.AspNetCore.OpenApi's own transitive Microsoft.OpenApi 2.0.0. -->
-    <PackageReference Include="Microsoft.OpenApi" />
     <PackageReference Include="System.DirectoryServices.Protocols" />
   </ItemGroup>
 

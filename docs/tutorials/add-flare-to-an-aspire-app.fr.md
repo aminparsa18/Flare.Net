@@ -16,7 +16,7 @@ ports (`4317` et `4318`).
 
 ## Prérequis
 
-- Le SDK .NET 10
+- Le SDK .NET 11
 - Le [CLI Aspire](https://aspire.dev) (`aspire --version` doit afficher
   quelque chose)
 - Docker Desktop, ou un autre moteur compatible Docker, en cours

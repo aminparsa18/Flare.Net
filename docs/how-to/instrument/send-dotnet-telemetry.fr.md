@@ -15,7 +15,7 @@ Si votre application s'exécute dans un AppHost .NET Aspire, utilisez plutôt
 - Une instance Flare en cours d'exécution ([autonome](../deploy/run-standalone.fr.md),
   [CLI](../deploy/run-with-cli.fr.md) ou [Aspire](../deploy/run-with-aspire.fr.md)) dont le
   port OTLP est joignable depuis votre application : `4317` pour gRPC, `4318` pour HTTP.
-- Une application .NET 10.
+- Une application .NET 11.
 
 ## Ajouter le paquet et l'appel
 

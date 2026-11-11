@@ -13,7 +13,7 @@ app. Stop any standalone Flare stack first, since it would hold the same ports
 
 ## Prerequisites
 
-- The .NET 10 SDK
+- The .NET 11 SDK
 - The [Aspire CLI](https://aspire.dev) (`aspire --version` should print
   something)
 - Docker Desktop, or another Docker-compatible engine, running

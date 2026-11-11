@@ -11,7 +11,7 @@ OpenTelemetry and can be made to misbehave on demand.
 
 ## Prerequisites
 
-- The .NET 10 SDK
+- The .NET 11 SDK
 - The [Aspire CLI](https://aspire.dev) (`aspire --version` should print
   something)
 - Docker Desktop, or another Docker-compatible engine, running. The demo

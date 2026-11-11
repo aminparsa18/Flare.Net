@@ -4,7 +4,7 @@
 # Flare.Api/Dockerfile's comment for why (Directory.Build.props / .Packages.props /
 # global.json + the Flare.ServiceDefaults/Flare.Api ProjectReferences).
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /source
 
 COPY Directory.Build.props Directory.Packages.props global.json ./
@@ -42,7 +42,7 @@ RUN dotnet publish src/Flare.AlertWorker/Flare.AlertWorker.csproj \
     -c Release \
     -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 
 # Unlike Flare.Api/Dockerfile, no libldap2 install here: Flare.Api.dll (carrying

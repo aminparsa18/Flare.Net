@@ -8,7 +8,7 @@
 # in - it's Flare's private Aspire dev-inner-loop orchestrator (see Planning.md's
 # "Later" roadmap note on Aspire.Hosting.Flare), not something this image runs.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /source
 
 # Central build files + csproj-only copies first, so `dotnet restore` gets its own
@@ -49,7 +49,7 @@ RUN dotnet publish src/Flare.Ingest/Flare.Ingest.csproj \
     -c Release \
     -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 COPY --from=build /app .
 

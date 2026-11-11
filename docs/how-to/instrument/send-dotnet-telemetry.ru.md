@@ -15,7 +15,7 @@ Flare одним вызовом с помощью пакета `Flare.OpenTeleme
 - Запущенный экземпляр Flare ([автономный](../deploy/run-standalone.ru.md),
   [CLI](../deploy/run-with-cli.ru.md) или [Aspire](../deploy/run-with-aspire.ru.md)), чей
   OTLP-порт доступен из вашего приложения: `4317` для gRPC, `4318` для HTTP.
-- Приложение на .NET 10.
+- Приложение на .NET 11.
 
 ## Добавьте пакет и вызов
 

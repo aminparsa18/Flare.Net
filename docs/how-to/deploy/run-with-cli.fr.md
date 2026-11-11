@@ -35,6 +35,9 @@ dotnet tool install --global Flare.Cli
 > `dotnet tool install -g flare` directement, cela échoue avec une erreur
 > « introuvable » ; utilisez la commande ci-dessus.
 
+L'outil cible .NET 11 : l'installer ainsi nécessite le SDK .NET 11 (et le runtime
+.NET 11 pour l'exécuter).
+
 Pas de SDK .NET ? Installez plutôt la version autonome depuis npm
 (macOS arm64/x64, Linux arm64/x64, Windows x64 ; Node 18+) :
 

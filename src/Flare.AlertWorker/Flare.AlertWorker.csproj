@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!-- Worker serves no static content. On the .NET 11 SDK the static-web-assets pipeline fails the
+         build via the Flare.Api ProjectReference ("scoped css bundles do not have matching endpoints:
+         _framework/Microsoft.NET.Sdk.BlazorWeb.HotReload...lib.module.js"). -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Aspire.ClickHouse.Driver" />
     <PackageReference Include="Aspire.StackExchange.Redis" />

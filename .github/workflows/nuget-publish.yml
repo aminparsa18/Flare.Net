@@ -86,7 +86,11 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          # 11.0.x builds everything per global.json; 10.0.111 is only for the Flare.Maui pack below
+          # (MAUI stays on .NET 10 for now - see the pin step).
+          dotnet-version: |
+            11.0.x
+            10.0.111
 
       # Maps the pushed tag's prefix (or the manual workflow_dispatch input) to a
       # project path + tag-version-prefix, so every step below is package-agnostic.
@@ -147,6 +151,16 @@ jobs:
             echo "::error::Tag version (${{ steps.version.outputs.VERSION }}) doesn't match csproj Version ($PROJECT_VERSION)"
             exit 1
           fi
+
+      # Flare.Maui still targets .NET 10 (mobile moves Mono -> CoreCLR in .NET 11), so pin the
+      # 10.0.1xx band exactly, same as maui-ci.yml, instead of global.json's 11.0 SDK.
+      - name: Pin SDK band for MAUI
+        if: steps.package.outputs.needs_maui == 'true'
+        run: |
+          cat > global.json <<'EOF2'
+          { "sdk": { "version": "10.0.111", "rollForward": "disable", "workloadVersion": "10.0.111.1" }, "test": { "runner": "Microsoft.Testing.Platform" } }
+          EOF2
+          dotnet --version
 
       # Installs exactly the workloads the project's target frameworks need (android, ios,
       # maccatalyst, maui) rather than a hard-coded list that could drift.
