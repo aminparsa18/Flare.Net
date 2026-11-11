@@ -39,8 +39,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # global.json pins the .NET 11 SDK. Its iOS pack (27.2) requires Xcode 27.2, so the runner must have it selected
-      # (xcode-select / DEVELOPER_DIR); macos-latest images that only ship Xcode 26.x fail the net11.0-ios build.
+      # global.json pins the .NET 11 SDK. Its iOS pack (27.2) requires Xcode 27.2, which the GitHub macOS runner images do not
+      # have yet (they ship 26.x), so CI builds the core and Android targets only (FlareExcludeIos). Remove the
+      # property from the dotnet steps below once a runner has Xcode 27.2 and the iOS targets can build.
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -50,15 +51,15 @@ jobs:
         run: dotnet --version
 
       - name: Restore MAUI workloads
-        run: dotnet workload restore Flare.Maui.slnx
+        run: dotnet workload restore Flare.Maui.slnx -p:FlareExcludeIos=true
 
       - name: Restore
-        run: dotnet restore Flare.Maui.slnx
+        run: dotnet restore Flare.Maui.slnx -p:FlareExcludeIos=true
 
       # Debug on purpose: Release runs the IL linker over the example app for iOS and Android, which is minutes of
       # work and only checks trimming of code no test exercises. Debug still compiles every target.
       - name: Build
-        run: dotnet build Flare.Maui.slnx --no-restore
+        run: dotnet build Flare.Maui.slnx --no-restore -p:FlareExcludeIos=true
 
       - name: Test
-        run: dotnet test --solution Flare.Maui.slnx --no-build
+        run: dotnet test --solution Flare.Maui.slnx --no-build -p:FlareExcludeIos=true
