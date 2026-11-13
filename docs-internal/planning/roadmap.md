@@ -139,6 +139,23 @@ folders are where "what happened and why" actually lives.
   (single + cluster) alongside the retention TTL work. Flare sets no
   force-merge or `ttl_only_drop_parts` settings today. Prior art: [ClickHouse
   26.9 changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).
+- **Run the benchmarks again once BenchmarkDotNet supports .NET 11 in a stable release.** 0.15.8 crashes in
+  `DotNetSdkValidator` (`GetRuntimeVersion not implemented for NotRecognized`) on `net11.0`, so no .NET suite in
+  `scripts/bench.sh` runs. 0.16.0-preview.2 knows `Net11`, but we're staying on stable versions. After the bump, run
+  `scripts/bench.sh` and commit the run, including the new `request-decompression` suite (gzip vs zstd decode
+  cost and allocations for OTLP export requests), which has had only an in-process dry run.
+- **OTLP receiver gaps found against upstream OpenTelemetry .NET 1.21.0.** Both are Ingest-only and useful with
+  today's senders; neither waits on an upstream merge.
+  - **Return OTLP `partial_success`.** When Ingest drops part of a request (ingest-key limits, pipeline drop rules),
+    report `rejected_spans`/`rejected_log_records`/`rejected_data_points` and an `error_message` in the export response
+    instead of a plain success, so senders that read it (the Collector, the Go and Java SDKs) log the loss. The .NET
+    exporter ignores the field today
+    ([opentelemetry-dotnet#3592](https://github.com/open-telemetry/opentelemetry-dotnet/issues/3592)).
+  - **Derive `SampleWeight` from `tracestate` `th`.** Consistent-probability samplers (the .NET contrib one in
+    `OpenTelemetry.Extensions`, Java/Go, the Collector's probabilistic sampler) write the threshold as `ot=th:…`. Ingest
+    stores `TraceState` but sets `SampleWeight` only from its own sampling (ADR-0122). Parse `th`, compute the adjusted
+    count, and multiply it with Ingest's own weight, so counts, RED charts and the service map stay unbiased under
+    SDK-side sampling.
 - **Drop the "origin only" note from the CommunityToolkit Flare integration.** Once a released Flare image normalizes configured CORS origins
   (`fix/normalize-cors-origins`: a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored), open a small PR on
   CommunityToolkit/Aspire removing the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in

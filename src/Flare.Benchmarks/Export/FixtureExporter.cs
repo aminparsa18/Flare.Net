@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Flare.Benchmarks.Fixtures;
+using Flare.Benchmarks.Fixtures.Synthetic;
 
 namespace Flare.Benchmarks.Export;
 
@@ -31,11 +32,30 @@ public static class FixtureExporter
             ["codecs"] = new JsonArray(Compression.All.Select(c => (JsonNode)c).ToArray()),
             ["scenarios"] = scenarios,
             ["request"] = Write(directory, Scenarios.LogSearchRequest, [Compression.None]),
+            ["otlpRequests"] = OtlpRequestSizes(),
         };
 
         File.WriteAllText(Path.Combine(directory, "manifest.json"), manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         Console.WriteLine($"Exported {Scenarios.All.Count} scenarios + 1 request body to {Path.GetFullPath(directory)}");
     }
+
+    /// <summary>Byte sizes only: the OTLP request fixtures are .NET-to-.NET, so no TypeScript benchmark reads their bytes.</summary>
+    private static JsonArray OtlpRequestSizes() => new(OtlpRequestFixtures.Names.Select(name =>
+    {
+        var body = OtlpRequestFixtures.Encode(name);
+        var sizes = new JsonObject();
+        foreach (var codec in OtlpRequestFixtures.Codecs)
+        {
+            sizes[codec] = OtlpRequestFixtures.Compress(body, codec).Length;
+        }
+
+        return (JsonNode)new JsonObject
+        {
+            ["name"] = name,
+            ["records"] = OtlpRequestFixtures.BatchSize,
+            ["sizes"] = sizes,
+        };
+    }).ToArray());
 
     private static JsonObject Write(string root, Scenario scenario, string[] codecs)
     {
