@@ -85,6 +85,14 @@ trace follows the decision, so a kept trace is never missing spans from a
 downstream service. For that to hold, give every service in the path the same
 helper or an equivalent parent-based sampler.
 
+The sampler is a consistent-probability one: it writes its rate into each kept
+span's `tracestate` as `ot=th:…`, so Flare counts every kept span as the spans
+it stands for, and Services, the service map and SLOs show real traffic instead
+of the sampled fraction
+([ADR-0280](../../../docs-internal/adr/0280-flare-opentelemetry-consistent-probability-sampler.md)). If you
+configure the SDK's sampler yourself, use one that writes `th`; OpenTelemetry
+.NET's `TraceIdRatioBasedSampler` doesn't, so those counts stay low.
+
 This is head sampling in the app. Flare can also sample at ingest; see
 [sampling, clustering and cost](../../explanation/sampling-clustering-and-cost.md)
 if you want the decision made centrally instead.

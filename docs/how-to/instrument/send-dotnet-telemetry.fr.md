@@ -88,6 +88,16 @@ spans manquants provenant d'un service en aval. Pour que cela tienne, donnez le 
 assistant, ou un échantillonneur équivalent basé sur le parent, à chaque service du
 chemin.
 
+L'échantillonneur est à probabilité cohérente : il écrit son taux dans le
+`tracestate` de chaque span conservé sous la forme `ot=th:…`, si bien que Flare
+compte chaque span conservé pour le nombre de spans qu'il représente, et que
+Services, la carte des services et les SLO affichent le trafic réel plutôt que la
+fraction échantillonnée
+([ADR-0280](../../../docs-internal/adr/0280-flare-opentelemetry-consistent-probability-sampler.md)). Si vous
+configurez vous-même l'échantillonneur du SDK, choisissez-en un qui écrit `th` ;
+le `TraceIdRatioBasedSampler` d'OpenTelemetry .NET ne le fait pas, et ces comptages
+restent donc sous-estimés.
+
 Il s'agit d'un échantillonnage en tête, dans l'application. Flare peut aussi
 échantillonner à l'ingestion ; voir
 [échantillonnage, clustering et coût](../../explanation/sampling-clustering-and-cost.fr.md)

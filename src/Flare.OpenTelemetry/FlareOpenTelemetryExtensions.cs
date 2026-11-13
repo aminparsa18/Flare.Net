@@ -144,9 +144,10 @@ public static class FlareOpenTelemetryExtensions
     }
 
     // Null at 1.0 so the SDK keeps its own default (parent-based, always on) rather than a
-    // ratio sampler that would only ever answer yes.
+    // ratio sampler that would only ever answer yes. Consistent-probability rather than
+    // TraceIdRatioBasedSampler so kept spans carry ot=th: and Flare can weight them (ADR-0279).
     internal static Sampler? CreateSampler(double ratio) =>
-        ratio >= 1.0 ? null : new ParentBasedSampler(new TraceIdRatioBasedSampler(ratio));
+        ratio >= 1.0 ? null : new ParentBasedSampler(new ConsistentProbabilitySampler(ratio));
 
     // With an endpoint set in code the SDK uses it as given and does not append the signal path,
     // so for OTLP/HTTP it has to be added here or every export would hit the root URL.

@@ -144,6 +144,9 @@ folders are where "what happened and why" actually lives.
   `scripts/bench.sh` runs. 0.16.0-preview.2 knows `Net11`, but we're staying on stable versions. After the bump, run
   `scripts/bench.sh` and commit the run, including the new `request-decompression` suite (gzip vs zstd decode
   cost and allocations for OTLP export requests), which has had only an in-process dry run.
+- **Switch `Flare.OpenTelemetry` to the upstream consistent-probability sampler once it is stable.** `ConsistentProbabilitySampler`
+  in `OpenTelemetry.Extensions` is prerelease only (latest `1.21.0-beta.1`). When a stable release ships, replace the package's
+  own `ConsistentProbabilitySampler` with it and drop ours (ADR-0280).
 - **Drop the "origin only" note from the CommunityToolkit Flare integration.** Once a released Flare image normalizes configured CORS origins
   (`fix/normalize-cors-origins`: a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored), open a small PR on
   CommunityToolkit/Aspire removing the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in
