@@ -14,7 +14,15 @@ namespace Flare.Ingest.Otlp;
 /// stays a pure static mapper with no logger dependency, same style as
 /// <see cref="OtlpTraceMapper"/>.
 /// </param>
-public sealed record MetricMapResult(IReadOnlyList<MetricPointRecord> Points, IReadOnlyList<string> UnsupportedMetricNames);
+/// <param name="RejectedDataPoints">
+/// How many data points those <paramref name="UnsupportedMetricNames"/> carried - what the OTLP
+/// receivers report back as <c>partial_success.rejected_data_points</c> (see
+/// <see cref="OtlpPartialSuccess"/>). Intentional drops (staleness markers) are not counted.
+/// </param>
+public sealed record MetricMapResult(
+    IReadOnlyList<MetricPointRecord> Points,
+    IReadOnlyList<string> UnsupportedMetricNames,
+    long RejectedDataPoints = 0);
 
 /// <summary>
 /// Maps parsed OTLP <see cref="ExportMetricsServiceRequest"/> messages into Flare's
@@ -37,6 +45,7 @@ public static class OtlpMetricsMapper
     {
         var points = new List<MetricPointRecord>();
         var unsupported = new HashSet<string>(StringComparer.Ordinal);
+        long rejected = 0;
 
         foreach (var resourceMetrics in request.ResourceMetrics)
         {
@@ -188,13 +197,14 @@ public static class OtlpMetricsMapper
                             // Summary, or no data set at all (Metric.DataOneofCase.None) - see
                             // MetricPointRecord's remarks for why Summary is out of scope.
                             unsupported.Add(name);
+                            rejected += metric.DataCase == Metric.DataOneofCase.Summary ? metric.Summary.DataPoints.Count : 0;
                             break;
                     }
                 }
             }
         }
 
-        return new MetricMapResult(points, [.. unsupported]);
+        return new MetricMapResult(points, [.. unsupported], rejected);
     }
 
     /// <summary>

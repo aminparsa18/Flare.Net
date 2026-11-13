@@ -144,13 +144,8 @@ folders are where "what happened and why" actually lives.
   `scripts/bench.sh` runs. 0.16.0-preview.2 knows `Net11`, but we're staying on stable versions. After the bump, run
   `scripts/bench.sh` and commit the run, including the new `request-decompression` suite (gzip vs zstd decode
   cost and allocations for OTLP export requests), which has had only an in-process dry run.
-- **OTLP receiver gaps found against upstream OpenTelemetry .NET 1.21.0.** Both are Ingest-only and useful with
-  today's senders; neither waits on an upstream merge.
-  - **Return OTLP `partial_success`.** When Ingest drops part of a request (ingest-key limits, pipeline drop rules),
-    report `rejected_spans`/`rejected_log_records`/`rejected_data_points` and an `error_message` in the export response
-    instead of a plain success, so senders that read it (the Collector, the Go and Java SDKs) log the loss. The .NET
-    exporter ignores the field today
-    ([opentelemetry-dotnet#3592](https://github.com/open-telemetry/opentelemetry-dotnet/issues/3592)).
+- **OTLP receiver gap found against upstream OpenTelemetry .NET 1.21.0.** Ingest-only, useful with today's
+  senders, and doesn't wait on an upstream merge.
   - **Derive `SampleWeight` from `tracestate` `th`.** Consistent-probability samplers (the .NET contrib one in
     `OpenTelemetry.Extensions`, Java/Go, the Collector's probabilistic sampler) write the threshold as `ot=th:…`. Ingest
     stores `TraceState` but sets `SampleWeight` only from its own sampling (ADR-0122). Parse `th`, compute the adjusted

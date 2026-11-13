@@ -135,6 +135,15 @@ temporisent et réessaient au lieu d'abandonner les données. Si Redis ne peut p
 garde-fou d'équité et non une frontière de sécurité. Les limites ne s'appliquent
 que lorsque les clés d'ingestion sont exigées, et jamais à une clé statique.
 
+Une requête qu'Ingest accepte sans pouvoir la stocker entièrement reçoit un
+**succès partiel** OTLP (`partial_success`) plutôt qu'un simple succès.
+Aujourd'hui, cela n'arrive que pour les métriques Summary, que Flare ne stocke
+pas : la réponse porte `rejected_data_points` et un `error_message` qui nomme les
+métriques, si bien que le Collector et les SDK Go et Java journalisent la perte.
+L'exportateur .NET ignore ce champ. L'échantillonnage des traces et les marqueurs
+d'obsolescence sont des abandons volontaires et ne sont pas signalés comme des
+rejets.
+
 ## Un seul protocole en entrée : OTLP
 
 Flare accepte OTLP et rien d'autre, via gRPC et HTTP. Il n'a ni agent propriétaire

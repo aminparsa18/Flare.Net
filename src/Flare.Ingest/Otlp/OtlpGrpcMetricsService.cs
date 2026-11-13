@@ -68,6 +68,6 @@ public sealed class OtlpGrpcMetricsService(
         }
 
         logger.LogDebug("Ingested {Count} metric data point(s) via gRPC", result.Points.Count);
-        return new ExportMetricsServiceResponse();
+        return OtlpPartialSuccess.ForMetrics(result);
     }
 }

@@ -118,7 +118,7 @@ public static class OtlpHttpMetricsEndpoints
 
         logger.LogDebug("Ingested {Count} metric data point(s) via HTTP ({ContentType})", result.Points.Count, isJson ? "json" : "protobuf");
 
-        var response = new ExportMetricsServiceResponse();
+        var response = OtlpPartialSuccess.ForMetrics(result);
         return isJson
             ? Results.Text(JsonFormatter.Default.Format(response), JsonContentType)
             : Results.Bytes(response.ToByteArray(), ProtobufContentType);

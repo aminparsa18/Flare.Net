@@ -121,6 +121,13 @@ and retry instead of dropping data. If Redis can't be read, the limit check
 fails open, because a limit is a fairness guard and not a security boundary.
 Limits apply only while ingest keys are required, and never to a static key.
 
+A request Ingest accepts but can't fully store gets an OTLP **partial success**
+rather than a plain success. Today that happens only for Summary metrics, which
+Flare doesn't store: the response carries `rejected_data_points` and an
+`error_message` naming the metrics, so the Collector and the Go and Java SDKs
+log the loss. The .NET exporter ignores the field. Trace sampling and staleness
+markers are intentional drops and aren't reported as rejections.
+
 ## One protocol in: OTLP
 
 Flare accepts OTLP and nothing else, over gRPC and HTTP. It has no proprietary

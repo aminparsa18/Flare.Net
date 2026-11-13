@@ -61,6 +61,8 @@ Ingest 在处理请求时并不写入 ClickHouse。它把 OTLP 负载映射成 F
 
 关于限额，有些细节值得了解。它是**软**上限：用量低于上限时请求被放行，之后才把它的完整大小累加进去，所以某个窗口可能超出正在处理中的那些请求的量。超限时会返回 OTLP 规定的限流响应（HTTP `429` 与 `Retry-After`，或带重试信息的 gRPC `RESOURCE_EXHAUSTED`），所以表现良好的导出器会退避重试，而不是丢弃数据。如果读取不到 Redis，限额检查会放行（fail open），因为限额是公平性防护，而不是安全边界。限额仅在要求摄取密钥时生效，且从不适用于静态密钥。
 
+如果 Ingest 接受了请求却无法完整存储，它返回的是 OTLP **部分成功**（`partial_success`），而不是普通的成功。目前只有 Summary 类型的指标会出现这种情况，因为 Flare 不存储它们：响应中带有 `rejected_data_points` 和列出这些指标名称的 `error_message`，因此 Collector 以及 Go 和 Java SDK 会把这部分丢失记录到日志中。.NET 导出器会忽略这个字段。链路采样和过期标记属于有意丢弃，不会作为拒绝上报。
+
 ## 唯一的入口协议：OTLP
 
 Flare 只接受 OTLP，通过 gRPC 和 HTTP。它没有专有代理，也没有针对各日志库的适配器。任何会说 OTLP 的日志库或 SDK 都能使用，无论是否 .NET，而且 Flare 的摄取端依赖的是传输格式，而不是任何客户端包的版本（[ADR-0012](../../docs-internal/adr/0012-otlp-only-ingestion.md)）。代价是 Flare 永远不会提供更快的专有客户端路径。

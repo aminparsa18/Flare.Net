@@ -294,6 +294,7 @@ public class OtlpMetricsMapperTests
 
         Assert.Empty(result.Points);
         Assert.Equal(["unset.metric"], result.UnsupportedMetricNames);
+        Assert.Equal(0, result.RejectedDataPoints);
     }
 
     [Fact]
@@ -411,7 +412,11 @@ public class OtlpMetricsMapperTests
             Name = "legacy.summary",
             Summary = new Summary
             {
-                DataPoints = { new SummaryDataPoint { TimeUnixNano = 1_700_000_000_000_000_000UL } },
+                DataPoints =
+                {
+                    new SummaryDataPoint { TimeUnixNano = 1_700_000_000_000_000_000UL },
+                    new SummaryDataPoint { TimeUnixNano = 1_700_000_001_000_000_000UL },
+                },
             },
         };
 
@@ -419,6 +424,7 @@ public class OtlpMetricsMapperTests
 
         Assert.Empty(result.Points);
         Assert.Equal(["legacy.summary"], result.UnsupportedMetricNames);
+        Assert.Equal(2, result.RejectedDataPoints);
     }
 
     [Fact]
