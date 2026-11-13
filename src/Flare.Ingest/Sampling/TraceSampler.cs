@@ -75,7 +75,7 @@ public sealed class TraceSampler
                     entry = new TraceEntry(span.TraceId, TraceVerdict.Keep);
                     shard.Entries[span.TraceId] = entry;
                     shard.Expiry.Enqueue((nowTicks + _options.DecisionTtl.Ticks, entry));
-                    EmitKept(span, 1, emit);
+                    EmitKept(span, emit);
                     return;
                 }
                 if (Interlocked.Read(ref _held) >= _options.MaxHeldSpans)
@@ -94,13 +94,13 @@ public sealed class TraceSampler
             switch (entry.Verdict)
             {
                 case TraceVerdict.Keep:
-                    EmitKept(span, 1, emit);
+                    EmitKept(span, emit);
                     break;
                 case TraceVerdict.Healthy:
                     if (signal)
                     {
                         entry.Verdict = TraceVerdict.Keep;
-                        EmitKept(span, 1, emit);
+                        EmitKept(span, emit);
                     }
                     else
                     {
@@ -111,7 +111,7 @@ public sealed class TraceSampler
                     if (signal)
                     {
                         Promote(entry, emit);
-                        EmitKept(span, 1, emit);
+                        EmitKept(span, emit);
                     }
                     else if (Interlocked.Read(ref _held) >= _options.MaxHeldSpans)
                     {
@@ -244,7 +244,7 @@ public sealed class TraceSampler
         {
             foreach (var (span, _) in held)
             {
-                EmitKept(span, 1, emit);
+                EmitKept(span, emit);
             }
             Interlocked.Add(ref _held, -held.Count);
             entry.Held = null;
@@ -271,7 +271,8 @@ public sealed class TraceSampler
         if (keepOneIn <= 1 || HashTraceId(span.TraceId) % (ulong)keepOneIn == 0)
         {
             Interlocked.Increment(ref _keptHead);
-            emit.Add(keepOneIn <= 1 ? span : span with { SampleWeight = (uint)keepOneIn });
+            // Multiply, not replace: the span may already carry an SDK-side weight (ADR-0279).
+            emit.Add(keepOneIn <= 1 ? span : span with { SampleWeight = Multiply(span.SampleWeight, keepOneIn) });
         }
         else
         {
@@ -279,11 +280,17 @@ public sealed class TraceSampler
         }
     }
 
-    private void EmitKept(SpanRecord span, uint weight, List<SpanRecord> emit)
+    /// <summary>A tail keep is Ingest weight 1, so the span keeps whatever weight it arrived with
+    /// (1, or an SDK-side adjusted count - ADR-0279).</summary>
+    private void EmitKept(SpanRecord span, List<SpanRecord> emit)
     {
         Interlocked.Increment(ref _keptTail);
-        emit.Add(span.SampleWeight == weight ? span : span with { SampleWeight = weight });
+        emit.Add(span);
     }
+
+    /// <summary>Saturating product of an arriving weight and Ingest's own 1-in-N.</summary>
+    public static uint Multiply(uint weight, int keepOneIn) =>
+        (uint)Math.Min((ulong)Math.Max(weight, 1u) * (ulong)keepOneIn, uint.MaxValue);
 
     private Shard ShardFor(string traceId) => _shards[(int)(HashTraceId(traceId) % ShardCount)];
 

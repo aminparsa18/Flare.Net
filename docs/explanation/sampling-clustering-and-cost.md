@@ -63,6 +63,17 @@ span. Percentiles use weighted t-digest states, read only for time ranges that
 contain sampled data, so history from before sampling keeps its original
 percentiles.
 
+Spans sampled **before** they reach Flare carry a weight too, when the sampler
+records its rate. Consistent-probability samplers (the Java and Go SDKs, the
+contrib .NET one, the Collector's probabilistic sampler) write the rate into the
+span's `tracestate` as `ot=th:…`. Ingest reads it and stores the span with the
+matching weight, rounded to a whole number, and multiplies in its own "1 in N"
+if it samples the span again
+([ADR-0279](../../docs-internal/adr/0279-sample-weight-from-tracestate-threshold.md)).
+A plain ratio sampler such as OpenTelemetry .NET's `TraceIdRatioBasedSampler`
+records nothing, so Flare can't correct for it, and rolled-up counts show only
+the spans that were sent.
+
 What sampling cannot fix, and you should expect:
 
 - **Raw span counts are lower than reality.** The Traces explorer, span search,

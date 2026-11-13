@@ -246,6 +246,22 @@ public class OtlpTraceMapperTests
     }
 
     [Fact]
+    public void Map_SetsSampleWeight_FromTraceStateThreshold()
+    {
+        var request = SingleSpanRequest(span => span.TraceState = "ot=th:c;rv:abcdef01234567");
+
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
+
+        Assert.Equal(4u, record.SampleWeight);
+    }
+
+    [Fact]
+    public void Map_SampleWeightIsOne_WithoutTraceState()
+    {
+        Assert.Equal(1u, Assert.Single(OtlpTraceMapper.Map(SingleSpanRequest(), TestIngestedAt)).SampleWeight);
+    }
+
+    [Fact]
     public void Map_DroppedCountsAreZero_WhenNothingWasDropped()
     {
         var record = Assert.Single(OtlpTraceMapper.Map(SingleSpanRequest(), TestIngestedAt));

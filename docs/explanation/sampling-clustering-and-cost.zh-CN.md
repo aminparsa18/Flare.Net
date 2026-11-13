@@ -25,6 +25,8 @@ Flare 在三个不同的环节提供调节手段，因为该在哪里削减数�
 
 **采样不能让计数出错。** Flare 用物化视图预先计算请求速率、错误数、服务地图、出站调用、LLM 用量和 SLO 计数器，这些视图在行插入时进行计数（[ADR-0030](../../docs-internal/adr/0030-service-red-metrics-pre-aggregation.md)）。如果某个服务每十个 span 只保留一个，这些视图报告的就只有它真实流量的十分之一。因此每个被存储的 span 都会记录一个**采样权重**，即它所代表的真实 span 数量。视图*对权重求和*，而不是对行计数。因出错或过慢而保留的追踪以权重 1 存储，按哈希保留的 span 以权重 N 存储；每一组都是无偏估计，所以它们的和也是无偏的。权重是整数（“1/N”），因为整数求和保持精确，而小数比例则需要对每个 span 进行取整。百分位数使用加权的 t-digest 状态，且仅在包含采样数据的时间范围内读取，因此启用采样之前的历史仍保留原来的百分位数。
 
+在到达 Flare **之前**就被采样的 span 也会带上权重，前提是采样器记录了自己的采样率。一致概率采样器（Java 和 Go SDK、.NET contrib 中的采样器、Collector 的概率采样器）会把采样率以 `ot=th:…` 的形式写入 span 的 `tracestate`。Ingest 读取它，以相应的权重（取整为整数）存储该 span；如果 Ingest 再次对该 span 采样，还会乘上自己的“1/N”（[ADR-0279](../../docs-internal/adr/0279-sample-weight-from-tracestate-threshold.md)）。普通的比例采样器（例如 OpenTelemetry .NET 的 `TraceIdRatioBasedSampler`）不记录任何信息，Flare 无法对其进行校正，汇总计数只反映实际发送的 span。
+
 采样无法修复的问题，需要有所预期：
 
 - **原始 span 计数低于实际值。** 追踪浏览器、span 搜索、分面、瀑布图以及任何对 span 的普通计数，显示的都是实际存储的内容。汇总类页面（服务、地图、SLO）已作修正，浏览器则没有。

@@ -76,6 +76,18 @@ t-digest pondérés, lus uniquement pour les plages de temps contenant des donn�
 échantillonnées : l'historique antérieur à l'échantillonnage garde donc ses
 percentiles d'origine.
 
+Les spans échantillonnés **avant** d'arriver dans Flare portent eux aussi un
+poids, quand l'échantillonneur enregistre son taux. Les échantillonneurs à
+probabilité cohérente (les SDK Java et Go, celui du dépôt contrib .NET,
+l'échantillonneur probabiliste du Collector) écrivent ce taux dans le
+`tracestate` du span sous la forme `ot=th:…`. Ingest le lit, stocke le span avec
+le poids correspondant, arrondi à l'entier, et y multiplie son propre « 1 sur N »
+s'il échantillonne à nouveau le span
+([ADR-0279](../../docs-internal/adr/0279-sample-weight-from-tracestate-threshold.md)).
+Un simple échantillonneur à ratio, comme le `TraceIdRatioBasedSampler`
+d'OpenTelemetry .NET, n'enregistre rien : Flare ne peut pas le compenser, et les
+comptages agrégés ne reflètent que les spans envoyés.
+
 Ce que l'échantillonnage ne peut pas corriger, et ce à quoi il faut s'attendre :
 
 - **Les comptages bruts de spans sont inférieurs à la réalité.** L'explorateur de

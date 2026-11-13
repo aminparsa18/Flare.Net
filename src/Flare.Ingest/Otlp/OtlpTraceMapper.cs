@@ -72,6 +72,9 @@ public static class OtlpTraceMapper
                         DroppedAttributesCount = span.DroppedAttributesCount,
                         DroppedEventsCount = span.DroppedEventsCount,
                         DroppedLinksCount = span.DroppedLinksCount,
+                        // SDK/Collector-side consistent-probability sampling (ADR-0279); the
+                        // ingest sampler multiplies its own 1-in-N into this.
+                        SampleWeight = TraceStateThreshold.AdjustedCount(span.TraceState),
                         IngestedAt = ingestedAt,
                     };
                 }

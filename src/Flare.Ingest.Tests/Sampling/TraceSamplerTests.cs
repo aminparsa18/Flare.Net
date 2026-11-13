@@ -81,6 +81,37 @@ public class TraceSamplerTests
     }
 
     [Fact]
+    public void HashKeep_MultipliesAnSdkWeight_ByN()
+    {
+        var sampler = Sampler(10);
+        var keepId = TraceIdThat(h => h % 10 == 0);
+        var emit = new List<SpanRecord>();
+
+        sampler.Add(Span(keepId) with { SampleWeight = 4 }, null, T0, emit);
+        sampler.Sweep(T0.AddSeconds(31), emit);
+
+        Assert.Equal(40u, Assert.Single(emit).SampleWeight);
+    }
+
+    [Fact]
+    public void TailKeep_AndPassThrough_KeepTheSdkWeight()
+    {
+        var emit = new List<SpanRecord>();
+
+        Sampler(1000).Add(Span(TraceIdThat(h => h % 1000 != 0), status: 2) with { SampleWeight = 4 }, null, T0, emit);
+        Sampler(1).Add(Span("a") with { SampleWeight = 4 }, null, T0, emit);
+
+        Assert.Equal([4u, 4u], emit.Select(s => s.SampleWeight));
+    }
+
+    [Fact]
+    public void Multiply_Saturates()
+    {
+        Assert.Equal(uint.MaxValue, TraceSampler.Multiply(uint.MaxValue / 2, 3));
+        Assert.Equal(10u, TraceSampler.Multiply(0, 10)); // a 0 weight (old buffered payload) counts as 1
+    }
+
+    [Fact]
     public void ErrorSpan_RescuesEarlierHeldSpans_AtWeight1()
     {
         var sampler = Sampler(1000);

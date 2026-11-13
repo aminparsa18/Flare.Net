@@ -100,9 +100,10 @@ public sealed partial record SpanRecord
     public required IReadOnlyList<SpanLink> Links { get; init; }
 
     /// <summary>
-    /// How many real spans this stored span stands for after ingest-side sampling
-    /// (ADR-0122): 1 for an unsampled or tail-kept span, N for a span kept by a 1-in-N head
-    /// decision. The pre-aggregating materialized views sum it instead of counting rows.
+    /// How many real spans this stored span stands for: the SDK/Collector-side adjusted count
+    /// from <c>tracestate</c>'s <c>ot=th:…</c> (ADR-0279, 1 when absent), multiplied by Ingest's
+    /// own sampling (ADR-0122): ×1 for an unsampled or tail-kept span, ×N for a span kept by a
+    /// 1-in-N head decision. The pre-aggregating materialized views sum it instead of counting rows.
     /// Appended last, same "append, don't insert" MemoryPack convention as <see cref="Links"/>;
     /// payloads buffered before this field existed deserialize with the default of 1.
     /// </summary>
