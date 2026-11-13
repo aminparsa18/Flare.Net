@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
 # suite name -> where it runs and what it is
-DOTNET_COMPONENT="redis-buffer api-codec request-codec compression"
+DOTNET_COMPONENT="redis-buffer api-codec request-codec compression request-decompression"
 DOTNET_WORKFLOW="server-stage"
 NODE_COMPONENT="decode decompress request-encode"
 NODE_WORKFLOW="client-stage"
@@ -29,7 +29,8 @@ bdn_class() {
 		redis-buffer) echo "*RedisBufferCodecBenchmarks*" ;;
 		api-codec) echo "*ApiCodecBenchmarks*" ;;
 		request-codec) echo "*RequestCodecBenchmarks*" ;;
-		compression) echo "*CompressionBenchmarks*" ;;
+		compression) echo "*Component.CompressionBenchmarks*" ;;
+		request-decompression) echo "*RequestDecompressionBenchmarks*" ;;
 		server-stage) echo "*ServerStageBenchmarks*" ;;
 	esac
 }

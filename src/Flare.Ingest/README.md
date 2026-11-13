@@ -95,6 +95,21 @@ cap applied. An oversized HTTP body gets `413` and counts as `payload-too-large`
 Ingestion page. The HTTP receivers hold each body in memory, so this is also the
 per-request memory ceiling. It's read once at startup.
 
+## Request compression
+
+Both receivers accept compressed exports, so a Collector's `otlp`/`otlphttp` exporter can use
+`compression: gzip` (its default) or `compression: zstd`:
+
+| Transport | Header | Accepted |
+|---|---|---|
+| gRPC `:4317` | `grpc-encoding` | `gzip`, `deflate`, `zstd` |
+| HTTP `:4318` | `Content-Encoding` | `gzip`, `deflate`, `br`, `zstd` |
+
+HTTP uses ASP.NET Core's request decompression, which includes zstd on .NET 11. gRPC adds
+`ZstandardGrpcCompressionProvider` to Grpc.Net's gzip/deflate. `MaxRequestSizeBytes` caps the
+**decompressed** size on both, so a small compressed body can't expand past it. To measure
+decode cost per codec, run `scripts/bench.sh request-decompression`.
+
 ## Trace sampling
 
 Off by default. When enabled, spans pass through a sampler before the Redis buffer so

@@ -8,6 +8,7 @@ JSON vs MemoryPack, measured where Flare actually uses MemoryPack:
 | Flare.Api request/response content negotiation | [0015](../../docs-internal/adr/0015-memorypack-content-negotiation-for-flare-api.md) | `api-codec`, `request-codec`, `server-stage` |
 | Dashboard decoding with the generated TypeScript decoders | [0016](../../docs-internal/adr/0016-memorypack-dashboard-typescript-adoption.md), [0276](../../docs-internal/adr/0276-generated-memorypack-decoders-with-record-dictionaries.md) | `decode`, `request-encode`, `client-stage` |
 | HTTP compression of API responses (gzip-1) | [0277](../../docs-internal/adr/0277-api-response-compression.md) | `compression`, `decompress`, `server-stage`, `client-stage` |
+| OTLP request decompression in Flare.Ingest (gzip vs zstd) | - | `request-decompression` |
 
 This project holds the .NET half (BenchmarkDotNet) and the fixtures; the TypeScript half lives in
 [`src/dashboard/bench/`](../dashboard/bench/) (tinybench, run under Node/V8). One script drives both
@@ -52,6 +53,7 @@ Steps the script runs:
 | `api-codec` | `Component/ApiCodecBenchmarks` | encode and decode of each response scenario through STJ's source-generated context vs MemoryPack |
 | `request-codec` | `Component/RequestCodecBenchmarks` | server-side decode of a `LogSearchRequest` body |
 | `compression` | `Component/CompressionBenchmarks` | server compress time per scenario, format and codec (gzip-1, gzip-6, brotli-4) |
+| `request-decompression` | `Component/RequestDecompressionBenchmarks` | Ingest decompressing one 512-record OTLP logs or traces export (none, gzip-6, zstd-3) through the receiver's `grpc-encoding` providers, alone and with the protobuf parse; sizes in the manifest's `otlpRequests` |
 | `decode` | `dashboard/bench/component/decode.bench.ts` | bytes to parsed object (`decode`), and bytes to UI types (`decode+map`) |
 | `decompress` | `dashboard/bench/component/decompress.bench.ts` | client decompress per codec (Node's native zlib) |
 | `request-encode` | `dashboard/bench/component/request-encode.bench.ts` | dashboard-side encode of the same request body |

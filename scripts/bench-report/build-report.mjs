@@ -38,6 +38,7 @@ const SUITE_OF_TYPE = {
 	ApiCodecBenchmarks: 'api-codec',
 	RequestCodecBenchmarks: 'request-codec',
 	CompressionBenchmarks: 'compression',
+	RequestDecompressionBenchmarks: 'request-decompression',
 	ServerStageBenchmarks: 'server-stage'
 };
 
@@ -423,6 +424,21 @@ function componentChart(title, note, rows, head, tableRows) {
 			req.map((d) => ({ label: d.method.replace('_', ' '), value: d.medianMs, color: d.method.startsWith('Json') ? FORMAT_COLOR.json : FORMAT_COLOR.memorypack })),
 			['Method', 'Median', 'Allocated'],
 			req.map((d) => [esc(d.method), fmtMs(d.medianMs), d.allocatedBytes == null ? '-' : fmtBytes(d.allocatedBytes)])
+		)
+	);
+	const otlp = dotnet.filter((d) => d.suite === 'request-decompression');
+	const otlpSize = (d) => sizes.otlpRequests?.find((x) => x.name === d.params.Request)?.sizes;
+	const CODEC_COLOR = { none: '#8a8f98', 'gzip-6': FORMAT_COLOR.json, 'zstd-3': FORMAT_COLOR.memorypack };
+	parts.push(
+		componentChart(
+			'Ingest OTLP request decompression (RequestDecompressionBenchmarks)',
+			`One ${sizes.otlpRequests?.[0]?.records ?? 512}-record OTLP protobuf export, through the receiver's own <code>grpc-encoding</code> providers. <code>none</code> is the plain copy; <code>DecompressAndParse</code> adds the protobuf parse for scale.`,
+			otlp.map((d) => ({ group: `${d.params.Request} · ${d.method}`, label: d.params.Codec, value: d.medianMs, color: CODEC_COLOR[d.params.Codec], tip: `${d.params.Request} ${d.method} ${d.params.Codec}: ${fmtMs(d.medianMs)}, ${d.allocatedBytes == null ? '-' : fmtBytes(d.allocatedBytes)} allocated` })),
+			['Request', 'Method', 'Codec', 'Median', 'Allocated', 'Wire size'],
+			otlp.map((d) => {
+				const s = otlpSize(d);
+				return [esc(d.params.Request), esc(d.method), esc(d.params.Codec), fmtMs(d.medianMs), d.allocatedBytes == null ? '-' : fmtBytes(d.allocatedBytes), s ? `${fmtBytes(s[d.params.Codec])} (${((s[d.params.Codec] / s.none) * 100).toFixed(1)}%)` : '-'];
+			})
 		)
 	);
 	const redis = dotnet.filter((d) => d.suite === 'redis-buffer');

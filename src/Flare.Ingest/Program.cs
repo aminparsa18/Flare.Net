@@ -44,8 +44,9 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 // The Collector's otlphttp exporter (and most OTLP/HTTP SDKs) gzip request bodies by
-// default. The built-in providers handle gzip/deflate/br via Content-Encoding and keep
-// enforcing Kestrel's MaxRequestBodySize on the decompressed stream.
+// default; `compression: zstd` is the other common choice. The built-in providers handle
+// gzip/deflate/br and, on .NET 11, zstd via Content-Encoding, and keep enforcing Kestrel's
+// MaxRequestBodySize on the decompressed stream.
 builder.Services.AddRequestDecompression();
 
 // Browser OTLP exporters (OTel-JS, Faro) are cross-origin, so they need a CORS preflight
@@ -63,7 +64,12 @@ builder.Services.AddOptions<CorsOptions>().Configure<IngestApiKeyCache>((cors, k
         policy.WithMethods("POST").WithHeaders("Content-Type", "Content-Encoding", "Authorization").SetPreflightMaxAge(TimeSpan.FromHours(1));
     }));
 
-builder.Services.AddGrpc(options => options.MaxReceiveMessageSize = (int)otlpReceiverOptions.MaxRequestSizeBytes);
+// grpc-encoding gzip, deflate and zstd. MaxReceiveMessageSize also caps the decompressed message.
+builder.Services.AddGrpc(options =>
+{
+    options.MaxReceiveMessageSize = (int)otlpReceiverOptions.MaxRequestSizeBytes;
+    options.CompressionProviders = ZstandardGrpcCompressionProvider.ReceiverProviders();
+});
 
 builder.Services.Configure<LogEventPipelineOptions>(
     builder.Configuration.GetSection(LogEventPipelineOptions.SectionName));
