@@ -80,6 +80,12 @@ Flare__TraceSampleRatio=0.1
 加入该追踪的每个服务都遵循这一决定，因此被保留的追踪不会缺少下游服务的 span。要做到这一点，
 请让路径上的每个服务都使用同一个辅助方法，或等效的基于父级的采样器。
 
+该采样器是一致概率采样器：它会把采样率以 `ot=th:…` 的形式写入每个被保留 span 的 `tracestate`，
+因此 Flare 会把每个被保留的 span 按它所代表的 span 数量来计数，Services、服务地图和 SLO 显示的是真实流量，
+而不是被采样的那一部分（[ADR-0280](../../../docs-internal/adr/0280-flare-opentelemetry-consistent-probability-sampler.md)）。
+如果你自己配置 SDK 的采样器，请选用会写入 `th` 的采样器；OpenTelemetry .NET 的 `TraceIdRatioBasedSampler`
+不会写入，因此这类计数会偏低。
+
 这是应用内的头部采样。Flare 也可以在摄取时采样；如果你希望集中做决定，请参阅
 [采样、聚类与成本](../../explanation/sampling-clustering-and-cost.zh-CN.md)。
 
