@@ -139,10 +139,7 @@ folders are where "what happened and why" actually lives.
   (single + cluster) alongside the retention TTL work. Flare sets no
   force-merge or `ttl_only_drop_parts` settings today. Prior art: [ClickHouse
   26.9 changelog](https://github.com/ClickHouse/ClickHouse/blob/master/CHANGELOG.md#269).
-- **First npm release of the CLI (`@apardev/flare-cli`, [ADR-0214](../adr/0214-npm-distribution-of-the-cli.md)).** The six packages exist at 0.1.9 (published by hand) with trusted
-  publishers set, and the `npm Publish` dry run passes, but the trusted-publishing publish itself has never run. Bump `Flare.Cli.csproj` to 0.1.10 and push
-  `flare-cli-v0.1.10` to release NuGet and npm together, then confirm provenance shows on npmjs.com. Follow-ups: musl Linux and Windows-on-ARM binaries, and
-  mention npm in the csproj `Description` while the version is bumped.
+- **More npm CLI platforms ([ADR-0214](../adr/0214-npm-distribution-of-the-cli.md)).** Add musl Linux and Windows-on-ARM binary packages (each new package needs a manual first publish, then the `npm-publish.yml` trusted publisher attached).
 - **Drop the "origin only" note from the CommunityToolkit Flare integration.** Once a released Flare image normalizes configured CORS origins
   (`fix/normalize-cors-origins`: a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored), open a small PR on
   CommunityToolkit/Aspire removing the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in
