@@ -15,13 +15,13 @@
 [![Docker Images](https://github.com/aminparsa18/Flare.Net/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/docker-publish.yml)
 [![Docs Link Check](https://github.com/aminparsa18/Flare.Net/actions/workflows/docs-links.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/docs-links.yml)
 [![License: MIT](https://img.shields.io/github/license/aminparsa18/Flare.Net)](LICENSE)
-[![NuGet Flare.Hosting.Aspire](https://img.shields.io/nuget/v/Flare.Hosting.Aspire?label=Flare.Hosting.Aspire)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
+[![NuGet CommunityToolkit.Aspire.Hosting.Flare](https://img.shields.io/nuget/v/CommunityToolkit.Aspire.Hosting.Flare?label=aspire%20integration)](https://www.nuget.org/packages/CommunityToolkit.Aspire.Hosting.Flare)
 [![NuGet Flare.Cli](https://img.shields.io/nuget/v/Flare.Cli?label=flare%20cli)](https://www.nuget.org/packages/Flare.Cli)
 [![npm @apardev/flare-cli](https://img.shields.io/npm/v/@apardev/flare-cli?label=npm%20flare%20cli)](https://www.npmjs.com/package/@apardev/flare-cli)
 [![Release](https://img.shields.io/github/v/release/aminparsa18/Flare.Net)](https://github.com/aminparsa18/Flare.Net/releases/latest)
 [![Helm Lint](https://github.com/aminparsa18/Flare.Net/actions/workflows/helm-lint.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/helm-lint.yml)
 [![Docker Hub pulls](https://img.shields.io/docker/pulls/apardev/flare-api?label=docker%20pulls)](https://hub.docker.com/u/apardev)
-[![NuGet downloads](https://img.shields.io/nuget/dt/Flare.Hosting.Aspire?label=nuget%20downloads)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
+[![NuGet downloads](https://img.shields.io/nuget/dt/Flare.Cli?label=nuget%20downloads)](https://www.nuget.org/packages/Flare.Cli)
 [![.NET 11](https://img.shields.io/badge/.NET-11-512BD4)](https://dotnet.microsoft.com/)
 [![OpenTelemetry native](https://img.shields.io/badge/OpenTelemetry-native-425CC7)](https://opentelemetry.io/)
 [![Stars](https://img.shields.io/github/stars/aminparsa18/Flare.Net?style=flat)](https://github.com/aminparsa18/Flare.Net/stargazers)
@@ -70,10 +70,10 @@
 - **已经在使用 .NET Aspire 了吗？**
   ```csharp
   // AppHost
-  var flare = builder.AddFlare("flare");
-  builder.AddProject<Projects.MyApi>("myapi").WithReference(flare).WaitForFlare(flare);
+  var flare = builder.AddFlare("flare", builder.AddClickHouse("clickhouse"), builder.AddRedis("redis"));
+  builder.AddDotnetProject("myapi", "../MyApi/MyApi.csproj").WithOtlpExporter(flare).WaitFor(flare);
   ```
-  `dotnet add package Flare.Hosting.Aspire` — Flare 作为资源加入您的 AppHost，因此它启动、停止并被其他资源发现，就像图表中其他所有内容一样。详细信息：[docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.zh-CN.md)。
+  `aspire add CommunityToolkit.Aspire.Hosting.Flare`（Aspire 17+，来自 Aspire Community Toolkit）— Flare 作为资源加入您的 AppHost，因此它启动、停止并被其他资源发现，就像图表中其他所有内容一样。详细信息：[docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.zh-CN.md)。
 
 - **不使用 Aspire，想要它独立运行吗？**
   ```sh
@@ -96,7 +96,7 @@
 
 无论您选择哪条路径，仪表板都会出现在 [http://localhost:7777](http://localhost:7777) 处。身份验证**默认关闭** - 日志页面在启动时即打开。准备好后，即可从 `/auth` 页面打开登录（本地帐户、Microsoft Entra ID、Active Directory、OpenID Connect 或反向代理可信标头）；参见[docs/how-to/admin/configure-authentication.md](docs/how-to/admin/configure-authentication.zh-CN.md)。
 
-然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.zh-CN.md#将记录器指向它)（或 Aspire 上的 [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.zh-CN.md#2-将记录器指向它)）中。对于其他情况 — Python、Node.js、Java、Go、Kubernetes、DevOps 流水线、日志转发工具或 Prometheus 抓取 — 仪表板自带的**数据源**页面（导航栏下拉菜单，或日志页面的空状态）有同类的复制粘贴片段；预览见[架构之旅](docs/explanation/architecture.zh-CN.md#数据源)。
+然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.zh-CN.md#将记录器指向它)（或 Aspire 上的 [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.zh-CN.md#3-把服务的遥测发送到-flare)）中。对于其他情况 — Python、Node.js、Java、Go、Kubernetes、DevOps 流水线、日志转发工具或 Prometheus 抓取 — 仪表板自带的**数据源**页面（导航栏下拉菜单，或日志页面的空状态）有同类的复制粘贴片段；预览见[架构之旅](docs/explanation/architecture.zh-CN.md#数据源)。
 
 单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [docs/how-to/deploy/run-cluster-mode.md](docs/how-to/deploy/run-cluster-mode.zh-CN.md)。
 

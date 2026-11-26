@@ -13,7 +13,7 @@ Flare.Net repo itself, wrapped as `flare start`/`stop`/`status`/`open`/`update`/
 `doctor`/`destroy`, installable and runnable from anywhere, no repo checkout required.
 
 This is **not** an Aspire integration - if your app already has an AppHost, use
-[`Flare.Hosting.Aspire`](https://www.nuget.org/packages/Flare.Hosting.Aspire) instead;
+[`CommunityToolkit.Aspire.Hosting.Flare`](https://www.nuget.org/packages/CommunityToolkit.Aspire.Hosting.Flare) instead;
 `aspire start` already orchestrates that path. `flare` exists for the case Aspire mode
 can't cover: one long-running Flare instance you point many unrelated local projects'
 OTLP output at, independent of any single AppHost's lifecycle.

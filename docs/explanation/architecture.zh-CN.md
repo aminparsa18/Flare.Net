@@ -116,7 +116,7 @@ Flare 仍然是四样要运行的东西（Ingest、Api、AlertWorker、Dashboard
 
 Flare 有三条合理的本地安装路径，各自解决不同的问题，而不是互相冗余；另有第四条用于生产集群：
 
-- **[.NET Aspire](../how-to/deploy/run-with-aspire.zh-CN.md)**（`Flare.Hosting.Aspire`）—— 适用于已经有 AppHost 的应用。Flare 加入资源图；`aspire start` 已经会连同其他一切一起编排它的生命周期。
+- **[.NET Aspire](../how-to/deploy/run-with-aspire.zh-CN.md)**（`CommunityToolkit.Aspire.Hosting.Flare`）—— 适用于已经有 AppHost 的应用。Flare 加入资源图；`aspire start` 已经会连同其他一切一起编排它的生命周期。
 - **[独立 Docker Compose](../how-to/deploy/run-standalone.zh-CN.md)** —— 适用于一次性的、限于仓库本地的评估。在仓库根目录执行 `docker compose up`，是看一眼 Flare 最快的方法。
 - **[`flare` CLI](../how-to/deploy/run-with-cli.zh-CN.md)**（`Flare.Cli`，可从 NuGet 或 npm 获取）—— 适用于只需启动一次就不用管的常驻实例，可在任意目录使用，由许多互不相关的本地项目共享，且独立于任何单个 AppHost 的生命周期。这是另外两条路径在结构上无法覆盖的情形：Aspire 模式把 Flare 的生命周期绑定到某个 AppHost，而仓库本地的 Compose 堆栈并不适合在后台连续运行数周、为互不相关的项目提供服务。
 - **[Kubernetes + Helm](../how-to/deploy/deploy-with-helm.zh-CN.md)** —— 适用于共享或生产安装：一个 chart 部署整套堆栈，带 Ingress 和自动生成的密码。需要多个 ClickHouse 节点时，参见[集群模式](../how-to/deploy/run-cluster-mode.zh-CN.md)和[集群](clustering.zh-CN.md)。

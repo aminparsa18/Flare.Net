@@ -295,7 +295,7 @@ machines), séparément des comptes utilisateurs.
   `Auth:StaticIngestApiKey` est une clé fixe définie via la configuration,
   valide aux côtés de toute clé créée via l'interface. C'est ce
   qu'utilisent `Flare.AppHost` (développement local) et
-  `AddFlare(..., apiKey: ...)` d'`Aspire.Hosting.Flare`.
+  `WithApiKey(...)` de l'intégration Aspire.
 
 ## Jetons d'accès personnels
 

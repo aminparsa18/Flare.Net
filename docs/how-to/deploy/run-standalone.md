@@ -325,9 +325,10 @@ With neither set, `docker compose up` behaves exactly as before — no extra
 container, `flare-api` never talks to Docker at all, and the Resources
 page shows a plain "not enabled" state rather than an error.
 
-If you're running Flare from a consumer Aspire AppHost instead, see
-[`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.md#resources-page-optional-docker-access)
-for the equivalent `enableResourceGraph` parameter.
+If you're running Flare from a consumer Aspire AppHost instead, the
+Resources page is only available through the deprecated
+`Flare.Hosting.Aspire` package's `enableResourceGraph` parameter; see
+[`../../reference/aspire-hosting.md`](../../reference/aspire-hosting.md#flarehostingaspire-deprecated).
 
 ## Using HTTP instead of gRPC
 

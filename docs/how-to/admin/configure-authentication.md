@@ -252,8 +252,8 @@ accounts.
   either process has started, where "click a button in the dashboard"
   doesn't fit): `Auth:StaticIngestApiKey` is a fixed key set via
   configuration, valid alongside any keys created through the UI. This is
-  what `Flare.AppHost` (local dev) and `Aspire.Hosting.Flare`'s
-  `AddFlare(..., apiKey: ...)` use.
+  what `Flare.AppHost` (local dev) and the Aspire integration's
+  `WithApiKey(...)` use.
 
 ## Personal access tokens
 

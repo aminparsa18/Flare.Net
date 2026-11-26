@@ -12,8 +12,8 @@
 > 标记 `flare-cli-v*.*.*`。包 ID 是 `Flare.Cli`，而不是 `flare`（该 id 是
 > 已在 nuget.org 上使用，这是一个旧的、不相关的未列出的软件包）-
 > 安装的*命令*仍然是`flare`； `ToolCommandName` 和 `PackageId`
-> 是独立的，与此存储库使用的技巧相同
-> `Flare.Hosting.Aspire`/`Aspire.Hosting.Flare`。
+> 是独立的，与此存储库曾用于已弃用的
+> `Flare.Hosting.Aspire`/`Aspire.Hosting.Flare` 的技巧相同。
 
 ## 命令参考
 

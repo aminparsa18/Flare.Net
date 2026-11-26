@@ -85,7 +85,7 @@ var identityDbPath = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "..
 // Both ports are fixed and unproxied so external OTLP clients (any logger's OTLP
 // exporter) can point at them directly using the conventional OTLP port numbers,
 // rather than Aspire's dashboard dev-proxy / dynamically-assigned ports.
-var ingest = builder.AddProject<Projects.Flare_Ingest>("ingest")
+var ingest = builder.AddDotnetProject("ingest", "../Flare.Ingest/Flare.Ingest.csproj")
     .WithReference(logsDb)
     .WaitFor(logsDb)
     .WithReference(redis)
@@ -100,7 +100,7 @@ var ingest = builder.AddProject<Projects.Flare_Ingest>("ingest")
 // OTLP ports (external loggers need those conventional port numbers), this is a normal
 // proxied Aspire HTTP endpoint - callers (curl today, the not-yet-built dashboard SPA
 // later) go through Aspire's dev-proxy/service discovery like any other resource.
-var api = builder.AddProject<Projects.Flare_Api>("api")
+var api = builder.AddDotnetProject("api", "../Flare.Api/Flare.Api.csproj")
     .WithReference(logsDb)
     .WaitFor(logsDb)
     // Redis: the live-tail streaming endpoint's LogTailBroadcaster reads new entries off
@@ -122,7 +122,7 @@ var api = builder.AddProject<Projects.Flare_Api>("api")
 // AlertQueryService/CompositeAlertNotifier are reused from Flare.Api via a
 // ProjectReference, not a new backing store. No Identity__DbPath/Cors - it never touches
 // either.
-var alertWorker = builder.AddProject<Projects.Flare_AlertWorker>("alert-worker")
+var alertWorker = builder.AddDotnetProject("alert-worker", "../Flare.AlertWorker/Flare.AlertWorker.csproj")
     .WithReference(logsDb)
     .WaitFor(logsDb)
     .WithReference(redis)

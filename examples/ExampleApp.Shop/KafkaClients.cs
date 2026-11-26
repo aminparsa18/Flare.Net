@@ -54,13 +54,28 @@ public static class KafkaClients
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             using var admin = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = BootstrapServers(configuration) }).Build();
-            try
+
+            // Aspire reports Kafka healthy once its port answers, but on a cold start the KRaft
+            // broker can still be fenced for a while ("All brokers are currently fenced", or
+            // "Failed while waiting for controller"), seen with confluent-local 8.4.0 (Aspire 17).
+            // Retry those for up to a minute instead of crashing the service.
+            var deadline = DateTime.UtcNow.AddMinutes(1);
+            for (var attempt = 1; ; attempt++)
             {
-                await admin.CreateTopicsAsync(Topics.Select(t => new TopicSpecification { Name = t, NumPartitions = 3, ReplicationFactor = 1 }));
-            }
-            catch (CreateTopicsException ex) when (ex.Results.All(r => r.Error.Code is ErrorCode.NoError or ErrorCode.TopicAlreadyExists))
-            {
-                // Another shop service got there first.
+                try
+                {
+                    await admin.CreateTopicsAsync(Topics.Select(t => new TopicSpecification { Name = t, NumPartitions = 3, ReplicationFactor = 1 }));
+                    break;
+                }
+                catch (CreateTopicsException ex) when (ex.Results.All(r => r.Error.Code is ErrorCode.NoError or ErrorCode.TopicAlreadyExists))
+                {
+                    break; // Another shop service got there first.
+                }
+                catch (KafkaException ex) when (DateTime.UtcNow < deadline)
+                {
+                    logger.LogWarning("Kafka not ready to create topics (attempt {Attempt}): {Reason}; retrying", attempt, ex.Error.Reason);
+                    await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                }
             }
 
             logger.LogInformation("Kafka topics ready: {Topics}", string.Join(", ", Topics));

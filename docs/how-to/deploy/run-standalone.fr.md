@@ -351,10 +351,10 @@ comme avant — pas de conteneur supplémentaire, `flare-api` ne parle jamais
 du tout à Docker, et la page Resources affiche un simple état « not
 enabled » plutôt qu'une erreur.
 
-Si vous exécutez Flare depuis un AppHost Aspire consommateur à la place,
-voir
-[`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.fr.md#page-resources-accès-docker-optionnel)
-pour le paramètre `enableResourceGraph` équivalent.
+Si vous exécutez Flare depuis un AppHost Aspire consommateur à la place, la
+page Resources n'est disponible que via le paramètre `enableResourceGraph` du
+package obsolète `Flare.Hosting.Aspire` ; voir
+[`../../reference/aspire-hosting.fr.md`](../../reference/aspire-hosting.fr.md#flarehostingaspire-obsolète).
 
 ## Utiliser HTTP au lieu de gRPC
 

@@ -14,7 +14,7 @@ Compose simple, voir
 
 Ce n'est **pas** une intégration Aspire et cela n'a aucune interaction
 avec l'orchestration Aspire — si votre application a déjà un AppHost,
-utilisez plutôt [`Flare.Hosting.Aspire`](run-with-aspire.fr.md)
+utilisez plutôt [l'intégration Aspire](run-with-aspire.fr.md)
 (`aspire start` couvre déjà ce cycle de vie).
 
 ## Prérequis

@@ -1554,7 +1554,7 @@
 	"dataSourceCatalog_dotnetStep1Heading": "添加包",
 	"dataSourceCatalog_dotnetStep2Heading": "接入导出器",
 	"dataSourceCatalog_dotnetStep3Heading": "在用 Aspire？",
-	"dataSourceCatalog_dotnetStep3Body": "Flare 提供了一个 Aspire.Flare 包，帮你完成上面的工作，它从连接字符串（例如 AppHost 端的 .WithReference(flare)）读取地址，而不是写死一个 URI。",
+	"dataSourceCatalog_dotnetStep3Body": "在 AppHost 中添加 CommunityToolkit.Aspire.Hosting.Flare 包（Aspire 17+），并对每个服务调用 .WithOtlpExporter(flare)。这样 Aspire 标准的 service defaults 就会把遥测发送到 Flare，上面的代码都不需要了。",
 	"dataSourceCatalog_pythonTitle": "Python",
 	"dataSourceCatalog_pythonIntro": "零代码埋点 - 只需包装应用的启动命令，无需改动源码。",
 	"dataSourceCatalog_pythonStep1Heading": "安装",

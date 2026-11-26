@@ -186,7 +186,7 @@ Flare has three legitimate local install paths, each solving a different
 problem rather than being redundant with the others, and a fourth for
 production clusters:
 
-- **[.NET Aspire](../how-to/deploy/run-with-aspire.md)** (`Flare.Hosting.Aspire`) —
+- **[.NET Aspire](../how-to/deploy/run-with-aspire.md)** (`CommunityToolkit.Aspire.Hosting.Flare`) —
   for an app that already has an AppHost. Flare joins the resource graph;
   `aspire start` already orchestrates its lifecycle alongside everything
   else.

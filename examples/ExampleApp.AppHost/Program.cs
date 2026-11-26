@@ -1,5 +1,6 @@
 using Aspire.Hosting.Kubernetes;
 using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.Dotnet;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -113,7 +114,7 @@ if (publishing)
     postgres.WithEnvironment("POSTGRES_DB", "shopdb");
 var shopdb = postgres.AddDatabase("shopdb");
 
-IResourceBuilder<ProjectResource> AddShopService(string name) =>
+IResourceBuilder<DotnetProjectResource> AddShopService(string name) =>
     // No launch profile: eight resources share this one project, so each gets its own
     // Aspire-assigned port instead of a launchSettings.json applicationUrl they'd all fight
     // over. Aspire's own OTEL_SERVICE_NAME is the resource name, so that's the service.name.
@@ -123,7 +124,7 @@ IResourceBuilder<ProjectResource> AddShopService(string name) =>
     // would NOT actually wait - flare is a lifetime-less grouping node and Aspire skips those as
     // WaitFor targets (see WaitForFlare's doc comment); WaitForFlare waits on the real dashboard
     // resource instead, which transitively depends on everything else.
-    builder.AddProject<Projects.ExampleApp_Shop>(name, launchProfileName: null)
+    builder.AddDotnetProject(name, "../ExampleApp.Shop/ExampleApp.Shop.csproj", options => options.ExcludeLaunchProfile = true)
         .WithHttpEndpoint()
         .WithHttpHealthCheck("/health")
         .WithEnvironment("Shop__Role", name)

@@ -13,13 +13,13 @@
 [![Docker Images](https://github.com/aminparsa18/Flare.Net/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/docker-publish.yml)
 [![Docs Link Check](https://github.com/aminparsa18/Flare.Net/actions/workflows/docs-links.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/docs-links.yml)
 [![License: MIT](https://img.shields.io/github/license/aminparsa18/Flare.Net)](LICENSE)
-[![NuGet Flare.Hosting.Aspire](https://img.shields.io/nuget/v/Flare.Hosting.Aspire?label=Flare.Hosting.Aspire)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
+[![NuGet CommunityToolkit.Aspire.Hosting.Flare](https://img.shields.io/nuget/v/CommunityToolkit.Aspire.Hosting.Flare?label=aspire%20integration)](https://www.nuget.org/packages/CommunityToolkit.Aspire.Hosting.Flare)
 [![NuGet Flare.Cli](https://img.shields.io/nuget/v/Flare.Cli?label=flare%20cli)](https://www.nuget.org/packages/Flare.Cli)
 [![npm @apardev/flare-cli](https://img.shields.io/npm/v/@apardev/flare-cli?label=npm%20flare%20cli)](https://www.npmjs.com/package/@apardev/flare-cli)
 [![Release](https://img.shields.io/github/v/release/aminparsa18/Flare.Net)](https://github.com/aminparsa18/Flare.Net/releases/latest)
 [![Helm Lint](https://github.com/aminparsa18/Flare.Net/actions/workflows/helm-lint.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/helm-lint.yml)
 [![Docker Hub pulls](https://img.shields.io/docker/pulls/apardev/flare-api?label=docker%20pulls)](https://hub.docker.com/u/apardev)
-[![NuGet downloads](https://img.shields.io/nuget/dt/Flare.Hosting.Aspire?label=nuget%20downloads)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
+[![NuGet downloads](https://img.shields.io/nuget/dt/Flare.Cli?label=nuget%20downloads)](https://www.nuget.org/packages/Flare.Cli)
 [![.NET 11](https://img.shields.io/badge/.NET-11-512BD4)](https://dotnet.microsoft.com/)
 [![OpenTelemetry native](https://img.shields.io/badge/OpenTelemetry-native-425CC7)](https://opentelemetry.io/)
 [![Stars](https://img.shields.io/github/stars/aminparsa18/Flare.Net?style=flat)](https://github.com/aminparsa18/Flare.Net/stargazers)
@@ -68,10 +68,10 @@ What differs is how you run Flare itself. Pick one:
 - **Already using .NET Aspire?**
   ```csharp
   // AppHost
-  var flare = builder.AddFlare("flare");
-  builder.AddProject<Projects.MyApi>("myapi").WithReference(flare).WaitForFlare(flare);
+  var flare = builder.AddFlare("flare", builder.AddClickHouse("clickhouse"), builder.AddRedis("redis"));
+  builder.AddDotnetProject("myapi", "../MyApi/MyApi.csproj").WithOtlpExporter(flare).WaitFor(flare);
   ```
-  `dotnet add package Flare.Hosting.Aspire` — Flare joins your AppHost as a resource, so it starts, stops, and gets discovered by your other resources the same way everything else in your graph does. Details: [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.md).
+  `aspire add CommunityToolkit.Aspire.Hosting.Flare` (Aspire 17+, from the Aspire Community Toolkit) — Flare joins your AppHost as a resource, so it starts, stops, and gets discovered by your other resources the same way everything else in your graph does. Details: [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.md).
 
 - **Not using Aspire, want it running standalone?**
   ```sh
@@ -94,7 +94,7 @@ What differs is how you run Flare itself. Pick one:
 
 Whichever path you pick, the dashboard comes up at [http://localhost:7777](http://localhost:7777). Authentication is **off by default** — the Logs page is open the moment it's up. Turn sign-in on (local accounts, Microsoft Entra ID, Active Directory, OpenID Connect, or reverse-proxy trusted headers) from the `/auth` page whenever you're ready; see [docs/how-to/admin/configure-authentication.md](docs/how-to/admin/configure-authentication.md).
 
-Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.md#point-your-logger-at-it) (or [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.md#2-point-your-logger-at-it) on Aspire). For anything else — Python, Node.js, Java, Go, Kubernetes, DevOps pipelines, a log shipper, or Prometheus scrape — the dashboard's own **Data sources** page (nav dropdown, or the Logs page's empty state) has the same kind of copy-paste snippets; see the [architecture tour](docs/explanation/architecture.md#data-sources) for a preview.
+Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.md#point-your-logger-at-it) (or [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.md#3-send-your-services-telemetry-to-flare) on Aspire). For anything else — Python, Node.js, Java, Go, Kubernetes, DevOps pipelines, a log shipper, or Prometheus scrape — the dashboard's own **Data sources** page (nav dropdown, or the Logs page's empty state) has the same kind of copy-paste snippets; see the [architecture tour](docs/explanation/architecture.md#data-sources) for a preview.
 
 Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup — see [docs/how-to/deploy/run-cluster-mode.md](docs/how-to/deploy/run-cluster-mode.md).
 

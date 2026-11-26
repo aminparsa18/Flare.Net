@@ -151,3 +151,14 @@ folders are where "what happened and why" actually lives.
   (`fix/normalize-cors-origins`: a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored), open a small PR on
   CommunityToolkit/Aspire removing the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in
   `src/CommunityToolkit.Aspire.Hosting.Flare/`, then reply on [#2370](https://github.com/CommunityToolkit/Aspire/pull/2370) so the reviewers see the promised fix landed.
+- **Port the missing hosting features to `CommunityToolkit.Aspire.Hosting.Flare`, then retire `Flare.Hosting.Aspire`** ([ADR-0281](../adr/0281-aspire-integration-moves-to-community-toolkit.md)).
+  One CommunityToolkit/Aspire PR each, in this order: Kubernetes persistent volumes for the identity database (the old
+  `WithPersistentStorage`; ClickHouse/Redis volumes are already the caller's), cold storage (`WithColdStorage`), the Resources page
+  (`enableResourceGraph`, Docker socket proxy + Kubernetes RBAC), and per-container image overrides. Then move
+  `examples/ExampleApp.AppHost` to the toolkit package and delete `src/Aspire.Hosting.Flare`.
+- **Fold `Flare.Aspire` into `Flare.OpenTelemetry`, then deprecate it** ([ADR-0281](../adr/0281-aspire-integration-moves-to-community-toolkit.md)).
+  Make `AddFlareTelemetry` fall back to `ConnectionStrings:flare` (and `Aspire:Flare:ApiKey`) when no `Flare:Endpoint` is set,
+  switch `examples/ExampleApp.Shop` to it, then deprecate `Flare.Aspire` on nuget.org with `Flare.OpenTelemetry` as the alternative.
+- **Publish the aspire.dev docs page for the Flare integration.** The toolkit README links
+  `learn.microsoft.com/dotnet/aspire/community-toolkit/hosting-flare`; open the page in the aspire.dev docs repo, using
+  `docs/how-to/deploy/run-with-aspire.md` as the source.

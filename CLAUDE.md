@@ -17,8 +17,8 @@ src/Flare.Identity        Auth: local accounts, Entra ID, LDAP, OIDC, reverse-pr
 src/Flare.AppHost         .NET Aspire local orchestration (the dev inner loop)
 src/Flare.Cli             Global dotnet tool ("flare start/stop/status/...") managing a standing standalone stack
 src/Flare.Mcp             Read-only MCP tools shared by `flare mcp` (stdio) and Flare.Api's `/mcp` streamable HTTP endpoint; carries the CLI/MCP wire DTOs
-src/Aspire.Hosting.Flare  NuGet PackageId Flare.Hosting.Aspire — AddFlare() hosting integration for consumer AppHosts
-src/Aspire.Flare          NuGet PackageId Flare.Aspire — shared client-side integration bits
+src/Aspire.Hosting.Flare  NuGet PackageId Flare.Hosting.Aspire — DEPRECATED (0.5.1 last, no new releases), superseded by CommunityToolkit.Aspire.Hosting.Flare; kept only because examples/ExampleApp.AppHost needs WithPersistentStorage (ADR-0281)
+src/Aspire.Flare          NuGet PackageId Flare.Aspire — client-side AddFlareOtlpExporter reading ConnectionStrings:flare; kept, to be folded into Flare.OpenTelemetry (ADR-0281)
 src/Flare.ServiceDefaults Shared Aspire service defaults + ClickHouseMigrations runner
 src/dashboard             SvelteKit 3 (Svelte 5 runes) + Tailwind 4 + shadcn-svelte SPA — talks to Flare.Api over HTTP/WS
 src/website               Next.js marketing site (separate from the dashboard app)
@@ -40,7 +40,7 @@ Solution file is **`Flare.slnx`** (not `.sln`).
 
 ## Commands
 
-**.NET** (targets `net11.0`, SDK pinned via `global.json` to `11.0.100`, Aspire SDK `13.6.4`):
+**.NET** (targets `net11.0`, SDK pinned via `global.json` to `11.0.100`, Aspire `17.0.0` — AppHosts are plain `Microsoft.NET.Sdk` + `Aspire.Hosting.AppHost`/`Aspire.Hosting.Dotnet` with `AddDotnetProject`, and need Aspire CLI 17; `Aspire.Hosting.ClickHouse`/`Aspire.ClickHouse.Driver` stay on 13.5.3, the newest published):
 ```bash
 dotnet build Flare.slnx
 dotnet test --solution Flare.slnx    # all tests (xUnit v3 on Microsoft.Testing.Platform, set in global.json)
@@ -94,7 +94,7 @@ apps (Serilog/NLog/ZLogger/MS ILogger/any OTLP source)
 - **Identity is embedded SQLite by default**, not a fourth backing-store container — `Flare.Ingest` and `Flare.Api` both resolve to the same `Identity__DbPath` file (a gitignored `.data/identity/` dir locally under Aspire; a named Docker volume in `docker-compose.yml`). `Identity__Provider=Postgres` + `Identity__ConnectionString` switches it to Postgres (ADR-0111; `docker-compose.cluster.yml` does). The stores are provider-neutral `Db*Store` classes; schema changes need a numbered migration in **both** `Flare.Identity/Migrations/Sqlite` and `/Postgres`. Run the Identity tests with `FLARE_TEST_POSTGRES="Host=...;Username=...;Password=..."` to cover Postgres.
 - **Log pattern clustering (Drain) happens at ingest/flush time**, not query time (ADR-0007) — `PatternId`/`PatternTemplate` columns are computed once and just `GROUP BY`'d later, not recomputed per query.
 - **Aspire wiring lives only in `src/Flare.AppHost/AppHost.cs`** — read its inline comments before changing resource wiring; they record non-obvious constraints (e.g. ClickHouse's init password must avoid shell-special characters or the official image's init script breaks; the OTLP ports are fixed/unproxied on purpose so external loggers can point at conventional port numbers).
-- **Three legitimate install paths**, not redundant: Aspire integration (`Flare.Hosting.Aspire`, ties Flare's lifecycle to a consumer AppHost), standalone `docker compose up` (one-off local eval), and the `flare` CLI (a standing instance shared across unrelated local projects, independent of any one AppHost).
+- **Three legitimate install paths**, not redundant: Aspire integration (`CommunityToolkit.Aspire.Hosting.Flare`, maintained in the CommunityToolkit/Aspire repo, not here; ties Flare's lifecycle to a consumer AppHost), standalone `docker compose up` (one-off local eval), and the `flare` CLI (a standing instance shared across unrelated local projects, independent of any one AppHost).
 
 ## Where documentation goes
 

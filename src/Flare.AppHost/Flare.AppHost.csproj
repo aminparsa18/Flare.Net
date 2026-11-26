@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.6.4">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -7,14 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Aspire 17 C# AppHost shape: plain Microsoft.NET.Sdk plus these two packages, replacing
+         the obsolete Aspire.AppHost.Sdk (ASPIRE012). Aspire.Hosting.Dotnet supplies
+         AddDotnetProject; the dashboard and DCP come from the Aspire CLI bundle. -->
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.Dotnet" />
     <PackageReference Include="Aspire.Hosting.ClickHouse" />
     <PackageReference Include="Aspire.Hosting.Redis" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Flare.Ingest\Flare.Ingest.csproj" />
-    <ProjectReference Include="..\Flare.Api\Flare.Api.csproj" />
-    <ProjectReference Include="..\Flare.AlertWorker\Flare.AlertWorker.csproj" />
-  </ItemGroup>
+  <!-- No ProjectReferences to Flare.Ingest/Api/AlertWorker: AppHost.cs registers them by path
+       with AddDotnetProject, which builds them itself, so no Projects.* metadata is needed. -->
 
 </Project>

@@ -1554,7 +1554,7 @@
 	"dataSourceCatalog_dotnetStep1Heading": "Add the packages",
 	"dataSourceCatalog_dotnetStep2Heading": "Wire up the exporter",
 	"dataSourceCatalog_dotnetStep3Heading": "Using Aspire?",
-	"dataSourceCatalog_dotnetStep3Body": "Flare ships an Aspire.Flare package that does the above for you, reading the endpoint from a connection string (e.g. .WithReference(flare) on the AppHost side) instead of a hardcoded URI.",
+	"dataSourceCatalog_dotnetStep3Body": "In the AppHost, add the CommunityToolkit.Aspire.Hosting.Flare package (Aspire 17+) and call .WithOtlpExporter(flare) on each service. The standard Aspire service defaults then export to Flare, so none of the code above is needed.",
 	"dataSourceCatalog_pythonTitle": "Python",
 	"dataSourceCatalog_pythonIntro": "Zero-code instrumentation - wrap your app's start command, no source changes needed.",
 	"dataSourceCatalog_pythonStep1Heading": "Install",
