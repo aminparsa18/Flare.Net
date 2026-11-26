@@ -10,8 +10,8 @@ install path exists alongside Aspire/standalone, see
 > tag `flare-cli-v*.*.*`. Package ID is `Flare.Cli`, not `flare` (that id is
 > already taken on nuget.org, an old unrelated unlisted package) — the
 > installed *command* is still `flare`; `ToolCommandName` and `PackageId`
-> are independent, the same trick this repo uses for
-> `Flare.Hosting.Aspire`/`Aspire.Hosting.Flare`.
+> are independent, the same trick this repo used for the
+> deprecated `Flare.Hosting.Aspire`/`Aspire.Hosting.Flare`.
 
 ## Command reference
 

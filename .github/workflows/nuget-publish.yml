@@ -14,7 +14,9 @@
 #
 # Packages published from here (PackageId, NOT the project/directory name - Aspire.* is a
 # Microsoft-reserved prefix on nuget.org, see the .csproj PackageId comments and Planning.md):
-#   - Flare.Hosting.Aspire (project: src/Aspire.Hosting.Flare/)  <- tag aspire-hosting-flare-v*.*.*
+#   (Flare.Hosting.Aspire, project src/Aspire.Hosting.Flare/, tag aspire-hosting-flare-v*, is no
+#   longer published: deprecated on nuget.org in favor of CommunityToolkit.Aspire.Hosting.Flare,
+#   0.5.1 is the last release - see docs-internal/adr/0281.)
 #   - Flare.Aspire         (project: src/Aspire.Flare/)          <- tag aspire-flare-v*.*.*
 #   - Flare.OpenTelemetry  (project: src/Flare.OpenTelemetry/)  <- tag flare-opentelemetry-v*.*.*
 #   - Flare.Cli            (project: src/Flare.Cli/)             <- tag flare-cli-v*.*.*
@@ -47,7 +49,6 @@ name: NuGet Publish
 on:
   push:
     tags:
-      - 'aspire-hosting-flare-v*.*.*'
       - 'aspire-flare-v*.*.*'
       - 'flare-opentelemetry-v*.*.*'
       - 'flare-cli-v*.*.*'
@@ -59,7 +60,6 @@ on:
         required: true
         type: choice
         options:
-          - Flare.Hosting.Aspire
           - Flare.Aspire
           - Flare.OpenTelemetry
           - Flare.Cli
@@ -99,7 +99,6 @@ jobs:
             PACKAGE="${{ inputs.package }}"
           else
             case "$GITHUB_REF_NAME" in
-              aspire-hosting-flare-v*) PACKAGE="Flare.Hosting.Aspire" ;;
               aspire-flare-v*) PACKAGE="Flare.Aspire" ;;
               flare-opentelemetry-v*) PACKAGE="Flare.OpenTelemetry" ;;
               flare-cli-v*) PACKAGE="Flare.Cli" ;;
@@ -109,10 +108,6 @@ jobs:
           fi
 
           case "$PACKAGE" in
-            Flare.Hosting.Aspire)
-              echo "project=src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj" >> "$GITHUB_OUTPUT"
-              echo "tag_prefix=aspire-hosting-flare-v" >> "$GITHUB_OUTPUT"
-              ;;
             Flare.Aspire)
               echo "project=src/Aspire.Flare/Aspire.Flare.csproj" >> "$GITHUB_OUTPUT"
               echo "tag_prefix=aspire-flare-v" >> "$GITHUB_OUTPUT"

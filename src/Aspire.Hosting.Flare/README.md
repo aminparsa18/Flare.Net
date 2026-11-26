@@ -1,5 +1,11 @@
 # Flare.Hosting.Aspire
 
+> **Deprecated.** Use [`CommunityToolkit.Aspire.Hosting.Flare`](https://www.nuget.org/packages/CommunityToolkit.Aspire.Hosting.Flare)
+> (Aspire 17+). 0.5.1 is the last release of this package; keep it only on Aspire 13.x, or for
+> cold storage, Kubernetes persistent storage or the Resources page, which the toolkit package
+> doesn't have yet. Migration table:
+> [docs/reference/aspire-hosting.md](https://github.com/aminparsa18/Flare.Net/blob/main/docs/reference/aspire-hosting.md#migrating-from-flarehostingaspire).
+
 > Package ID `Flare.Hosting.Aspire`, not `Aspire.Hosting.Flare` - that prefix is reserved on
 > nuget.org for Microsoft's own official integrations. Same project (`src/Aspire.Hosting.Flare`),
 > same `builder.AddFlare(...)` API - only the published package name differs.

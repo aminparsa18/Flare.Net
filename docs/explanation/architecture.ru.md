@@ -200,7 +200,7 @@ Playwright) для отправляемых по почте отчётов по 
 задачу, а не дублирует остальные, и четвёртый — для производственных
 кластеров:
 
-- **[.NET Aspire](../how-to/deploy/run-with-aspire.ru.md)** (`Flare.Hosting.Aspire`) —
+- **[.NET Aspire](../how-to/deploy/run-with-aspire.ru.md)** (`CommunityToolkit.Aspire.Hosting.Flare`) —
   для приложения, у которого уже есть AppHost. Flare присоединяется к
   графу ресурсов; `aspire start` уже оркестрирует его жизненный цикл
   наряду со всем остальным.

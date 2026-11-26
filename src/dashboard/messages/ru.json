@@ -1554,7 +1554,7 @@
 	"dataSourceCatalog_dotnetStep1Heading": "Добавьте пакеты",
 	"dataSourceCatalog_dotnetStep2Heading": "Подключите экспортёр",
 	"dataSourceCatalog_dotnetStep3Heading": "Используете Aspire?",
-	"dataSourceCatalog_dotnetStep3Body": "Flare поставляет пакет Aspire.Flare, который делает всё вышеперечисленное за вас, считывая адрес из строки подключения (например, .WithReference(flare) на стороне AppHost) вместо жёстко заданного URI.",
+	"dataSourceCatalog_dotnetStep3Body": "В AppHost добавьте пакет CommunityToolkit.Aspire.Hosting.Flare (Aspire 17+) и вызовите .WithOtlpExporter(flare) для каждого сервиса. Стандартные service defaults Aspire тогда отправляют телеметрию во Flare, и код выше не нужен.",
 	"dataSourceCatalog_pythonTitle": "Python",
 	"dataSourceCatalog_pythonIntro": "Инструментирование без изменения кода - оберните команду запуска вашего приложения, изменения исходного кода не нужны.",
 	"dataSourceCatalog_pythonStep1Heading": "Установка",

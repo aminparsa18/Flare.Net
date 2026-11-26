@@ -284,8 +284,8 @@ Authelia, Authentik, oauth2-proxy, Cloudflare Access, Tailscale Serve или
   кнопку в панели управления» не подходит): `Auth:StaticIngestApiKey` —
   это фиксированный ключ, устанавливаемый через конфигурацию,
   действительный наряду с любыми ключами, созданными через интерфейс.
-  Именно это использует `Flare.AppHost` (локальная разработка) и
-  `AddFlare(..., apiKey: ...)` у `Aspire.Hosting.Flare`.
+  Именно это используют `Flare.AppHost` (локальная разработка) и
+  `WithApiKey(...)` интеграции Aspire.
 
 ## Персональные токены доступа
 

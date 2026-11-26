@@ -17,8 +17,11 @@ Two ways to get data into Flare without wiring up your own app first:
 | [`ExampleApp.Seeder`](ExampleApp.Seeder) | The backfill tool |
 | [`ExampleApp.Maui`](ExampleApp.Maui) | A small MAUI app for trying `Flare.Maui` on a device or simulator; see [its README](ExampleApp.Maui/README.md) |
 
-`Flare.Hosting.Aspire`/`Flare.Aspire` are referenced as `ProjectReference`s, not
-`PackageReference`s, so the example always runs against Flare's local source. See
+The example uses the deprecated `Flare.Hosting.Aspire` rather than
+`CommunityToolkit.Aspire.Hosting.Flare`, because its Kubernetes deploy needs
+`WithPersistentStorage`, which the toolkit package doesn't have yet. It and `Flare.Aspire`
+are referenced as `ProjectReference`s, not `PackageReference`s, so the example always runs
+against Flare's local source. See
 [`docs/how-to/deploy/run-with-aspire.md`](../docs/how-to/deploy/run-with-aspire.md) and
 [`src/Aspire.Flare/README.md`](../src/Aspire.Flare/README.md) for what a published-package
 consumer looks like.

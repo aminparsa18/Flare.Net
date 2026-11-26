@@ -303,12 +303,12 @@ builder.Logging.AddOpenTelemetry(options =>
 					heading: m.dataSourceCatalog_dotnetStep3Heading(),
 					body: m.dataSourceCatalog_dotnetStep3Body(),
 					code: {
-						text: 'dotnet add package Aspire.Flare'
+						text: 'aspire add CommunityToolkit.Aspire.Hosting.Flare'
 					}
 				},
 				{
 					heading: '',
-					code: { text: 'builder.AddFlareOtlpExporter("flare");' }
+					code: { text: 'builder.AddDotnetProject("api", "../Api/Api.csproj")\n    .WithOtlpExporter(flare)\n    .WaitFor(flare);' }
 				}
 			]
 		},

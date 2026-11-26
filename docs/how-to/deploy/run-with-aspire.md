@@ -1,221 +1,143 @@
 # How to run Flare from your own .NET Aspire app
 
-If your own app is already orchestrated with .NET Aspire,
-`Flare.Hosting.Aspire` adds the whole Flare stack — ClickHouse, Redis, the
-OTLP ingest receiver, the query API, and the dashboard — to your AppHost
-with one call, pulling Flare's published Docker Hub images rather than
-anything you build yourself. For the exact API and every deployment fact,
-see [`../reference/aspire-hosting.md`](../../reference/aspire-hosting.md).
+If your app is already orchestrated with .NET Aspire,
+`CommunityToolkit.Aspire.Hosting.Flare` adds Flare to your AppHost: the OTLP
+ingest service, the query API, the alert worker and the dashboard, pulled as
+Flare's published Docker Hub images. You pass in the ClickHouse and Redis
+resources Flare stores and buffers its data in, so they stay visible and
+configurable in your app model. For the exact API, see
+[`../reference/aspire-hosting.md`](../../reference/aspire-hosting.md).
 
-> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently
-> `0.3.2`) — `dotnet add package Flare.Hosting.Aspire` works today. See
-> [`../../examples/`](../../../examples) for a full runnable demo: a
-> multi-service shop with Kafka, RabbitMQ, Postgres and an OpenTelemetry
-> Collector that puts live data on every dashboard page except
-> Kubernetes, plus a seeder that backfills an hour of history. It
-> references the package as a `ProjectReference` instead (useful for
-> trying Flare's `main` before a release).
+> **Requires Aspire 17.** The package is part of the
+> [Aspire Community Toolkit](https://github.com/CommunityToolkit/Aspire) and
+> depends on `Aspire.Hosting` 17.0.0. On Aspire 13.x, or if you need cold
+> storage, Kubernetes persistent storage or the Resources page, use the
+> deprecated `Flare.Hosting.Aspire` 0.5.1 instead: see
+> [Features not in the toolkit package yet](#features-not-in-the-toolkit-package-yet).
 
-## 1. Add Flare to your AppHost
+## 1. Install the package
+
+From your AppHost directory:
+
+```sh
+aspire add CommunityToolkit.Aspire.Hosting.Flare
+```
+
+or `dotnet add package CommunityToolkit.Aspire.Hosting.Flare`.
+
+## 2. Add Flare to your AppHost
 
 ```csharp
 var builder = DistributedApplication.CreateBuilder(args);
 
-var flare = builder.AddFlare("flare");
+var clickhouse = builder.AddClickHouse("clickhouse").WithDataVolume();
+var redis = builder.AddRedis("redis").WithDataVolume();
+
+var flare = builder.AddFlare("flare", clickhouse, redis)
+    .WithDataVolume();
 
 builder.Build().Run();
 ```
 
-That's it — no `docker compose up`, no separate services to run. `AddFlare`
-mirrors Flare's own `Flare.AppHost/Program.cs` resource graph: ClickHouse
-(with the same `db/clickhouse/*.sql` schema, embedded in the package),
-Redis (the same durable batched-insert buffer), and the four
-`apardev/flare-ingest`/`flare-api`/`flare-alert-worker`/`flare-dashboard` containers.
+`AddFlare` creates the database it needs inside your ClickHouse server, and
+the Flare images migrate their own schema on startup. The `flare` resource is
+the ingest service, on the conventional OTLP ports `4317` (gRPC) and `4318`
+(HTTP). The API, alert worker and dashboard appear under it as `flare-api`,
+`flare-alert-worker` and `flare-dashboard`.
 
-Need a non-default port, a private ingest API key, or your own built
-images instead of Docker Hub's? Chain `With*` methods off the returned
-builder — see [the full parameter reference](../../reference/aspire-hosting.md#addflare)
-for every option.
+The three `WithDataVolume()` calls keep data across runs: ClickHouse's
+telemetry, Redis's buffer, and Flare's identity database (dashboard users,
+sessions and ingest API keys). Leave them out for a throwaway stack.
 
-## 2. Point your logger at it
-
-The recommended way is `Flare.Aspire` (`builder.AddFlareOtlpExporter("flare")`),
-a client-side package that reads the connection info `.WithReference(flare)`
-injects and registers named OTLP log, trace, and metrics exporters pointed
-at it — additive alongside whatever OpenTelemetry setup your project
-already has (e.g. the Aspire dashboard collector via
-`AddServiceDefaults()`/`UseOtlpExporter()`), not a replacement for it:
+## 3. Send your services' telemetry to Flare
 
 ```csharp
-// AppHost
-var flare = builder.AddFlare("flare");
-
-builder.AddProject<Projects.MyApp_Web>("web")
-    .WithReference(flare) // injects ConnectionStrings__flare -> Flare.Ingest's OTLP/gRPC endpoint
-    .WaitForFlare(flare);
+builder.AddDotnetProject("web", "../MyApp.Web/MyApp.Web.csproj")
+    .WithOtlpExporter(flare)
+    .WaitFor(flare);
 ```
+
+`WithOtlpExporter(flare)` sets `OTEL_EXPORTER_OTLP_ENDPOINT` and
+`OTEL_EXPORTER_OTLP_PROTOCOL` on the service, so the standard Aspire service
+defaults (`UseOtlpExporter()`) send logs, traces and metrics to Flare with no
+change to the service itself. It uses OTLP/gRPC by default. Pass
+`OtlpProtocol.HttpProtobuf` or `OtlpProtocol.HttpJson` to use OTLP/HTTP
+instead.
+
+**The service's telemetry goes to Flare instead of the Aspire dashboard.** The
+dashboard still shows the resource, its console output and its state, but not
+its logs, traces or metrics. To keep both:
+
+- Use `.WithReference(flare)` instead of `WithOtlpExporter`, and add Flare as a
+  second exporter in the service with the
+  [`Flare.Aspire`](../../../src/Aspire.Flare/README.md) client package
+  (`builder.AddFlareOtlpExporter("flare")`). The service defaults must then
+  use the signal-specific `AddOtlpExporter()` calls rather than
+  `UseOtlpExporter()`; the tutorial
+  [Add Flare to a .NET Aspire app](../../tutorials/add-flare-to-an-aspire-app.md)
+  shows the simpler route.
+- Or export to an OpenTelemetry Collector that forwards to both.
+
+## 4. Require an ingest API key (optional)
 
 ```csharp
-// MyApp.Web
-builder.AddFlareOtlpExporter("flare");
+var flareKey = builder.AddParameter("flare-api-key", secret: true);
+
+var flare = builder.AddFlare("flare", clickhouse, redis)
+    .WithApiKey(flareKey);
 ```
 
-```sh
-dotnet add package Flare.Aspire
-```
-
-`AddFlareOtlpExporter` requires `Flare.ServiceDefaults.ConfigureOpenTelemetry()`
-(or whatever else you layer it on) to use the signal-specific
-`AddOtlpExporter` family, not the cross-cutting `UseOtlpExporter()` — the
-OTel SDK throws at startup if both land in the same `IServiceCollection`.
-
-### Without the `Flare.Aspire` package
-
-`FlareResource` also exposes its OTLP endpoint as a plain environment
-variable via `WithOtlpEndpoint(flare)`, if you'd rather wire your
-project's own `OpenTelemetry` SDK call directly instead of taking the
-`Flare.Aspire` dependency:
-
-```csharp
-var flare = builder.AddFlare("flare");
-
-builder.AddProject<Projects.MyApp_Web>("web")
-    .WithOtlpEndpoint(flare) // OTEL_EXPORTER_OTLP_ENDPOINT -> Flare.Ingest's OTLP/gRPC endpoint
-    .WaitForFlare(flare);
-```
-
-Pass `useHttp: true` for the OTLP/HTTP endpoint (`:4318`) instead of gRPC.
-
-Not wired through Aspire's own `AddServiceDefaults()` pattern at all? See
-[`run-standalone.md#point-your-logger-at-it`](run-standalone.md#point-your-logger-at-it)
-for the same copy-paste snippet per logger — just set
-`OTEL_EXPORTER_OTLP_ENDPOINT` from `WithOtlpEndpoint` above instead of a
-hardcoded `http://localhost:4317`.
-
-## Resources page (optional Docker access)
-
-The dashboard's **Resources** page shows Flare's own containers as a live
-graph — state, health, URLs, and the relationships between them — sourced
-from the Docker Engine API (or, on a Kubernetes deploy target, a separate
-Kubernetes-native provider), not from Aspire's own resource service. It's
-off by default:
-
-![Resources page](../../screenshots/resources-en.webp)
-
-```csharp
-var flare = builder.AddFlare("flare", enableResourceGraph: true);
-```
-
-For local `aspire run` (always backed by real Docker containers, regardless
-of what deployment-target resources happen to be registered), this adds
-one sidecar container reading a read-only, scope-limited Docker socket
-proxy — see
-[ADR-0005](../../../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md)
-for exactly what it can and can't do and why. Leave it unset (the default)
-and no proxy container is added at all — `flare-api` never gains any form
-of Docker access, and the Resources page shows a clean "not enabled" state
-instead of an error.
-
-Once you actually publish/deploy to a Kubernetes target, the same
-`enableResourceGraph: true` instead wires up a Kubernetes-native RBAC-based
-provider — see [Publishing / deploying](#publishing--deploying) below and
-[ADR-0006](../../../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md).
-
-## Cold storage (optional)
-
-To let retention move aged data to cheap object storage instead of only deleting it
-([ADR-0144](../../../docs-internal/adr/0144-cold-storage-rustfs.md)), add the cold tier:
-
-```csharp
-var flare = builder.AddFlare("flare").WithColdStorage();
-```
-
-This adds a RustFS (S3-compatible) container, a one-shot job that creates its bucket, and the
-`flare_tiered` ClickHouse storage policy. Nothing moves until you set a cold-after value with
-`PUT /api/retention`. It is off by default, and the config ships inside the generated ClickHouse
-image, so it publishes like the rest of the stack. Pass your own `accessKey`/`secretKey` parameters
-outside local use; the defaults are fixed, local-only values.
-
-## Installing
-
-```sh
-dotnet add package Flare.Hosting.Aspire
-```
-
-To build against Flare's `main` instead of a release, reference the
-project directly the way
-[`examples/ExampleApp.AppHost`](../../../examples/ExampleApp.AppHost) does:
-
-```xml
-<ProjectReference Include="path\to\Flare.Net\src\Aspire.Hosting.Flare\Aspire.Hosting.Flare.csproj"
-                  IsAspireProjectResource="false" />
-```
-
-`IsAspireProjectResource="false"` tells Aspire's tooling this is a plain
-class-library reference, not a project resource to orchestrate.
+OTLP clients then send `Authorization: Bearer <key>`. Services wired with
+`WithOtlpExporter(flare)` send it automatically. `WithOtlpExporter` also
+removes the Aspire dashboard's own OTLP key from
+`OTEL_EXPORTER_OTLP_HEADERS`, so that key never reaches Flare.
 
 ## Publishing / deploying
 
-`Flare.Hosting.Aspire` doesn't add a deployment target itself — a consuming
-AppHost opts in the same way any other Aspire app does, by adding a
-deployment environment resource. Docker Compose and Kubernetes are both
-verified as of `0.2.3`; Azure/AWS targets are unverified. **Before you
-deploy for real**, read the deployment facts in
-[`../reference/aspire-hosting.md#deployment-facts`](../../reference/aspire-hosting.md#deployment-facts)
-— several defaults that are fine for local `aspire run` (public URLs,
-persistent storage) need explicit attention once actually deployed.
+Flare deploys like the rest of your AppHost: add a deployment environment such
+as `AddDockerComposeEnvironment("env")` or `AddKubernetesEnvironment("k8s")`,
+then run `aspire publish` or `aspire deploy`. See
+[aspire.dev/deployment](https://aspire.dev/deployment/).
 
-### Docker Compose
+Once the dashboard is no longer opened on `localhost`, set the URLs a browser
+uses:
 
 ```csharp
-var builder = DistributedApplication.CreateBuilder(args);
+var apiUrl = builder.AddParameter("flare-public-api-url");
+var dashboardUrl = builder.AddParameter("flare-public-dashboard-url");
 
-builder.AddDockerComposeEnvironment("env");
-
-var flare = builder.AddFlare("flare");
-// ...
-builder.Build().Run();
+var flare = builder.AddFlare("flare", clickhouse, redis)
+    .WithPublicUrls(apiUrl, dashboardUrl);
 ```
 
-This has no effect on the normal `aspire run`/`dotnet run` inner loop —
-`AddDockerComposeEnvironment` only matters once you run `aspire publish`,
-`aspire do prepare-compose`, or `aspire deploy`, which generate a
-`docker-compose.yaml` (plus `.env`/`.env.{environment}` files) for the
-whole AppHost, Flare included. See
-[aspire.dev/deployment](https://aspire.dev/deployment/) and
-[aspire.dev/deployment/docker-compose](https://aspire.dev/deployment/docker-compose/)
-for the full publish/deploy workflow.
-`examples/ExampleApp.AppHost` wires this in as a worked example.
+`dashboardUrl` is also the API's allowed CORS origin, so pass an origin only,
+such as `https://flare.example.com`, with no path or trailing slash.
 
-### Kubernetes
+Storage is configured on the ClickHouse and Redis resources you passed in,
+the same way as for any other Aspire app. On Kubernetes, the toolkit package
+doesn't yet bind persistent volumes for Flare's identity database; see the
+next section.
 
-Same `AddFlare` call, registering
-[`AddKubernetesEnvironment`](https://aspire.dev/integrations/compute/kubernetes/)
-(from the `Aspire.Hosting.Kubernetes` package — add it to *your own*
-AppHost, not `Flare.Hosting.Aspire` itself, which stays
-deployment-target-agnostic) instead of `AddDockerComposeEnvironment`:
+## Features not in the toolkit package yet
 
-```csharp
-var builder = DistributedApplication.CreateBuilder(args);
+These are only in the deprecated `Flare.Hosting.Aspire` 0.5.1, which also
+runs on Aspire 13.x:
 
-var registry = builder.AddContainerRegistry("registry", "your-registry.example.com:5000");
-builder.AddKubernetesEnvironment("k8s").WithContainerRegistry(registry);
+| Feature | In `Flare.Hosting.Aspire` 0.5.1 |
+|---|---|
+| Cold storage (RustFS tier for retention) | `WithColdStorage()` |
+| Kubernetes persistent volumes for ClickHouse, Redis and the identity database | `WithPersistentStorage(...)` |
+| The dashboard's Resources page | `AddFlare(..., enableResourceGraph: true)` |
+| Per-container image or port overrides | `WithIngestImage`, `WithApiPort` and the rest |
 
-var flare = builder.AddFlare("flare");
-// ...
-builder.Build().Run();
-```
+How to use them, and how to move from that package to the toolkit one:
+[`../reference/aspire-hosting.md`](../../reference/aspire-hosting.md#flarehostingaspire-deprecated).
 
-`aspire publish -o k8s-artifacts` generates a full Helm chart (`Chart.yaml`,
-`values.yaml`, `templates/`) for the whole AppHost, Flare included; `aspire
-deploy` installs it against your current `kubectl` context. Existing/external
-clusters only for now — Azure Kubernetes Service (AKS,
-`AddAzureKubernetesEnvironment`) is untested. See
-[aspire.dev/deployment/kubernetes](https://aspire.dev/deployment/kubernetes/clusters/)
-for the full workflow, and
-[`../reference/aspire-hosting.md#kubernetes`](../../reference/aspire-hosting.md#kubernetes)
-for the persistent-storage/registry/public-URL facts you need before doing
-this for real.
+For a full runnable demo, see [`../../examples/`](../../../examples): a
+multi-service shop with Kafka, Postgres and an OpenTelemetry Collector that
+puts live data on every dashboard page except Kubernetes. It still uses
+`Flare.Hosting.Aspire`, because its Kubernetes deploy needs
+`WithPersistentStorage`.
 
 ## Troubleshooting
 
@@ -225,18 +147,24 @@ You may see `RemoteCertificateNameMismatch` errors in the AppHost console,
 and the **Aspire orchestration dashboard** (the Resources/Console/Traces UI
 at the AppHost's own dashboard URL) fail to load its resource list. This is
 an [upstream Aspire 13.4.6 bug](https://aspire.dev/app-host/certificate-configuration/),
-not caused by `Flare.Hosting.Aspire` or anything in your AppHost: an
-internal Aspire component connects to its own resource service over the
-loopback IP literal `127.0.0.1`, but the ASP.NET Core dev certificate only
-carries DNS-name SANs (`localhost`, `*.dev.internal`, etc.) — no IP SAN —
-so strict TLS hostname validation rejects it. The documented
-`ASPIRE_DCP_USE_DEVELOPER_CERTIFICATE=false` opt-out does not fix it on
-every machine (it can break DCP startup entirely) — check current Aspire
-GitHub issues before trying it.
+not caused by Flare or anything in your AppHost: an internal Aspire component
+connects to its own resource service over the loopback IP literal
+`127.0.0.1`, but the ASP.NET Core dev certificate only carries DNS-name SANs
+(`localhost`, `*.dev.internal`, etc.) and no IP SAN, so strict TLS hostname
+validation rejects it. The documented
+`ASPIRE_DCP_USE_DEVELOPER_CERTIFICATE=false` opt-out does not fix it on every
+machine (it can break DCP startup entirely), so check current Aspire GitHub
+issues before trying it.
 
-**This does not affect Flare.** Flare's own dashboard — the actual
-product, at `flare-dashboard`'s URL — is a separate app (SvelteKit talking
-to `flare-api` over plain HTTP, no gRPC/TLS involved) and works
-independently of this bug. If you hit this, use `aspire ps` / `aspire
-describe` / `aspire logs` for orchestration visibility instead of the
-broken dashboard UI, and open Flare's own dashboard directly.
+**This does not affect Flare.** Flare's own dashboard, at `flare-dashboard`'s
+URL, is a separate app (SvelteKit talking to `flare-api` over plain HTTP, no
+gRPC/TLS involved) and works independently of this bug. If you hit this, use
+`aspire ps` / `aspire describe` / `aspire logs` for orchestration visibility
+instead of the broken dashboard UI, and open Flare's own dashboard directly.
+
+### The ingest service fails to start: port already in use
+
+`4317` and `4318` are fixed host ports so external OTLP clients can use the
+conventional numbers. A standalone Flare stack (`docker compose up` or
+`flare start`) holds the same ports; stop it first, or move the AppHost's
+with `WithIngestPorts(grpcPort, httpPort)`.

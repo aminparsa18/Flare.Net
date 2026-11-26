@@ -14,8 +14,8 @@ d'Aspire/autonome, voir
 > `Flare.Cli`, pas `flare` (cet id est déjà pris sur nuget.org, par un
 > vieux paquet non lié et non listé) — la *commande* installée s'appelle
 > quand même `flare` ; `ToolCommandName` et `PackageId` sont
-> indépendants, le même stratagème que ce dépôt utilise pour
-> `Flare.Hosting.Aspire`/`Aspire.Hosting.Flare`.
+> indépendants, le même stratagème que ce dépôt utilisait pour
+> `Flare.Hosting.Aspire`/`Aspire.Hosting.Flare`, désormais obsolète.
 
 ## Référence des commandes
 

@@ -13,9 +13,9 @@ app. Stop any standalone Flare stack first, since it would hold the same ports
 
 ## Prerequisites
 
-- The .NET 11 SDK
-- The [Aspire CLI](https://aspire.dev) (`aspire --version` should print
-  something)
+- The .NET 10 or 11 SDK
+- The [Aspire CLI](https://aspire.dev), version 17 or later
+  (`aspire --version`)
 - Docker Desktop, or another Docker-compatible engine, running
 
 ## 1. Create an Aspire app
@@ -28,91 +28,62 @@ aspire new aspire-starter --name FlareAspire
 cd FlareAspire
 ```
 
-If you'd rather use the .NET CLI, `dotnet new aspire-starter --name
-FlareAspire` produces the same layout. You should end up with four projects:
-`FlareAspire.AppHost`, `FlareAspire.ServiceDefaults`, `FlareAspire.ApiService`
-and `FlareAspire.Web`. If you already have an Aspire app, use it instead; the
-steps below only touch the AppHost, the service defaults and each service's
-startup file.
+You should end up with four projects: `FlareAspire.AppHost`,
+`FlareAspire.ServiceDefaults`, `FlareAspire.ApiService` and
+`FlareAspire.Web`. If you already have an Aspire 17 app, use it instead; the
+steps below only touch the AppHost.
 
 ## 2. Add Flare to the AppHost
 
 ```sh
-dotnet add FlareAspire.AppHost package Flare.Hosting.Aspire
+aspire add CommunityToolkit.Aspire.Hosting.Flare --apphost FlareAspire.AppHost
 ```
 
-In the AppHost's entry file (`AppHost.cs`), add one line before your services
-and connect each service to it:
+This adds the
+[Aspire Community Toolkit's Flare integration](https://github.com/CommunityToolkit/Aspire/tree/main/src/CommunityToolkit.Aspire.Hosting.Flare).
+In `FlareAspire.AppHost/AppHost.cs`, add ClickHouse, Redis and Flare before
+your services, and connect each service to Flare:
 
 ```csharp
-var flare = builder.AddFlare("flare");
+var builder = DistributedApplication.CreateBuilder(args);
 
-var apiService = builder.AddProject<Projects.FlareAspire_ApiService>("apiservice")
+var clickhouse = builder.AddClickHouse("clickhouse").WithDataVolume();
+var redis = builder.AddRedis("redis").WithDataVolume();
+
+var flare = builder.AddFlare("flare", clickhouse, redis)
+    .WithDataVolume();
+
+var apiService = builder.AddDotnetProject("apiservice", "../FlareAspire.ApiService/FlareAspire.ApiService.csproj")
     .WithHttpHealthCheck("/health")
-    .WithReference(flare)
-    .WaitForFlare(flare);
+    .WithOtlpExporter(flare)
+    .WaitFor(flare);
 
-builder.AddProject<Projects.FlareAspire_Web>("webfrontend")
+builder.AddDotnetProject("webfrontend", "../FlareAspire.Web/FlareAspire.Web.csproj")
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health")
     .WithReference(apiService)
     .WaitFor(apiService)
-    .WithReference(flare)
-    .WaitForFlare(flare);
+    .WithOtlpExporter(flare)
+    .WaitFor(flare);
+
+builder.Build().Run();
 ```
 
-Keep the rest of your existing calls as they are. Only `AddFlare`,
-`.WithReference(flare)` and `.WaitForFlare(flare)` are new.
+Keep the rest of your existing calls as they are. The ClickHouse, Redis and
+`AddFlare` lines, `.WithOtlpExporter(flare)` and `.WaitFor(flare)` are new.
 
-`AddFlare("flare")` adds the whole Flare stack: ClickHouse, Redis, the OTLP
-receiver, the query API, the alert worker and the dashboard, pulled as
-published images. `.WithReference(flare)` hands each service Flare's OTLP
-address as a connection string named `flare`. `.WaitForFlare(flare)` holds the
-service back until Flare is ready, so the first logs aren't dropped.
+- ClickHouse stores Flare's logs, traces and metrics, and Redis buffers them
+  on the way in. `WithDataVolume()` on each keeps your data between runs.
+- `AddFlare` runs Flare's OTLP receiver, query API, alert worker and
+  dashboard, pulled as published images. Its own `WithDataVolume()` keeps
+  Flare's user accounts and API keys.
+- `.WithOtlpExporter(flare)` points the service's OpenTelemetry exporter at
+  Flare. The starter's service defaults already export over OTLP when that
+  variable is set, so the services themselves need no changes.
+- `.WaitFor(flare)` holds the service back until Flare accepts telemetry, so
+  the first logs aren't dropped.
 
-## 3. Add the Flare exporter to your services
-
-Add the client package to the shared service defaults project, so both
-services get it:
-
-```sh
-dotnet add FlareAspire.ServiceDefaults package Flare.Aspire
-```
-
-Now one setting needs changing. The starter's `Extensions.cs` in
-`FlareAspire.ServiceDefaults` registers its OTLP exporter with
-`UseOtlpExporter()`. The OpenTelemetry SDK refuses to mix that call with the
-signal-specific exporters Flare adds, and throws at startup if they meet.
-Find the method that registers the exporters (it checks
-`OTEL_EXPORTER_OTLP_ENDPOINT`) and use the signal-specific calls instead:
-
-```csharp
-if (useOtlpExporter)
-{
-    builder.Services.AddOpenTelemetry()
-        .WithLogging(logging => logging.AddOtlpExporter())
-        .WithMetrics(metrics => metrics.AddOtlpExporter())
-        .WithTracing(tracing => tracing.AddOtlpExporter());
-}
-```
-
-These read the same `OTEL_EXPORTER_OTLP_*` variables, so the Aspire
-dashboard keeps receiving telemetry exactly as before. Flare's exporter is
-added next to it, not in place of it.
-
-Finally, in the startup file of each service (`FlareAspire.ApiService` and
-`FlareAspire.Web`, both in `Program.cs`), add one line right after
-`AddServiceDefaults()`:
-
-```csharp
-builder.AddServiceDefaults();
-builder.AddFlareOtlpExporter("flare");
-```
-
-The string `"flare"` is the connection name that `WithReference(flare)`
-injected.
-
-## 4. Run it
+## 3. Run it
 
 ```sh
 aspire start
@@ -121,22 +92,22 @@ aspire describe
 
 The first run pulls Flare's images, so give it a few minutes. When every
 resource shows `Healthy`, `aspire describe` lists a URL for each. There are
-two dashboards, and you'll use both:
+two dashboards:
 
 - the **Aspire dashboard** (shown at the top of the output) for your app's
-  resources and its own view of telemetry;
+  resources, their state and console output;
 - **Flare's dashboard**, the URL on the **`flare-dashboard`** row.
 
 If the Aspire dashboard shows a certificate error in your browser, see
 [`../how-to/deploy/run-with-aspire.md`](../how-to/deploy/run-with-aspire.md#aspires-own-dashboard-shows-an-sslcertificate-error).
 
-## 5. Generate a request
+## 4. Generate a request
 
 Open the **`webfrontend`** URL and click **Weather**. That page calls the API
 service for a forecast, which is exactly the front-end-to-back-end hop worth
 tracing. Reload it a few times.
 
-## 6. Follow it in Flare
+## 5. Follow it in Flare
 
 Open Flare's dashboard (the `flare-dashboard` URL) and choose **Traces**.
 
@@ -152,12 +123,13 @@ Open Flare's dashboard (the `flare-dashboard` URL) and choose **Traces**.
 - Choose **Metrics** to find the runtime and ASP.NET Core metrics the service
   defaults already emit, such as request duration.
 
-The Aspire dashboard shows the same telemetry too. Having both is deliberate:
-Aspire's is a development-time view that disappears when you stop the app,
-while Flare keeps logs, traces and metrics queryable, and gives you alerts,
-dashboards and retention on top.
+The Aspire dashboard's telemetry views stay empty for these two services:
+`WithOtlpExporter` sends their telemetry to Flare instead. Flare keeps it
+after you stop the app, and gives you alerts, dashboards and retention on top.
+To keep both views, see
+[Send your services' telemetry to Flare](../how-to/deploy/run-with-aspire.md#3-send-your-services-telemetry-to-flare).
 
-## 7. Stop it
+## 6. Stop it
 
 ```sh
 aspire stop
@@ -165,21 +137,21 @@ aspire stop
 
 ## What you've learned
 
-- That `AddFlare` puts a full Flare stack into an AppHost with one call, and
-  that `WithReference` and `WaitForFlare` connect your services to it.
-- That `Flare.Aspire`'s `AddFlareOtlpExporter` adds Flare as an additional
-  exporter alongside the Aspire dashboard's, not a replacement.
-- Why the service defaults must use signal-specific OTLP exporters rather than
-  `UseOtlpExporter()`.
+- That `AddFlare` puts Flare into an AppHost on top of ClickHouse and Redis
+  resources you own.
+- That `WithOtlpExporter` and `WaitFor` connect a service to it without
+  touching the service's code.
+- That a service's telemetry then goes to Flare instead of the Aspire
+  dashboard.
 - How a request is followed across two services in one trace.
 
 ## Next steps
 
-- Persisting Flare's data between runs, showing Flare's own containers on the
-  Resources page, and deploying the same AppHost to Docker Compose or
-  Kubernetes: [`../how-to/deploy/run-with-aspire.md`](../how-to/deploy/run-with-aspire.md)
+- Requiring an ingest API key, deploying the same AppHost, and the features
+  still only in the older `Flare.Hosting.Aspire` package:
+  [`../how-to/deploy/run-with-aspire.md`](../how-to/deploy/run-with-aspire.md),
   and [`../reference/aspire-hosting.md`](../reference/aspire-hosting.md) for
-  every `With*` option.
+  every option.
 - Seeing a much larger Aspire app using Flare, with Kafka, Postgres and a
   collector: [Tutorial: debug a slow checkout end to end](debug-a-slow-request.md).
 - Get notified when something in your services goes wrong:

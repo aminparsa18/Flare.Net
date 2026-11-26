@@ -341,9 +341,9 @@ environment:
 состояние «not enabled» вместо ошибки.
 
 Если вы вместо этого запускаете Flare из потребительского AppHost
-Aspire, см.
-[`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.ru.md#страница-resources-опциональный-доступ-к-docker)
-про эквивалентный параметр `enableResourceGraph`.
+Aspire, страница Resources доступна только через параметр
+`enableResourceGraph` устаревшего пакета `Flare.Hosting.Aspire`; см.
+[`../../reference/aspire-hosting.ru.md`](../../reference/aspire-hosting.ru.md#flarehostingaspire-устарел).
 
 ## Использование HTTP вместо gRPC
 

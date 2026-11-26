@@ -114,13 +114,13 @@ export const QUICKSTART_PATHS: QuickstartPath[] = [
     label: "Standalone",
     command: "docker compose up",
     note: "Working defaults for every port and credential.",
-    docHref: `${REPO_URL}/blob/main/docs/standalone.md`,
+    docHref: `${REPO_URL}/blob/main/docs/how-to/deploy/run-standalone.md`,
   },
   {
     label: ".NET Aspire",
-    command: "dotnet add package Flare.Hosting.Aspire",
+    command: "aspire add CommunityToolkit.Aspire.Hosting.Flare",
     note: "Flare joins your AppHost as a resource.",
-    docHref: `${REPO_URL}/blob/main/docs/aspire-hosting.md`,
+    docHref: `${REPO_URL}/blob/main/docs/how-to/deploy/run-with-aspire.md`,
   },
   {
     label: "Global CLI",

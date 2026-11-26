@@ -117,7 +117,9 @@
     <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <IsPackable>true</IsPackable>
+    <!-- Deprecated on nuget.org in favor of CommunityToolkit.Aspire.Hosting.Flare; 0.5.1 is the
+         last release (docs-internal/adr/0281). Kept only for examples/ExampleApp.AppHost. -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>

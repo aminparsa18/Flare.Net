@@ -242,7 +242,7 @@ environment:
 
 如果没有设置，`docker compose up` 的行为与以前完全相同 - 没有额外的容器，`flare-api` 根本不会与 Docker 对话，并且资源页面显示简单的“未启用”状态而不是错误。
 
-如果您从使用者 Aspire AppHost 运行 Flare，请参阅 [`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.zh-CN.md#资源页面可选-docker-访问) 以获取等效的 `enableResourceGraph` 参数。
+如果您从使用者 Aspire AppHost 运行 Flare，Resources 页面只能通过已弃用的 `Flare.Hosting.Aspire` 包的 `enableResourceGraph` 参数使用；请参阅 [`../../reference/aspire-hosting.zh-CN.md`](../../reference/aspire-hosting.zh-CN.md#flarehostingaspire已弃用)。
 
 ## 使用 HTTP 代替 gRPC
 

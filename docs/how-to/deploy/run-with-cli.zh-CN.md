@@ -12,7 +12,7 @@
 
 这不是** Aspire 集成，与 Aspire 的交互为零
 编排 - 如果您的应用程序已经有 AppHost，请使用
-改为 [`Flare.Hosting.Aspire`](run-with-aspire.zh-CN.md)（`aspire start` 已经
+改为 [Aspire 集成](run-with-aspire.zh-CN.md)（`aspire start` 已经
 涵盖该生命周期）。
 
 ## 先决条件
