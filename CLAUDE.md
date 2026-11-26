@@ -40,7 +40,7 @@ Solution file is **`Flare.slnx`** (not `.sln`).
 
 ## Commands
 
-**.NET** (targets `net11.0`, SDK pinned via `global.json` to `11.0.100`, Aspire SDK `13.6.4`):
+**.NET** (targets `net11.0`, SDK pinned via `global.json` to `11.0.100`, Aspire `17.0.0` — AppHosts are plain `Microsoft.NET.Sdk` + `Aspire.Hosting.AppHost`/`Aspire.Hosting.Dotnet` with `AddDotnetProject`, and need Aspire CLI 17; `Aspire.Hosting.ClickHouse`/`Aspire.ClickHouse.Driver` stay on 13.5.3, the newest published):
 ```bash
 dotnet build Flare.slnx
 dotnet test --solution Flare.slnx    # all tests (xUnit v3 on Microsoft.Testing.Platform, set in global.json)
