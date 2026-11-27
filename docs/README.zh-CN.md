@@ -47,6 +47,7 @@
 - [配置安全响应头](how-to/deploy/security-response-headers.zh-CN.md)
 - [配置 API 响应压缩](how-to/deploy/response-compression.zh-CN.md)
 - [使用 Helm 部署](how-to/deploy/deploy-with-helm.zh-CN.md)
+- [为身份存储使用托管 PostgreSQL](how-to/deploy/use-managed-postgres-for-identity.zh-CN.md)
 
 *管理*
 

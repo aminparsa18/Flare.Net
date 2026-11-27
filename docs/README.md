@@ -45,6 +45,7 @@ the full rule set on what goes where.
 - [Configure security response headers](how-to/deploy/security-response-headers.md)
 - [Configure API response compression](how-to/deploy/response-compression.md)
 - [Deploy with Helm](how-to/deploy/deploy-with-helm.md)
+- [Use a managed PostgreSQL for the identity store](how-to/deploy/use-managed-postgres-for-identity.md)
 
 *Administration*
 

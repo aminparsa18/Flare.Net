@@ -47,6 +47,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Configurer les en-têtes de sécurité](how-to/deploy/security-response-headers.fr.md)
 - [Configurer la compression des réponses de l'API](how-to/deploy/response-compression.fr.md)
 - [Déployer avec Helm](how-to/deploy/deploy-with-helm.fr.md)
+- [Utiliser un PostgreSQL managé pour le magasin d'identité](how-to/deploy/use-managed-postgres-for-identity.fr.md)
 
 *Administration*
 
