@@ -79,6 +79,20 @@ services:
       timeout: 5s
       retries: 20
 
+  # One-shot ClickHouse migration job (ADR-0284): the Api image run as `migrate`. It's the only service
+  # with the `default` DDL credential; ingest, api and alert-worker start once it has exited 0, and they
+  # check schema_migrations themselves before serving.
+  clickhouse-migrate:
+    build:
+      context: .
+      dockerfile: src/Flare.Api/Dockerfile
+    command: ["migrate"]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+
   ingest:
     build:
       context: .
@@ -100,14 +114,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     environment:
       # Connection names must match what Flare.AppHost references onto this project
       # (see its Program.cs) - Flare.Ingest reads these via Aspire's
       # AddClickHouseDataSource/AddRedisClient client integrations regardless of
       # whether Aspire orchestration is actually driving the process.
-      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284).
       ConnectionStrings__clickhousedb-ingest: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       # Same file `api` below points at (see that service's Identity__DbPath and the
@@ -146,10 +161,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284).
       ConnectionStrings__clickhousedb-query: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_query;Password=${FLARE_CH_QUERY_PASSWORD:-flare}"
       ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
@@ -229,6 +245,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     environment:
       # flare_app (ADR-0282). AlertWorker runs no migrations, so it gets no `clickhousedb` DDL credential.
       ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"

@@ -31,8 +31,9 @@ config keys, see [the reference](../../reference/clustering-config.md).
 
 2. Wait for all services to report healthy (`docker compose -f
    docker-compose.cluster.yml ps`). Schema application happens
-   automatically at startup via each service's `ClickHouseMigrationRunner`
-   — there's no separate migration step to run by hand.
+   automatically: the one-shot `clickhouse-migrate` service runs the
+   migrations once, then exits, and the other services start after it.
+   There's no migration step to run by hand.
 
 ## Verify it worked
 

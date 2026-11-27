@@ -36,6 +36,14 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
+// `dotnet Flare.Api.dll migrate`: the one-shot ClickHouse migration job (ADR-0284). Applies the migrations as
+// ConnectionStrings:clickhousedb and exits, so the long-running services don't need the DDL credential.
+if (args is [ClickHouseSchemaStartup.MigrateCommand, ..])
+{
+    Environment.ExitCode = await ClickHouseSchemaStartup.RunMigrateCommandAsync(args[1..]);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
@@ -45,12 +53,13 @@ builder.AddServiceDefaults();
 //   and the fixed system.* reads (Indexing, cluster status) that need system grants and REMOTE;
 // - the keyed FlareClickHouse.QueryConnectionName client is flare_query (SELECT only, readonly=2), for
 //   every query service that runs SQL built from request input;
-// - the keyed `clickhousedb` client is the DDL credential, used only by the migration runner below.
+// - the keyed `clickhousedb` client is the DDL credential, used only by the migration runner below, and
+//   registered only when it's set (without it, the migration job runs them; ADR-0284).
 // A query service left on the plain client keeps working with more privilege than it needs; a store
 // put on the query client fails with ACCESS_DENIED.
 builder.AddFlareClickHouseClient(FlareClickHouse.AppConnectionName);
 builder.AddKeyedFlareClickHouseClient(FlareClickHouse.QueryConnectionName);
-builder.AddKeyedFlareClickHouseClient(FlareClickHouse.DdlConnectionName, healthCheck: false);
+builder.AddFlareClickHouseDdlClient();
 
 // Redis: the live-tail endpoint's LogTailBroadcaster reads new entries off the same
 // `flare:logs` stream Flare.Ingest's RedisStreamLogEventSink writes into. Same connection
@@ -640,11 +649,15 @@ var app = builder.Build();
 // ClickHouse:ClusterMode (Planning.md's "Multi-node scaling" item, docs/clustering.md)
 // switches to the db/clickhouse-cluster/*.sql schema set instead - set by
 // docker-compose.cluster.yml, unset/false everywhere else.
-await ClickHouseMigrationRunner.ApplyAsync(
-    app.Services.GetRequiredKeyedService<IClickHouseClient>(FlareClickHouse.DdlConnectionName),
+//
+// Without ConnectionStrings:clickhousedb this waits for the one-shot migration job instead (ADR-0284),
+// reading schema_migrations as flare_app.
+await ClickHouseSchemaStartup.ApplyOrWaitAsync(
+    app.Services,
+    builder.Configuration,
+    app.Services.GetRequiredService<IClickHouseClient>(),
     app.Logger,
-    CancellationToken.None,
-    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode"));
+    CancellationToken.None);
 
 await IdentityMigrationRunner.ApplyAsync(
     app.Services.GetRequiredService<IdentityDbConnectionFactory>(),

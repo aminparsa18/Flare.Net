@@ -21,6 +21,11 @@ jobs:
             --set ingress.otlpHttp.enabled=true --set ingress.otlpGrpc.enabled=true > /dev/null
           helm template t $c --set clickhouse.enabled=false --set clickhouse.external.host=ch \
             --set clickhouse.external.clusterMode=true --set redis.enabled=false --set redis.external.host=r > /dev/null
+          # One-shot migration Job (ADR-0284): renders, and no service pod gets the `default` password.
+          out=$(helm template t $c --set clickhouse.migrationJob.enabled=true)
+          echo "$out" | grep -q 'name: t-flare-clickhouse-migrate-1'
+          [ "$(echo "$out" | grep -c 'name: ConnectionStrings__clickhousedb$')" = 1 ]
+          ! helm template t $c --set clickhouse.migrationJob.enabled=true --set clickhouse.users.enabled=false > /dev/null 2>&1
   # Real install on a throwaway kind cluster: catches what lint/template can't (probe paths,
   # startup order, PVC scheduling). Pulls the released images named by the chart, so it runs
   # at the chart's appVersion rather than the PR's code - it validates the chart, not the apps.

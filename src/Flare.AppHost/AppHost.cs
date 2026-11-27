@@ -1,7 +1,7 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// ClickHouse: log storage. The connection string `ingest` gets below via WithReference
-// is consumed by Flare.Ingest's ClickHouseFlushWorker (see db/clickhouse/README.md).
+// ClickHouse: log storage. `logsDb`'s connection string (the default user) goes only to the
+// clickhouse-migrate job below; the services connect as their own users (see db/clickhouse/README.md).
 //
 // The `Aspire.Hosting.ClickHouse` resource has no ClickHouse-specific init-script hook
 // (no WithInitFiles/WithInitBindMount, unlike e.g. the Postgres integration - confirmed
@@ -25,8 +25,9 @@ var clickhouse = builder.AddClickHouse("clickhouse", password: clickhousePasswor
 var logsDb = clickhouse.AddDatabase("clickhousedb");
 
 // Least-privilege users (ADR-0282): db/clickhouse/config/flare-users.xml declares flare_ingest, flare_query
-// and flare_app with passwords from these env vars. `clickhousedb` above (default) stays the migration
-// runner's DDL credential; each service connects as its own user through ConnectionStrings:clickhousedb-*.
+// and flare_app with passwords from these env vars. `clickhousedb` above (default) is the DDL credential,
+// referenced only by the clickhouse-migrate job below (ADR-0284); each service connects as its own user
+// through ConnectionStrings:clickhousedb-*.
 // Fixed defaults like clickhouse-password; an unset FLARE_CH_* would be an empty password.
 var chIngestPassword = builder.AddParameter("clickhouse-ingest-password", "flare", secret: true);
 var chQueryPassword = builder.AddParameter("clickhouse-query-password", "flare", secret: true);
@@ -97,13 +98,20 @@ var redis = builder.AddRedis("redis")
 // missing - nothing here needs to pre-create it.
 var identityDbPath = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "..", "..", ".data", "identity", "flare-identity.db"));
 
+// One-shot ClickHouse migration job (ADR-0284): Flare.Api run as `migrate`, the only resource with the
+// `clickhousedb` (default) reference. It exits once the schema is current; ingest, api and alert-worker wait
+// for that. No launch profile, so it doesn't claim Flare.Api's port (it serves no HTTP).
+var migrate = builder.AddDotnetProject("clickhouse-migrate", "../Flare.Api/Flare.Api.csproj", o => o.ExcludeLaunchProfile = true)
+    .WithArgs("migrate")
+    .WithReference(logsDb)
+    .WaitFor(logsDb);
+
 // Flare.Ingest: terminates OTLP over gRPC (4317) and HTTP (4318, protobuf + JSON).
 // Both ports are fixed and unproxied so external OTLP clients (any logger's OTLP
 // exporter) can point at them directly using the conventional OTLP port numbers,
 // rather than Aspire's dashboard dev-proxy / dynamically-assigned ports.
 var ingest = builder.AddDotnetProject("ingest", "../Flare.Ingest/Flare.Ingest.csproj")
-    .WithReference(logsDb)
-    .WaitFor(logsDb)
+    .WaitForCompletion(migrate)
     .WithReference(redis)
     .WaitFor(redis)
     .WithEnvironment("ConnectionStrings__clickhousedb-ingest", ClickHouseUser("flare_ingest", chIngestPassword))
@@ -118,8 +126,7 @@ var ingest = builder.AddDotnetProject("ingest", "../Flare.Ingest/Flare.Ingest.cs
 // proxied Aspire HTTP endpoint - callers (curl today, the not-yet-built dashboard SPA
 // later) go through Aspire's dev-proxy/service discovery like any other resource.
 var api = builder.AddDotnetProject("api", "../Flare.Api/Flare.Api.csproj")
-    .WithReference(logsDb)
-    .WaitFor(logsDb)
+    .WaitForCompletion(migrate)
     // Redis: the live-tail streaming endpoint's LogTailBroadcaster reads new entries off
     // the same `flare:logs` stream Flare.Ingest buffers into (plain XREAD, no consumer
     // group - doesn't touch Flare.Ingest's flare-ingest group/PEL accounting).
@@ -143,7 +150,7 @@ var api = builder.AddDotnetProject("api", "../Flare.Api/Flare.Api.csproj")
 // either. Connects only as flare_app: it runs no migrations, so it gets no `clickhousedb` reference.
 var alertWorker = builder.AddDotnetProject("alert-worker", "../Flare.AlertWorker/Flare.AlertWorker.csproj")
     .WithEnvironment("ConnectionStrings__clickhousedb-app", ClickHouseUser("flare_app", chAppPassword))
-    .WaitFor(logsDb)
+    .WaitForCompletion(migrate)
     .WithReference(redis)
     .WaitFor(redis)
     .WithHttpHealthCheck("/health");

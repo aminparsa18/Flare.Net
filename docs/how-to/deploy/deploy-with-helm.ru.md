@@ -142,7 +142,11 @@ helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 
 Миграции схемы выполняются в ingest и api при запуске, отдельное задание не
 нужно. Чтобы сменить версию, измените `image.tag`; по умолчанию используется
-`appVersion` чарта.
+`appVersion` чарта. Чтобы пароль ClickHouse `default` не попадал ни в один под
+сервисов, задайте `clickhouse.migrationJob.enabled=true`: тогда каждая установка
+или обновление выполняет миграции в одноразовом Job, а ingest и api ждут его.
+Нужен образ новее 0.6.0. См.
+[Где выполняются миграции](../../reference/clickhouse-service-users.ru.md#где-выполняются-миграции).
 
 Чарт закрепляет ClickHouse на LTS-линейке `26.8` (`clickhouse.image`) вместо
 `:latest`, поэтому обновление само не меняет версию ClickHouse. Переходите на более

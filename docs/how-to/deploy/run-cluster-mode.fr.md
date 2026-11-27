@@ -35,9 +35,9 @@ clés de configuration exactes, voir [la référence](../../reference/clustering
 
 2. Attendez que tous les services signalent un état sain
    (`docker compose -f docker-compose.cluster.yml ps`). L'application du
-   schéma se fait automatiquement au démarrage via le propre
-   `ClickHouseMigrationRunner` de chaque service — il n'y a pas d'étape de
-   migration séparée à exécuter à la main.
+   schéma se fait automatiquement : le service ponctuel `clickhouse-migrate`
+   exécute les migrations une fois puis se termine, et les autres services
+   démarrent après lui. Il n'y a pas d'étape de migration à lancer à la main.
 
 ## Vérifier que ça a fonctionné
 

@@ -1,6 +1,6 @@
 # ADR-0282: Least-privilege ClickHouse users per service
 
-Status: Accepted (implemented; four details superseded by [ADR-0283](0283-clickhouse-service-users-implementation.md))
+Status: Accepted (implemented; four details superseded by [ADR-0283](0283-clickhouse-service-users-implementation.md); the deferred migration job is [ADR-0284](0284-clickhouse-migration-job.md))
 Date: 2026-11-27
 
 ## Context

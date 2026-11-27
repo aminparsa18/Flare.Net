@@ -1,0 +1,49 @@
+{{- if eq (include "flare.migrationJobOn" .) "true" }}
+{{- /*
+One-shot ClickHouse migrations (ADR-0284): the api image run as `migrate`, the only pod with the `default`
+password. A plain Job, not a Helm hook: a pre-install hook runs before this chart's Secret and ClickHouse
+exist, and a post-install hook never starts under `helm install --wait` because ingest and api aren't ready
+until it has run. Job specs are immutable, so the name carries the revision and every upgrade gets a new Job.
+ingest and api wait for the schema (ClickHouse:SchemaWaitTimeoutSeconds) and restart if it takes longer.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flare.name" . }}-clickhouse-migrate-{{ .Release.Revision }}
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: {{ .Values.clickhouse.migrationJob.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "flare.selector" (dict "Release" .Release "component" "clickhouse-migrate") | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "flare.image" (dict "root" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["migrate"]
+          env:
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flare.clickhouseSecret" . }}
+                  key: clickhouse-password
+            - name: ConnectionStrings__clickhousedb
+              value: "Host={{ include "flare.clickhouseHost" . }};Port={{ include "flare.clickhousePort" . }};Database=clickhousedb;Username={{ include "flare.clickhouseUser" . }};Password=$(CLICKHOUSE_PASSWORD)"
+            {{- if and (not .Values.clickhouse.enabled) .Values.clickhouse.external.clusterMode }}
+            - name: ClickHouse__ClusterMode
+              value: "true"
+            {{- end }}
+          {{- with .Values.clickhouse.migrationJob.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

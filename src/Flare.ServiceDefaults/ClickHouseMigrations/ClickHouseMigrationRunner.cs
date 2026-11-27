@@ -229,16 +229,8 @@ public static class ClickHouseMigrationRunner
         }
 
         var assembly = typeof(ClickHouseMigrationRunner).Assembly;
-        var migrationNames = assembly.GetManifestResourceNames()
-            .Where(n => n.StartsWith(resourcePrefix, StringComparison.Ordinal))
-            .Select(n => n[resourcePrefix.Length..])
-            // Numeric filename prefix (0001_, 0002_, ...) sorts correctly as plain text
-            // as long as every migration keeps the same digit count - true of all 10
-            // today; a 10000th migration would need re-padding, not a smarter sort.
-            .OrderBy(n => n, StringComparer.Ordinal)
-            .ToList();
 
-        foreach (var migrationName in migrationNames)
+        foreach (var migrationName in EmbeddedMigrationNames(clusterMode))
         {
             if (applied.Contains(migrationName))
             {
@@ -275,6 +267,97 @@ public static class ClickHouseMigrationRunner
                 cancellationToken: cancellationToken);
         }
     }
+
+    /// <summary>
+    /// The migration file names embedded for <paramref name="clusterMode"/>, in apply order.
+    /// </summary>
+    public static IReadOnlyList<string> EmbeddedMigrationNames(bool clusterMode)
+    {
+        var resourcePrefix = clusterMode ? ClusterResourcePrefix : SingleNodeResourcePrefix;
+        return typeof(ClickHouseMigrationRunner).Assembly.GetManifestResourceNames()
+            .Where(n => n.StartsWith(resourcePrefix, StringComparison.Ordinal))
+            .Select(n => n[resourcePrefix.Length..])
+            // Numeric filename prefix (0001_, 0002_, ...) sorts correctly as plain text
+            // as long as every migration keeps the same digit count; a 10000th migration
+            // would need re-padding, not a smarter sort.
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Waits until <c>clickhousedb.schema_migrations</c> lists every migration this build embeds, for a
+    /// process that doesn't hold the DDL credential because a one-shot job runs the migrations (ADR-0284).
+    /// </summary>
+    /// <remarks>
+    /// Polls every 2s. ClickHouse not accepting connections yet, and the database or the table not existing
+    /// yet, all count as "not yet". Any other error (ACCESS_DENIED from a users file without the
+    /// <c>schema_migrations</c> grant, say) fails at once. Extra rows are fine: a newer job may have run
+    /// migrations an older service doesn't know about. Throws <see cref="TimeoutException"/> naming the
+    /// missing migrations once <paramref name="timeout"/> passes, so an orchestrator restarts the process.
+    /// </remarks>
+    public static async Task WaitForSchemaAsync(IClickHouseClient client, ILogger logger, TimeSpan timeout, CancellationToken cancellationToken = default, bool clusterMode = false)
+    {
+        var expected = EmbeddedMigrationNames(clusterMode);
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        var pollInterval = TimeSpan.FromSeconds(2);
+        IReadOnlyList<string> missing = expected;
+        var loggedWaiting = false;
+
+        while (true)
+        {
+            try
+            {
+                var applied = new HashSet<string>(StringComparer.Ordinal);
+                await using (var reader = await client.ExecuteReaderAsync(
+                    "SELECT DISTINCT Name FROM clickhousedb.schema_migrations",
+                    cancellationToken: cancellationToken))
+                {
+                    while (reader.Read())
+                    {
+                        applied.Add(reader.GetString(0));
+                    }
+                }
+
+                missing = MissingMigrations(expected, applied);
+                if (missing.Count == 0)
+                {
+                    logger.LogInformation("ClickHouse schema is current ({Count} migrations applied).", expected.Count);
+                    return;
+                }
+            }
+            catch (Exception ex) when (IsSchemaNotReady(ex))
+            {
+                // Fall through to the wait below; `missing` keeps its last value.
+            }
+
+            if (DateTimeOffset.UtcNow >= deadline)
+            {
+                throw new TimeoutException(
+                    $"ClickHouse schema still lacks {missing.Count} migration(s) after {timeout.TotalSeconds:0}s, starting with " +
+                    $"{missing[0]}. This process has no ConnectionStrings:clickhousedb, so it doesn't run migrations itself: " +
+                    "run the migration job (`dotnet Flare.Api.dll migrate`) with that connection string.");
+            }
+
+            if (!loggedWaiting)
+            {
+                logger.LogInformation(
+                    "Waiting for the ClickHouse migration job: {Count} migration(s) not applied yet, starting with {First}.",
+                    missing.Count,
+                    missing[0]);
+                loggedWaiting = true;
+            }
+
+            await Task.Delay(pollInterval, cancellationToken);
+        }
+    }
+
+    /// <summary>The entries of <paramref name="expected"/> not in <paramref name="applied"/>, in order.</summary>
+    public static IReadOnlyList<string> MissingMigrations(IReadOnlyList<string> expected, IReadOnlySet<string> applied) =>
+        expected.Where(name => !applied.Contains(name)).ToList();
+
+    // UNKNOWN_TABLE (60) and UNKNOWN_DATABASE (81): the job hasn't created schema_migrations yet.
+    private static bool IsSchemaNotReady(Exception ex) =>
+        IsConnectionFailure(ex) || ex is ClickHouseServerException { ErrorCode: 60 or 81 };
 
     /// <summary>
     /// Runs <paramref name="action"/>, retrying with backoff (<see cref="ConnectionRetryDelays"/>)

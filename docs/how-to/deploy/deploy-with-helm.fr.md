@@ -146,7 +146,11 @@ helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 
 Les migrations de schéma s'exécutent dans ingest et api au démarrage : aucun job
 de migration à lancer. Modifiez `image.tag` pour changer de version ; par défaut
-c'est l'`appVersion` du chart.
+c'est l'`appVersion` du chart. Pour qu'aucun pod de service n'ait le mot de passe
+ClickHouse `default`, définissez `clickhouse.migrationJob.enabled=true` : chaque
+installation ou mise à jour exécute alors les migrations dans un Job ponctuel, et
+ingest et api l'attendent. Il faut une image plus récente que 0.6.0. Voir
+[Emplacement des migrations](../../reference/clickhouse-service-users.fr.md#emplacement-des-migrations).
 
 Le chart épingle ClickHouse sur la ligne LTS `26.8` (`clickhouse.image`) au lieu de
 `:latest` : une mise à jour ne change donc jamais la version de ClickHouse d'elle-même.

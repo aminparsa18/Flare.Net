@@ -3,7 +3,7 @@
 Make an existing Flare install connect to ClickHouse as three least-privilege
 users instead of `default`. Flare.Ingest becomes `flare_ingest`, Flare.Api's
 queries become `flare_query`, and the rest of Flare.Api and Flare.AlertWorker
-become `flare_app`. `default` then only runs migrations at startup. With this
+become `flare_app`. `default` then only runs migrations. With this
 in place, a bug in the SQL that Flare builds from a request can only read
 data. It can't write, drop tables or reach other hosts. For the exact grants,
 see [the ClickHouse service users reference](../../reference/clickhouse-service-users.md).
@@ -54,7 +54,9 @@ in `~/.flare/` (or `~/.flare/instances/<NAME>/`), and `flare start` extracts
 
 3. Add the connection strings, using your file's existing
    `ConnectionStrings__clickhousedb` as the pattern. Keep that one on
-   `ingest` and `api`; the migrations still need it.
+   `ingest` and `api`; the migrations still need it, unless a one-shot
+   migration job runs them (see
+   [Where migrations run](../../reference/clickhouse-service-users.md#where-migrations-run)).
 
    | Service | Add |
    |---|---|

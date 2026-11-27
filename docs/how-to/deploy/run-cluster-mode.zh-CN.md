@@ -32,9 +32,9 @@
    并且不受影响——两者是独立的堆栈。
 
 2. 等待所有服务报告运行状况良好（`docker compose -f
-   docker-compose.cluster.yml ps`）。架构应用程序发生
-   通过每个服务的 `ClickHouseMigrationRunner` 在启动时自动
-   — 无需手动运行单独的迁移步骤。
+   docker-compose.cluster.yml ps`）。架构会自动应用：一次性的
+   `clickhouse-migrate` 服务运行一次迁移后退出，其他服务在它之后启动。
+   无需手动运行迁移步骤。
 
 ## 验证它是否有效
 

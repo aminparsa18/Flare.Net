@@ -131,9 +131,9 @@ folders are where "what happened and why" actually lives.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
-  - **Run ClickHouse migrations as a one-shot job** (deferred in [ADR-0282](../adr/0282-clickhouse-service-users.md)), so
-    no long-running Ingest or Api process holds the `default` DDL password: a run-once Compose service, a Helm hook Job
-    and an Aspire resource.
+  - **Make the ClickHouse migration job the default on the published-image paths** once a release ships the `migrate`
+    command ([ADR-0284](../adr/0284-clickhouse-migration-job.md)): `docker-compose.install.yml`, the CLI's Compose
+    templates, and Helm's `clickhouse.migrationJob.enabled`.
   - **Per-identity ClickHouse quotas**, after ADR-0282. Send the Flare user or PAT id as `quota_key` and cap `read_rows` and
     `execution_time` per hour for `flare_query`, which measures query cost, not just request count as ADR-0028 does.
   - **Opt-in row policies as a second check on project scoping**, after ADR-0282. A RESTRICTIVE policy on every
