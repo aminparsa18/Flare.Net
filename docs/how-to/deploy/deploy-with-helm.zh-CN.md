@@ -123,7 +123,10 @@ helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 ```
 
 架构迁移会在 ingest 和 api 启动时执行，无需运行迁移任务。修改 `image.tag` 即可切换版本；
-默认为 chart 的 `appVersion`。
+默认为 chart 的 `appVersion`。若不想让任何服务 Pod 拿到 ClickHouse 的 `default` 密码，
+请设置 `clickhouse.migrationJob.enabled=true`：每次安装或升级都会在一次性 Job 中运行迁移，
+ingest 和 api 会等待它完成。这需要比 0.6.0 更新的镜像。见
+[迁移在哪里运行](../../reference/clickhouse-service-users.zh-CN.md#迁移在哪里运行)。
 
 chart 将 ClickHouse 固定在 `26.8` LTS 线（`clickhouse.image`），而不是 `:latest`，
 因此升级不会自行改变 ClickHouse 版本。需要更新的版本线时，请自行设置

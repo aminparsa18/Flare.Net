@@ -89,7 +89,7 @@ builder.AddRedisClient(connectionName: "redis");
 // keyed DDL client on `clickhousedb` for the migration runner only (ADR-0282). Both fall back to
 // `clickhousedb` when clickhousedb-ingest isn't set.
 builder.AddFlareClickHouseClient(FlareClickHouse.IngestConnectionName);
-builder.AddKeyedFlareClickHouseClient(FlareClickHouse.DdlConnectionName, healthCheck: false);
+builder.AddFlareClickHouseDdlClient();
 // flare_ingest can't run the driver's SELECT ... WHERE 1=0 type probe, so inserts take their column
 // types from system.columns instead.
 builder.Services.AddSingleton<ClickHouseInsertColumnTypes>();
@@ -268,11 +268,15 @@ var app = builder.Build();
 // ClickHouse:ClusterMode (Planning.md's "Multi-node scaling" item, docs/clustering.md)
 // switches to the db/clickhouse-cluster/*.sql schema set instead - set by
 // docker-compose.cluster.yml, unset/false everywhere else.
-await ClickHouseMigrationRunner.ApplyAsync(
-    app.Services.GetRequiredKeyedService<IClickHouseClient>(FlareClickHouse.DdlConnectionName),
+//
+// Without ConnectionStrings:clickhousedb this waits for the one-shot migration job instead (ADR-0284),
+// reading schema_migrations as flare_ingest (its users-file grant covers just that column).
+await ClickHouseSchemaStartup.ApplyOrWaitAsync(
+    app.Services,
+    builder.Configuration,
+    app.Services.GetRequiredService<IClickHouseClient>(),
     app.Logger,
-    CancellationToken.None,
-    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode"));
+    CancellationToken.None);
 
 // Same idempotent-migration convention, applied from both Flare.Ingest and Flare.Api
 // independently (see IdentityMigrationRunner's remarks) - Ingest needs the IngestApiKeys

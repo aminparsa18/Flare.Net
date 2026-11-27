@@ -74,24 +74,44 @@ ConnectionStrings__clickhousedb (`default`) is the migration runner's DDL creden
 string falls back to it when unset. alert-worker runs no migrations but still gets it (ADR-0283): AlertWorker
 images older than ADR-0282 read only `clickhousedb`, and an image pinned below the chart's must not crash-loop.
 Newer images prefer clickhousedb-app, so they still run as flare_app.
+With clickhouse.migrationJob.enabled no component gets CLICKHOUSE_PASSWORD or clickhousedb (ADR-0284): the Job
+runs the migrations, and job mode needs a new image anyway, so the old-image fallback above doesn't apply.
 */}}
+{{/*
+"true" when migrations run in the one-shot Job (ADR-0284). Fails the render when the services would then have
+no ClickHouse connection string at all.
+*/}}
+{{- define "flare.migrationJobOn" -}}
+{{- if .Values.clickhouse.migrationJob.enabled -}}
+{{- if not (or (include "flare.clickhouseUsersOn" .) (and (not .Values.clickhouse.enabled) .Values.clickhouse.external.usersSecret)) -}}
+{{- fail "clickhouse.migrationJob.enabled needs per-user connection strings: clickhouse.users.enabled with the bundled ClickHouse, or clickhouse.external.usersSecret" -}}
+{{- end -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "flare.backingEnv" -}}
 {{- $root := .root -}}
 {{- $usersOn := eq (include "flare.clickhouseUsersOn" $root) "true" -}}
 {{- $chPrefix := printf "Host=%s;Port=%s;Database=clickhousedb" (include "flare.clickhouseHost" $root) (include "flare.clickhousePort" $root) -}}
+{{- $jobOn := eq (include "flare.migrationJobOn" $root) "true" -}}
 {{- with $root -}}
+{{- if not $jobOn }}
 - name: CLICKHOUSE_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ include "flare.clickhouseSecret" . }}
       key: clickhouse-password
+{{- end }}
 - name: REDIS_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ include "flare.redisSecret" . }}
       key: redis-password
+{{- if not $jobOn }}
 - name: ConnectionStrings__clickhousedb
   value: "{{ $chPrefix }};Username={{ include "flare.clickhouseUser" . }};Password=$(CLICKHOUSE_PASSWORD)"
+{{- end }}
 {{- range $conn := (eq $.component "ingest" | ternary (list "ingest") (eq $.component "api" | ternary (list "query" "app") (list "app"))) }}
 {{- if $usersOn }}
 - name: FLARE_CH_{{ upper $conn }}_PASSWORD
@@ -107,7 +127,8 @@ Newer images prefer clickhousedb-app, so they still run as flare_app.
     secretKeyRef:
       name: {{ $root.Values.clickhouse.external.usersSecret }}
       key: clickhousedb-{{ $conn }}
-      optional: true
+      {{- /* Job mode has no clickhousedb to fall back to, so a missing key must fail the pod. */}}
+      optional: {{ not $jobOn }}
 {{- end }}
 {{- end }}
 - name: ConnectionStrings__redis

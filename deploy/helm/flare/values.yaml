@@ -104,6 +104,15 @@ clickhouse:
   # migrations. false = every service connects as `default`.
   users:
     enabled: true
+  # Run migrations in a one-shot Job (the api image as `migrate`, one Job per release revision) instead of
+  # inside ingest and api at startup, so no long-running pod holds the `default` password (ADR-0284). The
+  # services wait for the schema before serving. Needs an image with the `migrate` command (newer than
+  # 0.6.0) and the per-user connection strings: users.enabled with the bundled ClickHouse, or all three keys
+  # in external.usersSecret.
+  migrationJob:
+    enabled: false
+    resources: {}
+    ttlSecondsAfterFinished: 86400
   password: ""                 # empty = generated once and kept across upgrades
   existingSecret: ""           # Secret holding the password under key `clickhouse-password`
 

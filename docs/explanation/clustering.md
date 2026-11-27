@@ -57,8 +57,9 @@ data-correctness hazard around changing the sharding key are recorded in
 There's no `docker-entrypoint-initdb.d` mount for the cluster's ClickHouse
 nodes (unlike the single-node `docker-compose.yml`'s one `clickhouse`
 service). Schema application goes entirely through
-`ClickHouseMigrationRunner` — `Flare.Ingest`/`Flare.Api` both call it
-unconditionally at startup, same as the single-node path, but
+`ClickHouseMigrationRunner`, run once by the `clickhouse-migrate` job before
+`Flare.Ingest`/`Flare.Api` start (or by both of them at startup when they
+hold the DDL connection string, as on Helm), same as the single-node path, but
 `ClickHouse:ClusterMode=true` switches it to the `db/clickhouse-cluster/*.sql`
 schema set and to `ON CLUSTER 'flare_cluster'`-wrapped bootstrap statements.
 Running each node's own first-boot init hook independently would be

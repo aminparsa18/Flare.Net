@@ -4,7 +4,8 @@ The ClickHouse users Flare's services connect as, what each one may do, and the
 settings that wire them up. To switch an existing install over, see
 [How to use the ClickHouse service users](../how-to/admin/use-clickhouse-service-users.md).
 For why, see [ADR-0282](../../docs-internal/adr/0282-clickhouse-service-users.md)
-and [ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md).
+[ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md)
+and [ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md).
 
 ## Users
 
@@ -19,8 +20,8 @@ The users are declared in a server config file that is mounted at
 
 | User | Connects | Privileges |
 |---|---|---|
-| `default` | The migration runner in Flare.Ingest and Flare.Api, at startup | Everything. Flare uses it only for DDL. |
-| `flare_ingest` | Flare.Ingest | `INSERT` on `clickhousedb.*`. `SELECT` on `pipeline_rules`, `log_metrics`, `metric_attribute_rules`, `runtime_settings`, `telemetry_exports` and `checkin_monitors` only (cluster file: also their `_local` tables). |
+| `default` | The migration runner: the one-shot migration job, or Flare.Ingest and Flare.Api at startup (see [Where migrations run](#where-migrations-run)) | Everything. Flare uses it only for DDL. |
+| `flare_ingest` | Flare.Ingest | `INSERT` on `clickhousedb.*`. `SELECT` on `pipeline_rules`, `log_metrics`, `metric_attribute_rules`, `runtime_settings`, `telemetry_exports` and `checkin_monitors` only (cluster file: also their `_local` tables). `SELECT` on the `Name` column of `schema_migrations`, for the wait below. |
 | `flare_query` | Flare.Api's query services: log, span, metric and profile search, LogQL, PromQL, TraceQL, and every page's charts | `SELECT` on `clickhousedb.*`. Settings profile `flare_query` (below). |
 | `flare_app` | Everything else in Flare.Api (config writes, retention, promoted columns, erasure, the Indexing page, cluster status), and Flare.AlertWorker | `SELECT` and `INSERT` on `clickhousedb.*`; `ALTER TTL`, `ALTER MODIFY COLUMN`, `ALTER SETTINGS`, `ALTER ADD COLUMN`, `ALTER DROP COLUMN`, `ALTER ADD INDEX`, `ALTER DROP INDEX`, `ALTER MATERIALIZE COLUMN`, `ALTER MATERIALIZE INDEX` and `ALTER DELETE` on `clickhousedb.*`; `SELECT` on the system tables listed below; `CREATE TEMPORARY TABLE` and `WRITE ON S3` (archive export). Cluster file only: `CLUSTER` and `READ ON REMOTE`. |
 
@@ -53,7 +54,7 @@ query fail with code 452, so raise the ceiling in the users file as well.
 
 | Key | Env var | Used by | When unset |
 |---|---|---|---|
-| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | The migration runner in Flare.Ingest and Flare.Api (`default`), and Flare.AlertWorker images up to 0.6.0 | Startup fails |
+| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | The migration runner (`default`), and Flare.AlertWorker images up to 0.6.0 | Flare.Ingest and Flare.Api wait for the migration job instead of running migrations. The three keys below then have nothing to fall back to. |
 | `ConnectionStrings:clickhousedb-ingest` | `ConnectionStrings__clickhousedb-ingest` | Flare.Ingest (`flare_ingest`) | Falls back to `clickhousedb` |
 | `ConnectionStrings:clickhousedb-query` | `ConnectionStrings__clickhousedb-query` | Flare.Api's query services (`flare_query`) | Falls back to `clickhousedb` |
 | `ConnectionStrings:clickhousedb-app` | `ConnectionStrings__clickhousedb-app` | Flare.Api's other work and Flare.AlertWorker (`flare_app`) | Falls back to `clickhousedb` |
@@ -88,4 +89,34 @@ ClickHouse and of the services that use it.
 | Value | Default | Meaning |
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | Bundled ClickHouse only. Mounts `files/flare-users.xml`, generates the three passwords, and points each service at its own user. `false` keeps every service on `default`. |
-| `clickhouse.external.usersSecret` | `""` | External ClickHouse only. Secret with the full connection strings under the keys `clickhousedb-ingest`, `clickhousedb-query` and `clickhousedb-app`. A missing key falls back to `clickhouse.external.username` and the ClickHouse password. |
+| `clickhouse.external.usersSecret` | `""` | External ClickHouse only. Secret with the full connection strings under the keys `clickhousedb-ingest`, `clickhousedb-query` and `clickhousedb-app`. A missing key falls back to `clickhouse.external.username` and the ClickHouse password, except with `clickhouse.migrationJob.enabled`, where all three keys are required. |
+| `clickhouse.migrationJob.enabled` | `false` | Run migrations in a one-shot Job and give no service pod the `default` password (below). Needs an image newer than 0.6.0, and `clickhouse.users.enabled` or `clickhouse.external.usersSecret`; the chart refuses to render otherwise. |
+| `clickhouse.migrationJob.resources` | `{}` | The Job container's resources. |
+| `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | How long Kubernetes keeps a finished Job. |
+
+## Where migrations run
+
+A process applies the ClickHouse migrations at startup only when it has
+`ConnectionStrings:clickhousedb`. Without it, Flare.Ingest and Flare.Api wait
+until `clickhousedb.schema_migrations` lists every migration their build
+contains, then start. The migration job applies them: the Api image run as
+`dotnet Flare.Api.dll migrate` (the image's entrypoint plus the argument
+`migrate`). It needs `ConnectionStrings__clickhousedb`, and in cluster mode
+`ClickHouse__ClusterMode=true`. It exits `0` once the schema is current, `1`
+when a migration fails, and `2` when the connection string is missing.
+
+| Install path | Where migrations run |
+|---|---|
+| `docker-compose.yml`, `docker-compose.cluster.yml` | The `clickhouse-migrate` service. `ingest`, `api` and `alert-worker` start after it exits `0`. |
+| Aspire AppHost | The `clickhouse-migrate` resource. The services wait for it to finish. |
+| Helm | In ingest and api at startup. With `clickhouse.migrationJob.enabled`, a Job per release revision. |
+| `docker-compose.install.yml`, `flare start` | In ingest and api at startup, because these run published images, and 0.6.0 has no `migrate` command. |
+
+| Key | Env var | Default | Meaning |
+|---|---|---|---|
+| `ClickHouse:SchemaWaitTimeoutSeconds` | `ClickHouse__SchemaWaitTimeoutSeconds` | `300` | How long Flare.Ingest and Flare.Api wait for the migration job. After that they exit, naming the first missing migration, so the orchestrator restarts them. |
+
+The wait reads `schema_migrations` as the service's own user. Under a
+`flare-users.xml` older than ADR-0284, `flare_ingest` lacks that grant and
+Flare.Ingest fails at startup with `ACCESS_DENIED`. Update the file, or keep
+giving Flare.Ingest `ConnectionStrings:clickhousedb`.

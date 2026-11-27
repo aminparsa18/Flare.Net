@@ -66,8 +66,8 @@ services:
   # clickhouse-1..4: 2 shards x 2 replicas (shard 1 = clickhouse-1/2, shard 2 =
   # clickhouse-3/4 - see db/clickhouse-cluster/config/remote-servers.xml). No
   # docker-entrypoint-initdb.d mount here (unlike the base file's `clickhouse` service):
-  # schema application goes through ClickHouseMigrationRunner only (ingest/api's own
-  # `ClickHouse__ClusterMode: "true"` below), which is idempotent and safe to run from
+  # schema application goes through ClickHouseMigrationRunner only (the clickhouse-migrate
+  # job's `ClickHouse__ClusterMode: "true"` below), which is idempotent and safe to run from
   # any node once Keeper is up - running the ON CLUSTER migrations from each node's own
   # first-boot init hook independently would be redundant and timing-sensitive against
   # Keeper's own startup.
@@ -265,6 +265,20 @@ services:
   # Two Flare.Ingest replicas sharing one Redis Streams consumer group - proves
   # LogEventPipelineOptions.ConsumerName's machine/process-derived default (Workstream 1
   # of the "Multi-node scaling" item) actually works, not just unit-tested.
+  # One-shot ClickHouse migration job (ADR-0284): the Api image run as `migrate`, applying the ON CLUSTER
+  # migrations once. It's the only service with the `default` DDL credential; ingest-1/2, api and
+  # alert-worker start once it has exited 0.
+  clickhouse-migrate:
+    build:
+      context: .
+      dockerfile: src/Flare.Api/Dockerfile
+    command: ["migrate"]
+    depends_on:
+      clickhouse-lb: { condition: service_healthy }
+    environment:
+      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      ClickHouse__ClusterMode: "true"
+
   # LogPattern__SharedStore=true also proves the fix for docs/clustering.md's Drain
   # cross-replica PatternId fragmentation - both replicas share pattern-cluster state via
   # RedisPatternClusterStore instead of each building its own tree from whatever subset
@@ -283,11 +297,11 @@ services:
     depends_on:
       clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
+      clickhouse-migrate: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284).
       ConnectionStrings__clickhousedb-ingest: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
@@ -315,11 +329,11 @@ services:
     depends_on:
       clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
+      clickhouse-migrate: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284).
       ConnectionStrings__clickhousedb-ingest: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
@@ -347,11 +361,11 @@ services:
     depends_on:
       clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
+      clickhouse-migrate: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284).
       ConnectionStrings__clickhousedb-query: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_query;Password=${FLARE_CH_QUERY_PASSWORD:-flare}"
       ConnectionStrings__clickhousedb-app: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
@@ -402,6 +416,7 @@ services:
     depends_on:
       clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
+      clickhouse-migrate: { condition: service_completed_successfully }
     environment:
       # flare_app (ADR-0282). AlertWorker runs no migrations, so it gets no `clickhousedb` DDL credential.
       ConnectionStrings__clickhousedb-app: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"

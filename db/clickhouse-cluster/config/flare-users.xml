@@ -14,7 +14,8 @@
     FLARE_CH_INGEST_PASSWORD  flare_ingest  Flare.Ingest           ConnectionStrings:clickhousedb-ingest
     FLARE_CH_QUERY_PASSWORD   flare_query   Flare.Api queries      ConnectionStrings:clickhousedb-query
     FLARE_CH_APP_PASSWORD     flare_app     Flare.Api, AlertWorker ConnectionStrings:clickhousedb-app
-  Migrations keep running as `default` through ConnectionStrings:clickhousedb.
+  Migrations run as `default` through ConnectionStrings:clickhousedb, either inside Ingest and Api at
+  startup or in the one-shot migration job (ADR-0284).
 
   The official image sets select_from_system_db_requires_grant, so only system.tables, system.columns,
   system.databases and the constant tables are readable without a grant. A migration that adds a table
@@ -58,6 +59,8 @@
                 <query>GRANT SELECT ON clickhousedb.runtime_settings</query>
                 <query>GRANT SELECT ON clickhousedb.telemetry_exports</query>
                 <query>GRANT SELECT ON clickhousedb.checkin_monitors</query>
+                <!-- Migration names only: Ingest waits on these when the migration job runs them (ADR-0284). -->
+                <query>GRANT SELECT(Name) ON clickhousedb.schema_migrations</query>
                 <!-- Cluster only: a read through the Distributed table runs on the _local tables as the same user. -->
                 <query>GRANT SELECT ON clickhousedb.pipeline_rules_local</query>
                 <query>GRANT SELECT ON clickhousedb.log_metrics_local</query>

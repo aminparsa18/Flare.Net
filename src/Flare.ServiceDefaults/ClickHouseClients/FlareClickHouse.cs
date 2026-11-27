@@ -11,7 +11,8 @@ namespace Flare.ServiceDefaults.ClickHouseClients;
 /// <remarks>
 /// <list type="table">
 /// <item><term><c>clickhousedb</c></term><description>The DDL credential (<c>default</c>). Used only by
-/// <c>ClickHouseMigrationRunner</c> at startup, through the keyed client <see cref="DdlConnectionName"/>.</description></item>
+/// <c>ClickHouseMigrationRunner</c>: at startup through the keyed client <see cref="DdlConnectionName"/>, or by the
+/// one-shot migration job, in which case the services leave it unset and wait for the schema (ADR-0284).</description></item>
 /// <item><term><c>clickhousedb-ingest</c></term><description><c>flare_ingest</c>: Flare.Ingest's plain <c>IClickHouseClient</c>.</description></item>
 /// <item><term><c>clickhousedb-query</c></term><description><c>flare_query</c>: the keyed client <see cref="QueryConnectionName"/>
 /// that Flare.Api's read-only query services take.</description></item>
@@ -50,6 +51,25 @@ public static class FlareClickHouse
                 settings.ConnectionString = ResolveConnectionString(builder.Configuration, connectionName) ?? settings.ConnectionString;
                 settings.DisableHealthChecks |= !healthCheck;
             });
+
+    /// <summary>
+    /// True when <c>ConnectionStrings:clickhousedb</c>, the DDL credential, is set. A process without it doesn't
+    /// run migrations; it waits for the migration job instead (ADR-0284).
+    /// </summary>
+    public static bool HasDdlConnection(IConfiguration configuration) =>
+        !string.IsNullOrWhiteSpace(configuration.GetConnectionString(DdlConnectionName));
+
+    /// <summary>
+    /// Registers the keyed <see cref="DdlConnectionName"/> client for the startup migration runner, only when
+    /// <see cref="HasDdlConnection"/>. No health check: it's idle once startup is done.
+    /// </summary>
+    public static void AddFlareClickHouseDdlClient(this IHostApplicationBuilder builder)
+    {
+        if (HasDdlConnection(builder.Configuration))
+        {
+            builder.AddKeyedFlareClickHouseClient(DdlConnectionName, healthCheck: false);
+        }
+    }
 
     /// <summary>
     /// Makes the keyed <see cref="QueryConnectionName"/> client resolve to the plain one, for a process

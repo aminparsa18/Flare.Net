@@ -275,6 +275,22 @@
         },
         "existingSecret": {
           "type": "string"
+        },
+        "migrationJob": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "resources": {
+              "type": "object"
+            },
+            "ttlSecondsAfterFinished": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         }
       }
     },

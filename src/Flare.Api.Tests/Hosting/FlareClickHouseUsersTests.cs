@@ -102,6 +102,31 @@ public class FlareClickHouseUsersTests
         Assert.True(long.Parse(constraints.Element("max_rows_to_read")!.Element("max")!.Value) >= limits.MaxRowsToRead);
     }
 
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(" ", false)]
+    [InlineData(Ddl, true)]
+    public void HasDdlConnection_OnlyWhenClickhousedbIsSet(string? ddl, bool expected)
+    {
+        // Ingest and Api run migrations only with the DDL credential; without it they wait for the job (ADR-0284).
+        var config = Config(("ConnectionStrings:clickhousedb", ddl), ("ConnectionStrings:clickhousedb-query", Query));
+
+        Assert.Equal(expected, FlareClickHouse.HasDdlConnection(config));
+    }
+
+    [Theory]
+    [InlineData("db/clickhouse/config/flare-users.xml")]
+    [InlineData("db/clickhouse-cluster/config/flare-users.xml")]
+    public void IngestUser_CanReadMigrationNamesOnly(string path)
+    {
+        // Ingest's wait for the migration job reads schema_migrations.Name (ADR-0284); flare_app has SELECT on
+        // clickhousedb.* already.
+        var ingestGrants = Grants(Load(path))["flare_ingest"];
+
+        Assert.Single(ingestGrants, g => g.Contains("schema_migrations", StringComparison.Ordinal));
+        Assert.Contains("GRANT SELECT(Name) ON clickhousedb.schema_migrations", ingestGrants);
+    }
+
     private static string? PasswordEnv(XElement user) => user.Element("password")?.Attribute("from_env")?.Value;
 
     private static Dictionary<string, string[]> Grants(XElement root) =>

@@ -9,7 +9,7 @@
 
 | 钥匙 | 环境变量（Docker 撰写） | 类型 | 默认 | 意义 |
 |---|---|---|---|---|
-| `ClickHouse:ClusterMode` | `ClickHouse__ClusterMode` | `bool` | `false` | 将 `Flare.Ingest`/`Flare.Api` 切换到 `db/clickhouse-cluster/*.sql` 架构集，将引导程序 DDL 包装在 `ON CLUSTER 'flare_cluster'` 中，使 `IndexingQueryService` 的自省查询在集群范围内进行 (`cluster()`/`clusterAllReplicas()`)，并在按 ID 跟踪查找时启用 `optimize_skip_unused_shards`（请参阅 ADR-0003）。 |
+| `ClickHouse:ClusterMode` | `ClickHouse__ClusterMode` | `bool` | `false` | 将 `Flare.Ingest`/`Flare.Api` 和 `migrate` 任务（ADR-0284）切换到 `db/clickhouse-cluster/*.sql` 架构集，将引导程序 DDL 包装在 `ON CLUSTER 'flare_cluster'` 中，使 `IndexingQueryService` 的自省查询在集群范围内进行 (`cluster()`/`clusterAllReplicas()`)，并在按 ID 跟踪查找时启用 `optimize_skip_unused_shards`（请参阅 ADR-0003）。 |
 | `LogPattern:SharedStore` | `LogPattern__SharedStore` | `bool` | `false` | `false`（默认）：每个 `Flare.Ingest` 副本保留其自己的内存中 Drain 模式簇树 (`InMemoryPatternClusterStore`)。 `true`：模式集群通过 `RedisPatternClusterStore` 在副本之间共享，由 `(tokenCount, firstToken)` 存储桶作为键控。在 `docker-compose.cluster.yml` 中的 `ingest-1`/`ingest-2` 上均进行设置。 |
 | `LogPattern:SharedTemplateTtl` | `LogPattern__SharedTemplateTtl` | 期间 | `72h` | 仅适用于 `LogPattern:SharedStore=true` 时。对 Redis 支持的模式存储进行基于 TTL 的逐出（内存中存储使用精确的 `MaxTemplates` LRU 上限）。 |
 

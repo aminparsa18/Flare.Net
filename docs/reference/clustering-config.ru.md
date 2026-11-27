@@ -9,7 +9,7 @@
 
 | Ключ | Переменная окружения (Docker Compose) | Тип | По умолчанию | Значение |
 |---|---|---|---|---|
-| `ClickHouse:ClusterMode` | `ClickHouse__ClusterMode` | `bool` | `false` | Переключает `Flare.Ingest`/`Flare.Api` на набор схем `db/clickhouse-cluster/*.sql`, оборачивает bootstrap-DDL в `ON CLUSTER 'flare_cluster'`, делает интроспекционные запросы `IndexingQueryService` общекластерными (`cluster()`/`clusterAllReplicas()`) и включает `optimize_skip_unused_shards` для поиска трассировок по идентификатору (см. ADR-0003). |
+| `ClickHouse:ClusterMode` | `ClickHouse__ClusterMode` | `bool` | `false` | Переключает `Flare.Ingest`/`Flare.Api` и задание `migrate` (ADR-0284) на набор схем `db/clickhouse-cluster/*.sql`, оборачивает bootstrap-DDL в `ON CLUSTER 'flare_cluster'`, делает интроспекционные запросы `IndexingQueryService` общекластерными (`cluster()`/`clusterAllReplicas()`) и включает `optimize_skip_unused_shards` для поиска трассировок по идентификатору (см. ADR-0003). |
 | `LogPattern:SharedStore` | `LogPattern__SharedStore` | `bool` | `false` | `false` (по умолчанию): каждая реплика `Flare.Ingest` хранит собственное дерево кластеров паттернов Drain в памяти (`InMemoryPatternClusterStore`). `true`: кластеры паттернов разделяются между репликами через `RedisPatternClusterStore`, с ключом по бакету `(tokenCount, firstToken)`. Установлено на обеих `ingest-1`/`ingest-2` в `docker-compose.cluster.yml`. |
 | `LogPattern:SharedTemplateTtl` | `LogPattern__SharedTemplateTtl` | длительность | `72h` | Применяется только когда `LogPattern:SharedStore=true`. Вытеснение на основе TTL для хранилища паттернов на базе Redis (хранилище в памяти вместо этого использует точный лимит LRU `MaxTemplates`). |
 
