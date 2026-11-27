@@ -131,8 +131,23 @@ folders are where "what happened and why" actually lives.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
+  - **Least-privilege ClickHouse users** ([ADR-0282](../adr/0282-clickhouse-service-users.md)). Ship
+    `users.d/flare-users.xml` with `flare_ingest`, `flare_query` and `flare_app`, give Api a query and an app ClickHouse
+    client, add the `clickhousedb-*` connection strings (falling back to `clickhousedb`), and wire up Compose, the CLI,
+    Helm and the AppHost. Live-verify every page as the split users. After that, consider moving migrations to a one-shot job.
+  - **Per-identity ClickHouse quotas**, after ADR-0282. Send the Flare user or PAT id as `quota_key` and cap `read_rows` and
+    `execution_time` per hour for `flare_query`, which measures query cost, not just request count as ADR-0028 does.
+  - **Opt-in row policies as a second check on project scoping**, after ADR-0282. A RESTRICTIVE policy on every
+    service-keyed `_local` table and aggregate table, using a `SQL_flare_scope` setting that Api sends. It fails closed,
+    and the workers stay on `flare_app`. ([Investigation](../investigations/clickhouse-access-control-vs-identity-store.md).)
   - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
+- **Cluster mode without Postgres.** Api stays the single owner of the SQLite identity store and publishes the ingest-key
+  set (hash, limits, origins, services, expiry, revoked) to a versioned ClickHouse table (ADR-0009/0074), which
+  Ingest's `IngestApiKeyCache` polls. Ingest then drops its `Flare.Identity` reference and the identity migrations, and
+  `docker-compose.cluster.yml` drops `postgres`. Postgres stays available for anyone running several Api replicas.
+  Needs an ADR superseding ADR-0111's "cluster mode uses Postgres"
+  ([investigation](../investigations/clickhouse-access-control-vs-identity-store.md)).
 - **Map-aware text index for attribute filters, once ClickHouse 26.9+ is pinned.** The `keyValuePairs` text index serves
   `attr['k'] = 'v'` only and 4 to 7x speeds up broad equality filters, at about 15x the bloom filters' size and with the
   bloom filters still needed for `mapContains`/`IN`/regex; it does not exist on the pinned 26.8 LTS. Re-benchmark on a real
