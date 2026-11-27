@@ -141,7 +141,7 @@ job to run. Bump `image.tag` to move versions; it defaults to the chart's
 `appVersion`. To keep the ClickHouse `default` password out of every service
 pod, set `clickhouse.migrationJob.enabled=true`: each install or upgrade then
 runs the migrations in a one-shot Job, and ingest and api wait for it. It needs
-an image newer than 0.6.0. See
+Flare 0.7.0 or later. See
 [Where migrations run](../../reference/clickhouse-service-users.md#where-migrations-run).
 
 The chart pins ClickHouse to the `26.8` LTS line (`clickhouse.image`) instead of

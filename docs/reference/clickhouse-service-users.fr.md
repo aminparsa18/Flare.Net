@@ -99,7 +99,7 @@ changer une demande de redémarrer ClickHouse et les services qui l'utilisent.
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | ClickHouse intégré uniquement. Monte `files/flare-users.xml`, génère les trois mots de passe et fait pointer chaque service vers son propre utilisateur. `false` garde tous les services sur `default`. |
 | `clickhouse.external.usersSecret` | `""` | ClickHouse externe uniquement. Secret contenant les chaînes de connexion complètes sous les clés `clickhousedb-ingest`, `clickhousedb-query` et `clickhousedb-app`. Une clé absente se rabat sur `clickhouse.external.username` et le mot de passe ClickHouse, sauf avec `clickhouse.migrationJob.enabled`, où les trois clés sont obligatoires. |
-| `clickhouse.migrationJob.enabled` | `false` | Exécuter les migrations dans un Job ponctuel et ne donner le mot de passe `default` à aucun pod de service (voir plus bas). Demande une image plus récente que 0.6.0, et `clickhouse.users.enabled` ou `clickhouse.external.usersSecret` ; sinon le chart refuse de se générer. |
+| `clickhouse.migrationJob.enabled` | `false` | Exécuter les migrations dans un Job ponctuel et ne donner le mot de passe `default` à aucun pod de service (voir plus bas). Demande une image 0.7.0 ou plus récente, et `clickhouse.users.enabled` ou `clickhouse.external.usersSecret` ; sinon le chart refuse de se générer. |
 | `clickhouse.migrationJob.resources` | `{}` | Les ressources du conteneur du Job. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Combien de temps Kubernetes garde un Job terminé. |
 
