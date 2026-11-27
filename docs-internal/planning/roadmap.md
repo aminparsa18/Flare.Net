@@ -23,14 +23,22 @@ folders are where "what happened and why" actually lives.
   `metadata_entityname` (`azuremonitor` receiver) and
   `ApproximateNumberOfMessagesVisible_avg` with `QueueName` (`awsfirehose` +
   `transform`), and fix the constants in `MessagingQueryBuilder` if they differ.
-- **Continuous profiling: retention and span links.** Ingest, the Profiles page and the how-to are done
-  ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)), and verified end to end with the
-  OpenTelemetry eBPF profiler (`otelcol-ebpf-profiler` 0.163.2, whole-host, Docker Desktop and Linux).
-  The Collector's `pprof` receiver (v0.162) still emits samples without a stack table, so skip it;
-  re-check on each Collector bump. `profile_samples` has no TTL, same as spans, so retention rides on
-  the "Retention policies" item above. OTLP profiles is still Alpha, so re-check the vendored proto
-  and the profiler version on each bump. Not yet verified: samples from a .NET/OTel-instrumented
-  process carrying `trace_id`/`span_id` (the eBPF profiler only fills them for supported SDKs).
+- **Continuous profiling: span links.** Ingest, the Profiles page, the how-to and retention (migration
+  0069, `RetentionSignals`) are done ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)), and
+  verified end to end with the OpenTelemetry eBPF profiler (`otelcol-ebpf-profiler` 0.163.2,
+  whole-host, Docker Desktop and Linux). The Collector's `pprof` receiver (v0.162) still emits samples
+  without a stack table, so skip it; re-check on each Collector bump. OTLP profiles is still Alpha, so
+  re-check the vendored proto and the profiler version on each bump. `profile_samples` already stores
+  each sample's linked `TraceId`/`SpanId`; what's missing is a sender that fills them for .NET:
+  - **eBPF path, blocked upstream.** The eBPF profiler reads the active span only from processes
+    that publish it in the OTEP 4947 thread-local (`otel_thread_ctx_v1`, reader merged in
+    `interpreter/threadcontext`). OpenTelemetry .NET doesn't publish it yet
+    ([opentelemetry-dotnet#7404](https://github.com/open-telemetry/opentelemetry-dotnet/issues/7404),
+    unassigned); the OTEP rates .NET feasible through a native library. Re-check on each SDK release.
+  - **Auto-instrumentation path, doable now.** The opentelemetry-dotnet-instrumentation continuous
+    profiler already records the span context per sample but ships only a console exporter (its OTLP
+    profiles exporter lives in integration tests). A Flare plugin exporter that maps its samples to
+    OTLP profiles would give linked .NET profiles today.
 - **User settings page (`/settings`), starting with Appearance & layout.**
   The dashboard has outgrown the user-menu dropdown as the home for
   preferences: theme, language and display time zone live in
@@ -80,8 +88,9 @@ folders are where "what happened and why" actually lives.
 - **APM depth.** Flare receives OTLP and ships no agent, so these close gaps without changing that.
   - **A per-statement database view:** slowest normalized statements with rate and p95, from the `db.*` span attributes.
     Check first that N+1 detection and span-duration comparison don't already cover the need.
-  - **Span-to-profile links**: the sender exists now (see the continuous profiling item above). Check
-    first that real eBPF profiles carry trace and span ids for a traced process, then design the waterfall link.
+  - **Span-to-profile links**: the waterfall-to-flame-graph link. The data model is ready (`profile_samples.TraceId`/`SpanId`),
+    so build and test it with seeded OTLP profile samples linked to real spans; no real sender fills the ids for .NET yet
+    (see the continuous profiling item above).
 - **Security monitoring (not a SIEM).** The audit log has a hash chain, export and forwarding
   ([ADR-0202](../adr/0202-audit-log-hash-chain-and-export.md), [ADR-0203](../adr/0203-audit-log-forwarding.md)). Two
   small items fit the existing design; correlation rules, case management and threat-intel feeds stay out of scope.
@@ -151,11 +160,11 @@ folders are where "what happened and why" actually lives.
   (`fix/normalize-cors-origins`: a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored), open a small PR on
   CommunityToolkit/Aspire removing the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in
   `src/CommunityToolkit.Aspire.Hosting.Flare/`, then reply on [#2370](https://github.com/CommunityToolkit/Aspire/pull/2370) so the reviewers see the promised fix landed.
-- **Port the missing hosting features to `CommunityToolkit.Aspire.Hosting.Flare`, then retire `Flare.Hosting.Aspire`** ([ADR-0281](../adr/0281-aspire-integration-moves-to-community-toolkit.md)).
-  One CommunityToolkit/Aspire PR each, in this order: Kubernetes persistent volumes for the identity database (the old
-  `WithPersistentStorage`; ClickHouse/Redis volumes are already the caller's), cold storage (`WithColdStorage`), the Resources page
-  (`enableResourceGraph`, Docker socket proxy + Kubernetes RBAC), and per-container image overrides. Then move
-  `examples/ExampleApp.AppHost` to the toolkit package and delete `src/Aspire.Hosting.Flare`.
+- **Retire `Flare.Hosting.Aspire`** ([ADR-0281](../adr/0281-aspire-integration-moves-to-community-toolkit.md)). Once
+  [CommunityToolkit/Aspire#2610](https://github.com/CommunityToolkit/Aspire/pull/2610) (the missing hosting features) merges and
+  ships, move `examples/ExampleApp.AppHost` to `CommunityToolkit.Aspire.Hosting.Flare` and delete `src/Aspire.Hosting.Flare`. The
+  example's k3s deploy then uses `WithIdentityDatabase` or `WithDataVolume` plus Aspire's own `WithPersistentVolume`, instead of
+  the old `WithPersistentStorage`.
 - **Fold `Flare.Aspire` into `Flare.OpenTelemetry`, then deprecate it** ([ADR-0281](../adr/0281-aspire-integration-moves-to-community-toolkit.md)).
   Make `AddFlareTelemetry` fall back to `ConnectionStrings:flare` (and `Aspire:Flare:ApiKey`) when no `Flare:Endpoint` is set,
   switch `examples/ExampleApp.Shop` to it, then deprecate `Flare.Aspire` on nuget.org with `Flare.OpenTelemetry` as the alternative.
