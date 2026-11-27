@@ -79,9 +79,9 @@
          FlareMcpTools.cs, FlareMcpRuns.cs) - a read-only stdio MCP server for AI assistants,
          built on the ModelContextProtocol SDK; the api-url and token options point it at a remote
          Flare.Api with a personal access token. No backend changes. Bumped 0.1.8 to 0.1.9: both FLARE_IMAGE_TAG pins moved 0.5.1 -> 0.6.0, matching the server
-         API the CLI's newer commands call. Tag on release: flare-cli-v{Version}
+         API the CLI's newer commands call. Bumped 0.1.10 to 0.1.11: both FLARE_IMAGE_TAG pins moved 0.6.0 -> 0.7.0, the first release with the `migrate` command (ADR-0284). Tag on release: flare-cli-v{Version}
          (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.10</Version>
+    <Version>0.1.11</Version>
     <Authors>Amin Parsa</Authors>
     <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Also published to npm as @apardev/flare-cli. Not an Aspire integration - see CommunityToolkit.Aspire.Hosting.Flare for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>
