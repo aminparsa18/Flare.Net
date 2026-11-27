@@ -47,6 +47,7 @@
 - [Заголовки безопасности ответов](how-to/deploy/security-response-headers.ru.md)
 - [Сжатие ответов API](how-to/deploy/response-compression.ru.md)
 - [Развёртывание с Helm](how-to/deploy/deploy-with-helm.ru.md)
+- [Управляемый PostgreSQL для хранилища идентификации](how-to/deploy/use-managed-postgres-for-identity.ru.md)
 
 *Администрирование*
 
