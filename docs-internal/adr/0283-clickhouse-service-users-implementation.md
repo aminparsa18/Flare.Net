@@ -58,8 +58,12 @@ account for:
 - **No install path leaves a password variable unset.** Compose defaults each to `flare`, like `CLICKHOUSE_PASSWORD`.
   `install.sh`, the CLI and Helm generate them. The AppHost uses secret parameters. The users file and the docs warn
   about the empty-password behaviour for anyone mounting the file by hand.
-- **AlertWorker gets no DDL credential** on the paths Flare controls (Compose, the CLI, the AppHost, and Helm with the
-  bundled ClickHouse). It runs no migrations, so it only needs `clickhousedb-app`.
+- **AlertWorker keeps `clickhousedb` wherever it runs a published image** (Helm and the CLI's Compose templates).
+  It runs no migrations and only needs `clickhousedb-app`, but AlertWorker images up to 0.6.0 read only
+  `clickhousedb` and crash-loop without it. Both paths can pair the new template with an older image: Helm's
+  `appVersion`, a pinned `image.tag` or `FLARE_IMAGE_TAG`, or a chart upgraded before its images. Newer images prefer
+  `clickhousedb-app` and still connect as `flare_app`. The root Compose files and the AppHost build AlertWorker from
+  source, so they leave `clickhousedb` out.
 
 ## Alternatives considered
 
@@ -83,6 +87,8 @@ account for:
   fails migration 0092 at startup.
 - Raising `Query__MaxExecutionSeconds` above 300, or `Query__MaxRowsToRead` above 10,000,000,000, also means raising the
   `flare_query` ceilings in the users file (ADR-0282).
+- Under Helm and the CLI, the `default` password sits in AlertWorker's environment though it never uses it. Removing
+  it from those templates is safe once no supported image is 0.6.0 or older.
 
 ## Related documentation
 

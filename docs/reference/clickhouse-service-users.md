@@ -53,13 +53,16 @@ query fail with code 452, so raise the ceiling in the users file as well.
 
 | Key | Env var | Used by | When unset |
 |---|---|---|---|
-| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | The migration runner in Flare.Ingest and Flare.Api (`default`) | Startup fails |
+| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | The migration runner in Flare.Ingest and Flare.Api (`default`), and Flare.AlertWorker images up to 0.6.0 | Startup fails |
 | `ConnectionStrings:clickhousedb-ingest` | `ConnectionStrings__clickhousedb-ingest` | Flare.Ingest (`flare_ingest`) | Falls back to `clickhousedb` |
 | `ConnectionStrings:clickhousedb-query` | `ConnectionStrings__clickhousedb-query` | Flare.Api's query services (`flare_query`) | Falls back to `clickhousedb` |
 | `ConnectionStrings:clickhousedb-app` | `ConnectionStrings__clickhousedb-app` | Flare.Api's other work and Flare.AlertWorker (`flare_app`) | Falls back to `clickhousedb` |
 
 An empty value counts as unset. Flare.AlertWorker runs no migrations: it
-needs `clickhousedb-app`, or `clickhousedb` as the fallback.
+needs `clickhousedb-app`, or `clickhousedb` as the fallback. Helm and the
+`flare` CLI still give it `clickhousedb`, because AlertWorker images up to
+0.6.0 read only that key. Newer images use `clickhousedb-app` when it's set,
+so they still connect as `flare_app`.
 
 ## Password variables
 

@@ -152,7 +152,9 @@ services:
       redis:
         condition: service_healthy
     environment:
-      # flare_app (ADR-0282). AlertWorker runs no migrations, so it gets no `clickhousedb` DDL credential.
+      # flare_app (ADR-0282). `clickhousedb` is only for AlertWorker images older than ADR-0282
+      # (FLARE_IMAGE_TAG 0.6.0 and earlier), which read nothing else; newer ones prefer clickhousedb-app (ADR-0283).
+      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       # Same app-wide SMTP server as `api`'s own Email__* block - real breach

@@ -71,31 +71,27 @@ Call with dict "root" . "key" "redis-password" "value" .Values.redis.password
 Env vars every .NET component that talks to ClickHouse and Redis needs.
 Call with dict "root" . "component" "ingest" | "api" | "alert-worker".
 ConnectionStrings__clickhousedb (`default`) is the migration runner's DDL credential; each per-user connection
-string falls back to it when unset. alert-worker runs no migrations, so it gets no DDL credential when the
-bundled users are on.
+string falls back to it when unset. alert-worker runs no migrations but still gets it (ADR-0283): AlertWorker
+images older than ADR-0282 read only `clickhousedb`, and an image pinned below the chart's must not crash-loop.
+Newer images prefer clickhousedb-app, so they still run as flare_app.
 */}}
 {{- define "flare.backingEnv" -}}
 {{- $root := .root -}}
 {{- $usersOn := eq (include "flare.clickhouseUsersOn" $root) "true" -}}
-{{- $ddl := or (ne .component "alert-worker") (not $usersOn) -}}
 {{- $chPrefix := printf "Host=%s;Port=%s;Database=clickhousedb" (include "flare.clickhouseHost" $root) (include "flare.clickhousePort" $root) -}}
 {{- with $root -}}
-{{- if $ddl }}
 - name: CLICKHOUSE_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ include "flare.clickhouseSecret" . }}
       key: clickhouse-password
-{{- end }}
 - name: REDIS_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ include "flare.redisSecret" . }}
       key: redis-password
-{{- if $ddl }}
 - name: ConnectionStrings__clickhousedb
   value: "{{ $chPrefix }};Username={{ include "flare.clickhouseUser" . }};Password=$(CLICKHOUSE_PASSWORD)"
-{{- end }}
 {{- range $conn := (eq $.component "ingest" | ternary (list "ingest") (eq $.component "api" | ternary (list "query" "app") (list "app"))) }}
 {{- if $usersOn }}
 - name: FLARE_CH_{{ upper $conn }}_PASSWORD

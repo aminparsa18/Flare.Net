@@ -60,7 +60,7 @@ in `~/.flare/` (or `~/.flare/instances/<NAME>/`), and `flare start` extracts
    |---|---|
    | `ingest` (each `ingest-N`) | `ConnectionStrings__clickhousedb-ingest: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD}"` |
    | `api` | `ConnectionStrings__clickhousedb-query: "...;Username=flare_query;Password=${FLARE_CH_QUERY_PASSWORD}"` and `ConnectionStrings__clickhousedb-app: "...;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD}"` |
-   | `alert-worker` | Replace `ConnectionStrings__clickhousedb` with `ConnectionStrings__clickhousedb-app: "...;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD}"` |
+   | `alert-worker` | Add `ConnectionStrings__clickhousedb-app: "...;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD}"`. Keep `ConnectionStrings__clickhousedb` if the image is 0.6.0 or older: those read only that key. Newer images use `clickhousedb-app` |
 
    In cluster mode the host is `clickhouse-lb`, as in the existing string.
 
