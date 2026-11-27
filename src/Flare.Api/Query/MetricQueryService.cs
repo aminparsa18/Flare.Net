@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -24,7 +25,7 @@ public interface IMetricQueryService
 /// reads as the other query services, not <c>QueryAsync&lt;T&gt;</c> - see
 /// <see cref="LogQueryService"/>'s remarks for why.
 /// </remarks>
-public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMetricQueryService
+public sealed class MetricQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMetricQueryService
 {
     public async Task<MetricNamesResponse> GetNamesAsync(MetricNamesRequest request, CancellationToken cancellationToken)
     {

@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -16,7 +17,7 @@ public interface IExternalApiQueryService
 /// page - see <see cref="ExternalApiQueryBuilder"/> for the SQL. Same <c>ExecuteReaderAsync</c> +
 /// ordinal-read style as <see cref="MessagingQueryService"/>.
 /// </summary>
-public sealed class ExternalApiQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IExternalApiQueryService
+public sealed class ExternalApiQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IExternalApiQueryService
 {
     public async Task<ExternalDomainsResponse> GetDomainsAsync(ExternalDomainsRequest request, CancellationToken cancellationToken)
     {

@@ -1,4 +1,18 @@
 {{- if .Values.clickhouse.enabled }}
+{{- $usersOn := eq (include "flare.clickhouseUsersOn" .) "true" }}
+{{- if $usersOn }}
+# flare_ingest, flare_query and flare_app (ADR-0282). files/flare-users.xml is a copy of
+# db/clickhouse/config/flare-users.xml; Flare.Api.Tests fails if the two differ.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flare.name" . }}-clickhouse-users
+  labels: {{- include "flare.labels" . | nindent 4 }}
+data:
+  flare-users.xml: |-
+{{ .Files.Get "files/flare-users.xml" | indent 4 }}
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -24,6 +38,11 @@ spec:
     metadata:
       labels:
         {{- include "flare.selector" (dict "Release" .Release "component" "clickhouse") | nindent 8 }}
+      {{- if $usersOn }}
+      annotations:
+        # Restart ClickHouse when the users file changes; users.d is only read at start.
+        checksum/flare-users: {{ .Files.Get "files/flare-users.xml" | sha256sum }}
+      {{- end }}
     spec:
       containers:
         - name: clickhouse
@@ -34,6 +53,15 @@ spec:
                 secretKeyRef:
                   name: {{ include "flare.clickhouseSecret" . }}
                   key: clickhouse-password
+            {{- if $usersOn }}
+            {{- range $conn := list "ingest" "query" "app" }}
+            - name: FLARE_CH_{{ upper $conn }}_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flare.secretName" $ }}
+                  key: clickhouse-{{ $conn }}-password
+            {{- end }}
+            {{- end }}
           ports:
             - { name: http, containerPort: 8123 }
             - { name: native, containerPort: 9000 }
@@ -49,6 +77,15 @@ spec:
           {{- end }}
           volumeMounts:
             - { name: data, mountPath: /var/lib/clickhouse }
+            {{- if $usersOn }}
+            - { name: flare-users, mountPath: /etc/clickhouse-server/users.d/flare-users.xml, subPath: flare-users.xml, readOnly: true }
+            {{- end }}
+      {{- if $usersOn }}
+      volumes:
+        - name: flare-users
+          configMap:
+            name: {{ include "flare.name" . }}-clickhouse-users
+      {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data

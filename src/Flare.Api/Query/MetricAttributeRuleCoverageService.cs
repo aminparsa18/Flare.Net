@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -13,7 +14,7 @@ public interface IMetricAttributeRuleCoverageService
 
 /// <summary>ClickHouse seam for the attribute-rule dry-run and unmatched-rule check - see <see cref="MetricAttributeRulePreviewQueryBuilder"/> for the SQL.</summary>
 public sealed class MetricAttributeRuleCoverageService(
-    IClickHouseClient client,
+    [FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client,
     IMetricAttributeRuleQueryService rules,
     IOptions<QueryLimitsOptions> queryLimits,
     TimeProvider timeProvider) : IMetricAttributeRuleCoverageService

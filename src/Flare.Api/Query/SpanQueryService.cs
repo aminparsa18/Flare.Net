@@ -3,6 +3,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -68,7 +69,7 @@ public interface ISpanQueryService
 /// <see cref="TraceByIdQueryOptions"/>.
 /// </para>
 /// </remarks>
-public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, bool clusterMode) : ISpanQueryService
+public sealed class SpanQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, bool clusterMode) : ISpanQueryService
 {
     public async Task<SpanSearchResponse> SearchAsync(SpanSearchRequest request, CancellationToken cancellationToken)
     {

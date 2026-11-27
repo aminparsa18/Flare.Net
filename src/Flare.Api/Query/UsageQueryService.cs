@@ -3,6 +3,7 @@ using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Flare.Identity.IngestKeys;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -26,7 +27,7 @@ public interface IUsageQueryService
 /// Any attribute-sample failure degrades to an empty list rather than failing the page.
 /// </remarks>
 public sealed class UsageQueryService(
-    IClickHouseClient client,
+    [FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client,
     IIndexingQueryService indexing,
     IIngestApiKeyStore ingestKeys,
     IIngestApiKeyUsageQueryService ingestKeyUsage,

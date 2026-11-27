@@ -89,7 +89,14 @@ services:
       keeper-3: { condition: service_healthy }
     environment:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flare}
+      # Passwords of the least-privilege users in flare-users.xml (ADR-0282). An unset one would be an
+      # EMPTY password, so all three are always passed.
+      FLARE_CH_INGEST_PASSWORD: ${FLARE_CH_INGEST_PASSWORD:-flare}
+      FLARE_CH_QUERY_PASSWORD: ${FLARE_CH_QUERY_PASSWORD:-flare}
+      FLARE_CH_APP_PASSWORD: ${FLARE_CH_APP_PASSWORD:-flare}
     volumes:
+      # flare_ingest/flare_query/flare_app (ADR-0282). users.d is read at every start, unlike initdb.d.
+      - ./db/clickhouse-cluster/config/flare-users.xml:/etc/clickhouse-server/users.d/flare-users.xml:ro
       - clickhouse-1-data:/var/lib/clickhouse
       - ./db/clickhouse-cluster/config/remote-servers.xml:/etc/clickhouse-server/config.d/remote-servers.xml:ro
       - ./db/clickhouse-cluster/config/use-keeper.xml:/etc/clickhouse-server/config.d/use-keeper.xml:ro
@@ -113,7 +120,14 @@ services:
       keeper-3: { condition: service_healthy }
     environment:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flare}
+      # Passwords of the least-privilege users in flare-users.xml (ADR-0282). An unset one would be an
+      # EMPTY password, so all three are always passed.
+      FLARE_CH_INGEST_PASSWORD: ${FLARE_CH_INGEST_PASSWORD:-flare}
+      FLARE_CH_QUERY_PASSWORD: ${FLARE_CH_QUERY_PASSWORD:-flare}
+      FLARE_CH_APP_PASSWORD: ${FLARE_CH_APP_PASSWORD:-flare}
     volumes:
+      # flare_ingest/flare_query/flare_app (ADR-0282). users.d is read at every start, unlike initdb.d.
+      - ./db/clickhouse-cluster/config/flare-users.xml:/etc/clickhouse-server/users.d/flare-users.xml:ro
       - clickhouse-2-data:/var/lib/clickhouse
       - ./db/clickhouse-cluster/config/remote-servers.xml:/etc/clickhouse-server/config.d/remote-servers.xml:ro
       - ./db/clickhouse-cluster/config/use-keeper.xml:/etc/clickhouse-server/config.d/use-keeper.xml:ro
@@ -137,7 +151,14 @@ services:
       keeper-3: { condition: service_healthy }
     environment:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flare}
+      # Passwords of the least-privilege users in flare-users.xml (ADR-0282). An unset one would be an
+      # EMPTY password, so all three are always passed.
+      FLARE_CH_INGEST_PASSWORD: ${FLARE_CH_INGEST_PASSWORD:-flare}
+      FLARE_CH_QUERY_PASSWORD: ${FLARE_CH_QUERY_PASSWORD:-flare}
+      FLARE_CH_APP_PASSWORD: ${FLARE_CH_APP_PASSWORD:-flare}
     volumes:
+      # flare_ingest/flare_query/flare_app (ADR-0282). users.d is read at every start, unlike initdb.d.
+      - ./db/clickhouse-cluster/config/flare-users.xml:/etc/clickhouse-server/users.d/flare-users.xml:ro
       - clickhouse-3-data:/var/lib/clickhouse
       - ./db/clickhouse-cluster/config/remote-servers.xml:/etc/clickhouse-server/config.d/remote-servers.xml:ro
       - ./db/clickhouse-cluster/config/use-keeper.xml:/etc/clickhouse-server/config.d/use-keeper.xml:ro
@@ -161,7 +182,14 @@ services:
       keeper-3: { condition: service_healthy }
     environment:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flare}
+      # Passwords of the least-privilege users in flare-users.xml (ADR-0282). An unset one would be an
+      # EMPTY password, so all three are always passed.
+      FLARE_CH_INGEST_PASSWORD: ${FLARE_CH_INGEST_PASSWORD:-flare}
+      FLARE_CH_QUERY_PASSWORD: ${FLARE_CH_QUERY_PASSWORD:-flare}
+      FLARE_CH_APP_PASSWORD: ${FLARE_CH_APP_PASSWORD:-flare}
     volumes:
+      # flare_ingest/flare_query/flare_app (ADR-0282). users.d is read at every start, unlike initdb.d.
+      - ./db/clickhouse-cluster/config/flare-users.xml:/etc/clickhouse-server/users.d/flare-users.xml:ro
       - clickhouse-4-data:/var/lib/clickhouse
       - ./db/clickhouse-cluster/config/remote-servers.xml:/etc/clickhouse-server/config.d/remote-servers.xml:ro
       - ./db/clickhouse-cluster/config/use-keeper.xml:/etc/clickhouse-server/config.d/use-keeper.xml:ro
@@ -258,6 +286,9 @@ services:
       postgres: { condition: service_healthy }
     environment:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
+      # credential; each of these falls back to it when unset.
+      ConnectionStrings__clickhousedb-ingest: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       LogPattern__SharedStore: "true"
@@ -287,6 +318,9 @@ services:
       postgres: { condition: service_healthy }
     environment:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
+      # credential; each of these falls back to it when unset.
+      ConnectionStrings__clickhousedb-ingest: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       LogPattern__SharedStore: "true"
@@ -316,6 +350,10 @@ services:
       postgres: { condition: service_healthy }
     environment:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
+      # credential; each of these falls back to it when unset.
+      ConnectionStrings__clickhousedb-query: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_query;Password=${FLARE_CH_QUERY_PASSWORD:-flare}"
+      ConnectionStrings__clickhousedb-app: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       # Display-only here - api never does its own Drain pattern matching, this just lets
@@ -365,7 +403,8 @@ services:
       clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      # flare_app (ADR-0282). AlertWorker runs no migrations, so it gets no `clickhousedb` DDL credential.
+      ConnectionStrings__clickhousedb-app: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       # Same app-wide SMTP server as `api`'s own Email__* block - real breach

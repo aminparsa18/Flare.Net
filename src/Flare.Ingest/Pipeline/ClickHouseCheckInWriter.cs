@@ -11,14 +11,15 @@ public interface IClickHouseCheckInWriter
 }
 
 /// <summary>Inserts directly, with no Redis stream: one small row per ping, and a ping is worthless late, like feedback (ADR-0193).</summary>
-public sealed class ClickHouseCheckInWriter(IClickHouseClient client) : IClickHouseCheckInWriter
+public sealed class ClickHouseCheckInWriter(IClickHouseClient client, ClickHouseInsertColumnTypes columnTypes) : IClickHouseCheckInWriter
 {
     private static readonly IReadOnlyList<string> Columns = ["Slug", "Time", "Status", "Message"];
 
-    public Task WriteAsync(CheckInRecord c, CancellationToken cancellationToken = default) =>
-        client.InsertBinaryAsync(
+    public async Task WriteAsync(CheckInRecord c, CancellationToken cancellationToken = default) =>
+        await client.InsertBinaryAsync(
             "checkin_events",
             Columns,
             [[c.Slug, c.Time.UtcDateTime, c.Status, c.Message]],
-            cancellationToken: cancellationToken);
+            await columnTypes.OptionsAsync("checkin_events", Columns, cancellationToken: cancellationToken),
+            cancellationToken);
 }

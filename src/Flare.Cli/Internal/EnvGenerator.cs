@@ -40,7 +40,10 @@ internal static class EnvGenerator
 
         var rendered = template
             .Replace("{{CLICKHOUSE_PASSWORD}}", GenerateRandomSecret())
-            .Replace("{{REDIS_PASSWORD}}", GenerateRandomSecret());
+            .Replace("{{REDIS_PASSWORD}}", GenerateRandomSecret())
+            .Replace("{{FLARE_CH_INGEST_PASSWORD}}", GenerateRandomSecret())
+            .Replace("{{FLARE_CH_QUERY_PASSWORD}}", GenerateRandomSecret())
+            .Replace("{{FLARE_CH_APP_PASSWORD}}", GenerateRandomSecret());
 
         foreach (var (envKey, value) in resolved)
         {

@@ -53,6 +53,7 @@
 
 - [Настройка аутентификации](how-to/admin/configure-authentication.ru.md)
 - [Как организовать команды с помощью проектов](how-to/admin/organize-teams-with-projects.ru.md)
+- [Как использовать служебных пользователей ClickHouse](how-to/admin/use-clickhouse-service-users.ru.md)
 
 *Инструментирование приложений (.NET, браузер, .NET MAUI)*
 
@@ -120,6 +121,7 @@
 - [Хостинг Aspire](reference/aspire-hosting.ru.md)
 - [Конфигурация аутентификации](reference/authentication-config.ru.md)
 - [Конфигурация кластера](reference/clustering-config.ru.md)
+- [Служебные пользователи ClickHouse](reference/clickhouse-service-users.ru.md)
 - [Конфигурация live-tail](reference/live-tail-config.ru.md)
 - [Версии OTLP-логгеров](reference/otlp-logger-versions.ru.md)
 

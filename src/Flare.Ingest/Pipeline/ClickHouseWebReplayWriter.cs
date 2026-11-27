@@ -25,15 +25,16 @@ public interface IClickHouseWebReplayWriter
 /// Inserts directly, with no Redis stream in between, like screenshots (ADR-0174): a chunk is one best-effort row every few
 /// seconds per recorded browser tab, and the recorder does not retry a failed upload (ADR-0264).
 /// </summary>
-public sealed class ClickHouseWebReplayWriter(IClickHouseClient client) : IClickHouseWebReplayWriter
+public sealed class ClickHouseWebReplayWriter(IClickHouseClient client, ClickHouseInsertColumnTypes columnTypes) : IClickHouseWebReplayWriter
 {
     private static readonly IReadOnlyList<string> Columns =
         ["StartTime", "EndTime", "ServiceName", "SessionId", "ChunkId", "EventCount", "Payload", "IngestedAt"];
 
-    public Task WriteAsync(WebReplayRecord c, DateTimeOffset ingestedAt, CancellationToken cancellationToken = default) =>
-        client.InsertBinaryAsync(
+    public async Task WriteAsync(WebReplayRecord c, DateTimeOffset ingestedAt, CancellationToken cancellationToken = default) =>
+        await client.InsertBinaryAsync(
             "web_replay_chunks",
             Columns,
             [[c.StartTime.UtcDateTime, c.EndTime.UtcDateTime, c.ServiceName, c.SessionId, c.ChunkId, (uint)c.EventCount, Encoding.UTF8.GetString(c.Payload), ingestedAt.UtcDateTime]],
-            cancellationToken: cancellationToken);
+            await columnTypes.OptionsAsync("web_replay_chunks", Columns, cancellationToken: cancellationToken),
+            cancellationToken);
 }

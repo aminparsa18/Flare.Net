@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -17,7 +18,7 @@ public interface IHostInventoryQueryService
 /// <see cref="HostInventoryQueryBuilder"/> for the SQL and which metric feeds which column.
 /// Same <c>ExecuteReaderAsync</c> + ordinal-read style as <see cref="MetricQueryService"/>.
 /// </summary>
-public sealed class HostInventoryQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IHostInventoryQueryService
+public sealed class HostInventoryQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IHostInventoryQueryService
 {
     public async Task<HostListResponse> ListAsync(HostListRequest request, CancellationToken cancellationToken)
     {

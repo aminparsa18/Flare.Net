@@ -13,6 +13,7 @@ using Flare.Ingest.Prometheus;
 using Flare.Ingest.Sampling;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
+using Flare.ServiceDefaults.ClickHouseClients;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -84,7 +85,14 @@ builder.Services.Configure<ProfileEventPipelineOptions>(
 // (ClickHouseFlushWorker). ClickHouse: batched insert destination. Connection names must
 // match the resource names Flare.AppHost references onto this project.
 builder.AddRedisClient(connectionName: "redis");
-builder.AddClickHouseDataSource(connectionName: "clickhousedb");
+// ClickHouse as flare_ingest (INSERT, plus SELECT on the config tables it reads), and a separate
+// keyed DDL client on `clickhousedb` for the migration runner only (ADR-0282). Both fall back to
+// `clickhousedb` when clickhousedb-ingest isn't set.
+builder.AddFlareClickHouseClient(FlareClickHouse.IngestConnectionName);
+builder.AddKeyedFlareClickHouseClient(FlareClickHouse.DdlConnectionName, healthCheck: false);
+// flare_ingest can't run the driver's SELECT ... WHERE 1=0 type probe, so inserts take their column
+// types from system.columns instead.
+builder.Services.AddSingleton<ClickHouseInsertColumnTypes>();
 // Decrypts forwarding-target header values saved by Flare.Api (ADR-0213), so it must share Flare.Api's key ring:
 // same application name and Redis key as Flare.Api's Program.cs.
 builder.Services.AddDataProtection()
@@ -261,7 +269,7 @@ var app = builder.Build();
 // switches to the db/clickhouse-cluster/*.sql schema set instead - set by
 // docker-compose.cluster.yml, unset/false everywhere else.
 await ClickHouseMigrationRunner.ApplyAsync(
-    app.Services.GetRequiredService<IClickHouseClient>(),
+    app.Services.GetRequiredKeyedService<IClickHouseClient>(FlareClickHouse.DdlConnectionName),
     app.Logger,
     CancellationToken.None,
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode"));

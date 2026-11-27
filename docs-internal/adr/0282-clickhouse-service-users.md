@@ -1,6 +1,6 @@
 # ADR-0282: Least-privilege ClickHouse users per service
 
-Status: Accepted (not implemented yet, see the roadmap)
+Status: Accepted (implemented; four details superseded by [ADR-0283](0283-clickhouse-service-users-implementation.md))
 Date: 2026-11-27
 
 ## Context

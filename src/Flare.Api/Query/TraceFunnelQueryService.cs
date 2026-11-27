@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -17,7 +18,7 @@ public interface ITraceFunnelQueryService
 /// <c>ExecuteReaderAsync</c> + ordinal-read style as <see cref="MessagingQueryService"/>.
 /// </summary>
 public sealed class TraceFunnelQueryService(
-    IClickHouseClient client,
+    [FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client,
     IOptions<QueryLimitsOptions> queryLimits,
     TimeProvider timeProvider,
     IPromotedAttributeRegistry promotedAttributes) : ITraceFunnelQueryService

@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -16,7 +17,7 @@ public interface IProfileQueryService
 /// <see cref="ProfileQueryBuilder"/>, tree assembly in <see cref="FlameGraphBuilder"/>. Same
 /// <c>ExecuteReaderAsync</c> + ordinal-read style as <see cref="ExternalApiQueryService"/>.
 /// </summary>
-public sealed class ProfileQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IProfileQueryService
+public sealed class ProfileQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IProfileQueryService
 {
     public async Task<ProfileTypesResponse> GetTypesAsync(ProfileTypesRequest request, CancellationToken cancellationToken)
     {

@@ -114,6 +114,7 @@ internal static class FlareHome
 {
     private const string ClickHouseInitResourcePrefix = "Flare.Cli.Templates.ClickHouseInit.";
     private const string ClusterConfigResourcePrefix = "Flare.Cli.Templates.ClusterConfig.";
+    private const string ClickHouseConfigResourcePrefix = "Flare.Cli.Templates.ClickHouseConfig.";
 
     public static string RootDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -325,6 +326,11 @@ internal static class FlareHome
         {
             System.IO.Directory.CreateDirectory(instance.ClickHouseInitDirectory);
             ExtractResources(assembly, ClickHouseInitResourcePrefix, instance.ClickHouseInitDirectory);
+            // flare-users.xml (ADR-0282). Only a compose file from this CLI version mounts it; an older
+            // instance's compose file is never rewritten, so it keeps running as `default`.
+            var configDirectory = Path.Combine(instance.ClickHouseInitDirectory, "config");
+            System.IO.Directory.CreateDirectory(configDirectory);
+            ExtractResources(assembly, ClickHouseConfigResourcePrefix, configDirectory);
         }
         else
         {

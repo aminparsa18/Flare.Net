@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using Flare.Api.Query;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Loki;
 
@@ -23,7 +24,7 @@ internal sealed record LokiVolume(IReadOnlyDictionary<string, string> Labels, ul
 /// scoped token never sees another scope's key names.
 /// </remarks>
 internal sealed class LokiQueryService(
-    IClickHouseClient client,
+    [FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client,
     IOptions<QueryLimitsOptions> queryLimits,
     TimeProvider timeProvider,
     IPromotedAttributeRegistry promotedAttributes,

@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -10,7 +11,7 @@ public interface IRuntimeHealthQueryService
 }
 
 /// <summary>The one component holding an <see cref="IClickHouseClient"/> for runtime health - SQL in <see cref="RuntimeHealthQueryBuilder"/>, rules in <see cref="RuntimeHealthDetector"/>.</summary>
-public sealed class RuntimeHealthQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IRuntimeHealthQueryService
+public sealed class RuntimeHealthQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IRuntimeHealthQueryService
 {
     public async Task<RuntimeHealthResponse> GetFindingsAsync(string service, RuntimeHealthRequest request, CancellationToken cancellationToken)
     {

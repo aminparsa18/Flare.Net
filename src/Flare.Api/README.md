@@ -122,7 +122,11 @@ config section), built into `QueryOptions` in one place by `QuerySafety`:
 | `MaxResultRows` | `Query__MaxResultRows` | `10000` (truncates, doesn't error) |
 | `AlertEvaluationMaxExecutionSeconds` | `Query__AlertEvaluationMaxExecutionSeconds` | `10` |
 
-`0` means unlimited (ClickHouse's own meaning for each setting). The alert-evaluation cap
+`0` means unlimited (ClickHouse's own meaning for each setting). When the query services connect as
+`flare_query` (ADR-0282), its settings profile caps `max_execution_time` at 300 and `max_rows_to_read` at
+10,000,000,000, and a larger value, `0` included, fails with code 452. Raising `Query__MaxExecutionSeconds` or
+`Query__MaxRowsToRead` past those means raising them in `db/clickhouse/config/flare-users.xml` (and its cluster and
+Helm copies) too; see [the reference](../../docs/reference/clickhouse-service-users.md). The alert-evaluation cap
 is read by `Flare.AlertWorker`, which binds the same section; `system.*` introspection
 reads (Indexing/cluster-status pages) apply only the execution-time cap. Reviewed against the `clickhouse-best-practices` skill's
 `agent-query-safety` rule. `/api/logs/search` also defaults the time range to the last

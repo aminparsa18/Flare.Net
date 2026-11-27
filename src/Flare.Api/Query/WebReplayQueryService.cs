@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -13,7 +14,7 @@ public interface IWebReplayQueryService
 }
 
 /// <summary>The one component holding an <see cref="IClickHouseClient"/> for browser session replay - see <see cref="WebReplayQueryBuilder"/> for the SQL.</summary>
-public sealed class WebReplayQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IWebReplayQueryService
+public sealed class WebReplayQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IWebReplayQueryService
 {
     public async Task<WebReplayResponse> GetChunksAsync(string sessionId, AppSessionTimelineRequest window, CancellationToken cancellationToken)
     {

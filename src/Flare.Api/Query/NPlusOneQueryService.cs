@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -10,7 +11,7 @@ public interface INPlusOneQueryService
 }
 
 /// <summary>The one component holding an <see cref="IClickHouseClient"/> for N+1 detection - see <see cref="NPlusOneQueryBuilder"/> for the SQL.</summary>
-public sealed class NPlusOneQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : INPlusOneQueryService
+public sealed class NPlusOneQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : INPlusOneQueryService
 {
     public async Task<NPlusOneResponse> GetOffendersAsync(NPlusOneRequest request, CancellationToken cancellationToken)
     {

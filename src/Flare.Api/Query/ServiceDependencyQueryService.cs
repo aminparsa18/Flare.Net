@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -26,7 +27,7 @@ public interface IServiceDependencyQueryService
 /// Context for why. The <b>external leaves</b> (ADR-0072) are a third live query, merged
 /// into both lists by <see cref="ServiceDependencyQueryBuilder.MergeExternalLeaves"/>.
 /// </remarks>
-public sealed class ServiceDependencyQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceDependencyQueryService
+public sealed class ServiceDependencyQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceDependencyQueryService
 {
     public async Task<ServiceDependencyGraphResponse> GetGraphAsync(int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken)
     {

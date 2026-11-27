@@ -20,15 +20,16 @@ public interface IClickHouseFeedbackWriter
 }
 
 /// <summary>Inserts directly, with no Redis stream: one small best-effort row per user message (ADR-0193), like screenshots.</summary>
-public sealed class ClickHouseFeedbackWriter(IClickHouseClient client) : IClickHouseFeedbackWriter
+public sealed class ClickHouseFeedbackWriter(IClickHouseClient client, ClickHouseInsertColumnTypes columnTypes) : IClickHouseFeedbackWriter
 {
     private static readonly IReadOnlyList<string> Columns =
         ["StartTime", "FeedbackId", "ServiceName", "SessionId", "UserId", "Name", "Email", "AppVersion", "Message", "IngestedAt"];
 
-    public Task WriteAsync(FeedbackRecord f, DateTimeOffset ingestedAt, CancellationToken cancellationToken = default) =>
-        client.InsertBinaryAsync(
+    public async Task WriteAsync(FeedbackRecord f, DateTimeOffset ingestedAt, CancellationToken cancellationToken = default) =>
+        await client.InsertBinaryAsync(
             "app_feedback",
             Columns,
             [[f.StartTime.UtcDateTime, f.FeedbackId, f.ServiceName, f.SessionId, f.UserId, f.Name, f.Email, f.AppVersion, f.Message, ingestedAt.UtcDateTime]],
-            cancellationToken: cancellationToken);
+            await columnTypes.OptionsAsync("app_feedback", Columns, cancellationToken: cancellationToken),
+            cancellationToken);
 }

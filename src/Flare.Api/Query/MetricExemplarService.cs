@@ -3,6 +3,7 @@ using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -78,7 +79,7 @@ public static class MetricExemplarQueryBuilder
 }
 
 /// <summary>The one component reading <c>metric_exemplars</c>; same reader-ordinal style and scan caps as <see cref="MetricQueryService"/>.</summary>
-public sealed class MetricExemplarService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMetricExemplarService
+public sealed class MetricExemplarService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMetricExemplarService
 {
     public async Task<IReadOnlyList<MetricExemplarRow>> GetAsync(MetricExemplarsRequest request, CancellationToken cancellationToken)
     {

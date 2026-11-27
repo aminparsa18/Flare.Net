@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -16,7 +17,7 @@ public interface IPodMetricsQueryService
 /// <see cref="HostInventoryQueryService.GetMetricsAsync"/>, including its window clamp,
 /// window-end and bucket-width rules.
 /// </summary>
-public sealed class PodMetricsQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IPodMetricsQueryService
+public sealed class PodMetricsQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IPodMetricsQueryService
 {
     public async Task<PodMetricsResponse> GetMetricsAsync(PodMetricsRequest request, CancellationToken cancellationToken)
     {

@@ -77,6 +77,13 @@ regardless of shard: `Distributed` tables live on every node and forward
 each request to the correct shard/replica internally, so round-robining
 without shard awareness is correct, not just convenient.
 
+The per-user connection strings (`ConnectionStrings__clickhousedb-ingest`,
+`-query` and `-app`, see [ClickHouse service users](../reference/clickhouse-service-users.md))
+point at `clickhouse-lb` the same way. Every node mounts
+`db/clickhouse-cluster/config/flare-users.xml`: the inter-server secret runs a
+forwarded query as the user who sent it, so `flare_ingest`, `flare_query` and
+`flare_app` have to exist on all 4 nodes.
+
 This is a plain reverse-proxy approach, not ClickHouse's purpose-built
 `chproxy` — nginx is enough to solve "a single dead node no longer breaks
 ingest/query" without pulling in `chproxy`'s own config format and

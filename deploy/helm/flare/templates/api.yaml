@@ -45,7 +45,7 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
           env:
-            {{- include "flare.backingEnv" . | nindent 12 }}
+            {{- include "flare.backingEnv" (dict "root" . "component" "api") | nindent 12 }}
             {{- include "flare.identityEnv" . | nindent 12 }}
             {{- include "flare.smtpEnv" . | nindent 12 }}
             - name: Cors__AllowedOrigins__0

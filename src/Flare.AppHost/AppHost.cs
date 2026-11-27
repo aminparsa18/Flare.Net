@@ -24,6 +24,22 @@ var clickhouse = builder.AddClickHouse("clickhouse", password: clickhousePasswor
     .WithBindMount("../../db/clickhouse", "/docker-entrypoint-initdb.d", isReadOnly: true);
 var logsDb = clickhouse.AddDatabase("clickhousedb");
 
+// Least-privilege users (ADR-0282): db/clickhouse/config/flare-users.xml declares flare_ingest, flare_query
+// and flare_app with passwords from these env vars. `clickhousedb` above (default) stays the migration
+// runner's DDL credential; each service connects as its own user through ConnectionStrings:clickhousedb-*.
+// Fixed defaults like clickhouse-password; an unset FLARE_CH_* would be an empty password.
+var chIngestPassword = builder.AddParameter("clickhouse-ingest-password", "flare", secret: true);
+var chQueryPassword = builder.AddParameter("clickhouse-query-password", "flare", secret: true);
+var chAppPassword = builder.AddParameter("clickhouse-app-password", "flare", secret: true);
+clickhouse
+    .WithBindMount("../../db/clickhouse/config/flare-users.xml", "/etc/clickhouse-server/users.d/flare-users.xml", isReadOnly: true)
+    .WithEnvironment("FLARE_CH_INGEST_PASSWORD", chIngestPassword)
+    .WithEnvironment("FLARE_CH_QUERY_PASSWORD", chQueryPassword)
+    .WithEnvironment("FLARE_CH_APP_PASSWORD", chAppPassword);
+ReferenceExpression ClickHouseUser(string user, IResourceBuilder<ParameterResource> password) =>
+    ReferenceExpression.Create(
+        $"Host={clickhouse.Resource.Host};Port={clickhouse.Resource.Port};Database=clickhousedb;Username={user};Password={password}");
+
 // Opt-in cold tier for retention (docs-internal/adr/0144-cold-storage-rustfs.md): run with
 // `Flare:ColdStorage=true` (e.g. `dotnet run --project src/Flare.AppHost -- --Flare:ColdStorage=true`)
 // to add RustFS, a one-shot job that creates its bucket, and mount cold-storage.xml into ClickHouse.
@@ -90,6 +106,7 @@ var ingest = builder.AddDotnetProject("ingest", "../Flare.Ingest/Flare.Ingest.cs
     .WaitFor(logsDb)
     .WithReference(redis)
     .WaitFor(redis)
+    .WithEnvironment("ConnectionStrings__clickhousedb-ingest", ClickHouseUser("flare_ingest", chIngestPassword))
     .WithEnvironment("Identity__DbPath", identityDbPath)
     .WithEndpoint(port: 4317, targetPort: 4317, scheme: "http", name: "otlp-grpc", isProxied: false)
     .WithEndpoint(port: 4318, targetPort: 4318, scheme: "http", name: "otlp-http", isProxied: false)
@@ -108,6 +125,8 @@ var api = builder.AddDotnetProject("api", "../Flare.Api/Flare.Api.csproj")
     // group - doesn't touch Flare.Ingest's flare-ingest group/PEL accounting).
     .WithReference(redis)
     .WaitFor(redis)
+    .WithEnvironment("ConnectionStrings__clickhousedb-query", ClickHouseUser("flare_query", chQueryPassword))
+    .WithEnvironment("ConnectionStrings__clickhousedb-app", ClickHouseUser("flare_app", chAppPassword))
     .WithEnvironment("Identity__DbPath", identityDbPath)
     // The dashboard isn't an Aspire resource here (it's run separately, e.g. `npm run
     // dev` - see src/dashboard/README.md), so there's no resource reference to pull this
@@ -121,9 +140,9 @@ var api = builder.AddDotnetProject("api", "../Flare.Api/Flare.Api.csproj")
 // no longer also stops alert evaluation. Same ClickHouse/Redis references as `api` -
 // AlertQueryService/CompositeAlertNotifier are reused from Flare.Api via a
 // ProjectReference, not a new backing store. No Identity__DbPath/Cors - it never touches
-// either.
+// either. Connects only as flare_app: it runs no migrations, so it gets no `clickhousedb` reference.
 var alertWorker = builder.AddDotnetProject("alert-worker", "../Flare.AlertWorker/Flare.AlertWorker.csproj")
-    .WithReference(logsDb)
+    .WithEnvironment("ConnectionStrings__clickhousedb-app", ClickHouseUser("flare_app", chAppPassword))
     .WaitFor(logsDb)
     .WithReference(redis)
     .WaitFor(redis)

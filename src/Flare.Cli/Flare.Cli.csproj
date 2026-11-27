@@ -137,6 +137,11 @@
     <EmbeddedResource Include="..\..\db\clickhouse\*.sql">
       <LogicalName>Flare.Cli.Templates.ClickHouseInit.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
+    <!-- Standalone's least-privilege users (ADR-0282), bind-mounted into clickhouse's users.d.
+         Materialized to ~/.flare/db/clickhouse/config/. Cluster's copy comes with ClusterConfig below. -->
+    <EmbeddedResource Include="..\..\db\clickhouse\config\flare-users.xml">
+      <LogicalName>Flare.Cli.Templates.ClickHouseConfig.flare-users.xml</LogicalName>
+    </EmbeddedResource>
     <!-- Cluster-mode `flare start` (its Cluster flag) - see docs/clustering.md and Internal/TopologyProfile.cs.
          Own image-based compose template (root docker-compose.cluster.yml's ingest/api/
          dashboard use `build:`, same reason docker-compose.flare.yml above isn't a
