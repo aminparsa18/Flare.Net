@@ -3,6 +3,7 @@ using ClickHouse.Driver.ADO.Parameters;
 using Flare.Api.Model;
 using Flare.Identity.Apdex;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -33,7 +34,7 @@ public interface IServiceOverviewQueryService
 /// </para>
 /// </remarks>
 public sealed class ServiceOverviewQueryService(
-    IClickHouseClient client,
+    [FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client,
     IOptions<QueryLimitsOptions> queryLimits,
     TimeProvider timeProvider,
     IOptions<ServiceMetricsOptions> serviceMetricsOptions,

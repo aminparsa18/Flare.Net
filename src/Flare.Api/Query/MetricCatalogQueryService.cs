@@ -3,6 +3,7 @@ using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Flare.Identity.MetricMetadata;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -23,7 +24,7 @@ public interface IMetricCatalogQueryService
 /// <see cref="MetricMetadataOverlay"/> on the way out.
 /// </summary>
 public sealed class MetricCatalogQueryService(
-    IClickHouseClient client,
+    [FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client,
     IMetricMetadataOverrideStore overrideStore,
     IOptions<QueryLimitsOptions> queryLimits,
     TimeProvider timeProvider) : IMetricCatalogQueryService

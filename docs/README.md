@@ -51,6 +51,7 @@ the full rule set on what goes where.
 
 - [Configure authentication](how-to/admin/configure-authentication.md)
 - [Organize teams with projects](how-to/admin/organize-teams-with-projects.md)
+- [Use the ClickHouse service users](how-to/admin/use-clickhouse-service-users.md)
 
 *Instrument your apps (.NET, browser, .NET MAUI)*
 
@@ -122,6 +123,7 @@ the full rule set on what goes where.
 - [Aspire hosting](reference/aspire-hosting.md)
 - [Authentication config](reference/authentication-config.md)
 - [Clustering config](reference/clustering-config.md)
+- [ClickHouse service users](reference/clickhouse-service-users.md)
 - [Live-tail config](reference/live-tail-config.md)
 - [OTLP logger versions](reference/otlp-logger-versions.md)
 

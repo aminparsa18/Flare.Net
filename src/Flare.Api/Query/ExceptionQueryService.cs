@@ -3,6 +3,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -24,7 +25,7 @@ public interface IExceptionQueryService
 /// aggregate vs. a whole-span search) diverge enough to cost more shared-code complexity than
 /// they'd save.
 /// </summary>
-public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IErrorIssueQueryService errorIssues, IErrorOwnershipQueryService ownership, IErrorGroupingQueryService grouping) : IExceptionQueryService
+public sealed class ExceptionQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IErrorIssueQueryService errorIssues, IErrorOwnershipQueryService ownership, IErrorGroupingQueryService grouping) : IExceptionQueryService
 {
     public async Task<ExceptionGroupsResponse> GetGroupsAsync(ExceptionGroupsRequest request, CancellationToken cancellationToken)
     {

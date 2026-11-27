@@ -9,6 +9,7 @@ using Flare.AlertWorker.Reports;
 using Flare.AlertWorker.Archive;
 using Flare.Identity.Auth;
 using Flare.Api.Synthetic;
+using Flare.ServiceDefaults.ClickHouseClients;
 using Flare.ServiceDefaults.Outbound;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,7 +21,11 @@ builder.AddServiceDefaults();
 // migrations (applied by Flare.Ingest/Flare.Api at their own startup) already created,
 // and shares the same per-tick evaluation lock (see AlertEvaluationWorker's remarks)
 // through the same Redis every other process already depends on. No new backing store.
-builder.AddClickHouseDataSource(connectionName: "clickhousedb");
+//
+// Everything here runs as flare_app (ADR-0282), including the query services it shares with Flare.Api,
+// so their keyed query client is an alias of the plain one. Falls back to `clickhousedb`.
+builder.AddFlareClickHouseClient(FlareClickHouse.AppConnectionName);
+builder.Services.AddQueryClientAlias();
 builder.AddRedisClient(connectionName: "redis");
 
 builder.Services.AddSingleton(TimeProvider.System);

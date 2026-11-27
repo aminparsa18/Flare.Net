@@ -20,7 +20,7 @@ namespace Flare.Ingest.Pipeline;
 /// ClickHouse Map parameter; confirm this binds correctly against a real column during
 /// end-to-end verification (see <c>src/Flare.Ingest/README.md</c>).
 /// </remarks>
-public sealed class ClickHouseLogEventWriter(IClickHouseClient client) : IClickHouseLogEventWriter
+public sealed class ClickHouseLogEventWriter(IClickHouseClient client, ClickHouseInsertColumnTypes columnTypes) : IClickHouseLogEventWriter
 {
     private const string TableName = "logs";
 
@@ -32,6 +32,7 @@ public sealed class ClickHouseLogEventWriter(IClickHouseClient client) : IClickH
         }
 
         var rows = ClickHouseRowMapper.ToRows(events);
-        await client.InsertBinaryAsync(TableName, ClickHouseRowMapper.Columns, rows, cancellationToken: cancellationToken);
+        var options = await columnTypes.OptionsAsync(TableName, ClickHouseRowMapper.Columns, cancellationToken: cancellationToken);
+        await client.InsertBinaryAsync(TableName, ClickHouseRowMapper.Columns, rows, options, cancellationToken);
     }
 }

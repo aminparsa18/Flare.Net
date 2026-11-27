@@ -131,10 +131,9 @@ folders are where "what happened and why" actually lives.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
-  - **Least-privilege ClickHouse users** ([ADR-0282](../adr/0282-clickhouse-service-users.md)). Ship
-    `users.d/flare-users.xml` with `flare_ingest`, `flare_query` and `flare_app`, give Api a query and an app ClickHouse
-    client, add the `clickhousedb-*` connection strings (falling back to `clickhousedb`), and wire up Compose, the CLI,
-    Helm and the AppHost. Live-verify every page as the split users. After that, consider moving migrations to a one-shot job.
+  - **Run ClickHouse migrations as a one-shot job** (deferred in [ADR-0282](../adr/0282-clickhouse-service-users.md)), so
+    no long-running Ingest or Api process holds the `default` DDL password: a run-once Compose service, a Helm hook Job
+    and an Aspire resource.
   - **Per-identity ClickHouse quotas**, after ADR-0282. Send the Flare user or PAT id as `quota_key` and cap `read_rows` and
     `execution_time` per hour for `flare_query`, which measures query cost, not just request count as ADR-0028 does.
   - **Opt-in row policies as a second check on project scoping**, after ADR-0282. A RESTRICTIVE policy on every
@@ -183,6 +182,7 @@ folders are where "what happened and why" actually lives.
 - **Fold `Flare.Aspire` into `Flare.OpenTelemetry`, then deprecate it** ([ADR-0281](../adr/0281-aspire-integration-moves-to-community-toolkit.md)).
   Make `AddFlareTelemetry` fall back to `ConnectionStrings:flare` (and `Aspire:Flare:ApiKey`) when no `Flare:Endpoint` is set,
   switch `examples/ExampleApp.Shop` to it, then deprecate `Flare.Aspire` on nuget.org with `Flare.OpenTelemetry` as the alternative.
-- **Publish the aspire.dev docs page for the Flare integration.** The toolkit README links
-  `learn.microsoft.com/dotnet/aspire/community-toolkit/hosting-flare`; open the page in the aspire.dev docs repo, using
-  `docs/how-to/deploy/run-with-aspire.md` as the source.
+- **Point the toolkit Flare README at the aspire.dev page.** Once [microsoft/aspire.dev#2263](https://github.com/microsoft/aspire.dev/pull/2263)
+  merges, open a small CommunityToolkit/Aspire PR changing the "Additional Information" link in
+  `src/CommunityToolkit.Aspire.Hosting.Flare/README.md` from the nonexistent `learn.microsoft.com/dotnet/aspire/community-toolkit/hosting-flare`
+  to `https://aspire.dev/integrations/observability/flare/flare-get-started/`.

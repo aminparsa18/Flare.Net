@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -17,7 +18,7 @@ public interface IMessagingQueryService
 /// page - see <see cref="MessagingQueryBuilder"/> for the SQL. Same <c>ExecuteReaderAsync</c> +
 /// ordinal-read style as <see cref="ExceptionQueryService"/>/<see cref="HostInventoryQueryService"/>.
 /// </summary>
-public sealed class MessagingQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMessagingQueryService
+public sealed class MessagingQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMessagingQueryService
 {
     /// <summary>The <c>messaging.system</c> value Kafka instrumentations set - the system consumer lag is looked up for.</summary>
     private const string KafkaSystem = "kafka";

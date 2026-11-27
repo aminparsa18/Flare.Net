@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -39,7 +40,7 @@ public static class PromotedAttributeRegistryExtensions
 /// A failed refresh keeps the previous snapshots rather than dropping to empty: a transient
 /// ClickHouse blip shouldn't silently slow every attribute filter back down.
 /// </summary>
-public sealed class PromotedAttributeRegistry(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, ILogger<PromotedAttributeRegistry> logger) : IPromotedAttributeRegistry
+public sealed class PromotedAttributeRegistry([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, ILogger<PromotedAttributeRegistry> logger) : IPromotedAttributeRegistry
 {
     private const string ColumnsSql = """
         SELECT table, name, default_expression

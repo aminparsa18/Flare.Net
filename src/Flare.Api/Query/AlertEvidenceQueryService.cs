@@ -5,6 +5,7 @@ using Flare.Api.Ai;
 using Flare.Api.Errors;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -22,7 +23,7 @@ public interface IAlertEvidenceQueryService
     Task<IReadOnlyList<IncidentErrorSpan>> GetErrorSpansAsync(string traceId, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
 }
 
-public sealed class AlertEvidenceQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues, IErrorOwnershipQueryService ownership, IErrorGroupingQueryService errorGrouping) : IAlertEvidenceQueryService
+public sealed class AlertEvidenceQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues, IErrorOwnershipQueryService ownership, IErrorGroupingQueryService errorGrouping) : IAlertEvidenceQueryService
 {
     public async Task<IReadOnlyList<IncidentLogPattern>> GetLogPatternsAsync(LogFilter filter, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)
     {

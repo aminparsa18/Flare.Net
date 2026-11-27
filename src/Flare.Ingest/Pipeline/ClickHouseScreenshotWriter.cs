@@ -29,15 +29,16 @@ public interface IClickHouseScreenshotWriter
 /// Inserts directly, with no Redis stream in between: a screenshot is one small, best-effort row per crash or per scheduled capture,
 /// so the at-least-once buffering the telemetry pipelines pay for isn't worth the extra stream (ADR-0174).
 /// </summary>
-public sealed class ClickHouseScreenshotWriter(IClickHouseClient client) : IClickHouseScreenshotWriter
+public sealed class ClickHouseScreenshotWriter(IClickHouseClient client, ClickHouseInsertColumnTypes columnTypes) : IClickHouseScreenshotWriter
 {
     private static readonly IReadOnlyList<string> Columns =
         ["StartTime", "ServiceName", "SessionId", "TraceId", "SpanId", "ContentType", "ImageBase64", "IngestedAt", "Kind"];
 
-    public Task WriteAsync(ScreenshotRecord s, DateTimeOffset ingestedAt, CancellationToken cancellationToken = default) =>
-        client.InsertBinaryAsync(
+    public async Task WriteAsync(ScreenshotRecord s, DateTimeOffset ingestedAt, CancellationToken cancellationToken = default) =>
+        await client.InsertBinaryAsync(
             "app_screenshots",
             Columns,
             [[s.StartTime.UtcDateTime, s.ServiceName, s.SessionId, s.TraceId, s.SpanId, s.ContentType, Convert.ToBase64String(s.Image), ingestedAt.UtcDateTime, s.Kind]],
-            cancellationToken: cancellationToken);
+            await columnTypes.OptionsAsync("app_screenshots", Columns, cancellationToken: cancellationToken),
+            cancellationToken);
 }

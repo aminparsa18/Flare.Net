@@ -12,7 +12,7 @@ namespace Flare.Ingest.Pipeline;
 /// this same call with no special-casing needed - confirmed via a live spike before
 /// writing this class (see <see cref="ClickHouseSpanRowMapper"/>'s remarks).
 /// </summary>
-public sealed class ClickHouseSpanWriter(IClickHouseClient client) : IClickHouseSpanWriter
+public sealed class ClickHouseSpanWriter(IClickHouseClient client, ClickHouseInsertColumnTypes columnTypes) : IClickHouseSpanWriter
 {
     private const string TableName = "spans";
 
@@ -24,7 +24,8 @@ public sealed class ClickHouseSpanWriter(IClickHouseClient client) : IClickHouse
         }
 
         var rows = ClickHouseSpanRowMapper.ToRows(spans);
-        await client.InsertBinaryAsync(TableName, ClickHouseSpanRowMapper.Columns, rows, SpanInsertOptions(), cancellationToken);
+        var options = await columnTypes.OptionsAsync(TableName, ClickHouseSpanRowMapper.Columns, SpanInsertSettings(), cancellationToken);
+        await client.InsertBinaryAsync(TableName, ClickHouseSpanRowMapper.Columns, rows, options, cancellationToken);
     }
 
     /// <summary>
@@ -36,11 +37,8 @@ public sealed class ClickHouseSpanWriter(IClickHouseClient client) : IClickHouse
     /// domain to span ingestion. Confirmed via a live spike before shipping (same practice
     /// this class's own remarks already document for the RowBinary round-trip itself).
     /// </summary>
-    private static InsertOptions SpanInsertOptions() => new()
+    private static Dictionary<string, object> SpanInsertSettings() => new()
     {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["materialized_views_ignore_errors"] = 1,
-        },
+        ["materialized_views_ignore_errors"] = 1,
     };
 }

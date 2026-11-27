@@ -13,7 +13,7 @@ namespace Flare.Ingest.Pipeline;
 /// point-type list, sequentially, same simple-first approach
 /// <see cref="ClickHouseSpanWriter"/> took for its own single insert.
 /// </summary>
-public sealed class ClickHouseMetricWriter(IClickHouseClient client) : IClickHouseMetricWriter
+public sealed class ClickHouseMetricWriter(IClickHouseClient client, ClickHouseInsertColumnTypes columnTypes) : IClickHouseMetricWriter
 {
     private const string GaugeTableName = "metrics_gauge";
     private const string SumTableName = "metrics_sum";
@@ -30,22 +30,22 @@ public sealed class ClickHouseMetricWriter(IClickHouseClient client) : IClickHou
     {
         if (gauges.Count > 0)
         {
-            await client.InsertBinaryAsync(GaugeTableName, ClickHouseMetricRowMapper.GaugeColumns, ClickHouseMetricRowMapper.ToRows(gauges), cancellationToken: cancellationToken);
+            await InsertAsync(GaugeTableName, ClickHouseMetricRowMapper.GaugeColumns, ClickHouseMetricRowMapper.ToRows(gauges), cancellationToken);
         }
 
         if (sums.Count > 0)
         {
-            await client.InsertBinaryAsync(SumTableName, ClickHouseMetricRowMapper.SumColumns, ClickHouseMetricRowMapper.ToRows(sums), cancellationToken: cancellationToken);
+            await InsertAsync(SumTableName, ClickHouseMetricRowMapper.SumColumns, ClickHouseMetricRowMapper.ToRows(sums), cancellationToken);
         }
 
         if (histograms.Count > 0)
         {
-            await client.InsertBinaryAsync(HistogramTableName, ClickHouseMetricRowMapper.HistogramColumns, ClickHouseMetricRowMapper.ToRows(histograms), cancellationToken: cancellationToken);
+            await InsertAsync(HistogramTableName, ClickHouseMetricRowMapper.HistogramColumns, ClickHouseMetricRowMapper.ToRows(histograms), cancellationToken);
         }
 
         if (exponentialHistograms.Count > 0)
         {
-            await client.InsertBinaryAsync(ExponentialHistogramTableName, ClickHouseMetricRowMapper.ExponentialHistogramColumns, ClickHouseMetricRowMapper.ToRows(exponentialHistograms), cancellationToken: cancellationToken);
+            await InsertAsync(ExponentialHistogramTableName, ClickHouseMetricRowMapper.ExponentialHistogramColumns, ClickHouseMetricRowMapper.ToRows(exponentialHistograms), cancellationToken);
         }
 
         // Exemplars go last: a retry after a failure here re-inserts the points above (at-least-once, like
@@ -54,7 +54,13 @@ public sealed class ClickHouseMetricWriter(IClickHouseClient client) : IClickHou
             gauges.Cast<MetricPointRecord>().Concat(sums).Concat(histograms).Concat(exponentialHistograms));
         if (exemplarRows.Count > 0)
         {
-            await client.InsertBinaryAsync(ExemplarTableName, ClickHouseMetricRowMapper.ExemplarColumns, exemplarRows, cancellationToken: cancellationToken);
+            await InsertAsync(ExemplarTableName, ClickHouseMetricRowMapper.ExemplarColumns, exemplarRows, cancellationToken);
         }
+    }
+
+    private async Task InsertAsync(string table, IReadOnlyList<string> columns, IEnumerable<object[]> rows, CancellationToken cancellationToken)
+    {
+        var options = await columnTypes.OptionsAsync(table, columns, cancellationToken: cancellationToken);
+        await client.InsertBinaryAsync(table, columns, rows, options, cancellationToken);
     }
 }

@@ -64,25 +64,62 @@ Call with dict "root" . "key" "redis-password" "value" .Values.redis.password
 {{- end -}}
 {{- end -}}
 
-{{/* Env vars every .NET component that talks to ClickHouse and Redis needs. */}}
+{{/* "true" when the bundled ClickHouse runs with the least-privilege users of files/flare-users.xml (ADR-0282). */}}
+{{- define "flare.clickhouseUsersOn" -}}{{ if and .Values.clickhouse.enabled .Values.clickhouse.users.enabled }}true{{ end }}{{- end -}}
+
+{{/*
+Env vars every .NET component that talks to ClickHouse and Redis needs.
+Call with dict "root" . "component" "ingest" | "api" | "alert-worker".
+ConnectionStrings__clickhousedb (`default`) is the migration runner's DDL credential; each per-user connection
+string falls back to it when unset. alert-worker runs no migrations, so it gets no DDL credential when the
+bundled users are on.
+*/}}
 {{- define "flare.backingEnv" -}}
+{{- $root := .root -}}
+{{- $usersOn := eq (include "flare.clickhouseUsersOn" $root) "true" -}}
+{{- $ddl := or (ne .component "alert-worker") (not $usersOn) -}}
+{{- $chPrefix := printf "Host=%s;Port=%s;Database=clickhousedb" (include "flare.clickhouseHost" $root) (include "flare.clickhousePort" $root) -}}
+{{- with $root -}}
+{{- if $ddl }}
 - name: CLICKHOUSE_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ include "flare.clickhouseSecret" . }}
       key: clickhouse-password
+{{- end }}
 - name: REDIS_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ include "flare.redisSecret" . }}
       key: redis-password
+{{- if $ddl }}
 - name: ConnectionStrings__clickhousedb
-  value: "Host={{ include "flare.clickhouseHost" . }};Port={{ include "flare.clickhousePort" . }};Database=clickhousedb;Username={{ include "flare.clickhouseUser" . }};Password=$(CLICKHOUSE_PASSWORD)"
+  value: "{{ $chPrefix }};Username={{ include "flare.clickhouseUser" . }};Password=$(CLICKHOUSE_PASSWORD)"
+{{- end }}
+{{- range $conn := (eq $.component "ingest" | ternary (list "ingest") (eq $.component "api" | ternary (list "query" "app") (list "app"))) }}
+{{- if $usersOn }}
+- name: FLARE_CH_{{ upper $conn }}_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "flare.secretName" $root }}
+      key: clickhouse-{{ $conn }}-password
+- name: ConnectionStrings__clickhousedb-{{ $conn }}
+  value: "{{ $chPrefix }};Username=flare_{{ $conn }};Password=$(FLARE_CH_{{ upper $conn }}_PASSWORD)"
+{{- else if and (not $root.Values.clickhouse.enabled) $root.Values.clickhouse.external.usersSecret }}
+- name: ConnectionStrings__clickhousedb-{{ $conn }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $root.Values.clickhouse.external.usersSecret }}
+      key: clickhousedb-{{ $conn }}
+      optional: true
+{{- end }}
+{{- end }}
 - name: ConnectionStrings__redis
   value: "{{ include "flare.redisHost" . }}:{{ include "flare.redisPort" . }},password=$(REDIS_PASSWORD)"
 {{- if and (not .Values.clickhouse.enabled) .Values.clickhouse.external.clusterMode }}
 - name: ClickHouse__ClusterMode
   value: "true"
+{{- end }}
 {{- end }}
 {{- end -}}
 

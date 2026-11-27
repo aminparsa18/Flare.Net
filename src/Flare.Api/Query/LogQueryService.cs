@@ -3,6 +3,7 @@ using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Flare.Api.Query.LogQl;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -67,7 +68,7 @@ public sealed record ActiveService(string ServiceName, DateTimeOffset LastSeenAt
 /// <c>record</c> DTOs cleanly - the reader path has no such registration/shape
 /// requirements. Confirm this still holds during e2e verification (see this project's README).
 /// </remarks>
-public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes) : ILogQueryService
+public sealed class LogQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes) : ILogQueryService
 {
     public async Task<LogSearchResponse> SearchAsync(LogSearchRequest request, CancellationToken cancellationToken)
     {

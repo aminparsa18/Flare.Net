@@ -95,6 +95,15 @@ clickhouse:
     # Run the db/clickhouse-cluster migrations (ReplicatedMergeTree/Distributed, ON CLUSTER
     # 'flare_cluster'). See docs/explanation/clustering.md for the server-side prerequisites.
     clusterMode: false
+    # Secret with the least-privilege users' connection strings (ADR-0282), under the keys
+    # clickhousedb-ingest, clickhousedb-query and clickhousedb-app. A missing key falls back to
+    # username/password above. See docs/how-to/admin/use-clickhouse-service-users.md.
+    usersSecret: ""
+  # Bundled ClickHouse only: create flare_ingest, flare_query and flare_app (files/flare-users.xml)
+  # with generated passwords, and connect each service as its own user. `default` then only runs
+  # migrations. false = every service connects as `default`.
+  users:
+    enabled: true
   password: ""                 # empty = generated once and kept across upgrades
   existingSecret: ""           # Secret holding the password under key `clickhouse-password`
 

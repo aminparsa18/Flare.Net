@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -19,7 +20,7 @@ public interface IAlertFiringHistoryService
 }
 
 /// <summary>The ClickHouse seam for the alert annotations Prometheus overlay (ADR-0252). Reads <c>alert_events</c> only.</summary>
-public sealed class AlertFiringHistoryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits) : IAlertFiringHistoryService
+public sealed class AlertFiringHistoryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits) : IAlertFiringHistoryService
 {
     public async Task<IReadOnlyList<AlertTransition>> GetTransitionsAsync(DateTimeOffset from, DateTimeOffset to, IReadOnlyCollection<Guid>? ruleIds, CancellationToken cancellationToken)
     {

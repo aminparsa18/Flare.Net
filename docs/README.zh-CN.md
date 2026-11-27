@@ -53,6 +53,7 @@
 
 - [Configure authentication](how-to/admin/configure-authentication.zh-CN.md)
 - [使用项目组织团队](how-to/admin/organize-teams-with-projects.zh-CN.md)
+- [使用 ClickHouse 服务用户](how-to/admin/use-clickhouse-service-users.zh-CN.md)
 
 *为应用接入遥测（.NET、浏览器、.NET MAUI）*
 
@@ -120,6 +121,7 @@
 -[Aspire hosting](reference/aspire-hosting.zh-CN.md)
 -[Authentication config](reference/authentication-config.zh-CN.md)
 -[Clustering config](reference/clustering-config.zh-CN.md)
+- [ClickHouse 服务用户](reference/clickhouse-service-users.zh-CN.md)
 - [Live-tail 配置](reference/live-tail-config.zh-CN.md)
 -[OTLP logger versions](reference/otlp-logger-versions.zh-CN.md)
 

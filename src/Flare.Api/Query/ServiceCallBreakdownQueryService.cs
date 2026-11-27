@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -24,7 +25,7 @@ public interface IServiceCallBreakdownQueryService
 /// external/database queries, so the reader-mapping code below is shared regardless
 /// of which builder ran.
 /// </remarks>
-public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceCallBreakdownQueryService
+public sealed class ServiceCallBreakdownQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceCallBreakdownQueryService
 {
     private const double NanosPerMilli = 1_000_000.0;
 

@@ -296,6 +296,16 @@ See [ADR-0080](../../docs-internal/adr/0080-alert-threshold-unit.md).
 existing rules and windows are unchanged). See
 [ADR-0084](../../docs-internal/adr/0084-alert-rule-labels.md).
 
+`0092_materialized_views_sql_security_definer.sql` - the seven materialized views on `spans` run as their
+definer (the migration user), not as whoever inserts into `spans`. Ingest inserts as `flare_ingest`, which has no
+SELECT on `spans`. **A new materialized view must say `SQL SECURITY DEFINER` in its `CREATE`**, or its rows are
+silently dropped under `materialized_views_ignore_errors`. See
+[ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md).
+
+`config/flare-users.xml` is not a migration: it's the least-privilege users file mounted into ClickHouse's
+`users.d` (ADR-0282). A migration that adds a table Ingest reads, or a system table or runtime `ALTER` Flare.Api
+uses, must also update its grants (and the cluster and Helm copies).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

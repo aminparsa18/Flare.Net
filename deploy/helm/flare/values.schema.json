@@ -255,6 +255,18 @@
             },
             "clusterMode": {
               "type": "boolean"
+            },
+            "usersSecret": {
+              "type": "string"
+            }
+          }
+        },
+        "users": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
             }
           }
         },

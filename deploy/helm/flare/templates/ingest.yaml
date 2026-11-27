@@ -48,7 +48,7 @@ spec:
             - { name: grpc, containerPort: 4317 }
             - { name: http, containerPort: 4318 }
           env:
-            {{- include "flare.backingEnv" . | nindent 12 }}
+            {{- include "flare.backingEnv" (dict "root" . "component" "ingest") | nindent 12 }}
             {{- include "flare.identityEnv" . | nindent 12 }}
             {{- if gt (int .Values.ingest.replicas) 1 }}
             - name: LogPattern__SharedStore

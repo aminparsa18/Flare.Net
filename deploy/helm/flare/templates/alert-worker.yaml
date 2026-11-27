@@ -31,7 +31,7 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
           env:
-            {{- include "flare.backingEnv" . | nindent 12 }}
+            {{- include "flare.backingEnv" (dict "root" . "component" "alert-worker") | nindent 12 }}
             {{- include "flare.smtpEnv" . | nindent 12 }}
             - name: Alerting__PublicUrl
               value: {{ include "flare.dashboardUrl" . | quote }}

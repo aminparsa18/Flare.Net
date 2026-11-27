@@ -53,6 +53,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 
 - [Configurer l'authentification](how-to/admin/configure-authentication.fr.md)
 - [Organiser les équipes avec des projets](how-to/admin/organize-teams-with-projects.fr.md)
+- [Utiliser les utilisateurs de service ClickHouse](how-to/admin/use-clickhouse-service-users.fr.md)
 
 *Instrumenter vos applications (.NET, navigateur, .NET MAUI)*
 
@@ -120,6 +121,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Hébergement Aspire](reference/aspire-hosting.fr.md)
 - [Configuration de l'authentification](reference/authentication-config.fr.md)
 - [Configuration du clustering](reference/clustering-config.fr.md)
+- [Utilisateurs de service ClickHouse](reference/clickhouse-service-users.fr.md)
 - [Configuration du live-tail](reference/live-tail-config.fr.md)
 - [Versions des loggers OTLP](reference/otlp-logger-versions.fr.md)
 

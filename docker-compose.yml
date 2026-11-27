@@ -32,7 +32,14 @@ services:
       # The official image's own env var for the "default" user's password - same
       # mechanism Aspire's AddClickHouse resource uses under the hood.
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flare}
+      # Passwords of the least-privilege users in flare-users.xml (ADR-0282). An unset one would be an
+      # EMPTY password, so all three are always passed.
+      FLARE_CH_INGEST_PASSWORD: ${FLARE_CH_INGEST_PASSWORD:-flare}
+      FLARE_CH_QUERY_PASSWORD: ${FLARE_CH_QUERY_PASSWORD:-flare}
+      FLARE_CH_APP_PASSWORD: ${FLARE_CH_APP_PASSWORD:-flare}
     volumes:
+      # flare_ingest/flare_query/flare_app (ADR-0282). users.d is read at every start, unlike initdb.d.
+      - ./db/clickhouse/config/flare-users.xml:/etc/clickhouse-server/users.d/flare-users.xml:ro
       - clickhouse-data:/var/lib/clickhouse
       # Same trick as Flare.AppHost's Program.cs: the official image runs every *.sql
       # file here once, in filename order, the first time it starts against an empty
@@ -99,6 +106,9 @@ services:
       # AddClickHouseDataSource/AddRedisClient client integrations regardless of
       # whether Aspire orchestration is actually driving the process.
       ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
+      # credential; each of these falls back to it when unset.
+      ConnectionStrings__clickhousedb-ingest: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       # Same file `api` below points at (see that service's Identity__DbPath and the
       # shared identity-data volume) - both processes need to resolve to the literal
@@ -138,6 +148,10 @@ services:
         condition: service_healthy
     environment:
       ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
+      # credential; each of these falls back to it when unset.
+      ConnectionStrings__clickhousedb-query: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_query;Password=${FLARE_CH_QUERY_PASSWORD:-flare}"
+      ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       # App-wide SMTP server for the alerting Email channel (EmailAlertNotifier /
       # EmailOptions) - unlike CLICKHOUSE_PASSWORD/REDIS_PASSWORD above, these have no
@@ -216,7 +230,8 @@ services:
       redis:
         condition: service_healthy
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      # flare_app (ADR-0282). AlertWorker runs no migrations, so it gets no `clickhousedb` DDL credential.
+      ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       # Same app-wide SMTP server as `api`'s own Email__* block - real breach
       # notifications for the Email channel are sent from here now, not `api`. `api`

@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -10,7 +11,7 @@ public interface IVersionComparisonQueryService
 }
 
 /// <summary>The one component holding an <see cref="IClickHouseClient"/> for version comparison - SQL in <see cref="VersionComparisonQueryBuilder"/>.</summary>
-public sealed class VersionComparisonQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IVersionComparisonQueryService
+public sealed class VersionComparisonQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IVersionComparisonQueryService
 {
     public async Task<VersionComparisonResponse> CompareAsync(string service, VersionComparisonRequest request, CancellationToken cancellationToken)
     {

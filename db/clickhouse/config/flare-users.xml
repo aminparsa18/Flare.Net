@@ -1,0 +1,94 @@
+<!--
+  Flare's least-privilege ClickHouse users (ADR-0282, ADR-0283). Mount this file at
+  /etc/clickhouse-server/users.d/flare-users.xml. ClickHouse reads users.d at every start, so it reaches
+  an existing data volume too. The cluster variant is db/clickhouse-cluster/config/flare-users.xml;
+  keep the two in step (Flare.Api.Tests checks that they differ only in the cluster grants). Helm ships a
+  copy at deploy/helm/flare/files/flare-users.xml, which must stay identical to this file.
+
+  Each password comes from an environment variable on the ClickHouse container. An UNSET variable gives
+  an EMPTY password (ClickHouse only logs "Env variable is not set"), so set all three wherever this file
+  is mounted:
+    FLARE_CH_INGEST_PASSWORD  flare_ingest  Flare.Ingest           ConnectionStrings:clickhousedb-ingest
+    FLARE_CH_QUERY_PASSWORD   flare_query   Flare.Api queries      ConnectionStrings:clickhousedb-query
+    FLARE_CH_APP_PASSWORD     flare_app     Flare.Api, AlertWorker ConnectionStrings:clickhousedb-app
+  Migrations keep running as `default` through ConnectionStrings:clickhousedb.
+
+  The official image sets select_from_system_db_requires_grant, so only system.tables, system.columns,
+  system.databases and the constant tables are readable without a grant. A migration that adds a table
+  Ingest reads, or a new runtime ALTER or system table in Flare.Api, must update this file too; missing it
+  shows up as ACCESS_DENIED. A malformed grant stops ClickHouse from starting.
+-->
+<clickhouse>
+    <profiles>
+        <!-- readonly=2 rather than 1: QuerySafety sets max_execution_time and friends per query, which
+             readonly=1 rejects. The ceilings only catch a code path that forgets its caps; a value above one
+             fails with code 452 (SETTING_CONSTRAINT_VIOLATION). Raising Query__MaxExecutionSeconds above 300
+             or Query__MaxRowsToRead above 10000000000 means raising these too. -->
+        <flare_query>
+            <readonly>2</readonly>
+            <constraints>
+                <max_execution_time>
+                    <max>300</max>
+                </max_execution_time>
+                <max_rows_to_read>
+                    <max>10000000000</max>
+                </max_rows_to_read>
+            </constraints>
+        </flare_query>
+    </profiles>
+
+    <users>
+        <!-- Flare.Ingest: writes telemetry, reads only the config tables it applies at ingest time. The
+             insert column types come from system.columns, so it needs no SELECT on the data tables. -->
+        <flare_ingest>
+            <password from_env="FLARE_CH_INGEST_PASSWORD"/>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT INSERT ON clickhousedb.*</query>
+                <query>GRANT SELECT ON clickhousedb.pipeline_rules</query>
+                <query>GRANT SELECT ON clickhousedb.log_metrics</query>
+                <query>GRANT SELECT ON clickhousedb.metric_attribute_rules</query>
+                <query>GRANT SELECT ON clickhousedb.runtime_settings</query>
+                <query>GRANT SELECT ON clickhousedb.telemetry_exports</query>
+                <query>GRANT SELECT ON clickhousedb.checkin_monitors</query>
+            </grants>
+        </flare_ingest>
+
+        <!-- Flare.Api's query services, which run SQL built from request input (log/span search, LogQL,
+             PromQL, TraceQL, ...). Read-only, no table functions, no system tables beyond the open ones. -->
+        <flare_query>
+            <password from_env="FLARE_CH_QUERY_PASSWORD"/>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>flare_query</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT SELECT ON clickhousedb.*</query>
+            </grants>
+        </flare_query>
+
+        <!-- Flare.Api's config writes, retention, promoted columns, erasure, Indexing page and cluster status,
+             and Flare.AlertWorker. WRITE ON S3 (plus CREATE TEMPORARY TABLE, which INSERT INTO FUNCTION
+             needs) is for AlertWorker's archive export; it can't read from S3 or reach any other source. -->
+        <flare_app>
+            <password from_env="FLARE_CH_APP_PASSWORD"/>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT SELECT, INSERT ON clickhousedb.*</query>
+                <query>GRANT ALTER TTL, ALTER MODIFY COLUMN, ALTER SETTINGS, ALTER ADD COLUMN, ALTER DROP COLUMN, ALTER ADD INDEX, ALTER DROP INDEX, ALTER MATERIALIZE COLUMN, ALTER MATERIALIZE INDEX, ALTER DELETE ON clickhousedb.*</query>
+                <query>GRANT SELECT ON system.tables, SELECT ON system.mutations, SELECT ON system.parts, SELECT ON system.part_log, SELECT ON system.query_log, SELECT ON system.disks, SELECT ON system.storage_policies, SELECT ON system.data_skipping_indices, SELECT ON system.clusters, SELECT ON system.replicas, SELECT ON system.replication_queue</query>
+                <query>GRANT CREATE TEMPORARY TABLE ON *.*</query>
+                <query>GRANT WRITE ON S3</query>
+            </grants>
+        </flare_app>
+    </users>
+</clickhouse>

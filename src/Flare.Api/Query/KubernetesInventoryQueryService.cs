@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
+using Flare.ServiceDefaults.ClickHouseClients;
 
 namespace Flare.Api.Query;
 
@@ -30,7 +31,7 @@ public interface IKubernetesInventoryQueryService
 /// <see cref="KubernetesWorkloadQueryBuilder"/> (Workloads/Namespaces/Volumes) for the SQL. Same
 /// two-statement list shape and ordinal-read style as <see cref="HostInventoryQueryService"/>.
 /// </summary>
-public sealed class KubernetesInventoryQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IKubernetesInventoryQueryService
+public sealed class KubernetesInventoryQueryService([FromKeyedServices(FlareClickHouse.QueryConnectionName)] IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IKubernetesInventoryQueryService
 {
     public async Task<KubernetesNodeListResponse> ListNodesAsync(KubernetesNodeListRequest request, CancellationToken cancellationToken)
     {

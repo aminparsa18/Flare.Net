@@ -29,6 +29,7 @@ using Flare.Identity.Auth;
 using Flare.Identity.IssueTrackers;
 using Flare.Identity.SourceLinks;
 using Flare.Identity.Users;
+using Flare.ServiceDefaults.ClickHouseClients;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -39,9 +40,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-// Same connection name Flare.AppHost references onto Flare.Ingest - both projects read/
-// write the same `clickhousedb.logs` table.
-builder.AddClickHouseDataSource(connectionName: "clickhousedb");
+// Three ClickHouse clients, one per user (ADR-0282), each falling back to `clickhousedb`:
+// - the plain IClickHouseClient is flare_app: config writes, retention, promoted columns, erasure,
+//   and the fixed system.* reads (Indexing, cluster status) that need system grants and REMOTE;
+// - the keyed FlareClickHouse.QueryConnectionName client is flare_query (SELECT only, readonly=2), for
+//   every query service that runs SQL built from request input;
+// - the keyed `clickhousedb` client is the DDL credential, used only by the migration runner below.
+// A query service left on the plain client keeps working with more privilege than it needs; a store
+// put on the query client fails with ACCESS_DENIED.
+builder.AddFlareClickHouseClient(FlareClickHouse.AppConnectionName);
+builder.AddKeyedFlareClickHouseClient(FlareClickHouse.QueryConnectionName);
+builder.AddKeyedFlareClickHouseClient(FlareClickHouse.DdlConnectionName, healthCheck: false);
 
 // Redis: the live-tail endpoint's LogTailBroadcaster reads new entries off the same
 // `flare:logs` stream Flare.Ingest's RedisStreamLogEventSink writes into. Same connection
@@ -279,7 +288,7 @@ builder.Services.AddSingleton<ILogQueryService>(sp => new CachingLogQueryService
 // ClickHouse:ClusterMode-gated optimize_skip_unused_shards can be threaded through -
 // see its TraceByIdQueryOptions remarks. Same flag as IndexingQueryService below.
 builder.Services.AddSingleton<ISpanQueryService>(sp => new SpanQueryService(
-    sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredKeyedService<IClickHouseClient>(FlareClickHouse.QueryConnectionName),
     sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
     sp.GetRequiredService<TimeProvider>(),
     sp.GetRequiredService<IPromotedAttributeRegistry>(),
@@ -632,7 +641,7 @@ var app = builder.Build();
 // switches to the db/clickhouse-cluster/*.sql schema set instead - set by
 // docker-compose.cluster.yml, unset/false everywhere else.
 await ClickHouseMigrationRunner.ApplyAsync(
-    app.Services.GetRequiredService<IClickHouseClient>(),
+    app.Services.GetRequiredKeyedService<IClickHouseClient>(FlareClickHouse.DdlConnectionName),
     app.Logger,
     CancellationToken.None,
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode"));
