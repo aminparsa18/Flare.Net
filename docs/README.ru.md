@@ -70,6 +70,7 @@
 - [Мониторинг приложений Dapr](how-to/monitor/monitor-dapr-applications.ru.md)
 - [Мониторинг внешних API](how-to/monitor/monitor-external-apis.ru.md)
 - [Отслеживание вызовов LLM](how-to/monitor/monitor-llm-calls.ru.md)
+- [Мониторинг эндпоинтов, портов и сертификатов синтетическими пробами](how-to/monitor/synthetic-monitoring.ru.md)
 - [Как следить за cron-заданиями и задачами по расписанию с помощью check-in](how-to/monitor/monitor-cron-jobs.ru.md)
 - [Как опубликовать страницу статуса](how-to/monitor/publish-a-status-page.ru.md)
 
@@ -95,9 +96,12 @@
 
 *Дашборды*
 
+- [Создание пользовательского дашборда](how-to/dashboards/build-custom-dashboards.ru.md)
+- [Отправка дашборда по почте по расписанию](how-to/dashboards/schedule-dashboard-reports.ru.md)
 
 *Управление данными, хранением и затратами*
 
+- [Извлечение или скрытие полей при приёме данных](how-to/data/manage-pipeline-rules.ru.md)
 - [Как найти метрики с высокой кардинальностью](how-to/data/find-high-cardinality-metrics.ru.md)
 - [Как сократить атрибуты метрики при приёме](how-to/data/reduce-metric-attributes.ru.md)
 - [Как превратить поиск по логам в метрику](how-to/data/log-based-metrics.ru.md)

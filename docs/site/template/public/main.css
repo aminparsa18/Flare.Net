@@ -1,0 +1,6 @@
+/* Flare docs site (docfx "modern" template). The brand mark is a 500x500 PNG. */
+.navbar-brand img,
+#logo {
+  height: 32px;
+  width: auto;
+}

@@ -246,7 +246,7 @@ Errors, Messaging, Metrics, Ingestion, Alerts, Resources, Dashboards, Views,
 et Auth pour les administrateurs) ; Releases, Frontend, External APIs,
 Sessions, LLM, Profiles, Hosts et Kubernetes se trouvent dans un menu
 « plus ». La configuration se trouve sous **Settings**, décrite
-[à la fin de la visite](#parametres). `Ctrl+K` (`⌘K` sur macOS) ouvre une
+[à la fin de la visite](#paramètres). `Ctrl+K` (`⌘K` sur macOS) ouvre une
 palette de commandes qui permet d'aller à n'importe laquelle.
 
 ### Logs
@@ -468,7 +468,7 @@ permet de remplacer une unité ou une description, et aide à repérer les
 métriques à forte cardinalité. Les cibles de scrape Prometheus et les
 métriques issues des logs atterrissent dans les mêmes tables : elles se
 tracent et alertent de la même façon. La lecture des mêmes données depuis
-Grafana est traitée sous [Intégrations](#integrations-et-api).
+Grafana est traitée sous [Intégrations](#intégrations-et-api).
 
 ![Metrics browser](../screenshots/metrics-en.webp)
 
