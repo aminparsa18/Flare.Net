@@ -28,4 +28,13 @@ public sealed class QueryLimitsOptions
     /// dashboard request.
     /// </summary>
     public int AlertEvaluationMaxExecutionSeconds { get; set; } = 10;
+
+    /// <summary>
+    /// Send the request's project scope as the <c>SQL_flare_scope</c> setting on every query
+    /// (<c>Query__RowPolicyScope=true</c>), for the opt-in ClickHouse row policies on <c>flare_query</c>
+    /// (ADR-0287). Off by default: a server whose config.xml doesn't allow the <c>SQL_</c> prefix rejects
+    /// the setting and every query with it. With the policies mounted and this off, restricted and
+    /// unrestricted callers alike see no telemetry.
+    /// </summary>
+    public bool RowPolicyScope { get; set; }
 }

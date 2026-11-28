@@ -1,0 +1,58 @@
+<!--
+  Opt-in row policies on flare_query, a second check on project scoping (ADR-0287). Flare.Api already
+  restricts every query to the caller's project services (ADR-0123); these make ClickHouse hide the other
+  rows too, so a query builder that forgets the filter still returns nothing outside the caller's scope.
+  They don't protect against a compromised Flare.Api: the client sends the scope.
+
+  Mount at /etc/clickhouse-server/users.d/flare-row-policies.xml, next to flare-users.xml, and set
+  Query__RowPolicyScope=true on Flare.Api. The cluster variant is
+  db/clickhouse-cluster/config/flare-row-policies.xml (the same policies on the *_local tables), and Helm
+  ships a copy at deploy/helm/flare/files/flare-row-policies.xml, which must stay identical to this file.
+
+  Flare.Api sends the scope as the SQL_flare_scope setting: a JSON array of service patterns (exact, or
+  a trailing * for a prefix), ["*"] for an unrestricted caller. The profile default is '[]', so it fails
+  closed: a query without the setting, or Flare.Api with Query__RowPolicyScope off, sees no telemetry.
+  The value is a quoted string because ClickHouse parses profile settings as literals; a bare [] stops
+  ClickHouse from starting.
+
+  One policy per telemetry table keyed by service, on ServiceName (service_dependency_nodes: Service, the
+  peer.service-or-ServiceName value the map scopes by). Config tables and slos aren't covered: they're
+  scoped by ProjectId, not by service. A migration that adds a telemetry table with a service column must
+  add it here and in the other copies (Flare.Api.Tests checks the migrations). Only flare_query is
+  filtered; flare_app (alerts, retention, config) and flare_ingest see every row.
+-->
+<clickhouse>
+    <profiles>
+        <flare_query>
+            <SQL_flare_scope>'[]'</SQL_flare_scope>
+        </flare_query>
+    </profiles>
+
+    <users>
+        <flare_query>
+            <databases>
+                <clickhousedb>
+                    <app_feedback><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></app_feedback>
+                    <app_screenshots><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></app_screenshots>
+                    <llm_model_calls><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></llm_model_calls>
+                    <logs><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></logs>
+                    <metric_exemplars><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></metric_exemplars>
+                    <metrics_exponential_histogram><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></metrics_exponential_histogram>
+                    <metrics_gauge><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></metrics_gauge>
+                    <metrics_histogram><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></metrics_histogram>
+                    <metrics_sum><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></metrics_sum>
+                    <outbound_calls><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></outbound_calls>
+                    <profile_samples><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></profile_samples>
+                    <releases><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></releases>
+                    <service_call_breakdown_database><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></service_call_breakdown_database>
+                    <service_call_breakdown_external><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></service_call_breakdown_external>
+                    <service_dependency_nodes><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(Service, substring(p, 1, length(p) - 1)), Service = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></service_dependency_nodes>
+                    <service_metrics><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></service_metrics>
+                    <span_sli_minute><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></span_sli_minute>
+                    <spans><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></spans>
+                    <web_replay_chunks><filter>has(JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'), '*') OR arrayExists(p -> if(endsWith(p, '*'), startsWith(ServiceName, substring(p, 1, length(p) - 1)), ServiceName = p), JSONExtract(getSetting('SQL_flare_scope'), 'Array(String)'))</filter></web_replay_chunks>
+                </clickhousedb>
+            </databases>
+        </flare_query>
+    </users>
+</clickhouse>

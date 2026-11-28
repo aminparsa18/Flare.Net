@@ -9,7 +9,8 @@ faire basculer une installation existante, voir
 Pour le pourquoi, voir [l'ADR-0282](../../docs-internal/adr/0282-clickhouse-service-users.md)
 [l'ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md)
 [l'ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md)
-et [l'ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md).
+[l'ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md)
+et [l'ADR-0287](../../docs-internal/adr/0287-opt-in-row-policies-on-flare-query.md).
 
 ## Utilisateurs
 
@@ -87,6 +88,47 @@ Une requête au-delà d'une limite échoue avec le code 201 (`QUOTA_EXCEEDED`),
 et Flare.Api répond à la requête par `429 Too Many Requests`. Flare.AlertWorker
 et le travail de Flare.Api sous `flare_app` ne sont pas comptés.
 
+### Politiques de lignes sur `flare_query`
+
+Facultatives. Une fois activées, ClickHouse masque lui-même les lignes des
+services qui sont hors des [projets](../how-to/admin/organize-teams-with-projects.fr.md)
+de l'appelant, en second contrôle du filtre que Flare.Api ajoute à chaque
+requête. Pour les activer, voir
+[Ajouter des politiques de lignes comme second contrôle du périmètre des projets](../how-to/admin/use-clickhouse-service-users.fr.md#ajouter-des-politiques-de-lignes-comme-second-contrôle-du-périmètre-des-projets).
+Il faut les deux moitiés :
+
+| Moitié | Où | Désactivée par défaut car |
+|---|---|---|
+| Les politiques | `users.d/flare-row-policies.xml` : `db/clickhouse/config/flare-row-policies.xml`, `db/clickhouse-cluster/config/flare-row-policies.xml` (sur les tables `_local`) ou `files/flare-row-policies.xml` dans Helm | Elles masquent toutes les lignes à un Flare.Api qui n'envoie pas le périmètre |
+| L'envoi du périmètre | `Query:RowPolicyScope` (`Query__RowPolicyScope=true`) sur Flare.Api | Un serveur dont le `config.xml` n'autorise pas le préfixe de paramètres personnalisés `SQL_` rejette toute requête qui l'envoie. L'image officielle l'autorise. |
+
+Flare.Api envoie le périmètre avec chaque requête `flare_query` dans le
+paramètre `SQL_flare_scope`, un tableau JSON de motifs de services :
+
+| Appelant | `SQL_flare_scope` | Voit |
+|---|---|---|
+| Admin global, authentification désactivée, page de statut publique, tâches de fond | `["*"]` | Tous les services |
+| Membre d'un projet | L'union des motifs de ses projets, par exemple `["checkout-*","billing"]` | Ces services |
+| Non-admin sans projet, sur une instance qui a des projets | `[]` | Rien |
+| Paramètre absent ou illisible | La valeur par défaut du profil, `'[]'` | Rien |
+
+Les politiques couvrent les 19 tables de télémétrie indexées par service, sur
+`ServiceName`. L'exception est `service_dependency_nodes`, qui utilise
+`Service`. Les tables de configuration et `slos` sont limitées par projet dans
+Flare.Api, pas par service, et ne sont pas couvertes. `flare_app` et
+`flare_ingest` ne sont pas filtrés.
+
+Avec les politiques, un utilisateur restreint perd aussi des lignes que
+Flare.Api ne filtre pas par service :
+
+- Les métriques d'hôtes, de Kubernetes et de backlog des brokers qu'un
+  collecteur rapporte sous un `service.name` hors des projets de l'utilisateur.
+- Sur la carte des services, les spans clients d'autres services que Flare.Api
+  attribue à un `peer.service` du périmètre.
+
+Les politiques ne protègent pas contre un Flare.Api compromis, puisque c'est lui
+qui envoie le périmètre.
+
 ## Chaînes de connexion
 
 | Clé | Variable d'env | Utilisée par | Si absente |
@@ -132,6 +174,7 @@ changer une demande de redémarrer ClickHouse et les services qui l'utilisent.
 | `clickhouse.external.usersSecret` | `""` | ClickHouse externe uniquement. Secret contenant les chaînes de connexion complètes sous les clés `clickhousedb-ingest`, `clickhousedb-query` et `clickhousedb-app`. Une clé absente se rabat sur `clickhouse.external.username` et le mot de passe ClickHouse, sauf lorsque le Job de migration s'exécute, où les trois clés sont obligatoires. |
 | `clickhouse.queryQuota.readRows` | `0` | ClickHouse intégré avec `clickhouse.users.enabled` uniquement. La limite horaire de `read_rows` par clé de quota ; `0` = aucune limite. |
 | `clickhouse.queryQuota.executionTimeSeconds` | `0` | Idem, pour `execution_time` en secondes. Si l'une des deux valeurs dépasse `0`, le chart monte `users.d/zz-flare-query-quota.xml` avec les deux. |
+| `clickhouse.rowPolicies.enabled` | `false` | [Politiques de lignes sur `flare_query`](#politiques-de-lignes-sur-flare_query). Définit `Query__RowPolicyScope=true` sur api et, avec le ClickHouse intégré et `clickhouse.users.enabled`, monte `users.d/flare-row-policies.xml`. Avec un ClickHouse externe, montez d'abord les politiques sur ce serveur. |
 | `clickhouse.migrationJob.enabled` | `true` | Exécuter les migrations dans un Job ponctuel et ne donner le mot de passe `default` à aucun pod de service (voir plus bas). Le chart revient aux migrations au démarrage, et en donne la raison dans les notes d'installation, lorsque `image.tag` est une version antérieure à 0.7.0, ou lorsque ni `clickhouse.users.enabled` (ClickHouse intégré) ni `clickhouse.external.usersSecret` ne donnent aux services leurs propres utilisateurs. `false` migre toujours au démarrage. |
 | `clickhouse.migrationJob.resources` | `{}` | Les ressources du conteneur du Job. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Combien de temps Kubernetes garde un Job terminé. |

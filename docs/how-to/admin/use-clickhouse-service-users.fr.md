@@ -238,3 +238,59 @@ ALTER QUOTA flare_query FOR INTERVAL 1 hour MAX read_rows = 5000000000, executio
 `SELECT quota_key, read_rows, max_read_rows, execution_time, max_execution_time
 FROM system.quotas_usage WHERE quota_name = 'flare_query'` affiche les nouvelles valeurs `max_*`. Quand une clé dépasse une
 limite, Flare.Api journalise `ClickHouse query quota exceeded for user:…`.
+
+## Ajouter des politiques de lignes comme second contrôle du périmètre des projets
+
+Faire masquer par ClickHouse lui-même les lignes des services hors des
+[projets](organize-teams-with-projects.fr.md) d'un utilisateur, pour qu'une
+requête Flare qui aurait oublié le filtre de projet n'affiche toujours rien de
+ce qu'elle ne devrait pas. Il faut les utilisateurs de service ci-dessus. Pour ce
+que les politiques couvrent ou non, voir
+[Politiques de lignes sur `flare_query`](../../reference/clickhouse-service-users.fr.md#politiques-de-lignes-sur-flare_query).
+
+Activez les deux moitiés ensemble. Si les politiques sont montées et que
+Flare.Api n'envoie pas le périmètre, personne ne voit de télémétrie. C'est aussi
+le cas avec les images Flare.Api 0.7.0 ou antérieures, qui ne l'envoient jamais.
+
+### Docker Compose ou une instance du CLI `flare`
+
+1. Montez les politiques sur le service `clickhouse` (chaque `clickhouse-N` en
+   mode cluster) :
+
+   ```yaml
+   volumes:
+     # Mode cluster : ./db/clickhouse-cluster/config/flare-row-policies.xml
+     - ./db/clickhouse/config/flare-row-policies.xml:/etc/clickhouse-server/users.d/flare-row-policies.xml:ro
+   ```
+
+2. Sur le service `api`, ajoutez :
+
+   ```yaml
+   environment:
+     Query__RowPolicyScope: "true"
+   ```
+
+3. Recréez la stack : `docker compose up -d`.
+
+### Helm
+
+```bash
+helm upgrade flare deploy/helm/flare --reuse-values --set clickhouse.rowPolicies.enabled=true
+```
+
+Avec le ClickHouse intégré, cela monte les politiques et redémarre ClickHouse.
+Avec `clickhouse.enabled=false`, cela définit seulement `Query__RowPolicyScope`
+sur api. Montez d'abord `flare-row-policies.xml` (le fichier cluster pour un
+cluster) dans le `users.d` de votre serveur.
+
+### Vérifier les politiques
+
+En tant que `default`, `SELECT short_name, table FROM system.row_policies` doit
+lister 19 politiques sur `flare_query`. Connectez-vous ensuite comme membre d'un
+projet : les pages Logs, Traces et Metrics doivent afficher les services du
+projet. Si toutes les pages sont vides pour tout le monde, Flare.Api n'envoie pas
+le périmètre : vérifiez `Query__RowPolicyScope` et la version de l'image.
+
+Pour désactiver les politiques, retirez le montage (Helm :
+`clickhouse.rowPolicies.enabled=false`), redémarrez ClickHouse, puis retirez
+`Query__RowPolicyScope`.

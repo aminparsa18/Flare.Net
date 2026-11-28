@@ -224,3 +224,57 @@ ALTER QUOTA flare_query FOR INTERVAL 1 hour MAX read_rows = 5000000000, executio
 FROM system.quotas_usage WHERE quota_name = 'flare_query'` shows the new
 `max_*` values. When a key runs over, Flare.Api logs
 `ClickHouse query quota exceeded for user:…`.
+
+## Add row policies as a second check on project scoping
+
+Make ClickHouse itself hide the rows of services outside a user's
+[projects](organize-teams-with-projects.md), so a Flare query that forgot
+the project filter still shows nothing it shouldn't. This needs the service
+users above. For what the policies cover and what they don't, see
+[Row policies on `flare_query`](../../reference/clickhouse-service-users.md#row-policies-on-flare_query).
+
+Turn on both halves together. With the policies mounted and Flare.Api not
+sending the scope, nobody sees any telemetry. That includes Flare.Api images
+from 0.7.0 or earlier, which never send it.
+
+### Docker Compose or a `flare` CLI instance
+
+1. Mount the policies on the `clickhouse` service (each `clickhouse-N` in
+   cluster mode):
+
+   ```yaml
+   volumes:
+     # Cluster mode: ./db/clickhouse-cluster/config/flare-row-policies.xml
+     - ./db/clickhouse/config/flare-row-policies.xml:/etc/clickhouse-server/users.d/flare-row-policies.xml:ro
+   ```
+
+2. On the `api` service, add:
+
+   ```yaml
+   environment:
+     Query__RowPolicyScope: "true"
+   ```
+
+3. Recreate the stack: `docker compose up -d`.
+
+### Helm
+
+```bash
+helm upgrade flare deploy/helm/flare --reuse-values --set clickhouse.rowPolicies.enabled=true
+```
+
+With the bundled ClickHouse, this mounts the policies and restarts
+ClickHouse. With `clickhouse.enabled=false`, it only sets
+`Query__RowPolicyScope` on api. Mount `flare-row-policies.xml` (the
+cluster file for a cluster) in your server's `users.d` first.
+
+### Check the policies
+
+As `default`, `SELECT short_name, table FROM system.row_policies` should list
+19 policies on `flare_query`. Then sign in as a project member: the Logs,
+Traces and Metrics pages should show the project's services. If every page is
+empty for everyone, Flare.Api isn't sending the scope: check
+`Query__RowPolicyScope` and the image version.
+
+To turn the policies off, remove the mount (Helm: `clickhouse.rowPolicies.enabled=false`),
+restart ClickHouse, and then remove `Query__RowPolicyScope`.

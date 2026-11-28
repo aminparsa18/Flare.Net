@@ -54,6 +54,12 @@ spec:
               value: {{ include "flare.dashboardUrl" . | quote }}
             - name: Flare__BasePath
               value: {{ include "flare.basePath" . | quote }}
+            {{- if .Values.clickhouse.rowPolicies.enabled }}
+            # Sends the caller's project scope for the flare_query row policies (ADR-0287). Without it, a server
+            # that has the policies shows no telemetry to anyone.
+            - name: Query__RowPolicyScope
+              value: "true"
+            {{- end }}
             {{- if gt (int .Values.ingest.replicas) 1 }}
             - name: LogPattern__SharedStore
               value: "true"

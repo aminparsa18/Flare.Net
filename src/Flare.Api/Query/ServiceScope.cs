@@ -59,4 +59,18 @@ public static class ServiceScope
 
     public static bool Allows(string serviceName) =>
         Current is not { } patterns || ProjectServicePattern.MatchesAny(patterns, serviceName);
+
+    /// <summary>
+    /// The ClickHouse custom setting the opt-in row policies on <c>flare_query</c> read (ADR-0287), sent by
+    /// <see cref="QuerySafety"/> when <see cref="QueryLimitsOptions.RowPolicyScope"/> is on.
+    /// </summary>
+    public const string RowPolicySettingName = "SQL_flare_scope";
+
+    /// <summary>
+    /// <see cref="Current"/> as the <see cref="RowPolicySettingName"/> value: a JSON array of patterns, with
+    /// <c>["*"]</c> for unrestricted (a project pattern can't be a bare <c>*</c>, ADR-0123). The policies'
+    /// default is <c>[]</c>, so a query that doesn't send it sees no rows.
+    /// </summary>
+    public static string RowPolicySettingValue() =>
+        System.Text.Json.JsonSerializer.Serialize(Current ?? ["*"]);
 }

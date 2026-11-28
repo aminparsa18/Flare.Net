@@ -6,7 +6,8 @@ settings that wire them up. To switch an existing install over, see
 For why, see [ADR-0282](../../docs-internal/adr/0282-clickhouse-service-users.md)
 [ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md)
 [ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md)
-and [ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md).
+[ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md)
+and [ADR-0287](../../docs-internal/adr/0287-opt-in-row-policies-on-flare-query.md).
 
 ## Users
 
@@ -78,6 +79,45 @@ A query over a limit fails with code 201 (`QUOTA_EXCEEDED`), and Flare.Api
 answers the request with `429 Too Many Requests`. Flare.AlertWorker and
 Flare.Api's `flare_app` work aren't counted.
 
+### Row policies on `flare_query`
+
+Optional. With them on, ClickHouse itself hides the rows of services outside
+the caller's [projects](../how-to/admin/organize-teams-with-projects.md), as
+a second check on the filter Flare.Api adds to every query. To turn them on,
+see [Add row policies as a second check on project scoping](../how-to/admin/use-clickhouse-service-users.md#add-row-policies-as-a-second-check-on-project-scoping).
+They need both halves:
+
+| Half | Where | Off by default because |
+|---|---|---|
+| The policies | `users.d/flare-row-policies.xml`: `db/clickhouse/config/flare-row-policies.xml`, `db/clickhouse-cluster/config/flare-row-policies.xml` (on the `_local` tables) or Helm's `files/flare-row-policies.xml` | They hide every row from a Flare.Api that doesn't send the scope |
+| Sending the scope | `Query:RowPolicyScope` (`Query__RowPolicyScope=true`) on Flare.Api | A server whose `config.xml` doesn't allow the `SQL_` custom-setting prefix rejects every query that sends it. The official image allows it. |
+
+Flare.Api sends the scope on every `flare_query` query as the
+`SQL_flare_scope` setting, a JSON array of service patterns:
+
+| Caller | `SQL_flare_scope` | Sees |
+|---|---|---|
+| Global Admin, auth disabled, a public status page, background work | `["*"]` | Every service |
+| A project member | The union of their projects' patterns, e.g. `["checkout-*","billing"]` | Those services |
+| A non-admin in no project, on an instance that has projects | `[]` | Nothing |
+| No setting sent, or an unparseable one | The profile default, `'[]'` | Nothing |
+
+The policies cover the 19 telemetry tables keyed by service, on
+`ServiceName`. The exception is `service_dependency_nodes`, which uses
+`Service`. Config tables and `slos` are scoped by project in Flare.Api, not by
+service, and aren't covered. `flare_app` and `flare_ingest` aren't filtered.
+
+With the policies on, a restricted user also loses rows that Flare.Api
+doesn't filter by service:
+
+- Host, Kubernetes and broker backlog metrics that a collector reports under
+  a `service.name` outside the user's projects.
+- On the service map, client spans from other services that Flare.Api
+  attributes to an in-scope `peer.service`.
+
+The policies don't protect against a compromised Flare.Api, because it is the
+one that sends the scope.
+
 ## Connection strings
 
 | Key | Env var | Used by | When unset |
@@ -120,6 +160,7 @@ ClickHouse and of the services that use it.
 | `clickhouse.external.usersSecret` | `""` | External ClickHouse only. Secret with the full connection strings under the keys `clickhousedb-ingest`, `clickhousedb-query` and `clickhousedb-app`. A missing key falls back to `clickhouse.external.username` and the ClickHouse password, except when the migration Job runs, where all three keys are required. |
 | `clickhouse.queryQuota.readRows` | `0` | Bundled ClickHouse with `clickhouse.users.enabled` only. The hourly `read_rows` limit per quota key; `0` = no limit. |
 | `clickhouse.queryQuota.executionTimeSeconds` | `0` | The same, for `execution_time` in seconds. When either value is above `0`, the chart mounts `users.d/zz-flare-query-quota.xml` with both. |
+| `clickhouse.rowPolicies.enabled` | `false` | [Row policies on `flare_query`](#row-policies-on-flare_query). Sets `Query__RowPolicyScope=true` on api and, with the bundled ClickHouse and `clickhouse.users.enabled`, mounts `users.d/flare-row-policies.xml`. With an external ClickHouse, mount the policies there first. |
 | `clickhouse.migrationJob.enabled` | `true` | Run migrations in a one-shot Job and give no service pod the `default` password (below). The chart falls back to migrating at startup, and says why in the install notes, when `image.tag` is a release older than 0.7.0, or when neither `clickhouse.users.enabled` (bundled ClickHouse) nor `clickhouse.external.usersSecret` gives the services their own users. `false` always migrates at startup. |
 | `clickhouse.migrationJob.resources` | `{}` | The Job container's resources. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | How long Kubernetes keeps a finished Job. |

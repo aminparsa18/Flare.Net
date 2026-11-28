@@ -131,10 +131,7 @@ folders are where "what happened and why" actually lives.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
-  - **Opt-in row policies as a second check on project scoping**, after ADR-0282. A RESTRICTIVE policy on every
-    service-keyed `_local` table and aggregate table, using a `SQL_flare_scope` setting that Api sends. It fails closed,
-    and the workers stay on `flare_app`. ([Investigation](../investigations/clickhouse-access-control-vs-identity-store.md).)
-  - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
+    - **MFA / TOTP for local and LDAP accounts.** Password plus lockout only; external IdPs already cover MFA. Add TOTP,
     recovery codes and a "require MFA for Admins" setting (WebAuthn/passkeys later).
 - **Cluster mode without Postgres.** Api stays the single owner of the SQLite identity store and publishes the ingest-key
   set (hash, limits, origins, services, expiry, revoked) to a versioned ClickHouse table (ADR-0009/0074), which

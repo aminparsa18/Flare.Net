@@ -93,6 +93,13 @@ clickhouse:
   queryQuota:
     readRows: 0
     executionTimeSeconds: 0
+  # ClickHouse row policies on flare_query as a second check on project scoping (ADR-0287): ClickHouse itself
+  # hides rows of services outside the caller's projects, in case a query forgets Flare.Api's filter.
+  # Bundled ClickHouse (with users.enabled): mounts files/flare-row-policies.xml and sets Query__RowPolicyScope
+  # on api. With enabled=false, it only sets Query__RowPolicyScope: mount the policies on your own server first,
+  # or no one sees telemetry. Needs an api image released after 0.7.0; older ones never send the scope.
+  rowPolicies:
+    enabled: false
   # Only used when enabled=false.
   external:
     host: ""
