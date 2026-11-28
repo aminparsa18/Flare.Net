@@ -27,6 +27,8 @@
 
 **Languages:** [English](README.md) &nbsp;|&nbsp; [简体中文](README.zh-CN.md) &nbsp;|&nbsp; [Русский](README.ru.md) &nbsp;|&nbsp; [Français](README.fr.md)
 
+**[📖 Read the documentation →](https://aminparsa18.github.io/Flare.Net/)**
+
 A self-hosted, OpenTelemetry-native observability platform for .NET — logs, traces, and metrics as first-class citizens, correlated in one place, with threshold/query-based alert rules that notify webhook/Slack, Telegram, or email on breach.
 
 **Think Seq or Datadog — but fully open source (MIT), self-hosted, and OTLP straight in with no proprietary agent or SDK to install.**
@@ -71,42 +73,42 @@ What differs is how you run Flare itself. Pick one:
   var flare = builder.AddFlare("flare", builder.AddClickHouse("clickhouse"), builder.AddRedis("redis"));
   builder.AddDotnetProject("myapi", "../MyApi/MyApi.csproj").WithOtlpExporter(flare).WaitFor(flare);
   ```
-  `aspire add CommunityToolkit.Aspire.Hosting.Flare` (Aspire 17+, from the Aspire Community Toolkit) — Flare joins your AppHost as a resource, so it starts, stops, and gets discovered by your other resources the same way everything else in your graph does. Details: [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.md).
+  `aspire add CommunityToolkit.Aspire.Hosting.Flare` (Aspire 17+, from the Aspire Community Toolkit) — Flare joins your AppHost as a resource, so it starts, stops, and gets discovered by your other resources the same way everything else in your graph does. Details: [Run with .NET Aspire](https://aminparsa18.github.io/Flare.Net/how-to/deploy/run-with-aspire.html).
 
 - **Not using Aspire, want it running standalone?**
   ```sh
   docker compose up
   ```
-  at the repo root, with working defaults for every port and credential (copy [.env.example](.env.example) to `.env` to change any). Details: [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.md).
+  at the repo root, with working defaults for every port and credential (copy [.env.example](.env.example) to `.env` to change any). Details: [Run standalone](https://aminparsa18.github.io/Flare.Net/how-to/deploy/run-standalone.html).
 
 - **Just evaluating — no repo cloned, no .NET SDK?**
   ```sh
   curl -fsSL https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh | bash
   ```
-  Installs Docker if it's missing, then pulls and starts the same standalone stack from the published images. Details: [docs/how-to/deploy/run-standalone.md#zero-prerequisite-quick-install](docs/how-to/deploy/run-standalone.md#zero-prerequisite-quick-install).
+  Installs Docker if it's missing, then pulls and starts the same standalone stack from the published images. Details: [Run standalone](https://aminparsa18.github.io/Flare.Net/how-to/deploy/run-standalone.html#zero-prerequisite-quick-install).
 
 - **Want one standing instance shared across several unrelated local projects?**
   ```sh
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  A global CLI that manages the same Docker stack from anywhere, no repo checkout required. No .NET SDK? `npm install --global @apardev/flare-cli` installs the same command. Details: [docs/how-to/deploy/run-with-cli.md](docs/how-to/deploy/run-with-cli.md).
+  A global CLI that manages the same Docker stack from anywhere, no repo checkout required. No .NET SDK? `npm install --global @apardev/flare-cli` installs the same command. Details: [Run with the CLI](https://aminparsa18.github.io/Flare.Net/how-to/deploy/run-with-cli.html).
 
-Whichever path you pick, the dashboard comes up at [http://localhost:7777](http://localhost:7777). Authentication is **off by default** — the Logs page is open the moment it's up. Turn sign-in on (local accounts, Microsoft Entra ID, Active Directory, OpenID Connect, or reverse-proxy trusted headers) from the `/auth` page whenever you're ready; see [docs/how-to/admin/configure-authentication.md](docs/how-to/admin/configure-authentication.md).
+Whichever path you pick, the dashboard comes up at [http://localhost:7777](http://localhost:7777). Authentication is **off by default** — the Logs page is open the moment it's up. Turn sign-in on (local accounts, Microsoft Entra ID, Active Directory, OpenID Connect, or reverse-proxy trusted headers) from the `/auth` page whenever you're ready; see [Configure authentication](https://aminparsa18.github.io/Flare.Net/how-to/admin/configure-authentication.html).
 
-Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.md#point-your-logger-at-it) (or [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.md#3-send-your-services-telemetry-to-flare) on Aspire). For anything else — Python, Node.js, Java, Go, Kubernetes, DevOps pipelines, a log shipper, or Prometheus scrape — the dashboard's own **Data sources** page (nav dropdown, or the Logs page's empty state) has the same kind of copy-paste snippets; see the [architecture tour](docs/explanation/architecture.md#data-sources) for a preview.
+Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [Run standalone](https://aminparsa18.github.io/Flare.Net/how-to/deploy/run-standalone.html#point-your-logger-at-it) (or [Run with .NET Aspire](https://aminparsa18.github.io/Flare.Net/how-to/deploy/run-with-aspire.html#3-send-your-services-telemetry-to-flare) on Aspire). For anything else — Python, Node.js, Java, Go, Kubernetes, DevOps pipelines, a log shipper, or Prometheus scrape — the dashboard's own **Data sources** page (nav dropdown, or the Logs page's empty state) has the same kind of copy-paste snippets; see the [architecture tour](https://aminparsa18.github.io/Flare.Net/explanation/architecture.html#data-sources) for a preview.
 
-Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup — see [docs/how-to/deploy/run-cluster-mode.md](docs/how-to/deploy/run-cluster-mode.md).
+Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup — see [Run in cluster mode](https://aminparsa18.github.io/Flare.Net/how-to/deploy/run-cluster-mode.html).
 
-Want your AI assistant to read your telemetry? `flare mcp` is a read-only [MCP](https://modelcontextprotocol.io) server — see [docs/how-to/integrations/connect-ai-assistants.md](docs/how-to/integrations/connect-ai-assistants.md).
+Want your AI assistant to read your telemetry? `flare mcp` is a read-only [MCP](https://modelcontextprotocol.io) server — see [Let an AI assistant query Flare](https://aminparsa18.github.io/Flare.Net/how-to/integrations/connect-ai-assistants.html).
 
 ### Send telemetry from your .NET app
 
-Not running under Aspire? [`Flare.OpenTelemetry`](src/Flare.OpenTelemetry) (preview, not yet on NuGet) is one call, `builder.AddFlareTelemetry("http://localhost:4317")`: an OTLP exporter for logs, traces and metrics, ASP.NET Core and `HttpClient` instrumentation, runtime metrics and an optional trace sampler — see [docs/how-to/instrument/send-dotnet-telemetry.md](docs/how-to/instrument/send-dotnet-telemetry.md).
+Not running under Aspire? [`Flare.OpenTelemetry`](src/Flare.OpenTelemetry) (preview, not yet on NuGet) is one call, `builder.AddFlareTelemetry("http://localhost:4317")`: an OTLP exporter for logs, traces and metrics, ASP.NET Core and `HttpClient` instrumentation, runtime metrics and an optional trace sampler — see [Send telemetry from a .NET app to Flare](https://aminparsa18.github.io/Flare.Net/how-to/instrument/send-dotnet-telemetry.html).
 
 ### Mobile apps (.NET MAUI)
 
-Building a mobile app? [`Flare.Maui`](src/Flare.Maui) (preview, not yet on NuGet) adds `builder.UseFlare(...)` to a .NET MAUI app: OTLP/HTTP export with an offline queue, device and session attributes, `HttpClient` and Shell navigation spans, and unhandled-exception capture — see [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.md).
+Building a mobile app? [`Flare.Maui`](src/Flare.Maui) (preview, not yet on NuGet) adds `builder.UseFlare(...)` to a .NET MAUI app: OTLP/HTTP export with an offline queue, device and session attributes, `HttpClient` and Shell navigation spans, and unhandled-exception capture — see [Send telemetry from a .NET MAUI app to Flare](https://aminparsa18.github.io/Flare.Net/how-to/instrument/send-maui-telemetry.html).
 
 ## Local development
 
@@ -136,7 +138,7 @@ See [docs-internal/planning/roadmap.md](docs-internal/planning/roadmap.md)
 for what's currently open — retention/cold storage to S3-compatible
 object storage chief among it.
 
-Full architecture: [docs/explanation/architecture.md](docs/explanation/architecture.md). Design decisions: [docs-internal/adr/](docs-internal/adr/).
+Full architecture: [Architecture](https://aminparsa18.github.io/Flare.Net/explanation/architecture.html). Design decisions: [docs-internal/adr/](docs-internal/adr/).
 
 ## Contributing
 

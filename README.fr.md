@@ -29,6 +29,8 @@
 
 **Langues :** [English](README.md) &nbsp;|&nbsp; [简体中文](README.zh-CN.md) &nbsp;|&nbsp; [Русский](README.ru.md) &nbsp;|&nbsp; [Français](README.fr.md)
 
+**[📖 Lire la documentation →](https://aminparsa18.github.io/Flare.Net/fr/)**
+
 Une plateforme d'observabilité auto-hébergée, native OpenTelemetry, pour .NET — logs, traces et métriques traités comme des éléments de première classe, corrélés en un seul endroit, avec des règles d'alerte basées sur des seuils/requêtes qui notifient par webhook/Slack, Telegram ou e-mail en cas de dépassement.
 
 **Pensez Seq ou Datadog — mais entièrement open source (MIT), auto-hébergé, et compatible OTLP nativement sans agent propriétaire ni SDK à installer.**
@@ -73,38 +75,38 @@ Ce qui diffère, c'est la façon dont vous exécutez Flare lui-même. Choisissez
   var flare = builder.AddFlare("flare", builder.AddClickHouse("clickhouse"), builder.AddRedis("redis"));
   builder.AddDotnetProject("myapi", "../MyApi/MyApi.csproj").WithOtlpExporter(flare).WaitFor(flare);
   ```
-  `aspire add CommunityToolkit.Aspire.Hosting.Flare` (Aspire 17+, issu de l'Aspire Community Toolkit) — Flare rejoint votre AppHost en tant que ressource, il démarre donc, s'arrête et est découvert par vos autres ressources de la même façon que tout le reste de votre graphe. Détails : [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.fr.md).
+  `aspire add CommunityToolkit.Aspire.Hosting.Flare` (Aspire 17+, issu de l'Aspire Community Toolkit) — Flare rejoint votre AppHost en tant que ressource, il démarre donc, s'arrête et est découvert par vos autres ressources de la même façon que tout le reste de votre graphe. Détails : [Exécution avec .NET Aspire](https://aminparsa18.github.io/Flare.Net/fr/how-to/deploy/run-with-aspire.html).
 
 - **Vous n'utilisez pas Aspire et voulez l'exécuter de façon autonome ?**
   ```sh
   docker compose up
   ```
-  à la racine du dépôt, avec des valeurs par défaut fonctionnelles pour chaque port et identifiant (copiez [.env.example](.env.example) vers `.env` pour en changer). Détails : [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.fr.md).
+  à la racine du dépôt, avec des valeurs par défaut fonctionnelles pour chaque port et identifiant (copiez [.env.example](.env.example) vers `.env` pour en changer). Détails : [Exécution autonome](https://aminparsa18.github.io/Flare.Net/fr/how-to/deploy/run-standalone.html).
 
 - **Juste en train d'évaluer — pas de dépôt cloné, pas de SDK .NET ?**
   ```sh
   curl -fsSL https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh | bash
   ```
-  Installe Docker s'il est absent, puis récupère et démarre la même pile autonome à partir des images publiées. Détails : [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.fr.md#installation-rapide-sans-prérequis).
+  Installe Docker s'il est absent, puis récupère et démarre la même pile autonome à partir des images publiées. Détails : [Exécution autonome](https://aminparsa18.github.io/Flare.Net/fr/how-to/deploy/run-standalone.html#installation-rapide-sans-prérequis).
 
 - **Vous voulez une seule instance persistante partagée entre plusieurs projets locaux indépendants ?**
   ```sh
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  Un CLI global qui gère la même pile Docker depuis n'importe où, sans nécessiter de cloner le dépôt. Détails : [docs/how-to/deploy/run-with-cli.md](docs/how-to/deploy/run-with-cli.fr.md).
+  Un CLI global qui gère la même pile Docker depuis n'importe où, sans nécessiter de cloner le dépôt. Détails : [Exécution avec le CLI](https://aminparsa18.github.io/Flare.Net/fr/how-to/deploy/run-with-cli.html).
 
-Quel que soit le chemin choisi, le tableau de bord démarre sur [http://localhost:7777](http://localhost:7777). L'authentification est **désactivée par défaut** — la page Logs est accessible dès le démarrage. Activez la connexion (comptes locaux, Microsoft Entra ID, Active Directory, OpenID Connect ou en-têtes de confiance de proxy inverse) depuis la page `/auth` quand vous êtes prêt ; voir [docs/how-to/admin/configure-authentication.md](docs/how-to/admin/configure-authentication.fr.md).
+Quel que soit le chemin choisi, le tableau de bord démarre sur [http://localhost:7777](http://localhost:7777). L'authentification est **désactivée par défaut** — la page Logs est accessible dès le démarrage. Activez la connexion (comptes locaux, Microsoft Entra ID, Active Directory, OpenID Connect ou en-têtes de confiance de proxy inverse) depuis la page `/auth` quand vous êtes prêt ; voir [Configurer l'authentification](https://aminparsa18.github.io/Flare.Net/fr/how-to/admin/configure-authentication.html).
 
-Ensuite, pointez un logger vers Flare — des extraits OTLP prêts à copier-coller pour Serilog, NLog, ZLogger et `Microsoft.Extensions.Logging` se trouvent dans [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.fr.md#pointer-votre-logger-vers-flare) (ou [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.fr.md#3-envoyer-la-télémétrie-de-vos-services-à-flare) avec Aspire). Pour tout le reste — Python, Node.js, Java, Go, Kubernetes, pipelines DevOps, un agent de collecte de logs, ou le scraping Prometheus — la page **Data sources** du tableau de bord (menu déroulant de navigation, ou l'état vide de la page Logs) propose le même genre d'extraits prêts à copier-coller.
+Ensuite, pointez un logger vers Flare — des extraits OTLP prêts à copier-coller pour Serilog, NLog, ZLogger et `Microsoft.Extensions.Logging` se trouvent dans [Exécution autonome](https://aminparsa18.github.io/Flare.Net/fr/how-to/deploy/run-standalone.html#pointer-votre-logger-vers-flare) (ou [Exécution avec .NET Aspire](https://aminparsa18.github.io/Flare.Net/fr/how-to/deploy/run-with-aspire.html#3-envoyer-la-télémétrie-de-vos-services-à-flare) avec Aspire). Pour tout le reste — Python, Node.js, Java, Go, Kubernetes, pipelines DevOps, un agent de collecte de logs, ou le scraping Prometheus — la page **Data sources** du tableau de bord (menu déroulant de navigation, ou l'état vide de la page Logs) propose le même genre d'extraits prêts à copier-coller.
 
-Vous dépassez les capacités d'un seul nœud ClickHouse ? Il existe une configuration de cluster multi-nœuds optionnelle — voir [docs/how-to/deploy/run-cluster-mode.md](docs/how-to/deploy/run-cluster-mode.fr.md).
+Vous dépassez les capacités d'un seul nœud ClickHouse ? Il existe une configuration de cluster multi-nœuds optionnelle — voir [Exécution en mode cluster](https://aminparsa18.github.io/Flare.Net/fr/how-to/deploy/run-cluster-mode.html).
 
-Vous voulez que votre assistant IA lise votre télémétrie ? `flare mcp` est un serveur [MCP](https://modelcontextprotocol.io) en lecture seule — voir [docs/how-to/integrations/connect-ai-assistants.fr.md](docs/how-to/integrations/connect-ai-assistants.fr.md).
+Vous voulez que votre assistant IA lise votre télémétrie ? `flare mcp` est un serveur [MCP](https://modelcontextprotocol.io) en lecture seule — voir [Laisser un assistant IA interroger Flare](https://aminparsa18.github.io/Flare.Net/fr/how-to/integrations/connect-ai-assistants.html).
 
 ### Applications mobiles (.NET MAUI)
 
-Vous développez une application mobile ? [`Flare.Maui`](src/Flare.Maui) (aperçu, pas encore sur NuGet) ajoute `builder.UseFlare(...)` à une application .NET MAUI : export OTLP/HTTP avec file hors ligne, attributs d'appareil et de session, spans `HttpClient` et de navigation Shell, capture des exceptions non gérées — voir [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.fr.md).
+Vous développez une application mobile ? [`Flare.Maui`](src/Flare.Maui) (aperçu, pas encore sur NuGet) ajoute `builder.UseFlare(...)` à une application .NET MAUI : export OTLP/HTTP avec file hors ligne, attributs d'appareil et de session, spans `HttpClient` et de navigation Shell, capture des exceptions non gérées — voir [Envoyer la télémétrie d'une application .NET MAUI à Flare](https://aminparsa18.github.io/Flare.Net/fr/how-to/instrument/send-maui-telemetry.html).
 
 ## Développement local
 
@@ -131,7 +133,7 @@ Flare est activement développé et fournit actuellement :
 
 Voir [docs-internal/planning/roadmap.md](docs-internal/planning/roadmap.md) pour ce qui est actuellement en cours — les politiques de rétention et le stockage froid vers un stockage objet compatible S3 en tête de liste.
 
-Architecture complète : [docs/explanation/architecture.md](docs/explanation/architecture.fr.md). Décisions de conception : [docs-internal/adr/](docs-internal/adr/).
+Architecture complète : [Architecture](https://aminparsa18.github.io/Flare.Net/fr/explanation/architecture.html). Décisions de conception : [docs-internal/adr/](docs-internal/adr/).
 
 ## Contribuer
 
