@@ -183,3 +183,19 @@ folders are where "what happened and why" actually lives.
   merges, open a small CommunityToolkit/Aspire PR changing the "Additional Information" link in
   `src/CommunityToolkit.Aspire.Hosting.Flare/README.md` from the nonexistent `learn.microsoft.com/dotnet/aspire/community-toolkit/hosting-flare`
   to `https://aspire.dev/integrations/observability/flare/flare-get-started/`.
+- **Docs site (https://aminparsa18.github.io/Flare.Net/) follow-ups.** Built by `scripts/build-docs-site.py` (docfx, one site per language).
+  - **API reference** for the client packages (`Flare.OpenTelemetry`, `Flare.Aspire`, maybe `Flare.Maui`) from their XML docs, the
+    way TantivyDotNet's site does it. Check the XML doc comments are worth publishing first.
+  - **Changelog page** built from the GitHub release notes the release job already generates.
+  - **Generated reference pages**: all `Query__*` options, the ClickHouse schema columns, `flare --help`, so they track the code
+    instead of being kept in sync by hand.
+  - **Translation staleness check.** Each translated page records `source-sha256` of the English file it came from; have the build
+    warn when the English page has changed since.
+  - **Decide whether `docs-links.yml` is still needed.** The strict docfx build catches what `check-docs-links.py` does, plus
+    anchors on translated pages, which the checker misses. Keep it as the fast pre-check or drop it.
+  - **Check the README links into the site.** All four `README*.md` now link to site pages and anchors, and nothing validates
+    them, so a renamed page breaks them silently. Add them to the strict build or the link checker.
+  - **Versioned docs** (`/v0.7/` beside latest), once people run older releases and need matching docs.
+  - **Custom domain** (e.g. `docs.<domain>`), if the marketing site gets one.
+  - **Link to the site from the product**: the dashboard's help menu, `flare --help` and the marketing site, instead of GitHub.
+  - **Search engine setup**: submit the existing `sitemap.xml` to Google Search Console and add a `robots.txt`.

@@ -41,7 +41,10 @@ function addEditLink({ current, page }) {
   const article = document.querySelector('article');
   if (!article || !page.endsWith('.html')) return;
   const stem = page.slice(0, -'.html'.length);
-  const source = stem === 'index' ? `README${current.suffix}.md` : `${stem}${current.suffix}.md`;
+  if (stem === 'index') return; // the home page is generated from docs/site/strings.json, not one page
+  // The home page and section landing pages are generated from the docs index (README).
+  const generated = stem === 'index' || stem.endsWith('/index');
+  const source = generated ? `README${current.suffix}.md` : `${stem}${current.suffix}.md`;
   const a = document.createElement('a');
   a.href = `${GITHUB}/blob/main/docs/${source}`;
   a.className = 'flare-edit d-print-none';
