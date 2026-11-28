@@ -106,11 +106,12 @@ clickhouse:
     enabled: true
   # Run migrations in a one-shot Job (the api image as `migrate`, one Job per release revision) instead of
   # inside ingest and api at startup, so no long-running pod holds the `default` password (ADR-0284). The
-  # services wait for the schema before serving. Needs an image with the `migrate` command (newer than
-  # 0.6.0) and the per-user connection strings: users.enabled with the bundled ClickHouse, or all three keys
-  # in external.usersSecret.
+  # services wait for the schema before serving. On by default (ADR-0285), but the chart falls back to
+  # startup migrations, and says why in the install notes, when the Job can't work or would remove no
+  # credential: an image.tag release older than 0.7.0 (no `migrate` command), users.enabled off, or an
+  # external ClickHouse without usersSecret. false = always migrate at startup.
   migrationJob:
-    enabled: false
+    enabled: true
     resources: {}
     ttlSecondsAfterFinished: 86400
   password: ""                 # empty = generated once and kept across upgrades

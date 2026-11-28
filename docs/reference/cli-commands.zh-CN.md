@@ -182,6 +182,15 @@
 `flare destroy --purge-config` 重置为当前安装的 CLI
 版本自己的默认值。
 
+**最低标签。** 由 Flare.Cli 0.1.12 或更高版本创建的实例在一次性的 `clickhouse-migrate`
+服务中运行 ClickHouse 迁移，其 `ingest`、`api` 和 `alert-worker` 永远拿不到 ClickHouse
+的 `default` 密码。该任务需要 `migrate` 命令，api 镜像从 0.7.0 起才有。因此
+`flare start` 和 `flare update` 会拒绝早于 0.7.0 的版本号 `FLARE_IMAGE_TAG`（`0.6.0`、
+`0.6`），`flare update --tag` 拒绝时不会修改 `.env`。不是版本号的标签（`edge`、`latest`、
+`sha-…`）始终可用。旧版 CLI 创建的实例保留原来的 compose 文件，在服务启动时迁移，并接受
+任意标签。若要改用迁移任务，请用 `flare destroy --purge-config` 再 `flare start` 重新创建
+实例。这会删除它的数据。
+
 版本历史记录（独立实例自身的默认值）：
 
 | `Flare.Cli`版本 | 默认 `FLARE_IMAGE_TAG`（独立） |
@@ -195,3 +204,4 @@
 | 0.1.7 (2026-09-28) | `0.5.1`（两个引脚；0.1.6 的 `0.5.0` 指向的 `apardev/*` 镜像从 `0.5.1` 才开始存在，因此全新安装会拉取失败） |
 | 0.1.9 (2026-10-13) | `0.6.0`（两个引脚；0.1.8 添加了 `flare mcp` 但从未发布，因此 0.1.9 是其首次发布） |
 | 0.1.11 (2026-11-27) | `0.7.0`（两个引脚；首个包含 `migrate` 命令的版本，ADR-0284） |
+| 0.1.12 | `0.7.0`（未变；新实例在 `clickhouse-migrate` 任务中运行迁移，`start`/`update` 拒绝早于 0.7.0 的版本标签，ADR-0285） |

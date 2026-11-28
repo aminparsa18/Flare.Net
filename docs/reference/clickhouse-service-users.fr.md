@@ -61,15 +61,16 @@ utilisateurs.
 
 | Clé | Variable d'env | Utilisée par | Si absente |
 |---|---|---|---|
-| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | Le runner de migrations (`default`), et les images Flare.AlertWorker jusqu'à 0.6.0 | Flare.Ingest et Flare.Api attendent le job de migration au lieu d'exécuter les migrations. Les trois clés ci-dessous n'ont alors aucun repli. |
+| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | Le runner de migrations (`default`), et les images Flare.AlertWorker jusqu'à 0.6.0 lorsque Helm revient aux migrations au démarrage | Flare.Ingest et Flare.Api attendent le job de migration au lieu d'exécuter les migrations. Les trois clés ci-dessous n'ont alors aucun repli. |
 | `ConnectionStrings:clickhousedb-ingest` | `ConnectionStrings__clickhousedb-ingest` | Flare.Ingest (`flare_ingest`) | Se rabat sur `clickhousedb` |
 | `ConnectionStrings:clickhousedb-query` | `ConnectionStrings__clickhousedb-query` | Les services de requête de Flare.Api (`flare_query`) | Se rabat sur `clickhousedb` |
 | `ConnectionStrings:clickhousedb-app` | `ConnectionStrings__clickhousedb-app` | Le reste de Flare.Api et Flare.AlertWorker (`flare_app`) | Se rabat sur `clickhousedb` |
 
 Une valeur vide compte comme absente. Flare.AlertWorker n'exécute aucune
 migration : il a besoin de `clickhousedb-app`, ou de `clickhousedb` en repli.
-Helm et la CLI `flare` lui fournissent quand même `clickhousedb`, car les
-images AlertWorker jusqu'à 0.6.0 ne lisent que cette clé. Les images plus
+Lorsque Helm revient aux migrations au démarrage (voir plus bas), il lui
+fournit quand même `clickhousedb`, car les images AlertWorker jusqu'à 0.6.0 ne
+lisent que cette clé. Les images plus
 récentes utilisent `clickhousedb-app` lorsqu'elle est définie, et se
 connectent donc toujours en tant que `flare_app`.
 
@@ -98,8 +99,8 @@ changer une demande de redémarrer ClickHouse et les services qui l'utilisent.
 | Valeur | Défaut | Signification |
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | ClickHouse intégré uniquement. Monte `files/flare-users.xml`, génère les trois mots de passe et fait pointer chaque service vers son propre utilisateur. `false` garde tous les services sur `default`. |
-| `clickhouse.external.usersSecret` | `""` | ClickHouse externe uniquement. Secret contenant les chaînes de connexion complètes sous les clés `clickhousedb-ingest`, `clickhousedb-query` et `clickhousedb-app`. Une clé absente se rabat sur `clickhouse.external.username` et le mot de passe ClickHouse, sauf avec `clickhouse.migrationJob.enabled`, où les trois clés sont obligatoires. |
-| `clickhouse.migrationJob.enabled` | `false` | Exécuter les migrations dans un Job ponctuel et ne donner le mot de passe `default` à aucun pod de service (voir plus bas). Demande une image 0.7.0 ou plus récente, et `clickhouse.users.enabled` ou `clickhouse.external.usersSecret` ; sinon le chart refuse de se générer. |
+| `clickhouse.external.usersSecret` | `""` | ClickHouse externe uniquement. Secret contenant les chaînes de connexion complètes sous les clés `clickhousedb-ingest`, `clickhousedb-query` et `clickhousedb-app`. Une clé absente se rabat sur `clickhouse.external.username` et le mot de passe ClickHouse, sauf lorsque le Job de migration s'exécute, où les trois clés sont obligatoires. |
+| `clickhouse.migrationJob.enabled` | `true` | Exécuter les migrations dans un Job ponctuel et ne donner le mot de passe `default` à aucun pod de service (voir plus bas). Le chart revient aux migrations au démarrage, et en donne la raison dans les notes d'installation, lorsque `image.tag` est une version antérieure à 0.7.0, ou lorsque ni `clickhouse.users.enabled` (ClickHouse intégré) ni `clickhouse.external.usersSecret` ne donnent aux services leurs propres utilisateurs. `false` migre toujours au démarrage. |
 | `clickhouse.migrationJob.resources` | `{}` | Les ressources du conteneur du Job. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Combien de temps Kubernetes garde un Job terminé. |
 
@@ -119,8 +120,15 @@ chaîne de connexion manque.
 |---|---|
 | `docker-compose.yml`, `docker-compose.cluster.yml` | Le service `clickhouse-migrate`. `ingest`, `api` et `alert-worker` démarrent une fois qu'il s'est terminé avec `0`. |
 | AppHost Aspire | La ressource `clickhouse-migrate`. Les services attendent qu'elle se termine. |
-| Helm | Dans ingest et api au démarrage. Avec `clickhouse.migrationJob.enabled`, un Job par révision de release. |
-| `docker-compose.install.yml`, `flare start` | Dans ingest et api au démarrage, car ces modes utilisent les images publiées, et la 0.6.0 n'a pas de commande `migrate`. |
+| `docker-compose.install.yml` (`install.sh`) | Le service `clickhouse-migrate`, comme ci-dessus. Pour un `FLARE_IMAGE_TAG` antérieur à 0.7.0, `install.sh` récupère à la place les fichiers de cette version, qui migrent dans ingest et api au démarrage. |
+| `flare start` | Le service `clickhouse-migrate`, pour les instances créées par Flare.Cli 0.1.12 ou plus récent. `flare start` et `flare update` refusent pour elles un `FLARE_IMAGE_TAG` antérieur à 0.7.0. Une instance créée par une CLI plus ancienne garde son fichier compose et migre dans ingest et api au démarrage. |
+| Helm | Un Job par révision de release. Dans ingest et api au démarrage lorsque le chart revient en arrière (voir `clickhouse.migrationJob.enabled` plus haut). |
+
+L'image Api possède la commande `migrate` depuis Flare 0.7.0. Une image plus
+ancienne, lancée comme job, démarre toute l'API au lieu de se terminer : les
+services qui attendent le job ne démarrent donc jamais. Les tags qui ne sont
+pas un numéro de version, comme `edge`, `latest` ou `sha-…`, comptent comme
+récents.
 
 | Clé | Variable d'environnement | Défaut | Signification |
 |---|---|---|---|

@@ -199,6 +199,18 @@ pour suivre à la place la branche `main` non publiée de Flare, ou
 `flare destroy --purge-config` pour revenir au propre défaut de la
 version du CLI actuellement installée.
 
+**Tag minimal.** Une instance créée par Flare.Cli 0.1.12 ou plus récent exécute
+les migrations ClickHouse dans un service ponctuel `clickhouse-migrate`, et ses
+`ingest`, `api` et `alert-worker` ne reçoivent jamais le mot de passe ClickHouse
+`default`. Ce job a besoin de la commande `migrate`, que l'image api possède
+depuis 0.7.0. `flare start` et `flare update` refusent donc un `FLARE_IMAGE_TAG`
+qui est une version antérieure à 0.7.0 (`0.6.0`, `0.6`), et `flare update --tag`
+laisse `.env` intact lorsqu'il refuse. Les tags qui ne sont pas un numéro de
+version (`edge`, `latest`, `sha-…`) sont toujours acceptés. Une instance créée
+par un CLI plus ancien garde son fichier compose, qui migre au démarrage des
+services, et accepte n'importe quel tag. Pour la passer au job, recréez-la avec
+`flare destroy --purge-config` puis `flare start`. Cela supprime ses données.
+
 Historique des versions (propre défaut de l'instance autonome) :
 
 | Version de `Flare.Cli` | `FLARE_IMAGE_TAG` par défaut (autonome) |
@@ -212,3 +224,4 @@ Historique des versions (propre défaut de l'instance autonome) :
 | 0.1.7 (2026-09-28) | `0.5.1` (les deux épinglages ; le `0.5.0` de la 0.1.6 visait des images `apardev/*` qui n'existent qu'à partir de `0.5.1`, donc une nouvelle installation échouait au pull) |
 | 0.1.9 (2026-10-13) | `0.6.0` (les deux épinglages ; la 0.1.8 a ajouté `flare mcp` sans jamais être publiée, la 0.1.9 en est donc la première release) |
 | 0.1.11 (2026-11-27) | `0.7.0` (les deux épinglages ; première release avec la commande `migrate`, ADR-0284) |
+| 0.1.12 | `0.7.0` (inchangé ; les nouvelles instances exécutent les migrations dans un job `clickhouse-migrate`, et `start`/`update` refusent les tags de version antérieurs à 0.7.0, ADR-0285) |

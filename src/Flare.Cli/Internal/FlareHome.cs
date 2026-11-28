@@ -51,6 +51,9 @@ internal sealed class FlareInstance
     /// <summary>The `flare start` invocation that (re)initializes THIS instance specifically - reused by every command's "not initialized yet" message so the hint always names the right instance.</summary>
     public string StartHint => Name is null ? "flare start" : $"flare start -n {Name}";
 
+    /// <summary>The `flare update` invocation for THIS instance, for hints like <see cref="ImageTagPolicy.Validate"/>'s.</summary>
+    public string UpdateHint => Name is null ? "flare update" : $"flare update -n {Name}";
+
     /// <summary>Short label for this instance in user-facing output - "default" for the unnamed instance, its own name otherwise.</summary>
     public string DisplayName => Name ?? "default";
 

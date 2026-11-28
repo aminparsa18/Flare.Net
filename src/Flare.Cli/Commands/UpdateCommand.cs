@@ -43,9 +43,23 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
                 return 1;
             }
 
+            // Checked before .env is rewritten, so a refused tag leaves the pin as it was (ADR-0285).
+            if (ImageTagPolicy.Validate(instance, settings.Tag) is { } tagError)
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(tagError)}");
+                return 1;
+            }
+
             var previousTag = instance.ReadEnvValue("FLARE_IMAGE_TAG", "(unset)");
             instance.SetEnvValue("FLARE_IMAGE_TAG", settings.Tag);
             AnsiConsole.MarkupLine($"[grey]Pinned tag: {Markup.Escape(previousTag)} -> {Markup.Escape(settings.Tag)}[/]");
+        }
+
+        else if (ImageTagPolicy.Validate(instance, instance.ReadEnvValue("FLARE_IMAGE_TAG", "")) is { } pinnedTagError)
+        {
+            // A hand-edited .env pin, same check as `flare start`'s.
+            AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(pinnedTagError)}");
+            return 1;
         }
 
         var profile = FlareHome.ResolveTopology(instance);

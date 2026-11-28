@@ -18,7 +18,9 @@ Docker（或另一个 Docker 兼容引擎）运行 - Flare 的 `Flare.Ingest`/`F
 curl -fsSL https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh | bash
 ```
 
-如果缺少 Docker，这会自动安装它（在 Linux 上通过 [Docker 官方便捷脚本](https://get.docker.com)，在 macOS 上通过 Homebrew），然后只获取运行堆栈所需的内容 —— [`docker-compose.install.yml`](../../../docker-compose.install.yml)，与下方相同的 compose 文件，只是从 Docker Hub 拉取三个 Flare 镜像而不是本地构建，因为没有本地源代码可构建 —— 到 `~/.flare`（可通过 `FLARE_INSTALL_DIR` 覆盖），然后启动它。可以安全地重新运行：它绝不会修改已有的 `.env` 或您的数据卷，只会重新拉取 compose 文件/迁移脚本和最新镜像。脚本自身的头部注释（[`scripts/install.sh`](../../../scripts/install.sh)）列出了它读取的每个环境变量以及它具体做了什么。
+如果缺少 Docker，这会自动安装它（在 Linux 上通过 [Docker 官方便捷脚本](https://get.docker.com)，在 macOS 上通过 Homebrew），然后只获取运行堆栈所需的内容 —— [`docker-compose.install.yml`](../../../docker-compose.install.yml)，与下方相同的 compose 文件，只是从 Docker Hub 拉取 Flare 镜像而不是本地构建，因为没有本地源代码可构建 —— 到 `~/.flare`（可通过 `FLARE_INSTALL_DIR` 覆盖），然后启动它。可以安全地重新运行：它绝不会修改已有的 `.env` 或您的数据卷，只会重新拉取 compose 文件/迁移脚本和最新镜像。脚本自身的头部注释（[`scripts/install.sh`](../../../scripts/install.sh)）列出了它读取的每个环境变量以及它具体做了什么。
+
+`FLARE_IMAGE_TAG` 选择镜像标签（默认 `latest`）。该 compose 文件在一次性的 `clickhouse-migrate` 服务中运行 ClickHouse 迁移，需要 Flare 0.7.0 或更高版本。对于更早的版本，例如 `FLARE_IMAGE_TAG=0.6.0`，脚本会改为从该版本的 git 标签（`v0.6.0`）获取文件，它们在服务启动时迁移。如需自行指定 ref，请设置 `FLARE_INSTALL_REF`。如果你手动修改 `~/.flare/.env` 中的标签并自己运行 `docker compose`，请保持 0.7.0 或更高版本，或使用 `edge`。
 
 想自己克隆仓库（例如从源代码构建，或者先审查一下 compose 文件）？直接跳到下方的**开始 Flare**。
 

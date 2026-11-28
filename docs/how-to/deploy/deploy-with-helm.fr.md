@@ -144,12 +144,23 @@ Les mots de passe sont insérés dans des chaînes de connexion : évitez-y le `
 helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 ```
 
-Les migrations de schéma s'exécutent dans ingest et api au démarrage : aucun job
-de migration à lancer. Modifiez `image.tag` pour changer de version ; par défaut
-c'est l'`appVersion` du chart. Pour qu'aucun pod de service n'ait le mot de passe
-ClickHouse `default`, définissez `clickhouse.migrationJob.enabled=true` : chaque
-installation ou mise à jour exécute alors les migrations dans un Job ponctuel, et
-ingest et api l'attendent. Il faut une image 0.7.0 ou plus récente. Voir
+Changez `image.tag` pour passer d'une version à l'autre ; sa valeur par défaut est
+l'`appVersion` du chart. Chaque installation ou mise à jour exécute les migrations
+du schéma dans un Job ponctuel nommé `<release>-flare-clickhouse-migrate-<revision>`,
+et ingest, api et alert-worker l'attendent : aucun pod de service ne détient donc le
+mot de passe ClickHouse `default`. Il n'y a rien à lancer à la main. Tant que le Job
+n'est pas terminé, ingest et api peuvent redémarrer plusieurs fois en l'attendant ;
+c'est normal.
+
+Le chart migre plutôt dans ingest et api au démarrage, et les notes d'installation
+en donnent la raison, lorsque :
+
+- `image.tag` est une version antérieure à 0.7.0, qui n'a pas de commande `migrate` ;
+- les services n'ont pas leurs propres utilisateurs : `clickhouse.users.enabled=false`,
+  ou un ClickHouse externe sans `clickhouse.external.usersSecret` ;
+- vous définissez `clickhouse.migrationJob.enabled=false`.
+
+Voir
 [Emplacement des migrations](../../reference/clickhouse-service-users.fr.md#emplacement-des-migrations).
 
 Le chart épingle ClickHouse sur la ligne LTS `26.8` (`clickhouse.image`) au lieu de

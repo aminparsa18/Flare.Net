@@ -33,7 +33,7 @@ This installs Docker itself if it's missing (via
 [Docker's official convenience script](https://get.docker.com) on Linux, or
 Homebrew on macOS), then fetches just what's needed to run the stack —
 [`docker-compose.install.yml`](../../../docker-compose.install.yml), the
-same compose file below but pulling the three Flare images from Docker Hub
+same compose file below but pulling the Flare images from Docker Hub
 instead of building them, since there's no local source to build — into
 `~/.flare` (override with `FLARE_INSTALL_DIR`), and starts it. Safe to
 re-run: it never touches an existing `.env` or your data volumes, only
@@ -41,6 +41,15 @@ re-pulls the compose file/migrations and the latest images. See the
 script's own header comment
 ([`scripts/install.sh`](../../../scripts/install.sh)) for every env var it
 reads and exactly what it does.
+
+`FLARE_IMAGE_TAG` picks the image tag (default `latest`). The compose file
+runs the ClickHouse migrations in a one-shot `clickhouse-migrate` service,
+which needs Flare 0.7.0 or later. For an older release, such as
+`FLARE_IMAGE_TAG=0.6.0`, the script fetches the files from that release's git
+tag (`v0.6.0`) instead, which migrate at service startup. Set
+`FLARE_INSTALL_REF` yourself to choose the ref. If you edit the tag in
+`~/.flare/.env` by hand and run `docker compose` yourself, keep it at 0.7.0 or
+later, or `edge`.
 
 Prefer to clone the repo yourself (e.g. to build from source, or review the
 compose file first)? Skip ahead to **Start Flare** below.

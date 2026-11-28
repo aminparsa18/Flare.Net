@@ -44,6 +44,13 @@ internal sealed class StartCommand : AsyncCommand<StartCommand.Settings>
 
         var profile = TopologyProfile.For(topology);
 
+        // A hand-edited .env can pin an image too old for this instance's compose file (ADR-0285).
+        if (ImageTagPolicy.Validate(instance, instance.ReadEnvValue("FLARE_IMAGE_TAG", "")) is { } tagError)
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(tagError)}");
+            return 1;
+        }
+
         // Skip the port-availability preflight when this instance's own stack is already
         // the thing holding these ports - `docker compose up` against an already-running
         // stack is a normal idempotent no-op, not a conflict to warn about. Otherwise
@@ -73,7 +80,7 @@ internal sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         var upExitCode = await ComposeRunner.RunStreamedAsync(instance, ["up", "-d"]);
         if (upExitCode != 0)
         {
-            AnsiConsole.MarkupLine("[red]✗[/] `docker compose up -d` failed - see the output above.");
+            AnsiConsole.MarkupLine("[red]✗[/] `docker compose up -d` failed - see the output above. If clickhouse-migrate exited non-zero, try: [grey]flare logs clickhouse-migrate[/]");
             return 1;
         }
 

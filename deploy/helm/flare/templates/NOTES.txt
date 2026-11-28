@@ -1,4 +1,9 @@
 Flare {{ .Chart.AppVersion }} is installing as "{{ .Release.Name }}".
+{{- with include "flare.migrationJobFallbackReason" . }}
+
+ClickHouse migrations run at ingest/api startup, not in the one-shot Job: {{ . }}.
+See docs/reference/clickhouse-service-users.md#where-migrations-run
+{{- end }}
 
 {{- if .Values.ingress.enabled }}
 

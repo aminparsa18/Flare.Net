@@ -140,12 +140,22 @@ redis:
 helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 ```
 
-Миграции схемы выполняются в ingest и api при запуске, отдельное задание не
-нужно. Чтобы сменить версию, измените `image.tag`; по умолчанию используется
-`appVersion` чарта. Чтобы пароль ClickHouse `default` не попадал ни в один под
-сервисов, задайте `clickhouse.migrationJob.enabled=true`: тогда каждая установка
-или обновление выполняет миграции в одноразовом Job, а ingest и api ждут его.
-Нужен образ 0.7.0 или новее. См.
+Чтобы перейти на другую версию, измените `image.tag`; по умолчанию это
+`appVersion` чарта. Каждая установка или обновление выполняет миграции схемы в
+одноразовом Job с именем `<release>-flare-clickhouse-migrate-<revision>`, а ingest,
+api и alert-worker ждут его, поэтому ни один под сервисов не хранит пароль ClickHouse
+`default`. Ничего запускать вручную не нужно. Пока Job не завершился, ingest и api
+могут несколько раз перезапуститься в ожидании — это нормально.
+
+Вместо этого чарт выполняет миграции в ingest и api при запуске и пишет причину в
+заметках установки, если:
+
+- `image.tag` — релиз старше 0.7.0, в котором нет команды `migrate`;
+- у сервисов нет собственных пользователей: `clickhouse.users.enabled=false` или
+  внешний ClickHouse без `clickhouse.external.usersSecret`;
+- вы задали `clickhouse.migrationJob.enabled=false`.
+
+См.
 [Где выполняются миграции](../../reference/clickhouse-service-users.ru.md#где-выполняются-миграции).
 
 Чарт закрепляет ClickHouse на LTS-линейке `26.8` (`clickhouse.image`) вместо

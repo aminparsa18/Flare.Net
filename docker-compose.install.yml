@@ -3,12 +3,12 @@
 # even-lower-friction entry point"). docker-compose.yml assumes a `git clone` - its
 # ingest/api/dashboard services `build:` from local Dockerfiles. This file exists
 # because install.sh's whole premise is "no repo cloned, no .NET SDK" - there's nothing
-# local to build, so those three services instead `image:` the same builds published by
+# local to build, so the Flare services instead `image:` the same builds published by
 # .github/workflows/docker-publish.yml to Docker Hub.
 #
 # Every other line (labels, environment, ports, healthchecks, volumes, depends_on) is
 # copied verbatim from docker-compose.yml - this is NOT a different stack, just a
-# different way of obtaining the same three container images. Keep the two files in
+# different way of obtaining the same container images. Keep the two files in
 # sync by hand when either changes; there's no templating between them (same tradeoff
 # docker-publish.yml's own header comment makes about copying compose's build stanzas
 # verbatim rather than generating them).
@@ -61,6 +61,24 @@ services:
       timeout: 5s
       retries: 20
 
+  # One-shot schema migration (ADR-0284): the api image run as `migrate` applies every pending migration as
+  # `default` and exits 0. It's the only service that holds the `default` password; ingest, api and
+  # alert-worker start once it has completed. Needs Flare 0.7.0 or later: older api images have no `migrate`
+  # command, so install.sh fetches the matching older version of this file for FLARE_IMAGE_TAG below 0.7.0
+  # (ADR-0285).
+  clickhouse-migrate:
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-api:${FLARE_IMAGE_TAG:-latest}
+    command: ["migrate"]
+    labels:
+      flare.resource: "true"
+      flare.role: "clickhouse-migrate"
+      flare.relationships: "clickhouse:Reference"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+
   ingest:
     # DOCKERHUB_USERNAME/FLARE_IMAGE_TAG are install.sh's own env vars (not in
     # .env.example - docker-compose.yml has no equivalent, since it builds locally
@@ -78,10 +96,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284, ADR-0285).
       ConnectionStrings__clickhousedb-ingest: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       Identity__DbPath: "/data/identity/flare-identity.db"
@@ -108,10 +127,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284, ADR-0285).
       ConnectionStrings__clickhousedb-query: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_query;Password=${FLARE_CH_QUERY_PASSWORD:-flare}"
       ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
@@ -123,11 +143,54 @@ services:
       Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
       Identity__DbPath: "/data/identity/flare-identity.db"
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
+      # Dashboard URL for /api/alerts/*/send-test links; alert-worker sends the real notifications.
+      Alerting__PublicUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       DockerResources__ProxyUrl: "${FLARE_DOCKER_PROXY_URL:-}"
     volumes:
       - identity-data:/data/identity
     ports:
       - "${FLARE_API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Alert-rule evaluation and notifications (ADR-0018), the same service as docker-compose.yml's alert-worker
+  # without the build-time Chromium for scheduled reports: the published image doesn't include one.
+  alert-worker:
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-alert-worker:${FLARE_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    labels:
+      flare.resource: "true"
+      flare.role: "alert-worker"
+      flare.relationships: "clickhouse:Reference,redis:Reference"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
+    environment:
+      # flare_app (ADR-0282). AlertWorker runs no migrations, so it gets no `clickhousedb` DDL credential.
+      ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
+      ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
+      Email__Host: "${SMTP_HOST:-}"
+      Email__Port: "${SMTP_PORT:-587}"
+      Email__Username: "${SMTP_USERNAME:-}"
+      Email__Password: "${SMTP_PASSWORD:-}"
+      Email__From: "${SMTP_FROM:-}"
+      Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
+      # Dashboard URL that fired-alert notifications link back to.
+      Alerting__PublicUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
+      # Telemetry archive to S3-compatible storage (ADR-0156). Off unless FLARE_ARCHIVE_ENABLED=true.
+      Archive__Enabled: "${FLARE_ARCHIVE_ENABLED:-false}"
+      Archive__Endpoint: "${FLARE_ARCHIVE_ENDPOINT:-}"
+      Archive__AccessKey: "${FLARE_ARCHIVE_ACCESS_KEY:-}"
+      Archive__SecretKey: "${FLARE_ARCHIVE_SECRET_KEY:-}"
+      Archive__Prefix: "${FLARE_ARCHIVE_PREFIX:-flare}"
+      Archive__Format: "${FLARE_ARCHIVE_FORMAT:-Parquet}"
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
       interval: 5s

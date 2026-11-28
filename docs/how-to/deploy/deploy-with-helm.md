@@ -136,12 +136,22 @@ Passwords are placed into connection strings, so avoid `;` in them.
 helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 ```
 
-Schema migrations run in ingest and api on startup, so there is no migration
-job to run. Bump `image.tag` to move versions; it defaults to the chart's
-`appVersion`. To keep the ClickHouse `default` password out of every service
-pod, set `clickhouse.migrationJob.enabled=true`: each install or upgrade then
-runs the migrations in a one-shot Job, and ingest and api wait for it. It needs
-Flare 0.7.0 or later. See
+Bump `image.tag` to move versions; it defaults to the chart's `appVersion`.
+Each install or upgrade runs the schema migrations in a one-shot Job named
+`<release>-flare-clickhouse-migrate-<revision>`, and ingest, api and
+alert-worker wait for it, so no service pod holds the ClickHouse `default`
+password. There is nothing to run by hand. Until the Job finishes, ingest and
+api can restart a few times while they wait; that's expected.
+
+The chart migrates in ingest and api at startup instead, and the install notes
+say why, when:
+
+- `image.tag` is a release older than 0.7.0, which has no `migrate` command;
+- the services have no users of their own: `clickhouse.users.enabled=false`, or
+  an external ClickHouse without `clickhouse.external.usersSecret`;
+- you set `clickhouse.migrationJob.enabled=false`.
+
+See
 [Where migrations run](../../reference/clickhouse-service-users.md#where-migrations-run).
 
 The chart pins ClickHouse to the `26.8` LTS line (`clickhouse.image`) instead of

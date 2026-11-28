@@ -54,14 +54,14 @@ Flare.Api 根据 `Query:*` 设置为每个查询设定实际上限（默认 30 �
 
 | 键 | 环境变量 | 使用者 | 未设置时 |
 |---|---|---|---|
-| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | 迁移执行器（`default`），以及 0.6.0 及更早的 Flare.AlertWorker 镜像 | Flare.Ingest 和 Flare.Api 不执行迁移，而是等待迁移任务。下面三个键此时没有可回退的值。 |
+| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | 迁移执行器（`default`），以及 Helm 回退到启动时迁移时 0.6.0 及更早的 Flare.AlertWorker 镜像 | Flare.Ingest 和 Flare.Api 不执行迁移，而是等待迁移任务。下面三个键此时没有可回退的值。 |
 | `ConnectionStrings:clickhousedb-ingest` | `ConnectionStrings__clickhousedb-ingest` | Flare.Ingest（`flare_ingest`） | 回退到 `clickhousedb` |
 | `ConnectionStrings:clickhousedb-query` | `ConnectionStrings__clickhousedb-query` | Flare.Api 的查询服务（`flare_query`） | 回退到 `clickhousedb` |
 | `ConnectionStrings:clickhousedb-app` | `ConnectionStrings__clickhousedb-app` | Flare.Api 的其余部分和 Flare.AlertWorker（`flare_app`） | 回退到 `clickhousedb` |
 
 空值视为未设置。Flare.AlertWorker 不执行迁移：它需要 `clickhousedb-app`，
-或以 `clickhousedb` 作为回退。Helm 和 `flare` CLI 仍会向它提供
-`clickhousedb`，因为 0.6.0 及更早的 AlertWorker 镜像只读取这个键。
+或以 `clickhousedb` 作为回退。Helm 回退到启动时迁移时（见下文），仍会向它
+提供 `clickhousedb`，因为 0.6.0 及更早的 AlertWorker 镜像只读取这个键。
 更新的镜像在设置了 `clickhousedb-app` 时使用它，因此仍以 `flare_app` 连接。
 
 ## 密码变量
@@ -87,8 +87,8 @@ ClickHouse 每次启动时都会读取。修改其中任何一个，都需要重
 | 值 | 默认值 | 含义 |
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | 仅内置 ClickHouse。挂载 `files/flare-users.xml`，生成三个密码，并让每个服务使用自己的用户。`false` 则所有服务都使用 `default`。 |
-| `clickhouse.external.usersSecret` | `""` | 仅外部 ClickHouse。一个 Secret，在 `clickhousedb-ingest`、`clickhousedb-query` 和 `clickhousedb-app` 键下保存完整的连接字符串。缺少某个键时回退到 `clickhouse.external.username` 和 ClickHouse 密码；启用 `clickhouse.migrationJob.enabled` 时三个键都必须提供。 |
-| `clickhouse.migrationJob.enabled` | `false` | 在一次性 Job 中运行迁移，任何服务 Pod 都拿不到 `default` 密码（见下文）。需要 0.7.0 或更高版本的镜像，以及 `clickhouse.users.enabled` 或 `clickhouse.external.usersSecret`；否则 chart 拒绝渲染。 |
+| `clickhouse.external.usersSecret` | `""` | 仅外部 ClickHouse。一个 Secret，在 `clickhousedb-ingest`、`clickhousedb-query` 和 `clickhousedb-app` 键下保存完整的连接字符串。缺少某个键时回退到 `clickhouse.external.username` 和 ClickHouse 密码；迁移 Job 运行时三个键都必须提供。 |
+| `clickhouse.migrationJob.enabled` | `true` | 在一次性 Job 中运行迁移，任何服务 Pod 都拿不到 `default` 密码（见下文）。当 `image.tag` 是早于 0.7.0 的版本，或者 `clickhouse.users.enabled`（内置 ClickHouse）和 `clickhouse.external.usersSecret` 都没有为服务提供各自的用户时，chart 回退到启动时迁移，并在安装说明中给出原因。`false` 表示始终在启动时迁移。 |
 | `clickhouse.migrationJob.resources` | `{}` | Job 容器的资源。 |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Kubernetes 保留已完成 Job 的时长。 |
 
@@ -105,8 +105,13 @@ ClickHouse 每次启动时都会读取。修改其中任何一个，都需要重
 |---|---|
 | `docker-compose.yml`、`docker-compose.cluster.yml` | `clickhouse-migrate` 服务。`ingest`、`api` 和 `alert-worker` 在它以 `0` 退出后启动。 |
 | Aspire AppHost | `clickhouse-migrate` 资源。各服务等待它完成。 |
-| Helm | 启动时在 ingest 和 api 中。启用 `clickhouse.migrationJob.enabled` 时，每个 release 修订版一个 Job。 |
-| `docker-compose.install.yml`、`flare start` | 启动时在 ingest 和 api 中，因为它们使用已发布的镜像，而 0.6.0 没有 `migrate` 命令。 |
+| `docker-compose.install.yml`（`install.sh`） | `clickhouse-migrate` 服务，同上。`FLARE_IMAGE_TAG` 早于 0.7.0 时，`install.sh` 改为获取该版本的文件，它们在启动时于 ingest 和 api 中迁移。 |
+| `flare start` | 对 Flare.Cli 0.1.12 或更高版本创建的实例，是 `clickhouse-migrate` 服务；`flare start` 和 `flare update` 会拒绝为它们设置早于 0.7.0 的 `FLARE_IMAGE_TAG`。旧版 CLI 创建的实例保留原来的 compose 文件，启动时在 ingest 和 api 中迁移。 |
+| Helm | 每个 release 修订版一个 Job。chart 回退时（见上文 `clickhouse.migrationJob.enabled`），启动时在 ingest 和 api 中。 |
+
+Api 镜像从 Flare 0.7.0 起才有 `migrate` 命令。更早的镜像作为任务运行时会启动整个
+API 而不会退出，因此等待该任务的服务永远不会启动。不是版本号的标签，例如
+`edge`、`latest` 或 `sha-…`，都视为新版本。
 
 | 键 | 环境变量 | 默认值 | 含义 |
 |---|---|---|---|
