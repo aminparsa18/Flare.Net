@@ -7,13 +7,15 @@ namespace Flare.Api.Query;
 /// the configured <see cref="QueryLimitsOptions"/> - the one place these caps are spelled
 /// out, instead of each service carrying its own hard-coded copy. Returns a fresh
 /// <see cref="QueryOptions"/> per call since callers (e.g. <see cref="SpanQueryService"/>'s
-/// trace-by-id lookup) add settings to it.
+/// trace-by-id lookup) add settings to it. Each one also carries the request's
+/// <see cref="ClickHouseQuotaKey"/>, so the <c>flare_query</c> quota charges the caller (ADR-0286).
 /// </summary>
 public static class QuerySafety
 {
     /// <summary>Execution-time, scan and result-size caps - the default for any query over user data.</summary>
     public static QueryOptions Full(QueryLimitsOptions limits) => new()
     {
+        CustomHeaders = ClickHouseQuotaKey.Headers(),
         CustomSettings = new Dictionary<string, object>
         {
             ["max_execution_time"] = limits.MaxExecutionSeconds,
@@ -27,6 +29,7 @@ public static class QuerySafety
     /// <summary>Execution-time cap only - for <c>system.*</c> introspection reads, which aren't user-filtered data.</summary>
     public static QueryOptions ExecutionTimeOnly(QueryLimitsOptions limits) => new()
     {
+        CustomHeaders = ClickHouseQuotaKey.Headers(),
         CustomSettings = new Dictionary<string, object>
         {
             ["max_execution_time"] = limits.MaxExecutionSeconds,
@@ -40,6 +43,7 @@ public static class QuerySafety
     /// </summary>
     public static QueryOptions AlertEvaluation(QueryLimitsOptions limits) => new()
     {
+        CustomHeaders = ClickHouseQuotaKey.Headers(),
         CustomSettings = new Dictionary<string, object>
         {
             ["max_execution_time"] = limits.AlertEvaluationMaxExecutionSeconds,

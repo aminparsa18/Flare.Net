@@ -38,6 +38,25 @@
         </flare_query>
     </profiles>
 
+    <!-- Per-identity cost caps for flare_query (ADR-0286). <keyed/> gives each quota key its own bucket: Flare.Api
+         sends user:{id}, pat:{id} or demo:{address} as X-ClickHouse-Quota, and queries without a key (background
+         workers, auth disabled) share the flare_query bucket. 0 = no limit, so this only tracks usage
+         (system.quotas_usage) until an admin sets limits in a second users.d file; see
+         docs/how-to/admin/use-clickhouse-service-users.md. Not from_env: an unset variable stops ClickHouse. -->
+    <quotas>
+        <flare_query>
+            <keyed/>
+            <interval>
+                <duration>3600</duration>
+                <queries>0</queries>
+                <errors>0</errors>
+                <result_rows>0</result_rows>
+                <read_rows>0</read_rows>
+                <execution_time>0</execution_time>
+            </interval>
+        </flare_query>
+    </quotas>
+
     <users>
         <!-- Flare.Ingest: writes telemetry, reads only the config tables it applies at ingest time. The
              insert column types come from system.columns, so it needs no SELECT on the data tables. -->
@@ -69,7 +88,7 @@
                 <ip>::/0</ip>
             </networks>
             <profile>flare_query</profile>
-            <quota>default</quota>
+            <quota>flare_query</quota>
             <grants>
                 <query>GRANT SELECT ON clickhousedb.*</query>
             </grants>

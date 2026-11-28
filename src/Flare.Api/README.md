@@ -128,7 +128,10 @@ config section), built into `QueryOptions` in one place by `QuerySafety`:
 `Query__MaxRowsToRead` past those means raising them in `db/clickhouse/config/flare-users.xml` (and its cluster and
 Helm copies) too; see [the reference](../../docs/reference/clickhouse-service-users.md). The alert-evaluation cap
 is read by `Flare.AlertWorker`, which binds the same section; `system.*` introspection
-reads (Indexing/cluster-status pages) apply only the execution-time cap. Reviewed against the `clickhouse-best-practices` skill's
+reads (Indexing/cluster-status pages) apply only the execution-time cap. Every `QuerySafety` preset also carries the
+request's quota key (`ClickHouseQuotaKey`, set by `ClickHouseQuotaMiddleware`) as the `X-ClickHouse-Quota` header, so
+the `flare_query` quota counts each account, token and demo visitor separately, and `QUOTA_EXCEEDED` becomes a 429
+(ADR-0286). Reviewed against the `clickhouse-best-practices` skill's
 `agent-query-safety` rule. `/api/logs/search` also defaults the time range to the last
 hour when `From`/`To` are omitted (`LogFilterSqlBuilder.DefaultLookback`), so an
 unfiltered request doesn't scan the whole table.

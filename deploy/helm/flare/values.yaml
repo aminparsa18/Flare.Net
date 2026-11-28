@@ -87,6 +87,12 @@ clickhouse:
   persistence:
     size: 50Gi
     storageClass: ""
+  # Hourly caps per Flare user, personal access token or demo visitor on flare_query, the user Flare.Api's
+  # query services run as (ADR-0286). 0 = no limit; usage is tracked either way (system.quotas_usage).
+  # Needs the least-privilege users (the default); with enabled=false, set them on your own server.
+  queryQuota:
+    readRows: 0
+    executionTimeSeconds: 0
   # Only used when enabled=false.
   external:
     host: ""

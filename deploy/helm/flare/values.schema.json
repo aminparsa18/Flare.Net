@@ -240,6 +240,20 @@
             }
           }
         },
+        "queryQuota": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "readRows": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "executionTimeSeconds": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
         "external": {
           "type": "object",
           "additionalProperties": false,

@@ -8,7 +8,8 @@
 [Как использовать служебных пользователей ClickHouse](../how-to/admin/use-clickhouse-service-users.ru.md).
 Почему так, см. [ADR-0282](../../docs-internal/adr/0282-clickhouse-service-users.md)
 [ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md)
-и [ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md).
+[ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md)
+и [ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md).
 
 ## Пользователи
 
@@ -25,7 +26,7 @@
 |---|---|---|
 | `default` | Средство миграций: одноразовое задание миграций либо Flare.Ingest и Flare.Api при запуске (см. [Где выполняются миграции](#где-выполняются-миграции)) | Всё. Flare использует его только для DDL. |
 | `flare_ingest` | Flare.Ingest | `INSERT` на `clickhousedb.*`. `SELECT` только на `pipeline_rules`, `log_metrics`, `metric_attribute_rules`, `runtime_settings`, `telemetry_exports` и `checkin_monitors` (в файле кластера также их таблицы `_local`). `SELECT` на столбец `Name` таблицы `schema_migrations`, для ожидания, описанного ниже. |
-| `flare_query` | Сервисы запросов Flare.Api: поиск по логам, спанам, метрикам и профилям, LogQL, PromQL, TraceQL и графики на всех страницах | `SELECT` на `clickhousedb.*`. Профиль настроек `flare_query` (ниже). |
+| `flare_query` | Сервисы запросов Flare.Api: поиск по логам, спанам, метрикам и профилям, LogQL, PromQL, TraceQL и графики на всех страницах | `SELECT` на `clickhousedb.*`. Профиль настроек `flare_query` и квота `flare_query` (ниже). |
 | `flare_app` | Всё остальное в Flare.Api (запись конфигурации, срок хранения, продвинутые столбцы, удаление данных, страница Indexing, состояние кластера) и Flare.AlertWorker | `SELECT` и `INSERT` на `clickhousedb.*`; `ALTER TTL`, `ALTER MODIFY COLUMN`, `ALTER SETTINGS`, `ALTER ADD COLUMN`, `ALTER DROP COLUMN`, `ALTER ADD INDEX`, `ALTER DROP INDEX`, `ALTER MATERIALIZE COLUMN`, `ALTER MATERIALIZE INDEX` и `ALTER DELETE` на `clickhousedb.*`; `SELECT` на перечисленные ниже системные таблицы; `CREATE TEMPORARY TABLE` и `WRITE ON S3` (экспорт в архив). Только в файле кластера: `CLUSTER` и `READ ON REMOTE`. |
 
 Ни один из трёх служебных пользователей не может выполнять `CREATE`, `DROP`,
@@ -54,6 +55,34 @@ Flare.Api задаёт действующие ограничения для ка
 любое значение выше потолка в `Query:MaxExecutionSeconds` или
 `Query:MaxRowsToRead` приводит к ошибке 452 в каждом запросе, поэтому
 поднимите и потолок в файле пользователей.
+
+### Квота `flare_query`
+
+Квота с ключами и интервалом в один час. Flare.Api передаёт ключ каждого
+запроса в заголовке `X-ClickHouse-Quota`, поэтому ClickHouse считает каждого
+вызывающего отдельно.
+
+| Вызывающий | Ключ квоты |
+|---|---|
+| Вошедшая учётная запись | `user:{id пользователя}` |
+| Персональный токен доступа | `pat:{id токена}`, отдельно от владельца |
+| Посетитель в демо-режиме | `demo:{адрес клиента}` |
+| Запросы без аутентификации (auth выключен), фоновая работа Flare.Api | нет: общий счётчик `flare_query` |
+
+Все лимиты в `flare-users.xml` равны `0`, то есть лимита нет. ClickHouse всё
+равно считает запросы, прочитанные строки и время выполнения каждого ключа в
+`system.quotas_usage`. Как задать лимиты, см.
+[Ограничение стоимости запросов ClickHouse для каждой учётной записи](../how-to/admin/use-clickhouse-service-users.ru.md#ограничение-стоимости-запросов-clickhouse-для-каждой-учётной-записи).
+
+| Лимит | Что считает |
+|---|---|
+| `read_rows` | Строки, прочитанные запросами ключа за час |
+| `execution_time` | Суммарное время выполнения запросов ключа за час, в секундах |
+| `queries`, `errors`, `result_rows` | Тоже доступны, в поставляемом файле `0` |
+
+Запрос сверх лимита завершается с кодом 201 (`QUOTA_EXCEEDED`), и Flare.Api
+отвечает на запрос `429 Too Many Requests`. Flare.AlertWorker и работа
+Flare.Api под `flare_app` не учитываются.
 
 ## Строки подключения
 
@@ -99,6 +128,8 @@ ClickHouse.
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | Только для встроенного ClickHouse. Монтирует `files/flare-users.xml`, генерирует три пароля и направляет каждый сервис на собственного пользователя. `false` оставляет все сервисы на `default`. |
 | `clickhouse.external.usersSecret` | `""` | Только для внешнего ClickHouse. Secret с полными строками подключения под ключами `clickhousedb-ingest`, `clickhousedb-query` и `clickhousedb-app`. Если ключа нет, используются `clickhouse.external.username` и пароль ClickHouse, кроме случая, когда работает Job миграций: тогда нужны все три ключа. |
+| `clickhouse.queryQuota.readRows` | `0` | Только встроенный ClickHouse с `clickhouse.users.enabled`. Часовой лимит `read_rows` на ключ квоты; `0` — без лимита. |
+| `clickhouse.queryQuota.executionTimeSeconds` | `0` | То же для `execution_time` в секундах. Если хотя бы одно значение больше `0`, чарт монтирует `users.d/zz-flare-query-quota.xml` с обоими. |
 | `clickhouse.migrationJob.enabled` | `true` | Выполнять миграции в одноразовом Job и не передавать пароль `default` ни одному поду сервисов (см. ниже). Чарт возвращается к миграциям при запуске и пишет причину в заметках установки, если `image.tag` — релиз старше 0.7.0 или если ни `clickhouse.users.enabled` (встроенный ClickHouse), ни `clickhouse.external.usersSecret` не дают сервисам собственных пользователей. `false` — всегда мигрировать при запуске. |
 | `clickhouse.migrationJob.resources` | `{}` | Ресурсы контейнера Job. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Сколько Kubernetes хранит завершённый Job. |

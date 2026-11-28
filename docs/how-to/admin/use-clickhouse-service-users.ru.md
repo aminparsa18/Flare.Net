@@ -104,6 +104,7 @@ CREATE SETTINGS PROFILE flare_query SETTINGS
     max_rows_to_read = 1000000000 MAX 10000000000;
 CREATE USER flare_query IDENTIFIED BY '...' SETTINGS PROFILE 'flare_query';
 GRANT SELECT ON clickhousedb.* TO flare_query;
+CREATE QUOTA flare_query KEYED BY client_key, user_name FOR INTERVAL 1 hour TRACKING ONLY TO flare_query;
 
 CREATE USER flare_app IDENTIFIED BY '...';
 GRANT SELECT, INSERT ON clickhousedb.* TO flare_app;
@@ -160,3 +161,74 @@ GROUP BY user;
 `clickhouse.users.enabled=false` или пустой `clickhouse.external.usersSecret`)
 и перезапустите сервисы. Каждый из них вернётся к
 `ConnectionStrings__clickhousedb`.
+
+## Ограничение стоимости запросов ClickHouse для каждой учётной записи
+
+Ограничьте, сколько строк и времени запросов каждая учётная запись Flare,
+персональный токен доступа или посетитель демо-режима может использовать под
+`flare_query` за час. По умолчанию у квоты нет лимитов и она только считает
+использование (см.
+[квоту `flare_query`](../../reference/clickhouse-service-users.ru.md#квота-flare_query)).
+Запросы сверх лимита получают `429 Too Many Requests` до конца часа.
+
+Сначала посмотрите обычное использование, чтобы лимиты не мешали нормальной
+работе. Под `default`:
+
+```sql
+SELECT quota_key, queries, read_rows, execution_time
+FROM system.quotas_usage
+WHERE quota_name = 'flare_query'
+ORDER BY read_rows DESC;
+```
+
+Если аутентификация выключена, все запросы делят ключ `flare_query`, и лимит
+ограничивает весь API, а не каждого человека.
+
+### Docker Compose или экземпляр CLI `flare`
+
+1. Создайте `zz-flare-query-quota.xml` рядом с `flare-users.xml`. Имя должно
+   идти после `flare-users.xml` по алфавиту: ClickHouse объединяет файлы
+   `users.d` в порядке имён, и побеждает более поздний.
+
+   ```xml
+   <clickhouse>
+       <quotas>
+           <flare_query>
+               <interval>
+                   <read_rows>5000000000</read_rows>
+                   <execution_time>1800</execution_time>
+               </interval>
+           </flare_query>
+       </quotas>
+   </clickhouse>
+   ```
+
+2. Смонтируйте его в сервис `clickhouse` (в каждый `clickhouse-N` в режиме кластера):
+
+   ```yaml
+   volumes:
+     - ./zz-flare-query-quota.xml:/etc/clickhouse-server/users.d/zz-flare-query-quota.xml:ro
+   ```
+
+3. Перезапустите ClickHouse: `docker compose up -d clickhouse` (или `flare stop`,
+   затем `flare start`).
+
+### Helm со встроенным ClickHouse
+
+```bash
+helm upgrade flare deploy/helm/flare --reuse-values \
+  --set clickhouse.queryQuota.readRows=5000000000 \
+  --set clickhouse.queryQuota.executionTimeSeconds=1800
+```
+
+### Собственный сервер ClickHouse
+
+```sql
+ALTER QUOTA flare_query FOR INTERVAL 1 hour MAX read_rows = 5000000000, execution_time = 1800;
+```
+
+### Проверка лимитов
+
+`SELECT quota_key, read_rows, max_read_rows, execution_time, max_execution_time
+FROM system.quotas_usage WHERE quota_name = 'flare_query'` показывает новые значения `max_*`. Когда ключ превышает лимит,
+Flare.Api пишет в лог `ClickHouse query quota exceeded for user:…`.
