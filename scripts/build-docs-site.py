@@ -206,12 +206,23 @@ def stage(code: str, suffix: str, outdir: str) -> Path:
         nav.append({"name": group["name"], "href": f"{section}/"})
     write_toc(dest / "toc.yml", nav, "")
 
+    # The template, plus a token.json with this language's UI labels ("Search", "In this
+    # article", ...) from docs/site/tokens.json. docfx merges a partial token.json over the
+    # built-in English one, so a label missing there stays English.
+    template = OUT / "template" / code
+    if template.exists():
+        shutil.rmtree(template)
+    shutil.copytree(DOCS / "site" / "template", template)
+    tokens = json.loads((DOCS / "site" / "tokens.json").read_text(encoding="utf-8")).get(code)
+    if tokens:
+        (template / "token.json").write_text(json.dumps(tokens, ensure_ascii=False, indent=2), encoding="utf-8")
+
     config = {
         "build": {
             "content": [{"files": ["**/*.{md,yml}"], "exclude": ["obj/**"]}],
             "resource": [{"files": [f"**/*{ext}" for ext in sorted(ASSET_EXTS)]}],
             "output": str((OUT / "_site" / outdir).resolve()),
-            "template": ["default", "modern", str((DOCS / "site" / "template").resolve())],
+            "template": ["default", "modern", str(template.resolve())],
             "globalMetadata": {
                 "_appName": "Flare",
                 "_appTitle": "Flare",
