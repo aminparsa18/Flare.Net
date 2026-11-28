@@ -162,10 +162,6 @@ folders are where "what happened and why" actually lives.
 - **Switch `Flare.OpenTelemetry` to the upstream consistent-probability sampler once it is stable.** `ConsistentProbabilitySampler`
   in `OpenTelemetry.Extensions` is prerelease only (latest `1.21.0-beta.1`). When a stable release ships, replace the package's
   own `ConsistentProbabilitySampler` with it and drop ours (ADR-0280).
-- **Bump the CommunityToolkit Flare integration to image tag `0.7` and drop its "origin only" note.** Unblocked: v0.7.0
-  normalizes configured CORS origins (a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored). Open a small PR on
-  CommunityToolkit/Aspire that sets `FlareContainerImageTags.Tag` to `"0.7"` (it is `"0.6"`, so toolkit users stay on 0.6.x) and removes the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in
-  `src/CommunityToolkit.Aspire.Hosting.Flare/`, then reply on [#2370](https://github.com/CommunityToolkit/Aspire/pull/2370) so the reviewers see the promised fix landed.
 - **Retire `Flare.Hosting.Aspire`** ([ADR-0281](../adr/0281-aspire-integration-moves-to-community-toolkit.md)). Once
   [CommunityToolkit/Aspire#2610](https://github.com/CommunityToolkit/Aspire/pull/2610) (the missing hosting features) merges and
   ships, move `examples/ExampleApp.AppHost` to `CommunityToolkit.Aspire.Hosting.Flare` and delete `src/Aspire.Hosting.Flare`. The
