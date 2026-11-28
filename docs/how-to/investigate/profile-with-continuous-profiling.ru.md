@@ -52,7 +52,7 @@ service:
       exporters: [otlp_grpc]
 ```
 
-Запустите рядом с Flare (укажите в `endpoint` хост Flare.Ingest; если используете [ключи API приёма](../admin/configure-authentication.md#ingest-api-keys), раскомментируйте `headers`):
+Запустите рядом с Flare (укажите в `endpoint` хост Flare.Ingest; если используете [ключи API приёма](../admin/configure-authentication.ru.md#ключи-api-приёма-данных), раскомментируйте `headers`):
 
 ```bash
 docker run -d --name flare-ebpf --privileged --pid=host --network host \

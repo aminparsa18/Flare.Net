@@ -52,7 +52,7 @@ service:
       exporters: [otlp_grpc]
 ```
 
-在 Flare 旁边运行它（把 `endpoint` 指向你的 Flare.Ingest 主机；如果启用了[摄取 API 密钥](../admin/configure-authentication.md#ingest-api-keys)，取消 `headers` 的注释）：
+在 Flare 旁边运行它（把 `endpoint` 指向你的 Flare.Ingest 主机；如果启用了[摄取 API 密钥](../admin/configure-authentication.zh-CN.md#摄取-api-密钥)，取消 `headers` 的注释）：
 
 ```bash
 docker run -d --name flare-ebpf --privileged --pid=host --network host \

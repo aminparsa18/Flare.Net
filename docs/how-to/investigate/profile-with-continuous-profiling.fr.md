@@ -52,7 +52,7 @@ service:
       exporters: [otlp_grpc]
 ```
 
-Lancez-le à côté de Flare (pointez `endpoint` vers votre hôte Flare.Ingest ; si vous utilisez des [clés d'API d'ingestion](../admin/configure-authentication.md#ingest-api-keys), décommentez `headers`) :
+Lancez-le à côté de Flare (pointez `endpoint` vers votre hôte Flare.Ingest ; si vous utilisez des [clés d'API d'ingestion](../admin/configure-authentication.fr.md#clés-api-dingestion), décommentez `headers`) :
 
 ```bash
 docker run -d --name flare-ebpf --privileged --pid=host --network host \

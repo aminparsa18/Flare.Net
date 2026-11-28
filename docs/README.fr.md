@@ -70,6 +70,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Surveiller des applications Dapr](how-to/monitor/monitor-dapr-applications.fr.md)
 - [Surveiller les API externes](how-to/monitor/monitor-external-apis.fr.md)
 - [Surveiller les appels LLM](how-to/monitor/monitor-llm-calls.fr.md)
+- [Surveiller des endpoints, des ports et des certificats avec des sondes synthétiques](how-to/monitor/synthetic-monitoring.fr.md)
 - [Surveiller des tâches cron et des tâches planifiées avec des check-ins](how-to/monitor/monitor-cron-jobs.fr.md)
 - [Publier une page de statut](how-to/monitor/publish-a-status-page.fr.md)
 
@@ -95,9 +96,12 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 
 *Tableaux de bord*
 
+- [Créer un tableau de bord personnalisé](how-to/dashboards/build-custom-dashboards.fr.md)
+- [Envoyer un tableau de bord par e-mail selon un calendrier](how-to/dashboards/schedule-dashboard-reports.fr.md)
 
 *Gérer les données, la rétention et les coûts*
 
+- [Extraire ou masquer des champs à l'ingestion](how-to/data/manage-pipeline-rules.fr.md)
 - [Trouver les métriques à forte cardinalité](how-to/data/find-high-cardinality-metrics.fr.md)
 - [Réduire les attributs d'une métrique à l'ingestion](how-to/data/reduce-metric-attributes.fr.md)
 - [Transformer une recherche de logs en métrique](how-to/data/log-based-metrics.fr.md)

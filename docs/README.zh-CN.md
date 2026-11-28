@@ -70,6 +70,7 @@
 - [监控 Dapr 应用](how-to/monitor/monitor-dapr-applications.zh-CN.md)
 - [监控外部 API](how-to/monitor/monitor-external-apis.zh-CN.md)
 - [监控 LLM 调用](how-to/monitor/monitor-llm-calls.zh-CN.md)
+- [用合成探测监控端点、端口和证书](how-to/monitor/synthetic-monitoring.zh-CN.md)
 - [用签到监控 cron 任务和定时任务](how-to/monitor/monitor-cron-jobs.zh-CN.md)
 - [发布状态页](how-to/monitor/publish-a-status-page.zh-CN.md)
 
@@ -95,9 +96,12 @@
 
 *仪表板*
 
+- [构建自定义仪表板](how-to/dashboards/build-custom-dashboards.zh-CN.md)
+- [按计划通过邮件发送仪表板](how-to/dashboards/schedule-dashboard-reports.zh-CN.md)
 
 *管理数据、保留与成本*
 
+- [在摄取时提取或脱敏字段](how-to/data/manage-pipeline-rules.zh-CN.md)
 - [找出高基数指标](how-to/data/find-high-cardinality-metrics.zh-CN.md)
 - [在摄取时精简指标的属性](how-to/data/reduce-metric-attributes.zh-CN.md)
 - [把日志搜索变成指标](how-to/data/log-based-metrics.zh-CN.md)
@@ -117,25 +121,25 @@
 - [如何在 Grafana 中绘制 Flare 的会话、错误和发布健康度](how-to/integrations/query-with-grafana-plugin.zh-CN.md)
 
 **参考**
--[CLI commands](reference/cli-commands.zh-CN.md)
--[Aspire hosting](reference/aspire-hosting.zh-CN.md)
--[Authentication config](reference/authentication-config.zh-CN.md)
--[Clustering config](reference/clustering-config.zh-CN.md)
+- [CLI 命令](reference/cli-commands.zh-CN.md)
+- [Aspire 托管](reference/aspire-hosting.zh-CN.md)
+- [认证配置](reference/authentication-config.zh-CN.md)
+- [集群配置](reference/clustering-config.zh-CN.md)
 - [ClickHouse 服务用户](reference/clickhouse-service-users.zh-CN.md)
 - [Live-tail 配置](reference/live-tail-config.zh-CN.md)
--[OTLP logger versions](reference/otlp-logger-versions.zh-CN.md)
+- [OTLP 记录器版本](reference/otlp-logger-versions.zh-CN.md)
 
 **解释**
--[Architecture](explanation/architecture.zh-CN.md)
--[Clustering](explanation/clustering.zh-CN.md)
--[Authentication model](explanation/authentication-model.zh-CN.md)
--[告警的工作原理](explanation/how-alerting-works.zh-CN.md)
--[Flare 如何存储和查询遥测数据](explanation/how-flare-stores-and-queries-telemetry.zh-CN.md)
--[摄取可靠性与投递保证](explanation/ingest-reliability-and-delivery-guarantees.zh-CN.md)
--[采样、聚类与成本](explanation/sampling-clustering-and-cost.zh-CN.md)
--[项目与访问范围](explanation/projects-and-access-scoping.zh-CN.md)
--[保留策略与分层存储](explanation/retention-and-tiering.zh-CN.md)
--[数据驻留与隐私](explanation/data-residency-and-privacy.zh-CN.md)
+- [架构](explanation/architecture.zh-CN.md)
+- [集群](explanation/clustering.zh-CN.md)
+- [认证模型](explanation/authentication-model.zh-CN.md)
+- [告警的工作原理](explanation/how-alerting-works.zh-CN.md)
+- [Flare 如何存储和查询遥测数据](explanation/how-flare-stores-and-queries-telemetry.zh-CN.md)
+- [摄取可靠性与投递保证](explanation/ingest-reliability-and-delivery-guarantees.zh-CN.md)
+- [采样、聚类与成本](explanation/sampling-clustering-and-cost.zh-CN.md)
+- [项目与访问范围](explanation/projects-and-access-scoping.zh-CN.md)
+- [保留策略与分层存储](explanation/retention-and-tiering.zh-CN.md)
+- [数据驻留与隐私](explanation/data-residency-and-privacy.zh-CN.md)
 
 ## 贡献文档
 
