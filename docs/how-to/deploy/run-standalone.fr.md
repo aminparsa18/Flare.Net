@@ -38,7 +38,7 @@ Ceci installe Docker lui-même s'il est absent (via le
 [script officiel de Docker](https://get.docker.com) sur Linux, ou
 Homebrew sur macOS), puis récupère seulement ce qui est nécessaire pour
 exécuter la pile — [`docker-compose.install.yml`](../../../docker-compose.install.yml),
-le même fichier compose que ci-dessous mais tirant les trois images Flare
+le même fichier compose que ci-dessous mais tirant les images Flare
 depuis Docker Hub au lieu de les construire, puisqu'il n'y a pas de
 source locale à construire — dans `~/.flare` (à surcharger avec
 `FLARE_INSTALL_DIR`), et la démarre. Peut être relancé sans risque : il
@@ -47,6 +47,15 @@ que retélécharger le fichier compose/les migrations et les dernières
 images. Voir le commentaire d'en-tête du script lui-même
 ([`scripts/install.sh`](../../../scripts/install.sh)) pour chaque variable
 d'environnement qu'il lit et exactement ce qu'il fait.
+
+`FLARE_IMAGE_TAG` choisit le tag des images (par défaut `latest`). Le fichier
+compose exécute les migrations ClickHouse dans un service ponctuel
+`clickhouse-migrate`, qui demande Flare 0.7.0 ou plus récent. Pour une version
+plus ancienne, comme `FLARE_IMAGE_TAG=0.6.0`, le script récupère plutôt les
+fichiers du tag git de cette version (`v0.6.0`), qui migrent au démarrage des
+services. Définissez vous-même `FLARE_INSTALL_REF` pour choisir la référence.
+Si vous modifiez le tag à la main dans `~/.flare/.env` et lancez `docker compose`
+vous-même, gardez 0.7.0 ou plus récent, ou `edge`.
 
 Vous préférez cloner le dépôt vous-même (par exemple pour construire
 depuis les sources, ou relire le fichier compose au préalable) ? Passez

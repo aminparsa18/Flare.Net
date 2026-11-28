@@ -131,9 +131,6 @@ folders are where "what happened and why" actually lives.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
-  - **Make the ClickHouse migration job the default on the published-image paths** once a release ships the `migrate`
-    command ([ADR-0284](../adr/0284-clickhouse-migration-job.md)): `docker-compose.install.yml`, the CLI's Compose
-    templates, and Helm's `clickhouse.migrationJob.enabled`.
   - **Per-identity ClickHouse quotas**, after ADR-0282. Send the Flare user or PAT id as `quota_key` and cap `read_rows` and
     `execution_time` per hour for `flare_query`, which measures query cost, not just request count as ADR-0028 does.
   - **Opt-in row policies as a second check on project scoping**, after ADR-0282. A RESTRICTIVE policy on every
@@ -170,9 +167,9 @@ folders are where "what happened and why" actually lives.
 - **Switch `Flare.OpenTelemetry` to the upstream consistent-probability sampler once it is stable.** `ConsistentProbabilitySampler`
   in `OpenTelemetry.Extensions` is prerelease only (latest `1.21.0-beta.1`). When a stable release ships, replace the package's
   own `ConsistentProbabilitySampler` with it and drop ours (ADR-0280).
-- **Drop the "origin only" note from the CommunityToolkit Flare integration.** Once a released Flare image normalizes configured CORS origins
-  (`fix/normalize-cors-origins`: a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored), open a small PR on
-  CommunityToolkit/Aspire removing the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in
+- **Bump the CommunityToolkit Flare integration to image tag `0.7` and drop its "origin only" note.** Unblocked: v0.7.0
+  normalizes configured CORS origins (a trailing slash or path in `Cors:AllowedOrigins`/`Otlp:AllowedOrigins` is ignored). Open a small PR on
+  CommunityToolkit/Aspire that sets `FlareContainerImageTags.Tag` to `"0.7"` (it is `"0.6"`, so toolkit users stay on 0.6.x) and removes the origin-only wording from `WithPublicUrls`'s `dashboardUrl` XML docs and the README in
   `src/CommunityToolkit.Aspire.Hosting.Flare/`, then reply on [#2370](https://github.com/CommunityToolkit/Aspire/pull/2370) so the reviewers see the promised fix landed.
 - **Retire `Flare.Hosting.Aspire`** ([ADR-0281](../adr/0281-aspire-integration-moves-to-community-toolkit.md)). Once
   [CommunityToolkit/Aspire#2610](https://github.com/CommunityToolkit/Aspire/pull/2610) (the missing hosting features) merges and

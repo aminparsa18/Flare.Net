@@ -74,20 +74,37 @@ ConnectionStrings__clickhousedb (`default`) is the migration runner's DDL creden
 string falls back to it when unset. alert-worker runs no migrations but still gets it (ADR-0283): AlertWorker
 images older than ADR-0282 read only `clickhousedb`, and an image pinned below the chart's must not crash-loop.
 Newer images prefer clickhousedb-app, so they still run as flare_app.
-With clickhouse.migrationJob.enabled no component gets CLICKHOUSE_PASSWORD or clickhousedb (ADR-0284): the Job
-runs the migrations, and job mode needs a new image anyway, so the old-image fallback above doesn't apply.
+In job mode (flare.migrationJobOn) no component gets CLICKHOUSE_PASSWORD or clickhousedb (ADR-0284): the Job
+runs the migrations, and job mode is only on for an image with the `migrate` command (ADR-0285), so the old-image
+fallback above doesn't apply.
 */}}
 {{/*
-"true" when migrations run in the one-shot Job (ADR-0284). Fails the render when the services would then have
-no ClickHouse connection string at all.
+Why the one-shot migration Job (ADR-0284) is off even though clickhouse.migrationJob.enabled is true, or empty when
+it isn't (ADR-0285). The chart then falls back to migrating at ingest/api startup, as before ADR-0284:
+- no per-user connection strings (users.enabled off, or an external ClickHouse without usersSecret): every service
+  connects as `default` anyway, so the Job would take no credential away;
+- the image tag is a release older than 0.7.0, whose api image has no `migrate` command. edge, sha-... and any tag
+  that isn't a version number count as new.
 */}}
-{{- define "flare.migrationJobOn" -}}
+{{- define "flare.migrationJobFallbackReason" -}}
 {{- if .Values.clickhouse.migrationJob.enabled -}}
+{{- $tag := toString (.Values.image.tag | default .Chart.AppVersion) | trimPrefix "v" -}}
+{{- $oldImage := false -}}
+{{- if regexMatch "^[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+].*)?$" $tag -}}
+{{- $parts := splitList "." (regexReplaceAll "[-+].*$" $tag "") -}}
+{{- $oldImage = and (eq (index $parts 0) "0") (lt (atoi (index $parts 1)) 7) -}}
+{{- end -}}
 {{- if not (or (include "flare.clickhouseUsersOn" .) (and (not .Values.clickhouse.enabled) .Values.clickhouse.external.usersSecret)) -}}
-{{- fail "clickhouse.migrationJob.enabled needs per-user connection strings: clickhouse.users.enabled with the bundled ClickHouse, or clickhouse.external.usersSecret" -}}
+no per-user ClickHouse connection strings (clickhouse.users.enabled is off, or an external ClickHouse has no clickhouse.external.usersSecret), so every service connects as `default` anyway
+{{- else if $oldImage -}}
+image tag {{ $tag }} is older than 0.7.0, whose api image has no `migrate` command
 {{- end -}}
-true
 {{- end -}}
+{{- end -}}
+
+{{/* "true" when migrations run in the one-shot Job (ADR-0284, on by default since ADR-0285). */}}
+{{- define "flare.migrationJobOn" -}}
+{{- if and .Values.clickhouse.migrationJob.enabled (not (include "flare.migrationJobFallbackReason" .)) -}}true{{- end -}}
 {{- end -}}
 
 {{- define "flare.backingEnv" -}}

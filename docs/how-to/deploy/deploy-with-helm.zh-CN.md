@@ -122,11 +122,20 @@ redis:
 helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 ```
 
-架构迁移会在 ingest 和 api 启动时执行，无需运行迁移任务。修改 `image.tag` 即可切换版本；
-默认为 chart 的 `appVersion`。若不想让任何服务 Pod 拿到 ClickHouse 的 `default` 密码，
-请设置 `clickhouse.migrationJob.enabled=true`：每次安装或升级都会在一次性 Job 中运行迁移，
-ingest 和 api 会等待它完成。这需要 0.7.0 或更高版本的镜像。见
-[迁移在哪里运行](../../reference/clickhouse-service-users.zh-CN.md#迁移在哪里运行)。
+修改 `image.tag` 即可切换版本，默认为 chart 的 `appVersion`。每次安装或升级都会在名为
+`<release>-flare-clickhouse-migrate-<revision>` 的一次性 Job 中运行 schema 迁移，
+ingest、api 和 alert-worker 会等待它完成，因此没有任何服务 Pod 持有 ClickHouse 的
+`default` 密码。无需手动执行任何操作。Job 完成之前，ingest 和 api 可能会在等待中重启几次，
+这是正常的。
+
+在以下情况下，chart 改为在启动时于 ingest 和 api 中迁移，并在安装说明中给出原因：
+
+- `image.tag` 是早于 0.7.0 的版本，没有 `migrate` 命令；
+- 服务没有各自的用户：`clickhouse.users.enabled=false`，或外部 ClickHouse 未设置
+  `clickhouse.external.usersSecret`；
+- 你设置了 `clickhouse.migrationJob.enabled=false`。
+
+见[迁移在哪里运行](../../reference/clickhouse-service-users.zh-CN.md#迁移在哪里运行)。
 
 chart 将 ClickHouse 固定在 `26.8` LTS 线（`clickhouse.image`），而不是 `:latest`，
 因此升级不会自行改变 ClickHouse 版本。需要更新的版本线时，请自行设置

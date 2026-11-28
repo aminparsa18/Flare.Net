@@ -56,6 +56,23 @@ services:
       timeout: 5s
       retries: 20
 
+  # One-shot schema migration (ADR-0284): the api image run as `migrate` applies every pending migration as
+  # `default` and exits 0. It's the only service holding the `default` password; ingest, api and alert-worker
+  # start once it has completed. The api image has `migrate` from 0.7.0, so `flare start` and `flare update`
+  # refuse an older FLARE_IMAGE_TAG for an instance created from this file (ADR-0285).
+  clickhouse-migrate:
+    image: apardev/flare-api:${FLARE_IMAGE_TAG:-edge}
+    command: ["migrate"]
+    labels:
+      flare.resource: "true"
+      flare.role: "clickhouse-migrate"
+      flare.relationships: "clickhouse:Reference"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+
   ingest:
     image: apardev/flare-ingest:${FLARE_IMAGE_TAG:-edge}
     # Restarts after a crash or a Docker daemon restart, but (unlike `always`) doesn't
@@ -71,10 +88,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284, ADR-0285).
       ConnectionStrings__clickhousedb-ingest: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_ingest;Password=${FLARE_CH_INGEST_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       Identity__DbPath: "/data/identity/flare-identity.db"
@@ -102,10 +120,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
-      # Runtime ClickHouse users (ADR-0282). `clickhousedb` (default) is only the migration runner's DDL
-      # credential; each of these falls back to it when unset.
+      # Runtime ClickHouse users (ADR-0282). No `clickhousedb` (default) DDL credential: clickhouse-migrate
+      # runs the migrations and this service waits for them (ADR-0284, ADR-0285).
       ConnectionStrings__clickhousedb-query: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_query;Password=${FLARE_CH_QUERY_PASSWORD:-flare}"
       ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
@@ -151,10 +170,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     environment:
-      # flare_app (ADR-0282). `clickhousedb` is only for AlertWorker images older than ADR-0282
-      # (FLARE_IMAGE_TAG 0.6.0 and earlier), which read nothing else; newer ones prefer clickhousedb-app (ADR-0283).
-      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      # flare_app (ADR-0282). AlertWorker runs no migrations, so it gets no `clickhousedb` DDL credential. This
+      # file needs FLARE_IMAGE_TAG 0.7.0 or later, which `flare start`/`flare update` enforce (ADR-0285).
       ConnectionStrings__clickhousedb-app: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=flare_app;Password=${FLARE_CH_APP_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       # Same app-wide SMTP server as `api`'s own Email__* block - real breach

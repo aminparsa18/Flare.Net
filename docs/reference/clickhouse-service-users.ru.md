@@ -59,15 +59,16 @@ Flare.Api задаёт действующие ограничения для ка
 
 | Ключ | Переменная окружения | Кто использует | Если не задана |
 |---|---|---|---|
-| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | Средство миграций (`default`) и образы Flare.AlertWorker до 0.6.0 включительно | Flare.Ingest и Flare.Api не выполняют миграции, а ждут задание миграций. Трём ключам ниже тогда не на что откатываться. |
+| `ConnectionStrings:clickhousedb` | `ConnectionStrings__clickhousedb` | Средство миграций (`default`) и образы Flare.AlertWorker до 0.6.0 включительно, когда Helm возвращается к миграциям при запуске | Flare.Ingest и Flare.Api не выполняют миграции, а ждут задание миграций. Трём ключам ниже тогда не на что откатываться. |
 | `ConnectionStrings:clickhousedb-ingest` | `ConnectionStrings__clickhousedb-ingest` | Flare.Ingest (`flare_ingest`) | Используется `clickhousedb` |
 | `ConnectionStrings:clickhousedb-query` | `ConnectionStrings__clickhousedb-query` | Сервисы запросов Flare.Api (`flare_query`) | Используется `clickhousedb` |
 | `ConnectionStrings:clickhousedb-app` | `ConnectionStrings__clickhousedb-app` | Остальное в Flare.Api и Flare.AlertWorker (`flare_app`) | Используется `clickhousedb` |
 
 Пустое значение считается незаданным. Flare.AlertWorker не выполняет
 миграций: ему нужна `clickhousedb-app` или, как запасной вариант,
-`clickhousedb`. Helm и CLI `flare` всё равно передают ему `clickhousedb`,
-потому что образы AlertWorker до 0.6.0 включительно читают только этот ключ.
+`clickhousedb`. Когда Helm возвращается к миграциям при запуске (см. ниже),
+он всё равно передаёт ему `clickhousedb`, потому что образы AlertWorker до
+0.6.0 включительно читают только этот ключ.
 Более новые образы используют `clickhousedb-app`, если она задана, и
 по-прежнему подключаются как `flare_app`.
 
@@ -97,8 +98,8 @@ ClickHouse.
 | Значение | По умолчанию | Смысл |
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | Только для встроенного ClickHouse. Монтирует `files/flare-users.xml`, генерирует три пароля и направляет каждый сервис на собственного пользователя. `false` оставляет все сервисы на `default`. |
-| `clickhouse.external.usersSecret` | `""` | Только для внешнего ClickHouse. Secret с полными строками подключения под ключами `clickhousedb-ingest`, `clickhousedb-query` и `clickhousedb-app`. Если ключа нет, используются `clickhouse.external.username` и пароль ClickHouse, кроме режима `clickhouse.migrationJob.enabled`, где нужны все три ключа. |
-| `clickhouse.migrationJob.enabled` | `false` | Выполнять миграции в одноразовом Job и не передавать пароль `default` ни одному поду сервисов (см. ниже). Нужен образ 0.7.0 или новее и `clickhouse.users.enabled` либо `clickhouse.external.usersSecret`; иначе чарт не отрисовывается. |
+| `clickhouse.external.usersSecret` | `""` | Только для внешнего ClickHouse. Secret с полными строками подключения под ключами `clickhousedb-ingest`, `clickhousedb-query` и `clickhousedb-app`. Если ключа нет, используются `clickhouse.external.username` и пароль ClickHouse, кроме случая, когда работает Job миграций: тогда нужны все три ключа. |
+| `clickhouse.migrationJob.enabled` | `true` | Выполнять миграции в одноразовом Job и не передавать пароль `default` ни одному поду сервисов (см. ниже). Чарт возвращается к миграциям при запуске и пишет причину в заметках установки, если `image.tag` — релиз старше 0.7.0 или если ни `clickhouse.users.enabled` (встроенный ClickHouse), ни `clickhouse.external.usersSecret` не дают сервисам собственных пользователей. `false` — всегда мигрировать при запуске. |
 | `clickhouse.migrationJob.resources` | `{}` | Ресурсы контейнера Job. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Сколько Kubernetes хранит завершённый Job. |
 
@@ -118,8 +119,14 @@ ClickHouse.
 |---|---|
 | `docker-compose.yml`, `docker-compose.cluster.yml` | Сервис `clickhouse-migrate`. `ingest`, `api` и `alert-worker` запускаются после его выхода с кодом `0`. |
 | Aspire AppHost | Ресурс `clickhouse-migrate`. Сервисы ждут его завершения. |
-| Helm | В ingest и api при запуске. С `clickhouse.migrationJob.enabled` — Job на каждую ревизию релиза. |
-| `docker-compose.install.yml`, `flare start` | В ingest и api при запуске: эти способы используют опубликованные образы, а в 0.6.0 нет команды `migrate`. |
+| `docker-compose.install.yml` (`install.sh`) | Сервис `clickhouse-migrate`, как выше. Для `FLARE_IMAGE_TAG` старше 0.7.0 `install.sh` берёт файлы этого релиза, а они мигрируют в ingest и api при запуске. |
+| `flare start` | Сервис `clickhouse-migrate` для экземпляров, созданных Flare.Cli 0.1.12 или новее. Для них `flare start` и `flare update` отказываются принимать `FLARE_IMAGE_TAG` старше 0.7.0. Экземпляр, созданный более старой CLI, сохраняет свой compose-файл и мигрирует в ingest и api при запуске. |
+| Helm | Job на каждую ревизию релиза. В ingest и api при запуске, если чарт возвращается к старому режиму (см. `clickhouse.migrationJob.enabled` выше). |
+
+Команда `migrate` есть в образе Api начиная с Flare 0.7.0. Более старый образ,
+запущенный как задание, поднимает весь API и не завершается, поэтому сервисы,
+которые ждут задание, так и не запускаются. Теги, которые не являются номером
+версии, например `edge`, `latest` или `sha-…`, считаются новыми.
 
 | Ключ | Переменная окружения | По умолчанию | Значение |
 |---|---|---|---|

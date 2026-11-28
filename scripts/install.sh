@@ -24,11 +24,13 @@
 #
 # Env vars you can override (none are required):
 #   FLARE_INSTALL_DIR   Where to put the stack files. Default: $HOME/.flare
-#   FLARE_INSTALL_REF    git ref (branch or tag) to fetch files from. Default: main
-#   FLARE_IMAGE_TAG      Docker Hub tag for the three Flare images. Default: latest
+#   FLARE_INSTALL_REF    git ref (branch or tag) to fetch files from. Default: main, or
+#                        v<FLARE_IMAGE_TAG> when that tag is a release older than 0.7.0
+#   FLARE_IMAGE_TAG      Docker Hub tag for the Flare images. Default: latest
 set -euo pipefail
 
 FLARE_INSTALL_DIR="${FLARE_INSTALL_DIR:-$HOME/.flare}"
+install_ref_given="${FLARE_INSTALL_REF:-}"
 FLARE_INSTALL_REF="${FLARE_INSTALL_REF:-main}"
 FLARE_IMAGE_TAG="${FLARE_IMAGE_TAG:-latest}"
 REPO="aminparsa18/Flare.Net"
@@ -36,6 +38,25 @@ REPO="aminparsa18/Flare.Net"
 log()  { printf '==> %s\n' "$1"; }
 warn() { printf 'WARNING: %s\n' "$1" >&2; }
 die()  { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
+
+# True for a release tag older than 0.7.0 (0.6.0, 0.6, 0.5.1-rc1). edge, latest, sha-* and anything else that
+# isn't a version number count as new.
+tag_older_than_0_7() {
+	[[ "$1" =~ ^v?([0-9]+)\.([0-9]+)(\.[0-9]+)?([-+].*)?$ ]] || return 1
+	[ "${BASH_REMATCH[1]}" -eq 0 ] && [ "${BASH_REMATCH[2]}" -lt 7 ]
+}
+
+# The compose file on main runs migrations in a one-shot clickhouse-migrate job, and the api image has the
+# `migrate` command only from 0.7.0 (ADR-0284). For an older image the matching release's files are fetched
+# instead: they migrate at service startup (ADR-0285).
+if tag_older_than_0_7 "$FLARE_IMAGE_TAG" && [ -z "$install_ref_given" ]; then
+	if [[ "$FLARE_IMAGE_TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		FLARE_INSTALL_REF="v${FLARE_IMAGE_TAG#v}"
+		log "FLARE_IMAGE_TAG=$FLARE_IMAGE_TAG is older than 0.7.0, so the stack files come from $FLARE_INSTALL_REF"
+	else
+		die "FLARE_IMAGE_TAG=$FLARE_IMAGE_TAG is older than 0.7.0. Use a full version (e.g. 0.6.0), or set FLARE_INSTALL_REF to the matching release tag."
+	fi
+fi
 
 # Runs docker/docker compose with sudo only if the current user can't already talk to
 # the daemon (e.g. just-installed Docker on Linux, before a fresh login picks up the
@@ -189,8 +210,11 @@ DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-apardev}" FLARE_IMAGE_TAG="$FLARE_IMAG
 	"${DOCKER[@]}" compose pull
 
 log "Starting the stack (docker compose up -d)"
+# --remove-orphans: a service that the fetched compose file no longer has (say, clickhouse-migrate after a move
+# back to an older tag) would otherwise keep running on its old image.
 DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-apardev}" FLARE_IMAGE_TAG="$FLARE_IMAGE_TAG" \
-	"${DOCKER[@]}" compose up -d
+	"${DOCKER[@]}" compose up -d --remove-orphans \
+	|| die "docker compose up failed - if clickhouse-migrate exited non-zero, see '${DOCKER[*]} compose logs clickhouse-migrate' in $FLARE_INSTALL_DIR."
 
 log "Waiting for the api service to report healthy..."
 for i in $(seq 1 60); do
