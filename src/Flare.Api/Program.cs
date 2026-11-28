@@ -709,6 +709,8 @@ app.UseAuthorization();
 // After UseAuthorization() - the PatRateLimit policy's partition-key factory reads
 // HttpContext.User, which only authentication middleware populates.
 app.UseRateLimiter();
+// Charges ClickHouse queries to the caller's quota key and maps QUOTA_EXCEEDED to 429 (ADR-0286).
+app.UseMiddleware<ClickHouseQuotaMiddleware>();
 // Restricts non-admin callers to their projects' services (ADR-0123).
 app.UseMiddleware<ProjectScopeMiddleware>();
 // After authentication + authorization so the actor is known and rejected requests are never

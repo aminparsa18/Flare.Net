@@ -8,7 +8,8 @@ faire basculer une installation existante, voir
 [Utiliser les utilisateurs de service ClickHouse](../how-to/admin/use-clickhouse-service-users.fr.md).
 Pour le pourquoi, voir [l'ADR-0282](../../docs-internal/adr/0282-clickhouse-service-users.md)
 [l'ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md)
-et [l'ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md).
+[l'ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md)
+et [l'ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md).
 
 ## Utilisateurs
 
@@ -25,7 +26,7 @@ sur `/etc/clickhouse-server/users.d/flare-users.xml` :
 |---|---|---|
 | `default` | Le runner de migrations : le job de migration ponctuel, ou Flare.Ingest et Flare.Api au démarrage (voir [Emplacement des migrations](#emplacement-des-migrations)) | Tout. Flare ne l'utilise que pour le DDL. |
 | `flare_ingest` | Flare.Ingest | `INSERT` sur `clickhousedb.*`. `SELECT` uniquement sur `pipeline_rules`, `log_metrics`, `metric_attribute_rules`, `runtime_settings`, `telemetry_exports` et `checkin_monitors` (fichier cluster : aussi leurs tables `_local`). `SELECT` sur la colonne `Name` de `schema_migrations`, pour l'attente décrite plus bas. |
-| `flare_query` | Les services de requête de Flare.Api : recherche de logs, spans, métriques et profils, LogQL, PromQL, TraceQL, et les graphiques de chaque page | `SELECT` sur `clickhousedb.*`. Profil de paramètres `flare_query` (ci-dessous). |
+| `flare_query` | Les services de requête de Flare.Api : recherche de logs, spans, métriques et profils, LogQL, PromQL, TraceQL, et les graphiques de chaque page | `SELECT` sur `clickhousedb.*`. Profil de paramètres `flare_query` et quota `flare_query` (ci-dessous). |
 | `flare_app` | Tout le reste de Flare.Api (écritures de configuration, rétention, colonnes promues, effacement, page Indexing, état du cluster), et Flare.AlertWorker | `SELECT` et `INSERT` sur `clickhousedb.*` ; `ALTER TTL`, `ALTER MODIFY COLUMN`, `ALTER SETTINGS`, `ALTER ADD COLUMN`, `ALTER DROP COLUMN`, `ALTER ADD INDEX`, `ALTER DROP INDEX`, `ALTER MATERIALIZE COLUMN`, `ALTER MATERIALIZE INDEX` et `ALTER DELETE` sur `clickhousedb.*` ; `SELECT` sur les tables système listées ci-dessous ; `CREATE TEMPORARY TABLE` et `WRITE ON S3` (export d'archive). Fichier cluster uniquement : `CLUSTER` et `READ ON REMOTE`. |
 
 Aucun des trois utilisateurs de service ne peut faire `CREATE`, `DROP`,
@@ -56,6 +57,35 @@ plafonds du profil n'arrêtent qu'un chemin de code qui les oublierait. Un `0`
 `Query:MaxExecutionSeconds` ou `Query:MaxRowsToRead` fait échouer chaque
 requête avec le code 452 : relevez donc aussi le plafond dans le fichier des
 utilisateurs.
+
+### Le quota `flare_query`
+
+Un quota à clés, sur un intervalle d'une heure. Flare.Api envoie la clé de
+chaque requête dans l'en-tête `X-ClickHouse-Quota`, si bien que ClickHouse
+compte chaque appelant séparément.
+
+| Appelant | Clé de quota |
+|---|---|
+| Un compte connecté | `user:{id de l'utilisateur}` |
+| Un jeton d'accès personnel | `pat:{id du jeton}`, distinct de celui de son propriétaire |
+| Un visiteur en mode démo | `demo:{adresse du client}` |
+| Requêtes non authentifiées (auth désactivée), travail en arrière-plan de Flare.Api | aucune : le compteur partagé `flare_query` |
+
+Chaque limite de `flare-users.xml` vaut `0`, c'est-à-dire aucune limite.
+ClickHouse compte tout de même les requêtes, les lignes lues et le temps
+d'exécution de chaque clé dans `system.quotas_usage`. Pour fixer des limites,
+voir
+[Limiter le coût des requêtes ClickHouse par compte](../how-to/admin/use-clickhouse-service-users.fr.md#limiter-le-coût-des-requêtes-clickhouse-par-compte).
+
+| Limite | Compte |
+|---|---|
+| `read_rows` | Les lignes lues par les requêtes de la clé dans l'heure |
+| `execution_time` | Les secondes d'exécution des requêtes de la clé dans l'heure, additionnées |
+| `queries`, `errors`, `result_rows` | Également disponibles, à `0` dans le fichier fourni |
+
+Une requête au-delà d'une limite échoue avec le code 201 (`QUOTA_EXCEEDED`),
+et Flare.Api répond à la requête par `429 Too Many Requests`. Flare.AlertWorker
+et le travail de Flare.Api sous `flare_app` ne sont pas comptés.
 
 ## Chaînes de connexion
 
@@ -100,6 +130,8 @@ changer une demande de redémarrer ClickHouse et les services qui l'utilisent.
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | ClickHouse intégré uniquement. Monte `files/flare-users.xml`, génère les trois mots de passe et fait pointer chaque service vers son propre utilisateur. `false` garde tous les services sur `default`. |
 | `clickhouse.external.usersSecret` | `""` | ClickHouse externe uniquement. Secret contenant les chaînes de connexion complètes sous les clés `clickhousedb-ingest`, `clickhousedb-query` et `clickhousedb-app`. Une clé absente se rabat sur `clickhouse.external.username` et le mot de passe ClickHouse, sauf lorsque le Job de migration s'exécute, où les trois clés sont obligatoires. |
+| `clickhouse.queryQuota.readRows` | `0` | ClickHouse intégré avec `clickhouse.users.enabled` uniquement. La limite horaire de `read_rows` par clé de quota ; `0` = aucune limite. |
+| `clickhouse.queryQuota.executionTimeSeconds` | `0` | Idem, pour `execution_time` en secondes. Si l'une des deux valeurs dépasse `0`, le chart monte `users.d/zz-flare-query-quota.xml` avec les deux. |
 | `clickhouse.migrationJob.enabled` | `true` | Exécuter les migrations dans un Job ponctuel et ne donner le mot de passe `default` à aucun pod de service (voir plus bas). Le chart revient aux migrations au démarrage, et en donne la raison dans les notes d'installation, lorsque `image.tag` est une version antérieure à 0.7.0, ou lorsque ni `clickhouse.users.enabled` (ClickHouse intégré) ni `clickhouse.external.usersSecret` ne donnent aux services leurs propres utilisateurs. `false` migre toujours au démarrage. |
 | `clickhouse.migrationJob.resources` | `{}` | Les ressources du conteneur du Job. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Combien de temps Kubernetes garde un Job terminé. |

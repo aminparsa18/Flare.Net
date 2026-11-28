@@ -93,6 +93,7 @@ CREATE SETTINGS PROFILE flare_query SETTINGS
     max_rows_to_read = 1000000000 MAX 10000000000;
 CREATE USER flare_query IDENTIFIED BY '...' SETTINGS PROFILE 'flare_query';
 GRANT SELECT ON clickhousedb.* TO flare_query;
+CREATE QUOTA flare_query KEYED BY client_key, user_name FOR INTERVAL 1 hour TRACKING ONLY TO flare_query;
 
 CREATE USER flare_app IDENTIFIED BY '...';
 GRANT SELECT, INSERT ON clickhousedb.* TO flare_app;
@@ -145,3 +146,69 @@ GROUP BY user;
 删除 `ConnectionStrings__clickhousedb-*` 变量（Helm：
 `clickhouse.users.enabled=false`，或清空 `clickhouse.external.usersSecret`），
 然后重启服务。每个服务都会回退到 `ConnectionStrings__clickhousedb`。
+
+## 按账户限制 ClickHouse 查询开销
+
+限制每个 Flare 账户、个人访问令牌或演示模式访客每小时在 `flare_query` 上可用的
+行数和查询时间。默认情况下配额没有限制，只统计用量（见
+[`flare_query` 配额](../../reference/clickhouse-service-users.zh-CN.md#flare_query-配额)）。
+超出限制的请求会收到 `429 Too Many Requests`，直到这一小时结束。
+
+先查看平常的用量，以免限制妨碍正常使用。以 `default` 身份执行：
+
+```sql
+SELECT quota_key, queries, read_rows, execution_time
+FROM system.quotas_usage
+WHERE quota_name = 'flare_query'
+ORDER BY read_rows DESC;
+```
+
+关闭认证时，所有请求共用 `flare_query` 键，因此限制针对的是整个 API，而不是每个人。
+
+### Docker Compose 或 `flare` CLI 实例
+
+1. 在 `flare-users.xml` 旁边创建 `zz-flare-query-quota.xml`。文件名必须按字母顺序
+   排在 `flare-users.xml` 之后：ClickHouse 按文件名顺序合并 `users.d` 中的文件，
+   后面的文件优先。
+
+   ```xml
+   <clickhouse>
+       <quotas>
+           <flare_query>
+               <interval>
+                   <read_rows>5000000000</read_rows>
+                   <execution_time>1800</execution_time>
+               </interval>
+           </flare_query>
+       </quotas>
+   </clickhouse>
+   ```
+
+2. 把它挂载到 `clickhouse` 服务（集群模式下每个 `clickhouse-N`）：
+
+   ```yaml
+   volumes:
+     - ./zz-flare-query-quota.xml:/etc/clickhouse-server/users.d/zz-flare-query-quota.xml:ro
+   ```
+
+3. 重启 ClickHouse：`docker compose up -d clickhouse`（或先 `flare stop`，再 `flare start`）。
+
+### 使用内置 ClickHouse 的 Helm
+
+```bash
+helm upgrade flare deploy/helm/flare --reuse-values \
+  --set clickhouse.queryQuota.readRows=5000000000 \
+  --set clickhouse.queryQuota.executionTimeSeconds=1800
+```
+
+### 你自己的 ClickHouse 服务器
+
+```sql
+ALTER QUOTA flare_query FOR INTERVAL 1 hour MAX read_rows = 5000000000, execution_time = 1800;
+```
+
+### 检查限制
+
+`SELECT quota_key, read_rows, max_read_rows, execution_time, max_execution_time
+FROM system.quotas_usage WHERE quota_name = 'flare_query'` 会显示新的 `max_*` 值。某个键超出限制时，Flare.Api 会记录
+`ClickHouse query quota exceeded for user:…`。

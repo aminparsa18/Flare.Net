@@ -7,7 +7,8 @@ Flare 各服务连接 ClickHouse 时使用的用户、每个用户能做什么�
 [如何使用 ClickHouse 服务用户](../how-to/admin/use-clickhouse-service-users.zh-CN.md)。
 设计原因请参见 [ADR-0282](../../docs-internal/adr/0282-clickhouse-service-users.md)
 、[ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md)
-和 [ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md)。
+[ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md)
+和 [ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md)。
 
 ## 用户
 
@@ -24,7 +25,7 @@ Flare 各服务连接 ClickHouse 时使用的用户、每个用户能做什么�
 |---|---|---|
 | `default` | 迁移执行器：一次性迁移任务，或启动时的 Flare.Ingest 和 Flare.Api（见[迁移在哪里运行](#迁移在哪里运行)） | 全部权限。Flare 只用它执行 DDL。 |
 | `flare_ingest` | Flare.Ingest | `clickhousedb.*` 上的 `INSERT`。仅在 `pipeline_rules`、`log_metrics`、`metric_attribute_rules`、`runtime_settings`、`telemetry_exports` 和 `checkin_monitors` 上有 `SELECT`（集群文件中还包括它们的 `_local` 表）。`schema_migrations` 的 `Name` 列上的 `SELECT`，用于下文的等待。 |
-| `flare_query` | Flare.Api 的查询服务：日志、span、指标和 profile 搜索，LogQL、PromQL、TraceQL，以及每个页面的图表 | `clickhousedb.*` 上的 `SELECT`。设置 profile `flare_query`（见下文）。 |
+| `flare_query` | Flare.Api 的查询服务：日志、span、指标和 profile 搜索，LogQL、PromQL、TraceQL，以及每个页面的图表 | `clickhousedb.*` 上的 `SELECT`。设置 profile `flare_query` 和配额 `flare_query`（见下文）。 |
 | `flare_app` | Flare.Api 的其余工作（写配置、数据保留、提升列、数据擦除、Indexing 页面、集群状态）以及 Flare.AlertWorker | `clickhousedb.*` 上的 `SELECT` 和 `INSERT`；`clickhousedb.*` 上的 `ALTER TTL`、`ALTER MODIFY COLUMN`、`ALTER SETTINGS`、`ALTER ADD COLUMN`、`ALTER DROP COLUMN`、`ALTER ADD INDEX`、`ALTER DROP INDEX`、`ALTER MATERIALIZE COLUMN`、`ALTER MATERIALIZE INDEX` 和 `ALTER DELETE`；下文列出的系统表上的 `SELECT`；`CREATE TEMPORARY TABLE` 和 `WRITE ON S3`（归档导出）。仅集群文件：`CLUSTER` 和 `READ ON REMOTE`。 |
 
 三个服务用户都不能执行 `CREATE`、`DROP`、`TRUNCATE` 或 `SYSTEM` 命令，
@@ -49,6 +50,31 @@ Flare.Api 根据 `Query:*` 设置为每个查询设定实际上限（默认 30 �
 1,000,000,000 行）。profile 的上限只用于拦住忘记设定上限的代码路径。
 `Query:MaxExecutionSeconds` 或 `Query:MaxRowsToRead` 设为 `0`（不限）或任何
 高于上限的值，都会让每个查询以错误码 452 失败，因此也要在用户文件中调高上限。
+
+### `flare_query` 配额
+
+一个按键区分、时间间隔为一小时的配额。Flare.Api 在 `X-ClickHouse-Quota`
+请求头中发送每个查询的键，因此 ClickHouse 分别统计每个调用方。
+
+| 调用方 | 配额键 |
+|---|---|
+| 已登录的账户 | `user:{用户 id}` |
+| 个人访问令牌 | `pat:{令牌 id}`，与其所有者分开 |
+| 演示模式访客 | `demo:{客户端地址}` |
+| 未认证的请求（关闭认证时）、Flare.Api 的后台任务 | 无：共用 `flare_query` 计数 |
+
+`flare-users.xml` 中的每个限制都是 `0`，即不限制。ClickHouse 仍会在
+`system.quotas_usage` 中统计每个键的查询数、读取行数和执行时间。设置限制见
+[按账户限制 ClickHouse 查询开销](../how-to/admin/use-clickhouse-service-users.zh-CN.md#按账户限制-clickhouse-查询开销)。
+
+| 限制 | 统计内容 |
+|---|---|
+| `read_rows` | 该键的查询在一小时内读取的行数 |
+| `execution_time` | 该键的查询在一小时内的执行秒数之和 |
+| `queries`、`errors`、`result_rows` | 也可使用，随附文件中为 `0` |
+
+超出限制的查询以代码 201（`QUOTA_EXCEEDED`）失败，Flare.Api 对该请求返回
+`429 Too Many Requests`。Flare.AlertWorker 和 Flare.Api 以 `flare_app` 执行的工作不计入。
 
 ## 连接字符串
 
@@ -88,6 +114,8 @@ ClickHouse 每次启动时都会读取。修改其中任何一个，都需要重
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | 仅内置 ClickHouse。挂载 `files/flare-users.xml`，生成三个密码，并让每个服务使用自己的用户。`false` 则所有服务都使用 `default`。 |
 | `clickhouse.external.usersSecret` | `""` | 仅外部 ClickHouse。一个 Secret，在 `clickhousedb-ingest`、`clickhousedb-query` 和 `clickhousedb-app` 键下保存完整的连接字符串。缺少某个键时回退到 `clickhouse.external.username` 和 ClickHouse 密码；迁移 Job 运行时三个键都必须提供。 |
+| `clickhouse.queryQuota.readRows` | `0` | 仅限启用了 `clickhouse.users.enabled` 的内置 ClickHouse。每个配额键每小时的 `read_rows` 限制；`0` 表示不限制。 |
+| `clickhouse.queryQuota.executionTimeSeconds` | `0` | 同上，针对 `execution_time`，单位为秒。任一值大于 `0` 时，chart 会挂载包含这两个值的 `users.d/zz-flare-query-quota.xml`。 |
 | `clickhouse.migrationJob.enabled` | `true` | 在一次性 Job 中运行迁移，任何服务 Pod 都拿不到 `default` 密码（见下文）。当 `image.tag` 是早于 0.7.0 的版本，或者 `clickhouse.users.enabled`（内置 ClickHouse）和 `clickhouse.external.usersSecret` 都没有为服务提供各自的用户时，chart 回退到启动时迁移，并在安装说明中给出原因。`false` 表示始终在启动时迁移。 |
 | `clickhouse.migrationJob.resources` | `{}` | Job 容器的资源。 |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Kubernetes 保留已完成 Job 的时长。 |

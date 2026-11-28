@@ -131,8 +131,6 @@ folders are where "what happened and why" actually lives.
     - **Default-open instances.** With `AuthSettings.Enabled=false` every caller is effectively Admin, and ingest keys are
       off by default. Decide whether a fresh install bound beyond loopback should warn loudly or require enabling auth
       and ingest keys.
-  - **Per-identity ClickHouse quotas**, after ADR-0282. Send the Flare user or PAT id as `quota_key` and cap `read_rows` and
-    `execution_time` per hour for `flare_query`, which measures query cost, not just request count as ADR-0028 does.
   - **Opt-in row policies as a second check on project scoping**, after ADR-0282. A RESTRICTIVE policy on every
     service-keyed `_local` table and aggregate table, using a `SQL_flare_scope` setting that Api sends. It fails closed,
     and the workers stay on `flare_app`. ([Investigation](../investigations/clickhouse-access-control-vs-identity-store.md).)

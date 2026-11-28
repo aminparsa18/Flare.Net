@@ -1,5 +1,7 @@
 {{- if .Values.clickhouse.enabled }}
 {{- $usersOn := eq (include "flare.clickhouseUsersOn" .) "true" }}
+{{- $quota := .Values.clickhouse.queryQuota }}
+{{- $quotaOn := and $usersOn (or (gt (int64 $quota.readRows) 0) (gt (int64 $quota.executionTimeSeconds) 0)) }}
 {{- if $usersOn }}
 # flare_ingest, flare_query and flare_app (ADR-0282). files/flare-users.xml is a copy of
 # db/clickhouse/config/flare-users.xml; Flare.Api.Tests fails if the two differ.
@@ -11,6 +13,21 @@ metadata:
 data:
   flare-users.xml: |-
 {{ .Files.Get "files/flare-users.xml" | indent 4 }}
+  {{- if $quotaOn }}
+  # Per-identity hourly caps on flare_query (ADR-0286). Mounted as zz-...: users.d files merge in name order,
+  # so it must sort after flare-users.xml, whose quota limits are all 0.
+  zz-flare-query-quota.xml: |-
+    <clickhouse>
+        <quotas>
+            <flare_query>
+                <interval>
+                    <read_rows>{{ int64 $quota.readRows }}</read_rows>
+                    <execution_time>{{ int64 $quota.executionTimeSeconds }}</execution_time>
+                </interval>
+            </flare_query>
+        </quotas>
+    </clickhouse>
+  {{- end }}
 ---
 {{- end }}
 apiVersion: v1
@@ -42,6 +59,9 @@ spec:
       annotations:
         # Restart ClickHouse when the users file changes; users.d is only read at start.
         checksum/flare-users: {{ .Files.Get "files/flare-users.xml" | sha256sum }}
+        {{- if $quotaOn }}
+        checksum/flare-query-quota: {{ printf "%d/%d" (int64 $quota.readRows) (int64 $quota.executionTimeSeconds) | sha256sum }}
+        {{- end }}
       {{- end }}
     spec:
       containers:
@@ -79,6 +99,9 @@ spec:
             - { name: data, mountPath: /var/lib/clickhouse }
             {{- if $usersOn }}
             - { name: flare-users, mountPath: /etc/clickhouse-server/users.d/flare-users.xml, subPath: flare-users.xml, readOnly: true }
+            {{- if $quotaOn }}
+            - { name: flare-users, mountPath: /etc/clickhouse-server/users.d/zz-flare-query-quota.xml, subPath: zz-flare-query-quota.xml, readOnly: true }
+            {{- end }}
             {{- end }}
       {{- if $usersOn }}
       volumes:

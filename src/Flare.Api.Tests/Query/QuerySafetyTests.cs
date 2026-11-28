@@ -61,4 +61,29 @@ public class QuerySafetyTests
 
         Assert.False(QuerySafety.Full(limits).CustomSettings!.ContainsKey("optimize_skip_unused_shards"));
     }
+
+    [Fact]
+    public void EveryPreset_CarriesTheRequestQuotaKey()
+    {
+        // ADR-0286: the flare_query quota is keyed, so each capped query names who it is charged to.
+        ClickHouseQuotaKey.Current = "user:42";
+        try
+        {
+            var limits = new QueryLimitsOptions();
+            foreach (var options in new[] { QuerySafety.Full(limits), QuerySafety.ExecutionTimeOnly(limits), QuerySafety.AlertEvaluation(limits) })
+            {
+                Assert.Equal("user:42", options.CustomHeaders![ClickHouseQuotaKey.HeaderName]);
+            }
+        }
+        finally
+        {
+            ClickHouseQuotaKey.Current = null;
+        }
+    }
+
+    [Fact]
+    public void WithoutAQuotaKey_SendsNoHeader()
+    {
+        Assert.Null(QuerySafety.Full(new QueryLimitsOptions()).CustomHeaders);
+    }
 }

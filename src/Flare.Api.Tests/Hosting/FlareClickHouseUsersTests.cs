@@ -103,6 +103,26 @@ public class FlareClickHouseUsersTests
     }
 
     [Theory]
+    [InlineData("db/clickhouse/config/flare-users.xml")]
+    [InlineData("db/clickhouse-cluster/config/flare-users.xml")]
+    public void QueryUser_HasAKeyedQuotaWithNoLimitsByDefault(string path)
+    {
+        // ADR-0286: keyed by the X-ClickHouse-Quota header Flare.Api sends. Every limit is 0 (track only); admins
+        // raise them in a later users.d file. Literal values, not from_env: an unset variable stops ClickHouse.
+        var root = Load(path);
+        Assert.Equal("flare_query", root.Element("users")!.Element("flare_query")!.Element("quota")!.Value);
+
+        var quota = root.Element("quotas")!.Element("flare_query")!;
+        Assert.NotNull(quota.Element("keyed"));
+        var interval = quota.Element("interval")!;
+        Assert.Equal("3600", interval.Element("duration")!.Value);
+        Assert.All(
+            interval.Elements().Where(e => e.Name.LocalName != "duration"),
+            limit => Assert.Equal("0", limit.Value));
+        Assert.DoesNotContain(quota.Descendants(), e => e.Attribute("from_env") is not null);
+    }
+
+    [Theory]
     [InlineData(null, false)]
     [InlineData(" ", false)]
     [InlineData(Ddl, true)]
