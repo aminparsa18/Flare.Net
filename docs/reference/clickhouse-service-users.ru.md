@@ -9,7 +9,8 @@
 Почему так, см. [ADR-0282](../../docs-internal/adr/0282-clickhouse-service-users.md)
 [ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md)
 [ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md)
-и [ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md).
+[ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md)
+и [ADR-0287](../../docs-internal/adr/0287-opt-in-row-policies-on-flare-query.md).
 
 ## Пользователи
 
@@ -84,6 +85,46 @@ Flare.Api задаёт действующие ограничения для ка
 отвечает на запрос `429 Too Many Requests`. Flare.AlertWorker и работа
 Flare.Api под `flare_app` не учитываются.
 
+### Политики строк для `flare_query`
+
+Необязательны. Когда они включены, ClickHouse сам скрывает строки сервисов вне
+[проектов](../how-to/admin/organize-teams-with-projects.ru.md) вызывающего — это
+вторая проверка поверх фильтра, который Flare.Api добавляет в каждый запрос.
+Как включить, см.
+[Политики строк как вторая проверка областей проектов](../how-to/admin/use-clickhouse-service-users.ru.md#политики-строк-как-вторая-проверка-областей-проектов).
+Нужны обе половины:
+
+| Половина | Где | Выключена по умолчанию, потому что |
+|---|---|---|
+| Политики | `users.d/flare-row-policies.xml`: `db/clickhouse/config/flare-row-policies.xml`, `db/clickhouse-cluster/config/flare-row-policies.xml` (на таблицах `_local`) или `files/flare-row-policies.xml` в Helm | Они скрывают все строки от Flare.Api, который не передаёт область |
+| Передача области | `Query:RowPolicyScope` (`Query__RowPolicyScope=true`) в Flare.Api | Сервер, чей `config.xml` не разрешает префикс пользовательских настроек `SQL_`, отклоняет каждый запрос с ней. Официальный образ его разрешает. |
+
+Flare.Api передаёт область в каждом запросе `flare_query` в настройке
+`SQL_flare_scope` — JSON-массиве шаблонов сервисов:
+
+| Вызывающий | `SQL_flare_scope` | Видит |
+|---|---|---|
+| Глобальный Admin, отключённая аутентификация, публичная страница статуса, фоновые задачи | `["*"]` | Все сервисы |
+| Участник проекта | Объединение шаблонов его проектов, например `["checkout-*","billing"]` | Эти сервисы |
+| Не-админ без проектов на экземпляре, где проекты есть | `[]` | Ничего |
+| Настройка не передана или не разбирается | Значение профиля по умолчанию, `'[]'` | Ничего |
+
+Политики покрывают 19 таблиц телеметрии с ключом по сервису, по `ServiceName`.
+Исключение — `service_dependency_nodes`, где используется `Service`. Таблицы
+конфигурации и `slos` Flare.Api ограничивает по проекту, а не по сервису, и они
+не покрыты. `flare_app` и `flare_ingest` не фильтруются.
+
+С политиками пользователь с ограниченной областью теряет и строки, которые
+Flare.Api не фильтрует по сервису:
+
+- Метрики хостов, Kubernetes и очередей брокеров, которые коллектор отправляет
+  под `service.name` вне проектов пользователя.
+- На карте сервисов — клиентские спаны других сервисов, которые Flare.Api
+  относит к `peer.service` из области.
+
+Политики не защищают от скомпрометированного Flare.Api, потому что область
+передаёт именно он.
+
 ## Строки подключения
 
 | Ключ | Переменная окружения | Кто использует | Если не задана |
@@ -130,6 +171,7 @@ ClickHouse.
 | `clickhouse.external.usersSecret` | `""` | Только для внешнего ClickHouse. Secret с полными строками подключения под ключами `clickhousedb-ingest`, `clickhousedb-query` и `clickhousedb-app`. Если ключа нет, используются `clickhouse.external.username` и пароль ClickHouse, кроме случая, когда работает Job миграций: тогда нужны все три ключа. |
 | `clickhouse.queryQuota.readRows` | `0` | Только встроенный ClickHouse с `clickhouse.users.enabled`. Часовой лимит `read_rows` на ключ квоты; `0` — без лимита. |
 | `clickhouse.queryQuota.executionTimeSeconds` | `0` | То же для `execution_time` в секундах. Если хотя бы одно значение больше `0`, чарт монтирует `users.d/zz-flare-query-quota.xml` с обоими. |
+| `clickhouse.rowPolicies.enabled` | `false` | [Политики строк для `flare_query`](#политики-строк-для-flare_query). Задаёт `Query__RowPolicyScope=true` для api и, со встроенным ClickHouse и `clickhouse.users.enabled`, монтирует `users.d/flare-row-policies.xml`. С внешним ClickHouse сначала смонтируйте политики на нём. |
 | `clickhouse.migrationJob.enabled` | `true` | Выполнять миграции в одноразовом Job и не передавать пароль `default` ни одному поду сервисов (см. ниже). Чарт возвращается к миграциям при запуске и пишет причину в заметках установки, если `image.tag` — релиз старше 0.7.0 или если ни `clickhouse.users.enabled` (встроенный ClickHouse), ни `clickhouse.external.usersSecret` не дают сервисам собственных пользователей. `false` — всегда мигрировать при запуске. |
 | `clickhouse.migrationJob.resources` | `{}` | Ресурсы контейнера Job. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Сколько Kubernetes хранит завершённый Job. |

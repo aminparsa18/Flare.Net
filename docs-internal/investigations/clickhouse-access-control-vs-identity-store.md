@@ -167,4 +167,5 @@ The probe mounted a `users.d/flare-users.xml` that declares each user with `<pas
    volumes and in cluster mode without replicated access storage. Decided in ADR-0282.
 6. **Row policies would only be a second line of defence.** The client sets the custom setting, so the policy protects
    against a builder that forgets the filter, not against a compromised Api. It would have to sit on every `_local` and
-   aggregate table. If built, make it opt-in and fail closed. It's on the roadmap.
+   aggregate table. If built, make it opt-in and fail closed. Done in
+   [ADR-0287](../adr/0287-opt-in-row-policies-on-flare-query.md).

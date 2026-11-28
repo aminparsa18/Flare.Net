@@ -86,4 +86,33 @@ public class QuerySafetyTests
     {
         Assert.Null(QuerySafety.Full(new QueryLimitsOptions()).CustomHeaders);
     }
+
+    [Fact]
+    public void RowPolicyScopeOff_SendsNoScopeSetting()
+    {
+        // Off by default: a server that doesn't allow the SQL_ prefix would reject every query (ADR-0287).
+        Assert.False(QuerySafety.Full(new QueryLimitsOptions()).CustomSettings!.ContainsKey(ServiceScope.RowPolicySettingName));
+    }
+
+    [Theory]
+    [InlineData(null, """["*"]""")]
+    [InlineData(new string[0], "[]")]
+    [InlineData(new[] { "checkout-*", "billing" }, """["checkout-*","billing"]""")]
+    public void RowPolicyScopeOn_EveryPresetSendsTheRequestScope(string[]? scope, string expected)
+    {
+        // Unrestricted is ["*"], not a missing setting: the policies' default is [] and hides every row.
+        ServiceScope.Current = scope;
+        try
+        {
+            var limits = new QueryLimitsOptions { RowPolicyScope = true };
+            foreach (var options in new[] { QuerySafety.Full(limits), QuerySafety.ExecutionTimeOnly(limits), QuerySafety.AlertEvaluation(limits) })
+            {
+                Assert.Equal(expected, options.CustomSettings![ServiceScope.RowPolicySettingName]);
+            }
+        }
+        finally
+        {
+            ServiceScope.Current = null;
+        }
+    }
 }

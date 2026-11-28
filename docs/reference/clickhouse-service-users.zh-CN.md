@@ -8,7 +8,8 @@ Flare 各服务连接 ClickHouse 时使用的用户、每个用户能做什么�
 设计原因请参见 [ADR-0282](../../docs-internal/adr/0282-clickhouse-service-users.md)
 、[ADR-0283](../../docs-internal/adr/0283-clickhouse-service-users-implementation.md)
 [ADR-0284](../../docs-internal/adr/0284-clickhouse-migration-job.md)
-和 [ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md)。
+[ADR-0286](../../docs-internal/adr/0286-per-identity-clickhouse-quotas.md)
+和 [ADR-0287](../../docs-internal/adr/0287-opt-in-row-policies-on-flare-query.md)。
 
 ## 用户
 
@@ -76,6 +77,38 @@ Flare.Api 根据 `Query:*` 设置为每个查询设定实际上限（默认 30 �
 超出限制的查询以代码 201（`QUOTA_EXCEEDED`）失败，Flare.Api 对该请求返回
 `429 Too Many Requests`。Flare.AlertWorker 和 Flare.Api 以 `flare_app` 执行的工作不计入。
 
+### `flare_query` 的行策略
+
+可选。开启后，ClickHouse 自己会隐藏调用者所在[项目](../how-to/admin/organize-teams-with-projects.zh-CN.md)
+之外的服务的行，作为 Flare.Api 给每个查询加的过滤条件之外的第二道检查。开启方法见
+[添加行策略作为项目范围的第二道检查](../how-to/admin/use-clickhouse-service-users.zh-CN.md#添加行策略作为项目范围的第二道检查)。
+两半都需要：
+
+| 部分 | 位置 | 默认关闭的原因 |
+|---|---|---|
+| 策略 | `users.d/flare-row-policies.xml`：`db/clickhouse/config/flare-row-policies.xml`、`db/clickhouse-cluster/config/flare-row-policies.xml`（在 `_local` 表上）或 Helm 的 `files/flare-row-policies.xml` | 对不发送范围的 Flare.Api，它们会隐藏所有行 |
+| 发送范围 | Flare.Api 上的 `Query:RowPolicyScope`（`Query__RowPolicyScope=true`） | 如果服务器的 `config.xml` 不允许 `SQL_` 自定义设置前缀，带这个设置的查询都会被拒绝。官方镜像允许该前缀。 |
+
+Flare.Api 在每个 `flare_query` 查询中通过 `SQL_flare_scope` 设置发送范围，值是服务模式的 JSON 数组：
+
+| 调用者 | `SQL_flare_scope` | 可见 |
+|---|---|---|
+| 全局 Admin、关闭认证、公开状态页、后台任务 | `["*"]` | 所有服务 |
+| 项目成员 | 其所在项目模式的并集，例如 `["checkout-*","billing"]` | 这些服务 |
+| 在已有项目的实例上，不属于任何项目的非管理员 | `[]` | 无 |
+| 未发送该设置，或值无法解析 | profile 默认值 `'[]'` | 无 |
+
+策略覆盖 19 张按服务划分的遥测表，作用于 `ServiceName`。例外是
+`service_dependency_nodes`，它使用 `Service`。配置表和 `slos` 在 Flare.Api
+中按项目而不是按服务限制，不在覆盖范围内。`flare_app` 和 `flare_ingest` 不受过滤。
+
+开启策略后，受限用户还会看不到一些 Flare.Api 本身不按服务过滤的行：
+
+- 采集器以用户项目之外的 `service.name` 上报的主机、Kubernetes 和消息代理积压指标。
+- 在服务地图上，Flare.Api 归到范围内某个 `peer.service` 的、来自其他服务的客户端 span。
+
+策略无法防御被攻破的 Flare.Api，因为范围正是由它发送的。
+
 ## 连接字符串
 
 | 键 | 环境变量 | 使用者 | 未设置时 |
@@ -116,6 +149,7 @@ ClickHouse 每次启动时都会读取。修改其中任何一个，都需要重
 | `clickhouse.external.usersSecret` | `""` | 仅外部 ClickHouse。一个 Secret，在 `clickhousedb-ingest`、`clickhousedb-query` 和 `clickhousedb-app` 键下保存完整的连接字符串。缺少某个键时回退到 `clickhouse.external.username` 和 ClickHouse 密码；迁移 Job 运行时三个键都必须提供。 |
 | `clickhouse.queryQuota.readRows` | `0` | 仅限启用了 `clickhouse.users.enabled` 的内置 ClickHouse。每个配额键每小时的 `read_rows` 限制；`0` 表示不限制。 |
 | `clickhouse.queryQuota.executionTimeSeconds` | `0` | 同上，针对 `execution_time`，单位为秒。任一值大于 `0` 时，chart 会挂载包含这两个值的 `users.d/zz-flare-query-quota.xml`。 |
+| `clickhouse.rowPolicies.enabled` | `false` | [`flare_query` 的行策略](#flare_query-的行策略)。为 api 设置 `Query__RowPolicyScope=true`；使用内置 ClickHouse 且开启 `clickhouse.users.enabled` 时，还会挂载 `users.d/flare-row-policies.xml`。使用外部 ClickHouse 时，请先在那台服务器上挂载策略。 |
 | `clickhouse.migrationJob.enabled` | `true` | 在一次性 Job 中运行迁移，任何服务 Pod 都拿不到 `default` 密码（见下文）。当 `image.tag` 是早于 0.7.0 的版本，或者 `clickhouse.users.enabled`（内置 ClickHouse）和 `clickhouse.external.usersSecret` 都没有为服务提供各自的用户时，chart 回退到启动时迁移，并在安装说明中给出原因。`false` 表示始终在启动时迁移。 |
 | `clickhouse.migrationJob.resources` | `{}` | Job 容器的资源。 |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Kubernetes 保留已完成 Job 的时长。 |

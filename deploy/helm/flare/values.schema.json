@@ -254,6 +254,15 @@
             }
           }
         },
+        "rowPolicies": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "external": {
           "type": "object",
           "additionalProperties": false,

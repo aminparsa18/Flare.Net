@@ -232,3 +232,58 @@ ALTER QUOTA flare_query FOR INTERVAL 1 hour MAX read_rows = 5000000000, executio
 `SELECT quota_key, read_rows, max_read_rows, execution_time, max_execution_time
 FROM system.quotas_usage WHERE quota_name = 'flare_query'` показывает новые значения `max_*`. Когда ключ превышает лимит,
 Flare.Api пишет в лог `ClickHouse query quota exceeded for user:…`.
+
+## Политики строк как вторая проверка областей проектов
+
+Пусть ClickHouse сам скрывает строки сервисов вне
+[проектов](organize-teams-with-projects.ru.md) пользователя, чтобы запрос Flare,
+забывший фильтр проекта, всё равно не показал лишнего. Нужны пользователи
+сервисов, описанные выше. Что политики покрывают и что нет, см.
+[Политики строк для `flare_query`](../../reference/clickhouse-service-users.ru.md#политики-строк-для-flare_query).
+
+Включайте обе половины вместе. Если политики смонтированы, а Flare.Api не
+передаёт область, телеметрию не видит никто. Это относится и к образам Flare.Api
+0.7.0 и старше, которые её никогда не передают.
+
+### Docker Compose или экземпляр CLI `flare`
+
+1. Смонтируйте политики в сервис `clickhouse` (в каждый `clickhouse-N` в режиме
+   кластера):
+
+   ```yaml
+   volumes:
+     # Режим кластера: ./db/clickhouse-cluster/config/flare-row-policies.xml
+     - ./db/clickhouse/config/flare-row-policies.xml:/etc/clickhouse-server/users.d/flare-row-policies.xml:ro
+   ```
+
+2. В сервис `api` добавьте:
+
+   ```yaml
+   environment:
+     Query__RowPolicyScope: "true"
+   ```
+
+3. Пересоздайте стек: `docker compose up -d`.
+
+### Helm
+
+```bash
+helm upgrade flare deploy/helm/flare --reuse-values --set clickhouse.rowPolicies.enabled=true
+```
+
+Со встроенным ClickHouse это монтирует политики и перезапускает ClickHouse. С
+`clickhouse.enabled=false` задаётся только `Query__RowPolicyScope` для api.
+Сначала смонтируйте `flare-row-policies.xml` (для кластера — кластерный файл) в
+`users.d` своего сервера.
+
+### Проверка политик
+
+Под `default` запрос `SELECT short_name, table FROM system.row_policies` должен
+вернуть 19 политик для `flare_query`. Затем войдите как участник проекта:
+страницы Logs, Traces и Metrics должны показывать сервисы проекта. Если все
+страницы пусты у всех, Flare.Api не передаёт область: проверьте
+`Query__RowPolicyScope` и версию образа.
+
+Чтобы выключить политики, уберите монтирование (Helm:
+`clickhouse.rowPolicies.enabled=false`), перезапустите ClickHouse, а затем
+уберите `Query__RowPolicyScope`.

@@ -212,3 +212,51 @@ ALTER QUOTA flare_query FOR INTERVAL 1 hour MAX read_rows = 5000000000, executio
 `SELECT quota_key, read_rows, max_read_rows, execution_time, max_execution_time
 FROM system.quotas_usage WHERE quota_name = 'flare_query'` 会显示新的 `max_*` 值。某个键超出限制时，Flare.Api 会记录
 `ClickHouse query quota exceeded for user:…`。
+
+## 添加行策略作为项目范围的第二道检查
+
+让 ClickHouse 自己隐藏用户所在[项目](organize-teams-with-projects.zh-CN.md)之外的服务的行，
+这样即使某个 Flare 查询漏掉了项目过滤条件，也不会显示不该显示的内容。需要先使用上面的服务用户。
+策略覆盖哪些内容、不覆盖哪些，见
+[`flare_query` 的行策略](../../reference/clickhouse-service-users.zh-CN.md#flare_query-的行策略)。
+
+两半要一起开启。如果挂载了策略而 Flare.Api 不发送范围，任何人都看不到遥测数据。
+0.7.0 及更早版本的 Flare.Api 镜像从不发送范围，也是这种情况。
+
+### Docker Compose 或 `flare` CLI 实例
+
+1. 在 `clickhouse` 服务上挂载策略（集群模式下每个 `clickhouse-N` 都要挂载）：
+
+   ```yaml
+   volumes:
+     # 集群模式：./db/clickhouse-cluster/config/flare-row-policies.xml
+     - ./db/clickhouse/config/flare-row-policies.xml:/etc/clickhouse-server/users.d/flare-row-policies.xml:ro
+   ```
+
+2. 在 `api` 服务上添加：
+
+   ```yaml
+   environment:
+     Query__RowPolicyScope: "true"
+   ```
+
+3. 重建 stack：`docker compose up -d`。
+
+### Helm
+
+```bash
+helm upgrade flare deploy/helm/flare --reuse-values --set clickhouse.rowPolicies.enabled=true
+```
+
+使用内置 ClickHouse 时，这会挂载策略并重启 ClickHouse。使用 `clickhouse.enabled=false` 时，
+只会为 api 设置 `Query__RowPolicyScope`。请先把 `flare-row-policies.xml`（集群使用集群文件）
+挂载到你服务器的 `users.d` 中。
+
+### 检查策略
+
+以 `default` 身份运行 `SELECT short_name, table FROM system.row_policies`，应列出
+`flare_query` 上的 19 条策略。然后以项目成员身份登录：Logs、Traces 和 Metrics 页面应显示该项目的服务。
+如果所有人的所有页面都是空的，说明 Flare.Api 没有发送范围：请检查 `Query__RowPolicyScope` 和镜像版本。
+
+要关闭策略，先移除挂载（Helm：`clickhouse.rowPolicies.enabled=false`），重启 ClickHouse，
+然后再移除 `Query__RowPolicyScope`。

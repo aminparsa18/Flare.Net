@@ -2,6 +2,7 @@
 {{- $usersOn := eq (include "flare.clickhouseUsersOn" .) "true" }}
 {{- $quota := .Values.clickhouse.queryQuota }}
 {{- $quotaOn := and $usersOn (or (gt (int64 $quota.readRows) 0) (gt (int64 $quota.executionTimeSeconds) 0)) }}
+{{- $policiesOn := and $usersOn .Values.clickhouse.rowPolicies.enabled }}
 {{- if $usersOn }}
 # flare_ingest, flare_query and flare_app (ADR-0282). files/flare-users.xml is a copy of
 # db/clickhouse/config/flare-users.xml; Flare.Api.Tests fails if the two differ.
@@ -27,6 +28,12 @@ data:
             </flare_query>
         </quotas>
     </clickhouse>
+  {{- end }}
+  {{- if $policiesOn }}
+  # Row policies on flare_query, a second check on project scoping (ADR-0287). files/flare-row-policies.xml is a
+  # copy of db/clickhouse/config/flare-row-policies.xml. Api sends the scope (Query__RowPolicyScope, set in api.yaml).
+  flare-row-policies.xml: |-
+{{ .Files.Get "files/flare-row-policies.xml" | indent 4 }}
   {{- end }}
 ---
 {{- end }}
@@ -61,6 +68,9 @@ spec:
         checksum/flare-users: {{ .Files.Get "files/flare-users.xml" | sha256sum }}
         {{- if $quotaOn }}
         checksum/flare-query-quota: {{ printf "%d/%d" (int64 $quota.readRows) (int64 $quota.executionTimeSeconds) | sha256sum }}
+        {{- end }}
+        {{- if $policiesOn }}
+        checksum/flare-row-policies: {{ .Files.Get "files/flare-row-policies.xml" | sha256sum }}
         {{- end }}
       {{- end }}
     spec:
@@ -101,6 +111,9 @@ spec:
             - { name: flare-users, mountPath: /etc/clickhouse-server/users.d/flare-users.xml, subPath: flare-users.xml, readOnly: true }
             {{- if $quotaOn }}
             - { name: flare-users, mountPath: /etc/clickhouse-server/users.d/zz-flare-query-quota.xml, subPath: zz-flare-query-quota.xml, readOnly: true }
+            {{- end }}
+            {{- if $policiesOn }}
+            - { name: flare-users, mountPath: /etc/clickhouse-server/users.d/flare-row-policies.xml, subPath: flare-row-policies.xml, readOnly: true }
             {{- end }}
             {{- end }}
       {{- if $usersOn }}
