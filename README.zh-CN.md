@@ -29,6 +29,8 @@
 
 **语言：** [English](README.md) &nbsp;|&nbsp; [简体中文](README.zh-CN.md) &nbsp;|&nbsp; [Русский](README.ru.md) &nbsp;|&nbsp; [Français](README.fr.md)
 
+**[📖 阅读文档 →](https://aminparsa18.github.io/Flare.Net/zh-CN/)**
+
 .NET 的自托管、OpenTelemetry 原生可观察性平台 — 将日志、跟踪和指标作为一等公民，在一个位置关联，并具有基于阈值/查询的警报规则，通知 Webhook/Slack、Telegram 或违规电子邮件。
 
 **想想 Seq 或 Datadog — 但完全开源 (MIT)、自托管和 OTLP 直接安装，无需安装专有代理或 SDK。**
@@ -73,38 +75,38 @@
   var flare = builder.AddFlare("flare", builder.AddClickHouse("clickhouse"), builder.AddRedis("redis"));
   builder.AddDotnetProject("myapi", "../MyApi/MyApi.csproj").WithOtlpExporter(flare).WaitFor(flare);
   ```
-  `aspire add CommunityToolkit.Aspire.Hosting.Flare`（Aspire 17+，来自 Aspire Community Toolkit）— Flare 作为资源加入您的 AppHost，因此它启动、停止并被其他资源发现，就像图表中其他所有内容一样。详细信息：[docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.zh-CN.md)。
+  `aspire add CommunityToolkit.Aspire.Hosting.Flare`（Aspire 17+，来自 Aspire Community Toolkit）— Flare 作为资源加入您的 AppHost，因此它启动、停止并被其他资源发现，就像图表中其他所有内容一样。详细信息：[Run with .NET Aspire](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/deploy/run-with-aspire.html)。
 
 - **不使用 Aspire，想要它独立运行吗？**
   ```sh
   docker compose up
   ```
-  在存储库根目录中，每个端口和凭据都有工作默认值（将 [.env.example](.env.example) 复制到 `.env` 以进行更改）。详细信息：[docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.zh-CN.md)。
+  在存储库根目录中，每个端口和凭据都有工作默认值（将 [.env.example](.env.example) 复制到 `.env` 以进行更改）。详细信息：[Run standalone](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/deploy/run-standalone.html)。
 
 - **只是想评估一下 — 没有克隆仓库，也没有安装 .NET SDK？**
   ```sh
   curl -fsSL https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh | bash
   ```
-  如果缺少 Docker 会自动安装，然后从已发布的镜像拉取并启动相同的独立堆栈。详细信息：[docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.zh-CN.md#零前提快速安装)。
+  如果缺少 Docker 会自动安装，然后从已发布的镜像拉取并启动相同的独立堆栈。详细信息：[Run standalone](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/deploy/run-standalone.html#零前提快速安装)。
 
 - **想要在多个不相关的本地项目之间共享一个常设实例吗？**
   ```sh
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  全局 CLI，可以从任何地方管理相同的 Docker 堆栈，无需回购检查。详细信息：[docs/how-to/deploy/run-with-cli.md](docs/how-to/deploy/run-with-cli.zh-CN.md)。
+  全局 CLI，可以从任何地方管理相同的 Docker 堆栈，无需回购检查。详细信息：[Run with the CLI](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/deploy/run-with-cli.html)。
 
-无论您选择哪条路径，仪表板都会出现在 [http://localhost:7777](http://localhost:7777) 处。身份验证**默认关闭** - 日志页面在启动时即打开。准备好后，即可从 `/auth` 页面打开登录（本地帐户、Microsoft Entra ID、Active Directory、OpenID Connect 或反向代理可信标头）；参见[docs/how-to/admin/configure-authentication.md](docs/how-to/admin/configure-authentication.zh-CN.md)。
+无论您选择哪条路径，仪表板都会出现在 [http://localhost:7777](http://localhost:7777) 处。身份验证**默认关闭** - 日志页面在启动时即打开。准备好后，即可从 `/auth` 页面打开登录（本地帐户、Microsoft Entra ID、Active Directory、OpenID Connect 或反向代理可信标头）；参见[Configure authentication](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/admin/configure-authentication.html)。
 
-然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [docs/how-to/deploy/run-standalone.md](docs/how-to/deploy/run-standalone.zh-CN.md#将记录器指向它)（或 Aspire 上的 [docs/how-to/deploy/run-with-aspire.md](docs/how-to/deploy/run-with-aspire.zh-CN.md#3-把服务的遥测发送到-flare)）中。对于其他情况 — Python、Node.js、Java、Go、Kubernetes、DevOps 流水线、日志转发工具或 Prometheus 抓取 — 仪表板自带的**数据源**页面（导航栏下拉菜单，或日志页面的空状态）有同类的复制粘贴片段；预览见[架构之旅](docs/explanation/architecture.zh-CN.md#数据源)。
+然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [Run standalone](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/deploy/run-standalone.html#将记录器指向它)（或 Aspire 上的 [Run with .NET Aspire](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/deploy/run-with-aspire.html#3-把服务的遥测发送到-flare)）中。对于其他情况 — Python、Node.js、Java、Go、Kubernetes、DevOps 流水线、日志转发工具或 Prometheus 抓取 — 仪表板自带的**数据源**页面（导航栏下拉菜单，或日志页面的空状态）有同类的复制粘贴片段；预览见[架构之旅](https://aminparsa18.github.io/Flare.Net/zh-CN/explanation/architecture.html#数据源)。
 
-单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [docs/how-to/deploy/run-cluster-mode.md](docs/how-to/deploy/run-cluster-mode.zh-CN.md)。
+单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [Run in cluster mode](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/deploy/run-cluster-mode.html)。
 
-想让 AI 助手读取你的遥测数据？`flare mcp` 是一个只读的 [MCP](https://modelcontextprotocol.io) 服务器，参见 [docs/how-to/integrations/connect-ai-assistants.zh-CN.md](docs/how-to/integrations/connect-ai-assistants.zh-CN.md)。
+想让 AI 助手读取你的遥测数据？`flare mcp` 是一个只读的 [MCP](https://modelcontextprotocol.io) 服务器，参见 [让 AI 助手查询 Flare](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/integrations/connect-ai-assistants.html)。
 
 ### 移动应用（.NET MAUI）
 
-正在开发移动应用？[`Flare.Maui`](src/Flare.Maui)（预览版，尚未发布到 NuGet）为 .NET MAUI 应用添加 `builder.UseFlare(...)`：带离线队列的 OTLP/HTTP 导出、设备和会话属性、`HttpClient` 和 Shell 导航 span，以及未处理异常捕获——参见 [docs/how-to/instrument/send-maui-telemetry.md](docs/how-to/instrument/send-maui-telemetry.zh-CN.md)。
+正在开发移动应用？[`Flare.Maui`](src/Flare.Maui)（预览版，尚未发布到 NuGet）为 .NET MAUI 应用添加 `builder.UseFlare(...)`：带离线队列的 OTLP/HTTP 导出、设备和会话属性、`HttpClient` 和 Shell 导航 span，以及未处理异常捕获——参见 [将 .NET MAUI 应用的遥测数据发送到 Flare](https://aminparsa18.github.io/Flare.Net/zh-CN/how-to/instrument/send-maui-telemetry.html)。
 
 ## 本地开发
 
@@ -133,7 +135,7 @@ Flare正在积极开发中，目前提供：
 当前开放的内容 — 保留/冷存储至 S3 兼容
 对象存储就是其中的佼佼者。
 
-完整架构：[docs/explanation/architecture.md](docs/explanation/architecture.zh-CN.md)。设计决策：[docs-internal/adr/](docs-internal/adr/)。
+完整架构：[架构](https://aminparsa18.github.io/Flare.Net/zh-CN/explanation/architecture.html)。设计决策：[docs-internal/adr/](docs-internal/adr/)。
 
 ## 贡献
 
