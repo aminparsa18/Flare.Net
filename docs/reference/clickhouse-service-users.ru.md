@@ -98,7 +98,7 @@ ClickHouse.
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | Только для встроенного ClickHouse. Монтирует `files/flare-users.xml`, генерирует три пароля и направляет каждый сервис на собственного пользователя. `false` оставляет все сервисы на `default`. |
 | `clickhouse.external.usersSecret` | `""` | Только для внешнего ClickHouse. Secret с полными строками подключения под ключами `clickhousedb-ingest`, `clickhousedb-query` и `clickhousedb-app`. Если ключа нет, используются `clickhouse.external.username` и пароль ClickHouse, кроме режима `clickhouse.migrationJob.enabled`, где нужны все три ключа. |
-| `clickhouse.migrationJob.enabled` | `false` | Выполнять миграции в одноразовом Job и не передавать пароль `default` ни одному поду сервисов (см. ниже). Нужен образ новее 0.6.0 и `clickhouse.users.enabled` либо `clickhouse.external.usersSecret`; иначе чарт не отрисовывается. |
+| `clickhouse.migrationJob.enabled` | `false` | Выполнять миграции в одноразовом Job и не передавать пароль `default` ни одному поду сервисов (см. ниже). Нужен образ 0.7.0 или новее и `clickhouse.users.enabled` либо `clickhouse.external.usersSecret`; иначе чарт не отрисовывается. |
 | `clickhouse.migrationJob.resources` | `{}` | Ресурсы контейнера Job. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Сколько Kubernetes хранит завершённый Job. |
 

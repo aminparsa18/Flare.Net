@@ -88,7 +88,7 @@ ClickHouse 每次启动时都会读取。修改其中任何一个，都需要重
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | 仅内置 ClickHouse。挂载 `files/flare-users.xml`，生成三个密码，并让每个服务使用自己的用户。`false` 则所有服务都使用 `default`。 |
 | `clickhouse.external.usersSecret` | `""` | 仅外部 ClickHouse。一个 Secret，在 `clickhousedb-ingest`、`clickhousedb-query` 和 `clickhousedb-app` 键下保存完整的连接字符串。缺少某个键时回退到 `clickhouse.external.username` 和 ClickHouse 密码；启用 `clickhouse.migrationJob.enabled` 时三个键都必须提供。 |
-| `clickhouse.migrationJob.enabled` | `false` | 在一次性 Job 中运行迁移，任何服务 Pod 都拿不到 `default` 密码（见下文）。需要比 0.6.0 更新的镜像，以及 `clickhouse.users.enabled` 或 `clickhouse.external.usersSecret`；否则 chart 拒绝渲染。 |
+| `clickhouse.migrationJob.enabled` | `false` | 在一次性 Job 中运行迁移，任何服务 Pod 都拿不到 `default` 密码（见下文）。需要 0.7.0 或更高版本的镜像，以及 `clickhouse.users.enabled` 或 `clickhouse.external.usersSecret`；否则 chart 拒绝渲染。 |
 | `clickhouse.migrationJob.resources` | `{}` | Job 容器的资源。 |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | Kubernetes 保留已完成 Job 的时长。 |
 

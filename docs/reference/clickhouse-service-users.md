@@ -90,7 +90,7 @@ ClickHouse and of the services that use it.
 |---|---|---|
 | `clickhouse.users.enabled` | `true` | Bundled ClickHouse only. Mounts `files/flare-users.xml`, generates the three passwords, and points each service at its own user. `false` keeps every service on `default`. |
 | `clickhouse.external.usersSecret` | `""` | External ClickHouse only. Secret with the full connection strings under the keys `clickhousedb-ingest`, `clickhousedb-query` and `clickhousedb-app`. A missing key falls back to `clickhouse.external.username` and the ClickHouse password, except with `clickhouse.migrationJob.enabled`, where all three keys are required. |
-| `clickhouse.migrationJob.enabled` | `false` | Run migrations in a one-shot Job and give no service pod the `default` password (below). Needs an image newer than 0.6.0, and `clickhouse.users.enabled` or `clickhouse.external.usersSecret`; the chart refuses to render otherwise. |
+| `clickhouse.migrationJob.enabled` | `false` | Run migrations in a one-shot Job and give no service pod the `default` password (below). Needs Flare 0.7.0 or later, and `clickhouse.users.enabled` or `clickhouse.external.usersSecret`; the chart refuses to render otherwise. |
 | `clickhouse.migrationJob.resources` | `{}` | The Job container's resources. |
 | `clickhouse.migrationJob.ttlSecondsAfterFinished` | `86400` | How long Kubernetes keeps a finished Job. |
 

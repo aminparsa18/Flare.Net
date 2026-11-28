@@ -149,7 +149,7 @@ de migration à lancer. Modifiez `image.tag` pour changer de version ; par défa
 c'est l'`appVersion` du chart. Pour qu'aucun pod de service n'ait le mot de passe
 ClickHouse `default`, définissez `clickhouse.migrationJob.enabled=true` : chaque
 installation ou mise à jour exécute alors les migrations dans un Job ponctuel, et
-ingest et api l'attendent. Il faut une image plus récente que 0.6.0. Voir
+ingest et api l'attendent. Il faut une image 0.7.0 ou plus récente. Voir
 [Emplacement des migrations](../../reference/clickhouse-service-users.fr.md#emplacement-des-migrations).
 
 Le chart épingle ClickHouse sur la ligne LTS `26.8` (`clickhouse.image`) au lieu de

@@ -145,7 +145,7 @@ helm upgrade flare ./deploy/helm/flare -n flare -f values.yaml
 `appVersion` чарта. Чтобы пароль ClickHouse `default` не попадал ни в один под
 сервисов, задайте `clickhouse.migrationJob.enabled=true`: тогда каждая установка
 или обновление выполняет миграции в одноразовом Job, а ingest и api ждут его.
-Нужен образ новее 0.6.0. См.
+Нужен образ 0.7.0 или новее. См.
 [Где выполняются миграции](../../reference/clickhouse-service-users.ru.md#где-выполняются-миграции).
 
 Чарт закрепляет ClickHouse на LTS-линейке `26.8` (`clickhouse.image`) вместо
